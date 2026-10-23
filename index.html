@@ -774,4 +774,886 @@
   </div>
 
   <script>
+    // --- DevForge Stage 0 Core State & VFS ---
+    const STORAGE_KEY = 'devforge_studio_v1';
 
+    const TEMPLATES = {
+      blank: {
+        'index.html': `<!DOCTYPE html>\n<html lang="en">\n<head>\n  <meta charset="UTF-8">\n  <title>My Project</title>\n  <link rel="stylesheet" href="style.css">\n</head>\n<body>\n  <h1>Hello DevForge!</h1>\n  <script src="script.js"><\/script>\n</body>\n</html>`,
+        'style.css': `body { font-family: sans-serif; background: #0f172a; color: #f8fafc; padding: 2rem; }\nh1 { color: #38bdf8; }`,
+        'script.js': `console.log("DevForge app initialized!");`
+      },
+      landing: {
+        'index.html': `<!DOCTYPE html>\n<html lang="en">\n<head>\n  <meta charset="UTF-8">\n  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n  <title>Apex Digital Studio</title>\n  <link rel="stylesheet" href="style.css">\n</head>\n<body>\n  <nav class="nav">\n    <div class="logo">⚡ Apex</div>\n    <div class="links"><a href="#features">Features</a><a href="#about">About</a></div>\n  </nav>\n  <section class="hero">\n    <h1>Next-Gen AI Web Experiences</h1>\n    <p>Crafted instantly with DevForge studio</p>\n    <button id="ctaBtn">Explore Now</button>\n  </section>\n  <script src="script.js"><\/script>\n</body>\n</html>`,
+        'style.css': `* { margin:0; padding:0; box-sizing:border-box; }\nbody { background:#090d16; color:#f1f5f9; font-family:system-ui,sans-serif; line-height:1.6; }\n.nav { display:flex; justify-space-between; padding:1.5rem 2rem; border-bottom:1px solid #1e293b; align-items:center; }\n.logo { font-size:1.25rem; font-weight:800; color:#38bdf8; }\n.links a { color:#94a3b8; margin-left:1.5rem; text-decoration:none; font-size:0.9rem; }\n.hero { text-align:center; padding:5rem 1rem; max-width:800px; margin:0 auto; }\n.hero h1 { font-size:2.75rem; background:linear-gradient(135deg, #38bdf8, #818cf8); -webkit-background-clip:text; -webkit-text-fill-color:transparent; margin-bottom:1rem; }\n.hero p { color:#94a3b8; font-size:1.1rem; margin-bottom:2rem; }\nbutton { background:#0284c7; color:white; border:none; padding:0.75rem 1.75rem; font-size:1rem; border-radius:8px; cursor:pointer; font-weight:600; }\nbutton:hover { background:#0369a1; }`,
+        'script.js': `document.getElementById('ctaBtn').addEventListener('click', () => {\n  alert('Welcome to Apex Studio!');\n});`
+      },
+      todo: {
+        'index.html': `<!DOCTYPE html>\n<html lang="en">\n<head>\n  <meta charset="UTF-8">\n  <title>DevForge Tasks</title>\n  <link rel="stylesheet" href="style.css">\n</head>\n<body>\n  <div class="app">\n    <h2>⚡ Fast Tasks</h2>\n    <div class="input-row">\n      <input type="text" id="taskInput" placeholder="Add a new task...">\n      <button id="addBtn">Add</button>\n    </div>\n    <ul id="taskList"></ul>\n  </div>\n  <script src="script.js"><\/script>\n</body>\n</html>`,
+        'style.css': `body { background:#0d1117; color:#c9d1d9; font-family:system-ui,sans-serif; display:flex; justify-content:center; padding:3rem 1rem; }\n.app { width:100%; max-width:400px; background:#161b22; padding:1.5rem; border-radius:12px; border:1px solid #30363d; }\nh2 { color:#58a6ff; margin-bottom:1rem; font-size:1.2rem; }\n.input-row { display:flex; gap:8px; margin-bottom:1rem; }\ninput { flex:1; background:#0d1117; border:1px solid #30363d; padding:8px 12px; border-radius:6px; color:#c9d1d9; outline:none; }\nbutton { background:#238636; color:white; border:none; padding:8px 14px; border-radius:6px; cursor:pointer; font-weight:600; }\nul { list-style:none; padding:0; }\nli { padding:8px 12px; background:#21262d; margin-bottom:6px; border-radius:6px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; }\nli.done { text-decoration:line-through; opacity:0.6; }`,
+        'script.js': `const input = document.getElementById('taskInput');\nconst addBtn = document.getElementById('addBtn');\nconst list = document.getElementById('taskList');\n\nfunction addTask() {\n  if(!input.value.trim()) return;\n  const li = document.createElement('li');\n  li.textContent = input.value;\n  li.onclick = () => li.classList.toggle('done');\n  list.appendChild(li);\n  input.value = '';\n}\naddBtn.onclick = addTask;\ninput.onkeydown = (e) => { if(e.key==='Enter') addTask(); };`
+      }
+    };
+
+    let appState = {
+      sessions: {},
+      activeSessionId: null,
+      provider: {
+        preset: '9router',
+        baseUrl: 'https://ninerouter-zltx.onrender.com/v1',
+        model: '9router',
+        apiKey: '',
+        corsProxy: ''
+      }
+    };
+
+    function loadAppState() {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) appState = JSON.parse(saved);
+      } catch (e) {
+        console.error('Failed to load state', e);
+      }
+      if (!appState.sessions || Object.keys(appState.sessions).length === 0) {
+        createNewSession('Default Studio');
+      }
+      if (!appState.activeSessionId || !appState.sessions[appState.activeSessionId]) {
+        appState.activeSessionId = Object.keys(appState.sessions)[0];
+      }
+    }
+
+    function saveAppState() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+      } catch (e) {
+        console.error('Failed to save state', e);
+      }
+    }
+
+    function getCurrentSession() {
+      return appState.sessions[appState.activeSessionId];
+    }
+
+    function createNewSession(name) {
+      const id = 'sess_' + Date.now();
+      const sessionName = name || 'Session ' + (Object.keys(appState.sessions).length + 1);
+      appState.sessions[id] = {
+        id,
+        name: sessionName,
+        files: JSON.parse(JSON.stringify(TEMPLATES.blank)),
+        activeFile: 'index.html',
+        openTabs: ['index.html', 'style.css', 'script.js'],
+        chatHistory: []
+      };
+      appState.activeSessionId = id;
+      saveAppState();
+      return id;
+    }
+
+    function logActivity(text, type = 'info') {
+      const log = document.getElementById('activityLog');
+      const item = document.createElement('div');
+      item.className = 'log-item ' + type;
+      const time = new Date().toLocaleTimeString();
+      item.textContent = `[${time}] ${text}`;
+      log.appendChild(item);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    // --- Editor & File System UI ---
+    function renderFileTree() {
+      const tree = document.getElementById('fileTree');
+      tree.innerHTML = '';
+      const session = getCurrentSession();
+      if (!session) return;
+
+      Object.keys(session.files).sort().forEach(filePath => {
+        const item = document.createElement('div');
+        item.className = 'file-item' + (filePath === session.activeFile ? ' active' : '');
+        item.onclick = () => openFile(filePath);
+
+        const icon = filePath.endsWith('.html') ? '📄' : filePath.endsWith('.css') ? '🎨' : filePath.endsWith('.js') ? '⚡' : '📝';
+
+        item.innerHTML = `
+          <div class="file-item-name"><span>${icon}</span> <span>${filePath}</span></div>
+          <span class="file-item-del" onclick="event.stopPropagation(); deleteFile('${filePath}')">✕</span>
+        `;
+        tree.appendChild(item);
+      });
+    }
+
+    function renderTabs() {
+      const tabsBar = document.getElementById('editorTabs');
+      tabsBar.innerHTML = '';
+      const session = getCurrentSession();
+      if (!session) return;
+
+      session.openTabs.forEach(filePath => {
+        const tab = document.createElement('div');
+        tab.className = 'tab' + (filePath === session.activeFile ? ' active' : '');
+        tab.onclick = () => openFile(filePath);
+
+        tab.innerHTML = `
+          <span>${filePath}</span>
+          <span class="tab-close" onclick="event.stopPropagation(); closeTab('${filePath}')">✕</span>
+        `;
+        tabsBar.appendChild(tab);
+      });
+    }
+
+    function openFile(filePath) {
+      const session = getCurrentSession();
+      if (!session || !session.files[filePath] && session.files[filePath] !== '') return;
+
+      session.activeFile = filePath;
+      if (!session.openTabs.includes(filePath)) {
+        session.openTabs.push(filePath);
+      }
+      
+      const textarea = document.getElementById('editorTextarea');
+      textarea.value = session.files[filePath];
+      updateLineNumbers();
+      renderFileTree();
+      renderTabs();
+      saveAppState();
+    }
+
+    function closeTab(filePath) {
+      const session = getCurrentSession();
+      if (!session) return;
+
+      session.openTabs = session.openTabs.filter(t => t !== filePath);
+      if (session.activeFile === filePath) {
+        session.activeFile = session.openTabs[session.openTabs.length - 1] || null;
+      }
+      const textarea = document.getElementById('editorTextarea');
+      textarea.value = session.activeFile ? session.files[session.activeFile] || '' : '';
+      updateLineNumbers();
+      renderFileTree();
+      renderTabs();
+      saveAppState();
+    }
+
+    function deleteFile(filePath) {
+      const session = getCurrentSession();
+      if (!session || !confirm(`Delete file "${filePath}"?`)) return;
+
+      delete session.files[filePath];
+      logActivity(`Deleted file ${filePath}`, 'warning');
+      closeTab(filePath);
+      refreshPreview();
+    }
+
+    function updateLineNumbers() {
+      const textarea = document.getElementById('editorTextarea');
+      const lines = textarea.value.split('\n').length;
+      const lineNumbers = document.getElementById('lineNumbers');
+      lineNumbers.innerHTML = Array.from({ length: lines }, (_, i) => i + 1).join('<br>');
+    }
+
+    // --- Preview Inliner Engine ---
+    function refreshPreview() {
+      const iframe = document.getElementById('previewIframe');
+      const session = getCurrentSession();
+      if (!session) return;
+
+      let html = session.files['index.html'] || '<h1>No index.html found</h1>';
+
+      // Inline CSS
+      html = html.replace(/<link\s+rel=["']stylesheet["']\s+href=["']([^"']+)["']\s*\/?>/gi, (match, href) => {
+        const cssContent = session.files[href];
+        if (cssContent !== undefined) {
+          return `<style>/* ${href} */\n${cssContent}</style>`;
+        }
+        return match;
+      });
+
+      // Inline JS
+      html = html.replace(/<script\s+src=["']([^"']+)["']\s*><\/script>/gi, (match, src) => {
+        const jsContent = session.files[src];
+        if (jsContent !== undefined) {
+          return `<script>/* ${src} */\n${jsContent}<\/script>`;
+        }
+        return match;
+      });
+
+      // Inject error handler script for activity logging
+      const errorTrap = `
+        <script>
+          window.addEventListener('error', function(e) {
+            window.parent.postMessage({ type: 'PREVIEW_ERROR', message: e.message, filename: e.filename, lineno: e.lineno }, '*');
+          });
+        <\/script>
+      `;
+      if (html.includes('<head>')) {
+        html = html.replace('<head>', '<head>' + errorTrap);
+      } else {
+        html = errorTrap + html;
+      }
+
+      iframe.srcdoc = html;
+    }
+
+    window.addEventListener('message', (e) => {
+      if (e.data && e.data.type === 'PREVIEW_ERROR') {
+        logActivity(`Preview JS Error: ${e.data.message} (Line ${e.data.lineno})`, 'error');
+      }
+    });
+
+    // --- Provider API Engine ---
+    async function fetchLiveModels() {
+      const btn = document.getElementById('btnRefreshModels');
+      btn.textContent = '...';
+      const select = document.getElementById('cfgModelSelect');
+      const baseUrl = document.getElementById('cfgBaseUrl').value.trim() || 'https://ninerouter-zltx.onrender.com/v1';
+      const corsProxy = document.getElementById('cfgCorsProxy').value.trim();
+
+      let targetUrl = baseUrl.replace(/\/+$/, '') + '/models';
+      if (corsProxy) targetUrl = corsProxy + encodeURIComponent(targetUrl);
+
+      try {
+        const headers = {};
+        const apiKey = document.getElementById('cfgApiKey').value.trim();
+        if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+
+        const res = await fetch(targetUrl, { headers });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        
+        select.innerHTML = '';
+        const models = (data.data || data || []).map(m => typeof m === 'string' ? m : m.id || m.name);
+        if (models.length === 0) models.push('9router');
+
+        models.forEach(m => {
+          const opt = document.createElement('option');
+          opt.value = m;
+          opt.textContent = m;
+          select.appendChild(opt);
+        });
+        logActivity(`Fetched ${models.length} live models from provider`, 'success');
+      } catch (err) {
+        logActivity(`Failed to fetch models: ${err.message}`, 'error');
+        alert(`Could not fetch models from ${baseUrl}. Check CORS proxy or API URL.\nError: ${err.message}`);
+      } finally {
+        btn.textContent = '↻';
+      }
+    }
+
+    async function callLLM(messages) {
+      const p = appState.provider;
+      const corsProxy = p.corsProxy ? p.corsProxy : '';
+
+      if (p.preset === 'duckduckgo') {
+        return callDuckDuckGo(messages);
+      }
+
+      let url = p.baseUrl.replace(/\/+$/, '');
+      if (!url.endsWith('/chat/completions')) {
+        url += '/chat/completions';
+      }
+      if (corsProxy) {
+        url = corsProxy + encodeURIComponent(url);
+      }
+
+      const headers = { 'Content-Type': 'application/json' };
+      if (p.apiKey) {
+        headers['Authorization'] = `Bearer ${p.apiKey}`;
+      }
+
+      const body = JSON.stringify({
+        model: p.model || '9router',
+        messages: messages,
+        temperature: 0.7
+      });
+
+      try {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers,
+          body
+        });
+
+        if (!res.ok) {
+          const errText = await res.text();
+          throw new Error(`API Error HTTP ${res.status}: ${errText.slice(0, 150)}`);
+        }
+
+        const data = await res.json();
+        if (data.choices && data.choices[0] && data.choices[0].message) {
+          return data.choices[0].message.content;
+        }
+        throw new Error('Unexpected API response structure');
+      } catch (err) {
+        if (err instanceof TypeError) {
+          throw new Error(`Network/CORS Error: Failed to reach provider. Try configuring a CORS Proxy in Provider Settings. (${err.message})`);
+        }
+        throw err;
+      }
+    }
+
+    // --- DuckDuckGo AI Flow ---
+    async function callDuckDuckGo(messages) {
+      const corsProxy = appState.provider.corsProxy || '';
+      
+      // Step 1: GET status for VQD token
+      let statusUrl = 'https://duckduckgo.com/duckchat/v1/status';
+      if (corsProxy) statusUrl = corsProxy + encodeURIComponent(statusUrl);
+
+      const statusRes = await fetch(statusUrl, {
+        headers: { 'x-vqd-accept': '1' }
+      });
+
+      if (!statusRes.ok) {
+        throw new Error(`DuckDuckGo status error: HTTP ${statusRes.status}`);
+      }
+
+      const vqd = statusRes.headers.get('x-vqd-4');
+      if (!vqd) {
+        throw new Error('DuckDuckGo did not return x-vqd-4 token. CORS proxy might be stripping headers.');
+      }
+
+      // Step 2: POST chat
+      let chatUrl = 'https://duckduckgo.com/duckchat/v1/chat';
+      if (corsProxy) chatUrl = corsProxy + encodeURIComponent(chatUrl);
+
+      const model = appState.provider.model || 'gpt-4o-mini';
+
+      const chatRes = await fetch(chatUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-vqd-4': vqd
+        },
+        body: JSON.stringify({
+          model: model,
+          messages: messages
+        })
+      });
+
+      if (!chatRes.ok) {
+        throw new Error(`DuckDuckGo chat error: HTTP ${chatRes.status}`);
+      }
+
+      // Parse response stream / body
+      const text = await chatRes.text();
+      let fullContent = '';
+
+      // Parse SSE lines
+      const lines = text.split('\n');
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const raw = line.slice(6).trim();
+          if (raw === '[DONE]') break;
+          try {
+            const parsed = JSON.parse(raw);
+            if (parsed.message) fullContent += parsed.message;
+            else if (parsed.data) fullContent += parsed.data;
+          } catch (e) {
+            // Ignore non-JSON line chunks
+          }
+        }
+      }
+
+      if (!fullContent) {
+        fullContent = text.replace(/data:\s*/g, '').trim();
+      }
+
+      return fullContent;
+    }
+
+      // --- Agent Engine & Block Parser ---
+    let agentWorking = false;
+    let timerInterval = null;
+    let startTime = 0;
+
+    function startTimer() {
+      startTime = Date.now();
+      document.getElementById('workingIndicator').style.display = 'flex';
+      document.getElementById('elapsedTimer').textContent = '0s';
+      timerInterval = setInterval(() => {
+        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+        document.getElementById('elapsedTimer').textContent = `${elapsed}s`;
+      }, 1000);
+    }
+
+    function stopTimer() {
+      clearInterval(timerInterval);
+      document.getElementById('workingIndicator').style.display = 'none';
+    }
+
+    function buildSystemContext() {
+      const session = getCurrentSession();
+      let context = `You are DevForge AI, an expert software developer in a browser IDE.
+You edit the user's project by returning code blocks using this EXACT syntax:
+
+To create or overwrite a file:
+\`\`\`file:path/to/file.ext
+[full file content here]
+\`\`\`
+
+To delete a file:
+\`\`\`delete:path/to/file.ext
+\`\`\`
+
+To navigate the browser pane:
+\`\`\`browse:https://example.com
+\`\`\`
+
+RULES:
+1. Always write COMPLETE file contents inside file: blocks. Never use comments like "// rest of code remains the same".
+2. Keep text explanation brief and concise.
+3. Use modern, clean, self-contained HTML/CSS/JavaScript.
+
+CURRENT VIRTUAL FILES:
+`;
+
+      let totalBytes = 0;
+      const MAX_BYTES = 60000;
+
+      for (const [path, content] of Object.entries(session.files)) {
+        const fileBlock = `\n--- FILE: ${path} ---\n${content}\n`;
+        if (totalBytes + fileBlock.length > MAX_BYTES) {
+          context += `\n[... Remaining files truncated due to size limit ...]`;
+          break;
+        }
+        context += fileBlock;
+        totalBytes += fileBlock.length;
+      }
+
+      return context;
+    }
+
+    function appendChatMessage(role, content, chips = []) {
+      const chat = document.getElementById('chatMessages');
+      const msg = document.createElement('div');
+      msg.className = `msg msg-${role}`;
+
+      if (role === 'user') {
+        msg.textContent = content;
+      } else if (role === 'agent') {
+        // Clean text content by removing block contents
+        let cleanText = content.replace(/```(file|delete|browse):[\s\S]*?```/g, '').trim();
+        
+        let html = cleanText ? `<p style="white-space: pre-wrap;">${escapeHtml(cleanText)}</p>` : '';
+
+        if (chips.length > 0) {
+          html += '<div style="margin-top:6px;">';
+          chips.forEach(c => {
+            const cls = c.type === 'delete' ? 'delete' : c.type === 'browse' ? 'browse' : '';
+            const icon = c.type === 'delete' ? '🗑️' : c.type === 'browse' ? '🌐' : '📁';
+            html += `<div class="action-chip ${cls}">${icon} <span>${escapeHtml(c.label)}</span></div> `;
+          });
+          html += '</div>';
+        }
+
+        msg.innerHTML = html || '<em>Action completed.</em>';
+      } else {
+        msg.textContent = content;
+      }
+
+      chat.appendChild(msg);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    function parseAndApplyBlocks(responseText) {
+      const session = getCurrentSession();
+      const chips = [];
+      let fileModified = false;
+
+      // Regex for fenced blocks: ```file:filename\ncontent```
+      const blockRegex = /```(file|delete|browse):([^\n]*)\n([\s\S]*?)```/g;
+      let match;
+
+      while ((match = blockRegex.exec(responseText)) !== null) {
+        const actionType = match[1];
+        const targetPath = match[2].trim();
+        const blockContent = match[3];
+
+        if (actionType === 'file') {
+          session.files[targetPath] = blockContent;
+          fileModified = true;
+          const lineCount = blockContent.split('\n').length;
+          chips.push({ type: 'file', label: `Updated ${targetPath} (${lineCount} lines)` });
+          logActivity(`Agent updated ${targetPath} (${lineCount} lines)`, 'success');
+        } else if (actionType === 'delete') {
+          delete session.files[targetPath];
+          fileModified = true;
+          chips.push({ type: 'delete', label: `Deleted ${targetPath}` });
+          logActivity(`Agent deleted ${targetPath}`, 'warning');
+        } else if (actionType === 'browse') {
+          const url = targetPath || blockContent.trim();
+          document.getElementById('browserUrlInput').value = url;
+          document.getElementById('browserIframe').src = url;
+          chips.push({ type: 'browse', label: `Browsed to ${url}` });
+          logActivity(`Agent navigated browser to ${url}`, 'info');
+        }
+      }
+
+      if (fileModified) {
+        if (session.activeFile && session.files[session.activeFile] !== undefined) {
+          document.getElementById('editorTextarea').value = session.files[session.activeFile];
+          updateLineNumbers();
+        } else {
+          openFile(Object.keys(session.files)[0] || 'index.html');
+        }
+        renderFileTree();
+        renderTabs();
+        refreshPreview();
+        saveAppState();
+      }
+
+      return { chips, fileModified };
+    }
+
+    async function sendAgentPrompt(userPrompt, autoTurn = 0) {
+      if (agentWorking) return;
+      agentWorking = true;
+      const session = getCurrentSession();
+
+      if (autoTurn === 0) {
+        appendChatMessage('user', userPrompt);
+        session.chatHistory.push({ role: 'user', content: userPrompt });
+      }
+
+      startTimer();
+
+      try {
+        const messages = [
+          { role: 'system', content: buildSystemContext() },
+          ...session.chatHistory
+        ];
+
+        logActivity(`Calling ${appState.provider.preset} (${appState.provider.model})...`, 'info');
+        const reply = await callLLM(messages);
+
+        session.chatHistory.push({ role: 'assistant', content: reply });
+
+        const { chips, fileModified } = parseAndApplyBlocks(reply);
+        appendChatMessage('agent', reply, chips);
+
+        // Auto-continue loop up to 3 turns if files were updated and reply needs continuation
+        if (fileModified && autoTurn < 3) {
+          logActivity(`Auto-continue turn ${autoTurn + 1}/3...`, 'info');
+          agentWorking = false;
+          stopTimer();
+          return sendAgentPrompt("Continue refining or complete any remaining steps if needed. If finished, reply briefly with no code blocks.", autoTurn + 1);
+        }
+
+      } catch (err) {
+        logActivity(`Agent Error: ${err.message}`, 'error');
+        appendChatMessage('system', `Error: ${err.message}`);
+      } finally {
+        agentWorking = false;
+        stopTimer();
+        saveAppState();
+      }
+    }
+
+    function usePromptChip(text) {
+      document.getElementById('chatInput').value = text;
+      document.getElementById('btnSend').click();
+    }
+
+    // --- UI Helpers & Event Listeners ---
+    function renderSessionPicker() {
+      const select = document.getElementById('sessionSelect');
+      if (!select) return;
+      select.innerHTML = '';
+      Object.values(appState.sessions).forEach(sess => {
+        const opt = document.createElement('option');
+        opt.value = sess.id;
+        opt.textContent = sess.name;
+        if (sess.id === appState.activeSessionId) opt.selected = true;
+        select.appendChild(opt);
+      });
+    }
+
+    function switchSession(sessionId) {
+      if (!appState.sessions[sessionId]) return;
+      appState.activeSessionId = sessionId;
+      saveAppState();
+      renderSessionPicker();
+      renderFileTree();
+      renderTabs();
+      renderChatHistory();
+      const session = getCurrentSession();
+      if (session.activeFile && session.files[session.activeFile] !== undefined) {
+        document.getElementById('editorTextarea').value = session.files[session.activeFile];
+      } else {
+        document.getElementById('editorTextarea').value = '';
+      }
+      updateLineNumbers();
+      refreshPreview();
+      logActivity(`Switched to session: ${session.name}`, 'info');
+    }
+
+    function renderChatHistory() {
+      const chat = document.getElementById('chatMessages');
+      if (!chat) return;
+      chat.innerHTML = '<div class="msg msg-system">DevForge Agent ready. Ask me to create or modify code in your virtual FS.</div>';
+      const session = getCurrentSession();
+      if (!session || !session.chatHistory) return;
+      session.chatHistory.forEach(msg => {
+        if (msg.role === 'user') {
+          appendChatMessage('user', msg.content);
+        } else if (msg.role === 'assistant') {
+          const { chips } = parseAndApplyBlocks(msg.content);
+          appendChatMessage('agent', msg.content, chips);
+        }
+      });
+    }
+
+    function createNewFile() {
+      const session = getCurrentSession();
+      if (!session) return;
+      const fileName = prompt('Enter new file name (e.g., utils.js, styles/app.css):');
+      if (!fileName || !fileName.trim()) return;
+      const cleanName = fileName.trim();
+      if (session.files[cleanName] !== undefined) {
+        alert('File already exists!');
+        return;
+      }
+      session.files[cleanName] = '';
+      logActivity(`Created file: ${cleanName}`, 'success');
+      openFile(cleanName);
+      saveAppState();
+    }
+
+    function loadTemplate(templateKey) {
+      if (!templateKey || !TEMPLATES[templateKey]) return;
+      if (!confirm(`Load template "${templateKey}"? This will overwrite all current files in this session.`)) {
+        document.getElementById('templateSelect').value = '';
+        return;
+      }
+      const session = getCurrentSession();
+      session.files = JSON.parse(JSON.stringify(TEMPLATES[templateKey]));
+      session.activeFile = 'index.html';
+      session.openTabs = Object.keys(session.files);
+      logActivity(`Loaded template: ${templateKey}`, 'info');
+      openFile('index.html');
+      refreshPreview();
+      saveAppState();
+      document.getElementById('templateSelect').value = '';
+    }
+
+    function setupEditorListeners() {
+      const textarea = document.getElementById('editorTextarea');
+      textarea.addEventListener('input', () => {
+        const session = getCurrentSession();
+        if (session && session.activeFile) {
+          session.files[session.activeFile] = textarea.value;
+          updateLineNumbers();
+          refreshPreview();
+          saveAppState();
+        }
+      });
+
+      textarea.addEventListener('keydown', (e) => {
+        if (e.key === 'Tab') {
+          e.preventDefault();
+          const start = textarea.selectionStart;
+          const end = textarea.selectionEnd;
+          textarea.value = textarea.value.substring(0, start) + '  ' + textarea.value.substring(end);
+          textarea.selectionStart = textarea.selectionEnd = start + 2;
+          textarea.dispatchEvent(new Event('input'));
+        }
+      });
+
+      textarea.addEventListener('scroll', () => {
+        document.getElementById('lineNumbers').scrollTop = textarea.scrollTop;
+      });
+    }
+
+    function populateModelDropdown(preset, selectedModel) {
+      const select = document.getElementById('cfgModelSelect');
+      if (!select) return;
+      select.innerHTML = '';
+      let models = [];
+      if (preset === '9router') {
+        models = ['9router'];
+      } else if (preset === 'duckduckgo') {
+        models = ['gpt-4o-mini', 'claude-3-haiku-20240307', 'meta-llama/Llama-3.3-70B-Instruct-Turbo', 'mistralai/Mixtral-8x7B-Instruct-v0.1'];
+      } else if (preset === 'pollinations') {
+        models = ['openai', 'qwen-coder', 'mistral', 'deepseek'];
+      } else {
+        models = [selectedModel || 'gpt-4o-mini', 'gpt-4o', 'claude-3-5-sonnet', 'custom'];
+      }
+
+      models.forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m;
+        opt.textContent = m;
+        if (m === selectedModel) opt.selected = true;
+        select.appendChild(opt);
+      });
+    }
+
+    function setupSettingsModal() {
+      const modal = document.getElementById('settingsModal');
+      const presetSelect = document.getElementById('providerPreset');
+      const baseUrlInput = document.getElementById('cfgBaseUrl');
+      const modelSelect = document.getElementById('cfgModelSelect');
+      const apiKeyInput = document.getElementById('cfgApiKey');
+      const corsProxyInput = document.getElementById('cfgCorsProxy');
+
+      document.getElementById('btnSettings').onclick = () => {
+        presetSelect.value = appState.provider.preset || '9router';
+        baseUrlInput.value = appState.provider.baseUrl || '';
+        apiKeyInput.value = appState.provider.apiKey || '';
+        corsProxyInput.value = appState.provider.corsProxy || '';
+        populateModelDropdown(presetSelect.value, appState.provider.model);
+        modal.classList.add('active');
+      };
+
+      document.getElementById('btnCloseSettings').onclick = () => modal.classList.remove('active');
+      document.getElementById('btnCancelSettings').onclick = () => modal.classList.remove('active');
+
+      presetSelect.onchange = () => {
+        const val = presetSelect.value;
+        if (val === '9router') {
+          baseUrlInput.value = 'https://ninerouter-zltx.onrender.com/v1';
+          populateModelDropdown('9router', '9router');
+        } else if (val === 'duckduckgo') {
+          baseUrlInput.value = 'https://duckduckgo.com/duckchat/v1';
+          populateModelDropdown('duckduckgo', 'gpt-4o-mini');
+        } else if (val === 'pollinations') {
+          baseUrlInput.value = 'https://text.pollinations.ai/openai';
+          populateModelDropdown('pollinations', 'openai');
+        } else {
+          baseUrlInput.value = '';
+          populateModelDropdown('custom', '');
+        }
+      };
+
+      document.getElementById('btnRefreshModels').onclick = fetchLiveModels;
+
+      document.getElementById('btnSaveSettings').onclick = () => {
+        appState.provider = {
+          preset: presetSelect.value,
+          baseUrl: baseUrlInput.value.trim(),
+          model: modelSelect.value || '9router',
+          apiKey: apiKeyInput.value.trim(),
+          corsProxy: corsProxyInput.value.trim()
+        };
+        saveAppState();
+        modal.classList.remove('active');
+        logActivity(`Provider settings updated: ${appState.provider.preset} (${appState.provider.model})`, 'success');
+      };
+    }
+
+    function setupPaneTabs() {
+      const tabs = document.querySelectorAll('.right-tab');
+      tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+          tabs.forEach(t => t.classList.remove('active'));
+          tab.classList.add('active');
+
+          const paneName = tab.getAttribute('data-pane');
+          document.querySelectorAll('.pane-view').forEach(p => p.classList.remove('active'));
+
+          if (paneName === 'agent') document.getElementById('paneAgent').classList.add('active');
+          if (paneName === 'preview') {
+            document.getElementById('panePreview').classList.add('active');
+            refreshPreview();
+          }
+          if (paneName === 'browser') document.getElementById('paneBrowser').classList.add('active');
+          if (paneName === 'activity') document.getElementById('paneActivity').classList.add('active');
+        });
+      });
+    }
+
+    function setupMobileNav() {
+      const buttons = document.querySelectorAll('.mobile-nav-btn');
+      const appMain = document.getElementById('appMain');
+
+      buttons.forEach(btn => {
+        btn.addEventListener('click', () => {
+          buttons.forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+
+          const tab = btn.getAttribute('data-mobile-tab');
+          appMain.className = `app-main show-${tab}`;
+
+          if (tab === 'preview') {
+            document.querySelector('.right-tab[data-pane="preview"]').click();
+          } else if (tab === 'agent') {
+            document.querySelector('.right-tab[data-pane="agent"]').click();
+          } else if (tab === 'browser') {
+            document.querySelector('.right-tab[data-pane="browser"]').click();
+          }
+        });
+      });
+    }
+
+    function setupChatHandlers() {
+      const btnSend = document.getElementById('btnSend');
+      const chatInput = document.getElementById('chatInput');
+
+      const handleSend = () => {
+        const text = chatInput.value.trim();
+        if (!text) return;
+        chatInput.value = '';
+        sendAgentPrompt(text);
+      };
+
+      btnSend.onclick = handleSend;
+      chatInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') handleSend();
+      });
+    }
+
+    function initApp() {
+      loadAppState();
+      renderSessionPicker();
+
+      document.getElementById('sessionSelect').onchange = (e) => switchSession(e.target.value);
+
+      document.getElementById('btnNewSession').onclick = () => {
+        const name = prompt('Enter new session name:');
+        if (name === null) return;
+        const newId = createNewSession(name || undefined);
+        switchSession(newId);
+      };
+
+      document.getElementById('btnDelSession').onclick = () => {
+        const curr = getCurrentSession();
+        if (!confirm(`Delete current session "${curr ? curr.name : ''}"?`)) return;
+        delete appState.sessions[appState.activeSessionId];
+        if (Object.keys(appState.sessions).length === 0) {
+          createNewSession('Default Studio');
+        }
+        appState.activeSessionId = Object.keys(appState.sessions)[0];
+        saveAppState();
+        switchSession(appState.activeSessionId);
+      };
+
+      document.getElementById('btnNewFile').onclick = createNewFile;
+      document.getElementById('templateSelect').onchange = (e) => loadTemplate(e.target.value);
+
+      setupEditorListeners();
+      setupSettingsModal();
+      setupPaneTabs();
+      setupMobileNav();
+      setupChatHandlers();
+
+      const session = getCurrentSession();
+      renderFileTree();
+      renderTabs();
+      renderChatHistory();
+      if (session.activeFile && session.files[session.activeFile] !== undefined) {
+        openFile(session.activeFile);
+      } else {
+        openFile(Object.keys(session.files)[0] || 'index.html');
+      }
+      refreshPreview();
+      logActivity('DevForge Studio initialized successfully', 'success');
+    }
+
+    document.addEventListener('DOMContentLoaded', initApp);
+  </script>
+</body>
+</html>
