@@ -724,51 +724,144 @@
 
   <!-- Settings Modal -->
   <div class="modal-overlay" id="settingsModal">
-    <div class="modal-box">
+    <div class="modal-box" style="width: 600px; max-width: 95vw;">
       <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-color); padding-bottom:8px;">
-        <h3 style="font-size: 14px; font-weight: 700;">Provider Settings</h3>
+        <h3 style="font-size: 14px; font-weight: 700;">Provider Manager</h3>
         <button class="section-btn" id="btnCloseSettings">✕</button>
       </div>
 
-      <div class="form-group">
-        <label class="form-label">Provider Preset</label>
-        <select id="providerPreset" class="form-select">
-          <option value="9router">9router (Default free /v1)</option>
-          <option value="duckduckgo">DuckDuckGo AI (Free vqd flow)</option>
-          <option value="pollinations">Pollinations free (https://text.pollinations.ai/openai)</option>
-          <option value="custom">Custom OpenAI-compatible API</option>
-        </select>
-      </div>
-
-      <div class="form-group" id="groupBaseUrl">
-        <label class="form-label">Base URL</label>
-        <input type="text" id="cfgBaseUrl" class="form-input" value="https://ninerouter-zltx.onrender.com/v1" />
-      </div>
-
-      <div class="form-group">
-        <label class="form-label">Model Name</label>
-        <div style="display:flex; gap:6px;">
-          <select id="cfgModelSelect" class="form-select" style="flex:1;">
-            <option value="9router">9router</option>
-          </select>
-          <button class="btn btn-secondary" id="btnRefreshModels" title="Refresh Live Model List" style="padding: 4px 10px;">↻</button>
+      <!-- Provider List -->
+      <div style="max-height: 40vh; overflow-y: auto; margin-bottom: 12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
+          <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Providers</span>
+          <button class="btn" id="btnAddProvider" style="padding: 4px 10px; font-size: 11px;">+ Add Provider</button>
+        </div>
+        <div id="providerList" style="display: flex; flex-direction: column; gap: 6px;">
+          <!-- Provider items rendered here -->
         </div>
       </div>
 
-      <div class="form-group">
-        <label class="form-label">API Key (Optional)</label>
-        <input type="password" id="cfgApiKey" class="form-input" placeholder="Bearer token or API Key" />
+      <div style="border-top: 1px solid var(--border-color); padding-top: 12px;">
+        <div style="display:flex; justify-content:flex-end; gap:8px;">
+          <button class="btn btn-secondary" id="btnCancelSettings">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add/Edit Provider Modal -->
+  <div class="modal-overlay" id="providerModal">
+    <div class="modal-box" style="width: 520px; max-width: 95vw;">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-color); padding-bottom:8px;">
+        <h3 style="font-size: 14px; font-weight: 700;" id="providerModalTitle">Add Provider</h3>
+        <button class="section-btn" id="btnCloseProviderModal">✕</button>
       </div>
 
-      <div class="form-group">
-        <label class="form-label">CORS Proxy Prefix (Optional)</label>
-        <input type="text" id="cfgCorsProxy" class="form-input" placeholder="e.g. https://corsproxy.io/?" />
-        <span style="font-size:10px; color:var(--text-dim);">If browser hits direct CORS error, prefix requests with a CORS proxy.</span>
+      <div style="max-height: 60vh; overflow-y: auto;">
+        <div class="form-group">
+          <label class="form-label">Provider Preset</label>
+          <select id="providerPresetSelect" class="form-select">
+            <option value="">-- Custom Provider --</option>
+            <option value="9router">9router (Default free /v1)</option>
+            <option value="omniroute-cloud">OmniRoute Cloud (https://omniroute-main-9nt1.onrender.com/api/v1)</option>
+            <option value="omniroute-local">OmniRoute Local (http://localhost:20128/v1)</option>
+            <option value="pollinations">Pollinations Free (https://text.pollinations.ai/openai)</option>
+            <option value="openrouter">OpenRouter (https://openrouter.ai/api/v1)</option>
+            <option value="groq">Groq (https://api.groq.com/openai/v1)</option>
+            <option value="duckduckgo">DuckDuckGo AI (Free vqd flow)</option>
+          </select>
+          <span style="font-size:10px; color:var(--text-dim);">Select a preset to auto-fill fields, or choose Custom to configure manually.</span>
+        </div>
+
+        <div class="form-group" id="groupProviderName">
+          <label class="form-label">Provider Name</label>
+          <input type="text" id="providerName" class="form-input" placeholder="e.g., My Custom API" />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Type</label>
+          <select id="providerType" class="form-select">
+            <option value="openai-compatible">OpenAI-Compatible</option>
+            <option value="anthropic">Anthropic</option>
+            <option value="duckduckgo">DuckDuckGo AI</option>
+            <option value="ollama">Ollama</option>
+          </select>
+        </div>
+
+        <div class="form-group" id="groupBaseUrl">
+          <label class="form-label">Base URL</label>
+          <input type="text" id="providerBaseUrl" class="form-input" placeholder="https://api.example.com/v1" />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Default Model</label>
+          <input type="text" id="providerModel" class="form-input" placeholder="e.g., gpt-4o-mini" />
+        </div>
+
+        <div class="form-group" id="groupApiKey">
+          <label class="form-label">API Key (Optional)</label>
+          <input type="password" id="providerApiKey" class="form-input" placeholder="Bearer token or API Key" />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Auth Style</label>
+          <select id="providerAuthStyle" class="form-select">
+            <option value="bearer">Bearer Token</option>
+            <option value="x-api-key">x-api-key Header</option>
+            <option value="none">None / No Auth</option>
+          </select>
+        </div>
+
+        <div class="form-group" id="groupCustomHeaders">
+          <label class="form-label">Custom Headers (JSON)</label>
+          <textarea id="providerCustomHeaders" class="form-input" placeholder='{"X-Custom-Header": "value"}' style="min-height: 60px; font-family: var(--font-mono); font-size: 11px;"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">CORS Proxy Prefix (Optional)</label>
+          <input type="text" id="providerCorsProxy" class="form-input" placeholder="e.g. https://corsproxy.io/?" />
+          <span style="font-size:10px; color:var(--text-dim);">If browser hits direct CORS error, prefix requests with a CORS proxy.</span>
+        </div>
+
+        <div class="form-group" style="flex-direction: row; align-items: center; gap: 8px;">
+          <label style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; min-width: 120px;">Streaming</label>
+          <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 12px; color: var(--text-main);">
+            <input type="checkbox" id="providerStreaming" checked />
+            <span>Enable SSE streaming</span>
+          </label>
+        </div>
       </div>
 
-      <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:8px;">
-        <button class="btn btn-secondary" id="btnCancelSettings">Cancel</button>
-        <button class="btn" id="btnSaveSettings">Save Settings</button>
+      <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:8px; border-top:1px solid var(--border-color); padding-top:12px;">
+        <button class="btn btn-secondary" id="btnCancelProvider">Cancel</button>
+        <button class="btn" id="btnSaveProvider">Save Provider</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Test Connection Modal -->
+  <div class="modal-overlay" id="testConnectionModal">
+    <div class="modal-box" style="width: 480px; max-width: 95vw;">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-color); padding-bottom:8px;">
+        <h3 style="font-size: 14px; font-weight: 700;">Test Connection</h3>
+        <button class="section-btn" id="btnCloseTestModal">✕</button>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <div class="form-group">
+          <label class="form-label">Provider</label>
+          <div id="testProviderName" style="font-weight: 600; color: var(--text-main);"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Model</label>
+          <div id="testModelName" style="color: var(--text-muted);"></div>
+        </div>
+        <div style="display:flex; gap:8px;">
+          <button class="btn" id="btnRunTest" style="flex:1;">Run Test</button>
+          <button class="btn btn-secondary" id="btnCancelTest">Cancel</button>
+        </div>
+        <div id="testResult" style="display: none; padding: 10px; border-radius: 5px; font-family: var(--font-mono); font-size: 11px;"></div>
+        <div id="testProgress" style="display: none; color: var(--text-muted); font-size: 12px;"></div>
       </div>
     </div>
   </div>
@@ -795,9 +888,93 @@
       }
     };
 
+    // Provider presets - all built-in configurations
+    const PROVIDER_PRESETS = {
+      '9router': {
+        name: '9router',
+        type: 'openai-compatible',
+        baseUrl: 'https://ninerouter-zltx.onrender.com/v1',
+        model: '9router',
+        apiKey: '',
+        authStyle: 'bearer',
+        customHeaders: {},
+        corsProxy: '',
+        streaming: true
+      },
+      'omniroute-cloud': {
+        name: 'OmniRoute Cloud',
+        type: 'openai-compatible',
+        baseUrl: 'https://omniroute-main-9nt1.onrender.com/api/v1',
+        model: 'qoder',
+        apiKey: '',
+        authStyle: 'bearer',
+        customHeaders: {},
+        corsProxy: '',
+        streaming: true
+      },
+      'omniroute-local': {
+        name: 'OmniRoute Local',
+        type: 'openai-compatible',
+        baseUrl: 'http://localhost:20128/v1',
+        model: 'qoder',
+        apiKey: '',
+        authStyle: 'none',
+        customHeaders: {},
+        corsProxy: '',
+        streaming: true
+      },
+      'pollinations': {
+        name: 'Pollinations Free',
+        type: 'openai-compatible',
+        baseUrl: 'https://text.pollinations.ai/openai',
+        model: 'openai',
+        apiKey: '',
+        authStyle: 'none',
+        customHeaders: {},
+        corsProxy: '',
+        streaming: true
+      },
+      'openrouter': {
+        name: 'OpenRouter',
+        type: 'openai-compatible',
+        baseUrl: 'https://openrouter.ai/api/v1',
+        model: 'openai/gpt-4o-mini',
+        apiKey: '',
+        authStyle: 'bearer',
+        customHeaders: { 'HTTP-Referer': 'https://devforge.app', 'X-Title': 'DevForge' },
+        corsProxy: '',
+        streaming: true
+      },
+      'groq': {
+        name: 'Groq',
+        type: 'openai-compatible',
+        baseUrl: 'https://api.groq.com/openai/v1',
+        model: 'llama-3.3-70b-versatile',
+        apiKey: '',
+        authStyle: 'bearer',
+        customHeaders: {},
+        corsProxy: '',
+        streaming: true
+      },
+      'duckduckgo': {
+        name: 'DuckDuckGo AI',
+        type: 'duckduckgo',
+        baseUrl: 'https://duckduckgo.com/duckchat/v1',
+        model: 'gpt-4o-mini',
+        apiKey: '',
+        authStyle: 'none',
+        customHeaders: {},
+        corsProxy: '',
+        streaming: true
+      }
+    };
+
     let appState = {
       sessions: {},
       activeSessionId: null,
+      providers: {},  // Multiple providers by ID
+      activeProviderId: null,
+      // Legacy single provider fields for backward compatibility
       provider: {
         preset: '9router',
         baseUrl: 'https://ninerouter-zltx.onrender.com/v1',
@@ -814,6 +991,22 @@
       } catch (e) {
         console.error('Failed to load state', e);
       }
+      // Initialize providers if empty
+      if (!appState.providers || Object.keys(appState.providers).length === 0) {
+        // Create default 9router provider
+        const defaultProvider = JSON.parse(JSON.stringify(PROVIDER_PRESETS['9router']));
+        defaultProvider.id = 'prov_9router';
+        defaultProvider.isPreset = true;
+        defaultProvider.presetKey = '9router';
+        appState.providers[defaultProvider.id] = defaultProvider;
+        appState.activeProviderId = defaultProvider.id;
+      }
+      if (!appState.activeProviderId || !appState.providers[appState.activeProviderId]) {
+        appState.activeProviderId = Object.keys(appState.providers)[0];
+      }
+      // Sync legacy provider field for backward compatibility
+      syncLegacyProvider();
+      
       if (!appState.sessions || Object.keys(appState.sessions).length === 0) {
         createNewSession('Default Studio');
       }
@@ -827,6 +1020,19 @@
         localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
       } catch (e) {
         console.error('Failed to save state', e);
+      }
+    }
+
+    function syncLegacyProvider() {
+      const activeProvider = appState.providers[appState.activeProviderId];
+      if (activeProvider) {
+        appState.provider = {
+          preset: activeProvider.presetKey || 'custom',
+          baseUrl: activeProvider.baseUrl,
+          model: activeProvider.model,
+          apiKey: activeProvider.apiKey,
+          corsProxy: activeProvider.corsProxy
+        };
       }
     }
 
@@ -1003,18 +1209,35 @@
     // --- Provider API Engine ---
     async function fetchLiveModels() {
       const btn = document.getElementById('btnRefreshModels');
+      if (!btn) return; // Button might not exist in new UI
       btn.textContent = '...';
+      
+      const activeProvider = appState.providers[appState.activeProviderId];
+      if (!activeProvider) {
+        logActivity('No active provider', 'error');
+        return;
+      }
+      
       const select = document.getElementById('cfgModelSelect');
-      const baseUrl = document.getElementById('cfgBaseUrl').value.trim() || 'https://ninerouter-zltx.onrender.com/v1';
-      const corsProxy = document.getElementById('cfgCorsProxy').value.trim();
+      if (!select) return; // Select might not exist in new UI
+      
+      const baseUrl = activeProvider.baseUrl;
+      const corsProxy = activeProvider.corsProxy || '';
 
       let targetUrl = baseUrl.replace(/\/+$/, '') + '/models';
       if (corsProxy) targetUrl = corsProxy + encodeURIComponent(targetUrl);
 
       try {
-        const headers = {};
-        const apiKey = document.getElementById('cfgApiKey').value.trim();
-        if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+        const headers = { 'Content-Type': 'application/json' };
+        if (activeProvider.apiKey && activeProvider.authStyle !== 'none') {
+          if (activeProvider.authStyle === 'bearer') {
+            headers['Authorization'] = `Bearer ${activeProvider.apiKey}`;
+          } else if (activeProvider.authStyle === 'x-api-key') {
+            headers['x-api-key'] = activeProvider.apiKey;
+          }
+        }
+        // Add custom headers
+        Object.entries(activeProvider.customHeaders || {}).forEach(([k, v]) => headers[k] = v);
 
         const res = await fetch(targetUrl, { headers });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -1022,7 +1245,7 @@
         
         select.innerHTML = '';
         const models = (data.data || data || []).map(m => typeof m === 'string' ? m : m.id || m.name);
-        if (models.length === 0) models.push('9router');
+        if (models.length === 0) models.push(activeProvider.model);
 
         models.forEach(m => {
           const opt = document.createElement('option');
@@ -1030,7 +1253,7 @@
           opt.textContent = m;
           select.appendChild(opt);
         });
-        logActivity(`Fetched ${models.length} live models from provider`, 'success');
+        logActivity(`Fetched ${models.length} live models from ${activeProvider.name}`, 'success');
       } catch (err) {
         logActivity(`Failed to fetch models: ${err.message}`, 'error');
         alert(`Could not fetch models from ${baseUrl}. Check CORS proxy or API URL.\nError: ${err.message}`);
@@ -1040,14 +1263,17 @@
     }
 
     async function callLLM(messages) {
-      const p = appState.provider;
-      const corsProxy = p.corsProxy ? p.corsProxy : '';
+      const provider = appState.providers[appState.activeProviderId];
+      if (!provider) {
+        throw new Error('No active provider configured');
+      }
+      const corsProxy = provider.corsProxy || '';
 
-      if (p.preset === 'duckduckgo') {
-        return callDuckDuckGo(messages);
+      if (provider.type === 'duckduckgo') {
+        return callDuckDuckGo(messages, provider);
       }
 
-      let url = p.baseUrl.replace(/\/+$/, '');
+      let url = provider.baseUrl.replace(/\/+$/, '');
       if (!url.endsWith('/chat/completions')) {
         url += '/chat/completions';
       }
@@ -1056,12 +1282,18 @@
       }
 
       const headers = { 'Content-Type': 'application/json' };
-      if (p.apiKey) {
-        headers['Authorization'] = `Bearer ${p.apiKey}`;
+      if (provider.apiKey && provider.authStyle !== 'none') {
+        if (provider.authStyle === 'bearer') {
+          headers['Authorization'] = `Bearer ${provider.apiKey}`;
+        } else if (provider.authStyle === 'x-api-key') {
+          headers['x-api-key'] = provider.apiKey;
+        }
       }
+      // Add custom headers
+      Object.entries(provider.customHeaders || {}).forEach(([k, v]) => headers[k] = v);
 
       const body = JSON.stringify({
-        model: p.model || '9router',
+        model: provider.model || 'gpt-4o-mini',
         messages: messages,
         temperature: 0.7
       });
@@ -1092,8 +1324,8 @@
     }
 
     // --- DuckDuckGo AI Flow ---
-    async function callDuckDuckGo(messages) {
-      const corsProxy = appState.provider.corsProxy || '';
+    async function callDuckDuckGo(messages, provider) {
+      const corsProxy = provider.corsProxy || '';
       
       // Step 1: GET status for VQD token
       let statusUrl = 'https://duckduckgo.com/duckchat/v1/status';
@@ -1116,7 +1348,7 @@
       let chatUrl = 'https://duckduckgo.com/duckchat/v1/chat';
       if (corsProxy) chatUrl = corsProxy + encodeURIComponent(chatUrl);
 
-      const model = appState.provider.model || 'gpt-4o-mini';
+      const model = provider.model || 'gpt-4o-mini';
 
       const chatRes = await fetch(chatUrl, {
         method: 'POST',
@@ -1479,6 +1711,12 @@ CURRENT VIRTUAL FILES:
         models = ['gpt-4o-mini', 'claude-3-haiku-20240307', 'meta-llama/Llama-3.3-70B-Instruct-Turbo', 'mistralai/Mixtral-8x7B-Instruct-v0.1'];
       } else if (preset === 'pollinations') {
         models = ['openai', 'qwen-coder', 'mistral', 'deepseek'];
+      } else if (preset === 'openrouter') {
+        models = ['openai/gpt-4o-mini', 'openai/gpt-4o', 'anthropic/claude-3.5-sonnet', 'meta-llama/llama-3.3-70b-instruct'];
+      } else if (preset === 'groq') {
+        models = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'mixtral-8x7b-32768'];
+      } else if (preset === 'omniroute-cloud' || preset === 'omniroute-local') {
+        models = ['qoder'];
       } else {
         models = [selectedModel || 'gpt-4o-mini', 'gpt-4o', 'claude-3-5-sonnet', 'custom'];
       }
@@ -1492,57 +1730,435 @@ CURRENT VIRTUAL FILES:
       });
     }
 
+    // --- Provider Manager Functions ---
+    let editingProviderId = null;
+
+    function renderProviderList() {
+      const list = document.getElementById('providerList');
+      if (!list) return;
+      list.innerHTML = '';
+      
+      Object.entries(appState.providers).forEach(([id, provider]) => {
+        const isActive = id === appState.activeProviderId;
+        const item = document.createElement('div');
+        item.style.cssText = 'display:flex; align-items:center; gap:8px; padding:8px 10px; background:var(--bg-surface); border:1px solid var(--border-color); border-radius:5px;';
+        item.innerHTML = `
+          <div style="display:flex; align-items:center; gap:8px; flex:1; cursor:pointer;" onclick="setActiveProvider('${id}')">
+            <span style="width:8px; height:8px; border-radius:50%; background:${isActive ? 'var(--success)' : 'var(--border-color)'};"></span>
+            <div>
+              <div style="font-weight:600; color:${isActive ? 'var(--accent-blue)' : 'var(--text-main)'};">${escapeHtml(provider.name)}</div>
+              <div style="font-size:10px; color:var(--text-dim);">${escapeHtml(provider.baseUrl)} · ${escapeHtml(provider.model)}</div>
+            </div>
+            ${isActive ? '<span style="font-size:9px; background:var(--accent-glow); color:var(--accent-blue); padding:1px 5px; border-radius:3px;">ACTIVE</span>' : ''}
+            ${provider.isPreset ? '<span style="font-size:9px; background:var(--bg-hover); color:var(--text-muted); padding:1px 5px; border-radius:3px;">PRESET</span>' : ''}
+          </div>
+          <div style="display:flex; gap:4px;">
+            <button class="btn btn-secondary" onclick="event.stopPropagation(); openTestConnection('${id}')" style="padding:3px 8px; font-size:10px;">Test</button>
+            <button class="btn btn-secondary" onclick="event.stopPropagation(); editProvider('${id}')" style="padding:3px 8px; font-size:10px;">Edit</button>
+            ${!provider.isPreset ? `<button class="btn btn-secondary" onclick="event.stopPropagation(); deleteProvider('${id}')" style="padding:3px 8px; font-size:10px; color:var(--danger); border-color:var(--danger);">Delete</button>` : ''}
+          </div>
+        `;
+        list.appendChild(item);
+      });
+    }
+
+    function openProviderModal(provider = null) {
+      const modal = document.getElementById('providerModal');
+      const title = document.getElementById('providerModalTitle');
+      const presetSelect = document.getElementById('providerPresetSelect');
+      const nameInput = document.getElementById('providerName');
+      const typeSelect = document.getElementById('providerType');
+      const baseUrlInput = document.getElementById('providerBaseUrl');
+      const modelInput = document.getElementById('providerModel');
+      const apiKeyInput = document.getElementById('providerApiKey');
+      const authStyleSelect = document.getElementById('providerAuthStyle');
+      const customHeadersInput = document.getElementById('providerCustomHeaders');
+      const corsProxyInput = document.getElementById('providerCorsProxy');
+      const streamingCheckbox = document.getElementById('providerStreaming');
+
+      // Reset form
+      presetSelect.value = '';
+      nameInput.value = '';
+      typeSelect.value = 'openai-compatible';
+      baseUrlInput.value = '';
+      modelInput.value = '';
+      apiKeyInput.value = '';
+      authStyleSelect.value = 'bearer';
+      customHeadersInput.value = '';
+      corsProxyInput.value = '';
+      streamingCheckbox.checked = true;
+      editingProviderId = null;
+
+      if (provider) {
+        title.textContent = 'Edit Provider';
+        editingProviderId = provider.id;
+        
+        // Try to match preset
+        let matchedPreset = '';
+        for (const [key, preset] of Object.entries(PROVIDER_PRESETS)) {
+          if (preset.baseUrl === provider.baseUrl && preset.model === provider.model && preset.type === provider.type) {
+            matchedPreset = key;
+            break;
+          }
+        }
+        presetSelect.value = matchedPreset;
+        
+        nameInput.value = provider.name || '';
+        typeSelect.value = provider.type || 'openai-compatible';
+        baseUrlInput.value = provider.baseUrl || '';
+        modelInput.value = provider.model || '';
+        apiKeyInput.value = provider.apiKey || '';
+        authStyleSelect.value = provider.authStyle || 'bearer';
+        customHeadersInput.value = provider.customHeaders ? JSON.stringify(provider.customHeaders, null, 2) : '';
+        corsProxyInput.value = provider.corsProxy || '';
+        streamingCheckbox.checked = provider.streaming !== false;
+      } else {
+        title.textContent = 'Add Provider';
+      }
+
+      modal.classList.add('active');
+      nameInput.focus();
+    }
+
+    function applyPresetToForm(presetKey) {
+      const preset = PROVIDER_PRESETS[presetKey];
+      if (!preset) return;
+      
+      document.getElementById('providerName').value = preset.name;
+      document.getElementById('providerType').value = preset.type;
+      document.getElementById('providerBaseUrl').value = preset.baseUrl;
+      document.getElementById('providerModel').value = preset.model;
+      document.getElementById('providerApiKey').value = preset.apiKey;
+      document.getElementById('providerAuthStyle').value = preset.authStyle;
+      document.getElementById('providerCustomHeaders').value = preset.customHeaders ? JSON.stringify(preset.customHeaders, null, 2) : '';
+      document.getElementById('providerCorsProxy').value = preset.corsProxy;
+      document.getElementById('providerStreaming').checked = preset.streaming;
+    }
+
+    function saveProvider() {
+      const name = document.getElementById('providerName').value.trim();
+      const type = document.getElementById('providerType').value;
+      const baseUrl = document.getElementById('providerBaseUrl').value.trim();
+      const model = document.getElementById('providerModel').value.trim();
+      const apiKey = document.getElementById('providerApiKey').value.trim();
+      const authStyle = document.getElementById('providerAuthStyle').value;
+      const customHeadersText = document.getElementById('providerCustomHeaders').value.trim();
+      const corsProxy = document.getElementById('providerCorsProxy').value.trim();
+      const streaming = document.getElementById('providerStreaming').checked;
+
+      if (!name || !baseUrl || !model) {
+        alert('Please fill in Name, Base URL, and Model fields.');
+        return;
+      }
+
+      let customHeaders = {};
+      if (customHeadersText) {
+        try {
+          customHeaders = JSON.parse(customHeadersText);
+        } catch (e) {
+          alert('Invalid JSON in Custom Headers: ' + e.message);
+          return;
+        }
+      }
+
+      const provider = {
+        id: editingProviderId || 'prov_' + Date.now(),
+        name,
+        type,
+        baseUrl,
+        model,
+        apiKey,
+        authStyle,
+        customHeaders,
+        corsProxy,
+        streaming,
+        isPreset: false,
+        presetKey: null
+      };
+
+      // If editing a preset-based provider, keep preset info
+      if (editingProviderId && appState.providers[editingProviderId]) {
+        const existing = appState.providers[editingProviderId];
+        if (existing.isPreset && existing.presetKey) {
+          provider.isPreset = true;
+          provider.presetKey = existing.presetKey;
+        }
+      }
+
+      appState.providers[provider.id] = provider;
+      
+      // If this is the first provider or we're editing the active one, set as active
+      if (!appState.activeProviderId || editingProviderId === appState.activeProviderId) {
+        appState.activeProviderId = provider.id;
+      }
+
+      saveAppState();
+      syncLegacyProvider();
+      renderProviderList();
+      document.getElementById('providerModal').classList.remove('active');
+      logActivity(`Provider "${name}" ${editingProviderId ? 'updated' : 'added'}`, 'success');
+    }
+
+    function editProvider(id) {
+      const provider = appState.providers[id];
+      if (provider) openProviderModal(provider);
+    }
+
+    function deleteProvider(id) {
+      const provider = appState.providers[id];
+      if (!provider) return;
+      
+      if (provider.isPreset) {
+        alert('Cannot delete preset providers. They are built-in.');
+        return;
+      }
+      
+      if (!confirm(`Delete provider "${provider.name}"?`)) return;
+      
+      const wasActive = id === appState.activeProviderId;
+      delete appState.providers[id];
+      
+      if (wasActive) {
+        appState.activeProviderId = Object.keys(appState.providers)[0] || null;
+      }
+      
+      saveAppState();
+      syncLegacyProvider();
+      renderProviderList();
+      logActivity(`Provider "${provider.name}" deleted`, 'warning');
+    }
+
+    function setActiveProvider(id) {
+      if (!appState.providers[id]) return;
+      appState.activeProviderId = id;
+      saveAppState();
+      syncLegacyProvider();
+      renderProviderList();
+      logActivity(`Active provider: ${appState.providers[id].name}`, 'success');
+    }
+
+    function openTestConnection(providerId) {
+      const provider = appState.providers[providerId];
+      if (!provider) return;
+      
+      document.getElementById('testProviderName').textContent = provider.name;
+      document.getElementById('testModelName').textContent = provider.model + ' (' + provider.baseUrl + ')';
+      document.getElementById('testResult').style.display = 'none';
+      document.getElementById('testProgress').style.display = 'none';
+      document.getElementById('btnRunTest').onclick = () => runConnectionTest(providerId);
+      document.getElementById('testConnectionModal').classList.add('active');
+    }
+
+    async function runConnectionTest(providerId) {
+      const provider = appState.providers[providerId];
+      if (!provider) return;
+      
+      const btn = document.getElementById('btnRunTest');
+      const progress = document.getElementById('testProgress');
+      const result = document.getElementById('testResult');
+      
+      btn.disabled = true;
+      btn.textContent = 'Testing...';
+      progress.style.display = 'block';
+      progress.textContent = 'Testing GET /models...';
+      result.style.display = 'none';
+
+      try {
+        // Test 1: GET /models
+        const modelsUrl = provider.baseUrl.replace(/\/+$/, '') + '/models';
+        const corsProxy = provider.corsProxy || '';
+        const testUrl = corsProxy ? corsProxy + encodeURIComponent(modelsUrl) : modelsUrl;
+        
+        const headers = { 'Content-Type': 'application/json' };
+        if (provider.apiKey && provider.authStyle !== 'none') {
+          if (provider.authStyle === 'bearer') {
+            headers['Authorization'] = `Bearer ${provider.apiKey}`;
+          } else if (provider.authStyle === 'x-api-key') {
+            headers['x-api-key'] = provider.apiKey;
+          }
+        }
+        // Add custom headers
+        Object.entries(provider.customHeaders || {}).forEach(([k, v]) => headers[k] = v);
+
+        let modelsRes = await fetch(testUrl, { headers });
+        
+        // Handle 404 - try alternate /v1 placement
+        if (modelsRes.status === 404) {
+          progress.textContent = 'Got 404, trying alternate path...';
+          let altUrl = modelsUrl;
+          if (altUrl.includes('/v1/v1')) {
+            altUrl = altUrl.replace('/v1/v1', '/v1');
+          } else if (altUrl.endsWith('/models')) {
+            const base = altUrl.slice(0, -7);
+            if (!base.endsWith('/v1')) {
+              altUrl = base + '/v1/models';
+            }
+          }
+          const altTestUrl = corsProxy ? corsProxy + encodeURIComponent(altUrl) : altUrl;
+          modelsRes = await fetch(altTestUrl, { headers });
+        }
+
+        let modelsData = null;
+        let modelsError = null;
+        
+        if (modelsRes.ok) {
+          try {
+            modelsData = await modelsRes.json();
+          } catch (e) {
+            modelsError = 'Invalid JSON response';
+          }
+        } else {
+          modelsError = `HTTP ${modelsRes.status}`;
+        }
+
+        progress.textContent = 'Testing chat completion (1 token)...';
+        
+        // Test 2: 1-token chat ping
+        let chatError = null;
+        let chatLatency = null;
+        
+        if (provider.type === 'duckduckgo') {
+          // DuckDuckGo test
+          try {
+            const startTime = Date.now();
+            // Get VQD token
+            let statusUrl = 'https://duckduckgo.com/duckchat/v1/status';
+            if (provider.corsProxy) statusUrl = provider.corsProxy + encodeURIComponent(statusUrl);
+            const statusRes = await fetch(statusUrl, { headers: { 'x-vqd-accept': '1' } });
+            if (!statusRes.ok) throw new Error(`Status HTTP ${statusRes.status}`);
+            const vqd = statusRes.headers.get('x-vqd-4');
+            if (!vqd) throw new Error('No x-vqd-4 token');
+            
+            // Test chat
+            let chatUrl = 'https://duckduckgo.com/duckchat/v1/chat';
+            if (provider.corsProxy) chatUrl = provider.corsProxy + encodeURIComponent(chatUrl);
+            const chatRes = await fetch(chatUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'x-vqd-4': vqd },
+              body: JSON.stringify({ model: provider.model, messages: [{ role: 'user', content: 'hi' }] })
+            });
+            chatLatency = Date.now() - startTime;
+            if (!chatRes.ok) throw new Error(`Chat HTTP ${chatRes.status}`);
+          } catch (e) {
+            chatError = e.message;
+          }
+        } else {
+          // OpenAI-compatible test
+          try {
+            let chatUrl = provider.baseUrl.replace(/\/+$/, '');
+            if (!chatUrl.endsWith('/chat/completions')) {
+              chatUrl += '/chat/completions';
+            }
+            if (provider.corsProxy) {
+              chatUrl = provider.corsProxy + encodeURIComponent(chatUrl);
+            }
+            
+            const startTime = Date.now();
+            const chatRes = await fetch(chatUrl, {
+              method: 'POST',
+              headers,
+              body: JSON.stringify({
+                model: provider.model,
+                messages: [{ role: 'user', content: 'hi' }],
+                max_tokens: 1,
+                temperature: 0
+              })
+            });
+            chatLatency = Date.now() - startTime;
+            if (!chatRes.ok) {
+              const errText = await chatRes.text();
+              throw new Error(`HTTP ${chatRes.status}: ${errText.slice(0, 100)}`);
+            }
+          } catch (e) {
+            chatError = e.message;
+          }
+        }
+
+        // Build result
+        let resultHtml = '';
+        let isSuccess = false;
+        
+        if (modelsData && !chatError) {
+          const modelCount = Array.isArray(modelsData.data) ? modelsData.data.length : 
+                            Array.isArray(modelsData) ? modelsData.length : 'unknown';
+          resultHtml = `✅ <strong>Connection successful!</strong>\n\n`;
+          resultHtml += `Models endpoint: OK (${modelCount} models found)\n`;
+          resultHtml += `Chat completion: OK (${chatLatency}ms)\n`;
+          isSuccess = true;
+        } else if (modelsData && chatError) {
+          resultHtml = `⚠️ <strong>Partial success</strong>\n\n`;
+          resultHtml += `Models endpoint: OK\n`;
+          resultHtml += `Chat completion: FAILED - ${chatError}\n`;
+        } else if (!modelsData && !chatError) {
+          resultHtml = `⚠️ <strong>Partial success</strong>\n\n`;
+          resultHtml += `Models endpoint: FAILED - ${modelsError}\n`;
+          resultHtml += `Chat completion: OK (${chatLatency}ms)\n`;
+        } else {
+          resultHtml = `❌ <strong>Connection failed</strong>\n\n`;
+          resultHtml += `Models endpoint: ${modelsError || 'FAILED'}\n`;
+          resultHtml += `Chat completion: ${chatError || 'FAILED'}\n`;
+          resultHtml += `\nTroubleshooting:\n`;
+          resultHtml += `• Check Base URL and trailing slashes\n`;
+          resultHtml += `• Verify API Key if required\n`;
+          resultHtml += `• Try enabling CORS Proxy\n`;
+          resultHtml += `• For local servers, ensure CORS headers are set`;
+        }
+
+        result.style.display = 'block';
+        result.style.background = isSuccess ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)';
+        result.style.border = isSuccess ? '1px solid var(--success)' : '1px solid var(--danger)';
+        result.style.color = isSuccess ? 'var(--success)' : 'var(--danger)';
+        result.innerHTML = resultHtml.replace(/\n/g, '<br>');
+        
+        progress.style.display = 'none';
+        logActivity(`Connection test for ${provider.name}: ${isSuccess ? 'passed' : 'failed'}`, isSuccess ? 'success' : 'error');
+        
+      } catch (err) {
+        result.style.display = 'block';
+        result.style.background = 'rgba(239, 68, 68, 0.15)';
+        result.style.border = '1px solid var(--danger)';
+        result.style.color = 'var(--danger)';
+        result.innerHTML = `❌ <strong>Test error</strong><br>${escapeHtml(err.message)}`;
+        progress.style.display = 'none';
+        logActivity(`Connection test error: ${err.message}`, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Run Test';
+      }
+    }
+
     function setupSettingsModal() {
       const modal = document.getElementById('settingsModal');
-      const presetSelect = document.getElementById('providerPreset');
-      const baseUrlInput = document.getElementById('cfgBaseUrl');
-      const modelSelect = document.getElementById('cfgModelSelect');
-      const apiKeyInput = document.getElementById('cfgApiKey');
-      const corsProxyInput = document.getElementById('cfgCorsProxy');
+      const providerModal = document.getElementById('providerModal');
+      const testModal = document.getElementById('testConnectionModal');
 
       document.getElementById('btnSettings').onclick = () => {
-        presetSelect.value = appState.provider.preset || '9router';
-        baseUrlInput.value = appState.provider.baseUrl || '';
-        apiKeyInput.value = appState.provider.apiKey || '';
-        corsProxyInput.value = appState.provider.corsProxy || '';
-        populateModelDropdown(presetSelect.value, appState.provider.model);
+        renderProviderList();
         modal.classList.add('active');
       };
 
       document.getElementById('btnCloseSettings').onclick = () => modal.classList.remove('active');
       document.getElementById('btnCancelSettings').onclick = () => modal.classList.remove('active');
 
-      presetSelect.onchange = () => {
-        const val = presetSelect.value;
-        if (val === '9router') {
-          baseUrlInput.value = 'https://ninerouter-zltx.onrender.com/v1';
-          populateModelDropdown('9router', '9router');
-        } else if (val === 'duckduckgo') {
-          baseUrlInput.value = 'https://duckduckgo.com/duckchat/v1';
-          populateModelDropdown('duckduckgo', 'gpt-4o-mini');
-        } else if (val === 'pollinations') {
-          baseUrlInput.value = 'https://text.pollinations.ai/openai';
-          populateModelDropdown('pollinations', 'openai');
-        } else {
-          baseUrlInput.value = '';
-          populateModelDropdown('custom', '');
-        }
+      document.getElementById('btnAddProvider').onclick = () => openProviderModal();
+
+      document.getElementById('btnCloseProviderModal').onclick = () => providerModal.classList.remove('active');
+      document.getElementById('btnCancelProvider').onclick = () => providerModal.classList.remove('active');
+      document.getElementById('btnSaveProvider').onclick = saveProvider;
+
+      document.getElementById('providerPresetSelect').onchange = (e) => {
+        if (e.target.value) applyPresetToForm(e.target.value);
       };
 
-      document.getElementById('btnRefreshModels').onclick = fetchLiveModels;
+      document.getElementById('btnCloseTestModal').onclick = () => testModal.classList.remove('active');
+      document.getElementById('btnCancelTest').onclick = () => testModal.classList.remove('active');
 
-      document.getElementById('btnSaveSettings').onclick = () => {
-        appState.provider = {
-          preset: presetSelect.value,
-          baseUrl: baseUrlInput.value.trim(),
-          model: modelSelect.value || '9router',
-          apiKey: apiKeyInput.value.trim(),
-          corsProxy: corsProxyInput.value.trim()
-        };
-        saveAppState();
-        modal.classList.remove('active');
-        logActivity(`Provider settings updated: ${appState.provider.preset} (${appState.provider.model})`, 'success');
-      };
+      // Close modals on overlay click
+      [modal, providerModal, testModal].forEach(m => {
+        m.addEventListener('click', (e) => {
+          if (e.target === m) m.classList.remove('active');
+        });
+      });
     }
 
     function setupPaneTabs() {
