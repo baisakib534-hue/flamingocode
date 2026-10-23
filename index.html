@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DevForge — AI Coding Studio</title>
+  <style>
+    :root {
+      --bg-dark: #0b0d14;
+      --bg-panel: #131622;
+      --bg-surface: #1a1e2e;
+      --bg-hover: #24293e;
+      --border-color: #262b40;
+      --border-light: #323852;
+      --accent-blue: #3b82f6;
+      --accent-hover: #2563eb;
+      --accent-glow: rgba(59, 130, 246, 0.25);
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --text-main: #f1f5f9;
+      --text-muted: #8e9aaf;
+      --text-dim: #5c667a;
+      --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --font-mono: "JetBrains Mono", "Fira Code", Consolas, "Courier New", monospace;
+      --header-height: 48px;
+      --statusbar-height: 24px;
+      --mobile-nav-height: 52px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      font-size: 13px;
+      line-height: 1.4;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Header */
+    .app-header {
+      height: var(--header-height);
+      background-color: var(--bg-panel);
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 12px;
+      user-select: none;
+      z-index: 100;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 700;
+      font-size: 15px;
+      color: var(--text-main);
+      letter-spacing: -0.3px;
+    }
+    .brand-icon {
+      width: 22px;
+      height: 22px;
+      background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .session-picker {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 4px 8px;
+      border-radius: 5px;
+      font-size: 12px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    /* Main Container Grid */
+    .app-main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 260px minmax(350px, 1fr) 380px;
+      grid-template-rows: 1fr;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Sidebar Panel (Left) */
+    .panel-left {
+      background-color: var(--bg-panel);
+      border-right: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .panel-section-title {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      padding: 10px 12px 6px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .section-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 13px;
+      padding: 2px 4px;
+      border-radius: 3px;
+    }
+    .section-btn:hover { color: var(--text-main); background: var(--bg-hover); }
+
+    /* File Tree */
+    .file-tree {
+      flex: 1;
+      overflow-y: auto;
+      padding: 4px 0;
+    }
+    .file-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 5px 12px 5px 20px;
+      cursor: pointer;
+      color: var(--text-muted);
+      font-size: 12.5px;
+      border-left: 2px solid transparent;
+    }
+    .file-item:hover {
+      background-color: var(--bg-hover);
+      color: var(--text-main);
+    }
+    .file-item.active {
+      background-color: var(--bg-surface);
+      color: var(--accent-blue);
+      border-left-color: var(--accent-blue);
+      font-weight: 500;
+    }
+    .file-item-name {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .file-item-del {
+      opacity: 0;
+      color: var(--text-dim);
+      font-size: 11px;
+      padding: 2px 4px;
+      border-radius: 3px;
+    }
+    .file-item:hover .file-item-del { opacity: 1; }
+    .file-item-del:hover { color: var(--danger); background: var(--bg-hover); }
+
+    /* Editor Panel (Center) */
+    .panel-center {
+      background-color: var(--bg-dark);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      border-right: 1px solid var(--border-color);
+    }
+    .tabs-bar {
+      height: 36px;
+      background-color: var(--bg-panel);
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .tabs-bar::-webkit-scrollbar { display: none; }
+    .tab {
+      height: 100%;
+      padding: 0 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: transparent;
+      color: var(--text-muted);
+      border-right: 1px solid var(--border-color);
+      font-size: 12px;
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+    }
+    .tab.active {
+      background: var(--bg-dark);
+      color: var(--text-main);
+      border-top: 2px solid var(--accent-blue);
+      font-weight: 500;
+    }
+    .tab-close {
+      border-radius: 50%;
+      width: 14px;
+      height: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      color: var(--text-dim);
+    }
+    .tab-close:hover { background: var(--bg-hover); color: var(--text-main); }
+
+    .editor-wrapper {
+      flex: 1;
+      display: flex;
+      position: relative;
+      overflow: hidden;
+      background-color: var(--bg-dark);
+    }
+    .line-numbers {
+      width: 44px;
+      padding: 10px 0;
+      background-color: var(--bg-dark);
+      color: var(--text-dim);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      text-align: right;
+      padding-right: 10px;
+      user-select: none;
+      border-right: 1px solid var(--border-color);
+      overflow: hidden;
+      line-height: 20px;
+    }
+    .editor-textarea {
+      flex: 1;
+      background: transparent;
+      color: #e2e8f0;
+      border: none;
+      outline: none;
+      padding: 10px;
+      font-family: var(--font-mono);
+      font-size: 12.5px;
+      line-height: 20px;
+      resize: none;
+      white-space: pre;
+      tab-size: 2;
+    }
+
+    /* Right Panel (Agent Chat / Preview / Browser / Activity) */
+    .panel-right {
+      background-color: var(--bg-panel);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .right-header-tabs {
+      display: flex;
+      background: var(--bg-panel);
+      border-bottom: 1px solid var(--border-color);
+    }
+    .right-tab {
+      flex: 1;
+      padding: 8px 10px;
+      text-align: center;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+    }
+    .right-tab.active {
+      color: var(--accent-blue);
+      border-bottom-color: var(--accent-blue);
+      background: var(--bg-surface);
+    }
+
+    .right-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+    }
+    .pane-view {
+      flex: 1;
+      display: none;
+      flex-direction: column;
+      overflow: hidden;
+      height: 100%;
+    }
+    .pane-view.active { display: flex; }
+
+    /* Chat Pane */
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .msg {
+      max-width: 90%;
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      line-height: 1.5;
+      word-wrap: break-word;
+    }
+    .msg-user {
+      align-self: flex-end;
+      background-color: var(--accent-blue);
+      color: white;
+      border-bottom-right-radius: 2px;
+    }
+    .msg-agent {
+      align-self: flex-start;
+      background-color: var(--bg-surface);
+      color: var(--text-main);
+      border: 1px solid var(--border-color);
+      border-bottom-left-radius: 2px;
+      width: 100%;
+    }
+    .msg-system {
+      align-self: center;
+      background: var(--bg-hover);
+      color: var(--text-muted);
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 12px;
+    }
+
+    /* Action chips in agent messages */
+    .action-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--bg-dark);
+      border: 1px solid var(--border-light);
+      border-radius: 5px;
+      padding: 4px 8px;
+      margin: 4px 0;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--accent-blue);
+    }
+    .action-chip.delete { color: var(--danger); }
+    .action-chip.browse { color: var(--warning); }
+
+    /* Working Indicator */
+    .working-indicator {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      background: var(--bg-surface);
+      border-top: 1px solid var(--border-color);
+      font-size: 11.5px;
+      color: var(--accent-blue);
+    }
+    .spinner {
+      width: 12px;
+      height: 12px;
+      border: 2px solid var(--border-color);
+      border-top-color: var(--accent-blue);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Prompt Chips */
+    .prompt-chips {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      padding: 6px 12px;
+      background: var(--bg-panel);
+      scrollbar-width: none;
+    }
+    .prompt-chip {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      color: var(--text-muted);
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .prompt-chip:hover {
+      background: var(--bg-hover);
+      color: var(--text-main);
+      border-color: var(--accent-blue);
+    }
+
+    /* Chat Input Area */
+    .chat-input-wrapper {
+      padding: 10px;
+      background: var(--bg-panel);
+      border-top: 1px solid var(--border-color);
+      display: flex;
+      gap: 8px;
+    }
+    .chat-input {
+      flex: 1;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      color: var(--text-main);
+      padding: 8px 12px;
+      font-family: var(--font-sans);
+      font-size: 12.5px;
+      outline: none;
+    }
+    .chat-input:focus { border-color: var(--accent-blue); }
+    .btn {
+      background: var(--accent-blue);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 8px 14px;
+      font-weight: 600;
+      font-size: 12px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn:hover { background: var(--accent-hover); }
+    .btn-secondary {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+    }
+    .btn-secondary:hover { background: var(--bg-hover); }
+
+    /* Preview Pane */
+    .preview-frame {
+      width: 100%;
+      height: 100%;
+      border: none;
+      background: white;
+    }
+
+    /* Browser Pane */
+    .browser-bar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border-color);
+    }
+    .browser-url {
+      flex: 1;
+      background: var(--bg-dark);
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      padding: 4px 8px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      font-size: 11px;
+    }
+
+    /* Activity Log */
+    .activity-log {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .log-item {
+      padding: 4px 8px;
+      border-radius: 4px;
+      background: var(--bg-surface);
+      border-left: 3px solid var(--accent-blue);
+      color: var(--text-muted);
+    }
+    .log-item.error { border-left-color: var(--danger); color: var(--danger); }
+    .log-item.success { border-left-color: var(--success); }
+
+    /* Modal / Settings */
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.7);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    .modal-overlay.active { display: flex; }
+    .modal-box {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      width: 480px;
+      max-width: 90vw;
+      max-height: 85vh;
+      overflow-y: auto;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .form-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+    }
+    .form-input, .form-select {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 5px;
+      padding: 6px 10px;
+      color: var(--text-main);
+      font-size: 12.5px;
+      outline: none;
+    }
+
+    /* Mobile Navigation Bar */
+    .mobile-nav {
+      display: none;
+      height: var(--mobile-nav-height);
+      background: var(--bg-panel);
+      border-top: 1px solid var(--border-color);
+      justify-content: space-around;
+      align-items: center;
+      z-index: 100;
+    }
+    .mobile-nav-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 10px;
+      cursor: pointer;
+    }
+    .mobile-nav-btn.active { color: var(--accent-blue); }
+
+    @media (max-width: 768px) {
+      .app-main {
+        display: flex;
+        flex-direction: column;
+      }
+      .panel-left, .panel-center, .panel-right {
+        display: none;
+        width: 100%;
+        height: 100%;
+      }
+      .mobile-nav { display: flex; }
+      .app-main.show-agent .panel-right { display: flex; }
+      .app-main.show-files .panel-left { display: flex; }
+      .app-main.show-code .panel-center { display: flex; }
+      .app-main.show-preview .panel-right { display: flex; }
+      .app-main.show-browser .panel-right { display: flex; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- App Header -->
+  <header class="app-header">
+    <div class="brand">
+      <div class="brand-icon">⚡</div>
+      <span>DevForge</span>
+    </div>
+    <div class="header-actions">
+      <select id="sessionSelect" class="session-picker" title="Switch Session"></select>
+      <button class="btn btn-secondary" id="btnNewSession" style="padding: 4px 8px; font-size: 11px;">+ Session</button>
+      <button class="btn btn-secondary" id="btnDelSession" style="padding: 4px 8px; font-size: 11px; color: var(--danger);" title="Delete Current Session">🗑️</button>
+      <button class="btn btn-secondary" id="btnSettings" style="padding: 4px 8px; font-size: 11px;">⚙️ Provider</button>
+    </div>
+  </header>
+
+  <!-- App Main Content Area -->
+  <main class="app-main show-agent" id="appMain">
+    
+    <!-- Left Panel: Sessions & Virtual File Tree -->
+    <aside class="panel-left" id="panelLeft">
+      <div class="panel-section-title">
+        <span>Files</span>
+        <div style="display:flex; gap:4px;">
+          <button class="section-btn" id="btnNewFile" title="New File">+ File</button>
+        </div>
+      </div>
+      
+      <div style="padding: 0 12px 8px;">
+        <label class="form-label" style="font-size: 10px; margin-bottom: 4px; display: block;">Template</label>
+        <select id="templateSelect" class="form-select" style="width: 100%; font-size: 11px; padding: 3px 6px;">
+          <option value="">-- Load Template --</option>
+          <option value="blank">Blank Project</option>
+          <option value="landing">Landing Page</option>
+          <option value="todo">Todo App</option>
+        </select>
+      </div>
+
+      <div class="file-tree" id="fileTree">
+        <!-- File list dynamically rendered here -->
+      </div>
+    </aside>
+
+    <!-- Center Panel: Tabbed Editor -->
+    <section class="panel-center" id="panelCenter">
+      <div class="tabs-bar" id="editorTabs">
+        <!-- Editor tabs rendered here -->
+      </div>
+      <div class="editor-wrapper">
+        <div class="line-numbers" id="lineNumbers">1</div>
+        <textarea id="editorTextarea" class="editor-textarea" spellcheck="false" placeholder="Select or create a file to start editing..."></textarea>
+      </div>
+    </section>
+
+    <!-- Right Panel: Agent / Preview / Browser / Activity Log -->
+    <section class="panel-right" id="panelRight">
+      <div class="right-header-tabs">
+        <button class="right-tab active" data-pane="agent">Agent</button>
+        <button class="right-tab" data-pane="preview">Preview</button>
+        <button class="right-tab" data-pane="browser">Browser</button>
+        <button class="right-tab" data-pane="activity">Activity</button>
+      </div>
+
+      <div class="right-content">
+        <!-- Agent Chat Pane -->
+        <div class="pane-view active" id="paneAgent">
+          <div class="chat-messages" id="chatMessages">
+            <div class="msg msg-system">DevForge Agent ready. Ask me to create or modify code in your virtual FS.</div>
+          </div>
+          
+          <div class="working-indicator" id="workingIndicator" style="display: none;">
+            <div class="spinner"></div>
+            <span>Agent working... <strong id="elapsedTimer">0s</strong></span>
+          </div>
+
+          <div class="prompt-chips">
+            <div class="prompt-chip" onclick="usePromptChip('Build a dark portfolio landing page with HTML, CSS, and interactive JS')">✨ Portfolio Landing</div>
+            <div class="prompt-chip" onclick="usePromptChip('Create a responsive Todo App with local storage, dark theme, and filters')">📝 Todo App</div>
+            <div class="prompt-chip" onclick="usePromptChip('Add a contact form modal with input validation to index.html')">✉️ Contact Form</div>
+          </div>
+
+          <div class="chat-input-wrapper">
+            <input type="text" id="chatInput" class="chat-input" placeholder="Ask agent to build, edit, or fix..." />
+            <button class="btn" id="btnSend">Send</button>
+          </div>
+        </div>
+
+        <!-- Preview Pane -->
+        <div class="pane-view" id="panePreview">
+          <iframe id="previewIframe" class="preview-frame" sandbox="allow-scripts allow-modals allow-same-origin"></iframe>
+        </div>
+
+        <!-- Browser Pane -->
+        <div class="pane-view" id="paneBrowser">
+          <div class="browser-bar">
+            <input type="text" id="browserUrlInput" class="browser-url" value="https://example.com" readonly />
+            <span style="font-size: 10px; color: var(--text-dim);" title="Caption">(full click-agent arrives in the desktop version)</span>
+          </div>
+          <iframe id="browserIframe" class="preview-frame" src="about:blank"></iframe>
+        </div>
+
+        <!-- Activity Log Pane -->
+        <div class="pane-view" id="paneActivity">
+          <div class="activity-log" id="activityLog">
+            <div class="log-item">Studio initialized. Virtual FS ready.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Mobile Bottom Tab Bar -->
+  <nav class="mobile-nav" id="mobileNav">
+    <button class="mobile-nav-btn active" data-mobile-tab="agent">
+      <span>💬</span>
+      <span>Agent</span>
+    </button>
+    <button class="mobile-nav-btn" data-mobile-tab="files">
+      <span>📁</span>
+      <span>Files</span>
+    </button>
+    <button class="mobile-nav-btn" data-mobile-tab="code">
+      <span>📝</span>
+      <span>Code</span>
+    </button>
+    <button class="mobile-nav-btn" data-mobile-tab="preview">
+      <span>👁️</span>
+      <span>Preview</span>
+    </button>
+    <button class="mobile-nav-btn" data-mobile-tab="browser">
+      <span>🌐</span>
+      <span>Browser</span>
+    </button>
+  </nav>
+
+  <!-- Settings Modal -->
+  <div class="modal-overlay" id="settingsModal">
+    <div class="modal-box">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-color); padding-bottom:8px;">
+        <h3 style="font-size: 14px; font-weight: 700;">Provider Settings</h3>
+        <button class="section-btn" id="btnCloseSettings">✕</button>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Provider Preset</label>
+        <select id="providerPreset" class="form-select">
+          <option value="9router">9router (Default free /v1)</option>
+          <option value="duckduckgo">DuckDuckGo AI (Free vqd flow)</option>
+          <option value="pollinations">Pollinations free (https://text.pollinations.ai/openai)</option>
+          <option value="custom">Custom OpenAI-compatible API</option>
+        </select>
+      </div>
+
+      <div class="form-group" id="groupBaseUrl">
+        <label class="form-label">Base URL</label>
+        <input type="text" id="cfgBaseUrl" class="form-input" value="https://ninerouter-zltx.onrender.com/v1" />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Model Name</label>
+        <div style="display:flex; gap:6px;">
+          <select id="cfgModelSelect" class="form-select" style="flex:1;">
+            <option value="9router">9router</option>
+          </select>
+          <button class="btn btn-secondary" id="btnRefreshModels" title="Refresh Live Model List" style="padding: 4px 10px;">↻</button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">API Key (Optional)</label>
+        <input type="password" id="cfgApiKey" class="form-input" placeholder="Bearer token or API Key" />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">CORS Proxy Prefix (Optional)</label>
+        <input type="text" id="cfgCorsProxy" class="form-input" placeholder="e.g. https://corsproxy.io/?" />
+        <span style="font-size:10px; color:var(--text-dim);">If browser hits direct CORS error, prefix requests with a CORS proxy.</span>
+      </div>
+
+      <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:8px;">
+        <button class="btn btn-secondary" id="btnCancelSettings">Cancel</button>
+        <button class="btn" id="btnSaveSettings">Save Settings</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+
