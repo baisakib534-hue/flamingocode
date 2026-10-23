@@ -1,1 +1,4 @@
 Read PRD.md and AGENTS.md in this repo. Implement ONLY Stage 0 (the IDE shell) exactly as specified, using all installed skills — especially no-ai-slop, senior-frontend, api-design. When it works, self-review once, then commit everything with the message "Stage 0: IDE shell with agent chat, VFS, preview, providers". Finish with a short summary: what you built, how you verified it, and any known issues. Do not start Stage 1.
+
+
+EXECUTION RULE (from the manager): Never generate one giant file in a single tool call — long generations die on upstream idle timeouts. Build index.html in slices of at most ~150 lines: write the first slice, then extend the file with subsequent smaller edits/appends. After every 2-3 slices, commit with git (message: progress). If a generation is interrupted, continue from the file's current state instead of restarting.
