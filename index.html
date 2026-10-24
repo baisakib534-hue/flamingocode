@@ -2517,7 +2517,29 @@ project-root/
 
 *Free-form notes area.*`
     };
-    
+
+    // Add code graph summary to brain digest (inside 1500-token cap)
+    function addGraphSummaryToDigest(digest, totalTokens) {
+      const MAX_TOKENS = 1500;
+      const graphSummary = getGraphSummary();
+      const graphSummaryHeader = '\n## Code Graph Summary\n\n';
+      const graphTokens = estimateTokens(graphSummaryHeader + graphSummary);
+      if (totalTokens + graphTokens <= MAX_TOKENS) {
+        digest += graphSummaryHeader + graphSummary + '\n';
+        totalTokens = estimateTokens(digest);
+      } else if (totalTokens < MAX_TOKENS - 50) {
+        // Truncate graph summary to fit
+        const availableTokens = MAX_TOKENS - totalTokens - estimateTokens(graphSummaryHeader);
+        const charsPerToken = 4;
+        const maxChars = availableTokens * charsPerToken;
+        if (maxChars > 50) {
+          digest += graphSummaryHeader + graphSummary.slice(0, maxChars) + '\n[...truncated...]\n';
+          totalTokens = estimateTokens(digest);
+        }
+      }
+      return { digest, totalTokens };
+    }
+
     // Build brain digest from .devforge/ files with ~1500 token cap
     // Priority order: progress.md > decisions.md (recent) > overview.md > architecture.md > notes.md
     function buildBrainDigest(session) {
@@ -2593,6 +2615,11 @@ project-root/
           break;
         }
       }
+      
+      // Add code graph summary (inside 1500-token cap)
+      const result = addGraphSummaryToDigest(digest, totalTokens);
+      digest = result.digest;
+      totalTokens = result.totalTokens;
       
       digest += `\n---\n*Digest: ~${totalTokens} tokens (cap: ${MAX_TOKENS})*`;
       return digest;
@@ -5987,6 +6014,8 @@ CURRENT VIRTUAL FILES:
             writeBrainNote(session, targetPath, blockContent);
           } else {
             session.files[targetPath] = blockContent;
+            // Gap 4 Fix: Mark graph dirty on file changes for incremental rebuild
+            markGraphDirty();
           }
           fileModified = true;
           const lineCount = blockContent.split('\n').length;
@@ -5996,6 +6025,8 @@ CURRENT VIRTUAL FILES:
         } else if (actionType === 'delete') {
           delete session.files[targetPath];
           if (isBrainNotePath(targetPath)) rebuildBrainIndex(session); // v2: index follows note deletions
+          // Gap 4 Fix: Mark graph dirty on file deletions for incremental rebuild
+          markGraphDirty();
           fileModified = true;
           chips.push({ type: 'delete', label: `Deleted ${targetPath}` });
           logActivity(`Agent deleted ${targetPath}`, 'warning');
@@ -6191,14 +6222,20 @@ CURRENT VIRTUAL FILES:
       if (change.action === 'delete') {
         delete session.files[path];
         if (isBrainNotePath(path)) rebuildBrainIndex(session);
+        // Gap 4 Fix: Mark graph dirty on file changes
+        markGraphDirty();
         logActivity(`Accepted: Deleted ${path}`, 'warning');
       } else if (change.action === 'create') {
         session.files[path] = change.newContent;
         if (isBrainNotePath(path)) writeBrainNote(session, path, change.newContent);
+        // Gap 4 Fix: Mark graph dirty on file changes
+        markGraphDirty();
         logActivity(`Accepted: Created ${path}`, 'success');
       } else {
         session.files[path] = change.newContent;
         if (isBrainNotePath(path)) writeBrainNote(session, path, change.newContent);
+        // Gap 4 Fix: Mark graph dirty on file changes
+        markGraphDirty();
         logActivity(`Accepted: Modified ${path}`, 'success');
       }
       
@@ -6244,12 +6281,18 @@ CURRENT VIRTUAL FILES:
         if (change.action === 'delete') {
           delete session.files[change.path];
           if (isBrainNotePath(change.path)) rebuildBrainIndex(session);
+          // Gap 4 Fix: Mark graph dirty on file changes
+          markGraphDirty();
         } else if (change.action === 'create') {
           session.files[change.path] = change.newContent;
           if (isBrainNotePath(change.path)) writeBrainNote(session, change.path, change.newContent);
+          // Gap 4 Fix: Mark graph dirty on file changes
+          markGraphDirty();
         } else {
           session.files[change.path] = change.newContent;
           if (isBrainNotePath(change.path)) writeBrainNote(session, change.path, change.newContent);
+          // Gap 4 Fix: Mark graph dirty on file changes
+          markGraphDirty();
         }
       });
       
@@ -6549,13 +6592,82 @@ async function sendAgentPrompt(userPrompt, autoTurn = 0) {
       // Update token meter
       updateTokenMeter(session);
 
+      // === Gap 1 Fix: Consult code graph for connection/relationship questions ===
+      // Detect questions about "how does X connect", "where is Y used", "what calls Z", etc.
+      let graphContext = '';
+      if (autoTurn === 0) {
+        const question = userPrompt.toLowerCase();
+        const connectionKeywords = ['connect', 'connects', 'connection', 'call', 'calls', 'calling', 'used', 'uses', 'using', 'import', 'imports', 'importing', 'depend', 'depends', 'depends on', 'reference', 'references', 'referencing', 'where is', 'where are', 'how does', 'what calls', 'what uses'];
+        const pathKeywords = ['path between', 'path from', 'path to', 'shortest path', 'how to get from', 'route from', 'route to', 'trace from', 'trace to'];
+        const isConnectionQuestion = connectionKeywords.some(kw => question.includes(kw));
+        const isPathQuestion = pathKeywords.some(kw => question.includes(kw));
+        
+        if (isConnectionQuestion) {
+          // Use queryGraph to get relevant subgraph
+          const graphResult = queryGraph(userPrompt);
+          if (graphResult.nodes && graphResult.nodes.length > 0) {
+            graphContext = `\n\n--- CODE GRAPH CONTEXT (from queryGraph) ---\n${graphResult.summary}\n\nRelevant nodes:\n`;
+            for (const node of graphResult.nodes.slice(0, 10)) {
+              graphContext += `- ${node.name} (${node.type}, ${node.filePath})\n`;
+            }
+            if (graphResult.edges && graphResult.edges.length > 0) {
+              graphContext += `\nRelevant edges:\n`;
+              for (const edge of graphResult.edges.slice(0, 15)) {
+                const fromNode = graphResult.nodes.find(n => n.id === edge.from);
+                const toNode = graphResult.nodes.find(n => n.id === edge.to);
+                if (fromNode && toNode) {
+                  graphContext += `- ${fromNode.name} --${edge.type} (${edge.confidence})--> ${toNode.name}\n`;
+                }
+              }
+            }
+            logActivity('Injected code graph context for connection question', 'info');
+          }
+          
+          // Also try explainGraph for specific concept questions
+          const conceptMatch = userPrompt.match(/(?:what is|explain|describe|tell me about)\s+([a-zA-Z_$][\w$]*)/i);
+          if (conceptMatch) {
+            const conceptName = conceptMatch[1];
+            const explainResult = explainGraph(conceptName);
+            if (explainResult.node) {
+              graphContext += `\n--- CONCEPT EXPLANATION (from explainGraph) ---\n${explainResult.summary}\n`;
+              if (explainResult.byType) {
+                for (const [type, connections] of Object.entries(explainResult.byType)) {
+                  graphContext += `\n${type}:\n`;
+                  for (const conn of connections.slice(0, 5)) {
+                    graphContext += `- ${conn.node.name} (${conn.node.type}, ${conn.confidence}, ${conn.direction})\n`;
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        // Also check for path queries
+        if (isPathQuestion) {
+          // Try to extract from and to from the prompt
+          const pathMatch = userPrompt.match(/(?:path|route|trace|how to get)\s+(?:between|from)\s+([a-zA-Z_$][\w$]*)\s+(?:and|to)\s+([a-zA-Z_$][\w$]*)/i);
+          if (pathMatch) {
+            const fromName = pathMatch[1];
+            const toName = pathMatch[2];
+            const pathResult = pathGraph(fromName, toName);
+            if (pathResult.path && pathResult.path.length > 0) {
+              graphContext += `\n\n--- PATH GRAPH (from pathGraph) ---\n${pathResult.summary}\n\nPath:\n`;
+              for (const node of pathResult.path) {
+                graphContext += `- ${node.name} (${node.type}, ${node.filePath})\n`;
+              }
+              logActivity('Injected path graph context for query', 'info');
+            }
+          }
+        }
+      }
+
       startTimer();
 
       try {
         // 9. History hygiene: strip reasoning/thinking blocks and null-content messages
         const sanitizedHistory = sanitizeHistoryForReplay(session.chatHistory);
         let messages = [
-          { role: 'system', content: buildSystemContextWithGuard() },
+          { role: 'system', content: buildSystemContextWithGuard() + graphContext },
           ...sanitizedHistory
         ];
 
@@ -7013,6 +7125,8 @@ Rules:
             clearTimeout(indexRebuildTimer);
             indexRebuildTimer = setTimeout(() => rebuildBrainIndex(session), 500);
           }
+          // Gap 4 Fix: Mark graph dirty on manual edits for incremental rebuild
+          markGraphDirty();
           updateLineNumbers();
           refreshPreview();
           saveAppState();
@@ -9299,10 +9413,76 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
       const skillInstructions = getSkillPackInstructions(agent.skillPacks);
       if (skillInstructions) context += '\n\n' + skillInstructions;
 
+      // === Gap 1 Fix: Consult code graph for connection/relationship questions in team tasks ===
+      let graphContext = '';
+      const taskDesc = task.description.toLowerCase();
+      const connectionKeywords = ['connect', 'connects', 'connection', 'call', 'calls', 'calling', 'used', 'uses', 'using', 'import', 'imports', 'importing', 'depend', 'depends', 'depends on', 'reference', 'references', 'referencing', 'where is', 'where are', 'how does', 'what calls', 'what uses', 'path between', 'path from', 'path to'];
+      const isConnectionQuestion = connectionKeywords.some(kw => taskDesc.includes(kw));
+      const pathKeywords = ['path between', 'path from', 'path to', 'shortest path', 'how to get from', 'route from', 'route to', 'trace from', 'trace to'];
+      const isPathQuestion = pathKeywords.some(kw => taskDesc.includes(kw));
+      
+      if (isConnectionQuestion) {
+        // Use queryGraph to get relevant subgraph
+        const graphResult = queryGraph(task.description);
+        if (graphResult.nodes && graphResult.nodes.length > 0) {
+          graphContext = `\n\n--- CODE GRAPH CONTEXT (from queryGraph) ---\n${graphResult.summary}\n\nRelevant nodes:\n`;
+          for (const node of graphResult.nodes.slice(0, 10)) {
+            graphContext += `- ${node.name} (${node.type}, ${node.filePath})\n`;
+          }
+          if (graphResult.edges && graphResult.edges.length > 0) {
+            graphContext += `\nRelevant edges:\n`;
+            for (const edge of graphResult.edges.slice(0, 15)) {
+              const fromNode = graphResult.nodes.find(n => n.id === edge.from);
+              const toNode = graphResult.nodes.find(n => n.id === edge.to);
+              if (fromNode && toNode) {
+                graphContext += `- ${fromNode.name} --${edge.type} (${edge.confidence})--> ${toNode.name}\n`;
+              }
+            }
+          }
+          logActivity(`${agent.name}: Injected code graph context for task`, 'info');
+        }
+        
+        // Also try explainGraph for specific concept questions
+        const conceptMatch = task.description.match(/(?:what is|explain|describe|tell me about)\s+([a-zA-Z_$][\w$]*)/i);
+        if (conceptMatch) {
+          const conceptName = conceptMatch[1];
+          const explainResult = explainGraph(conceptName);
+          if (explainResult.node) {
+            graphContext += `\n--- CONCEPT EXPLANATION (from explainGraph) ---\n${explainResult.summary}\n`;
+            if (explainResult.byType) {
+              for (const [type, connections] of Object.entries(explainResult.byType)) {
+                graphContext += `\n${type}:\n`;
+                for (const conn of connections.slice(0, 5)) {
+                  graphContext += `- ${conn.node.name} (${conn.node.type}, ${conn.confidence}, ${conn.direction})\n`;
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // Also check for path queries
+      if (isPathQuestion) {
+        // Try to extract from and to from the task
+        const pathMatch = task.description.match(/(?:path|route|trace)\s+(?:between|from)\s+([a-zA-Z_$][\w$]*)\s+(?:and|to)\s+([a-zA-Z_$][\w$]*)/i);
+        if (pathMatch) {
+          const fromName = pathMatch[1];
+          const toName = pathMatch[2];
+          const pathResult = pathGraph(fromName, toName);
+          if (pathResult.path && pathResult.path.length > 0) {
+            graphContext += `\n\n--- PATH GRAPH (from pathGraph) ---\n${pathResult.summary}\n\nPath:\n`;
+            for (const node of pathResult.path) {
+              graphContext += `- ${node.name} (${node.type}, ${node.filePath})\n`;
+            }
+            logActivity(`${agent.name}: Injected path graph context for task`, 'info');
+          }
+        }
+      }
+
       context += `\n\nYOUR TASK: ${task.description}\n\nYou are ${agent.name} (${agent.emoji}). Complete this task and return the result. Use file: blocks for any file changes.`;
 
       const messages = [
-        { role: 'system', content: context },
+        { role: 'system', content: context + graphContext },
         { role: 'user', content: `Complete this task: ${task.description}` }
       ];
 
