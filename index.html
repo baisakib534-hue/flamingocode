@@ -2086,6 +2086,7 @@ project-root/
       if (!session || !session.files) return '';
       
       const brainFiles = [
+        { path: BRAIN_INDEX_PATH, priority: 0, maxTokens: 400 },  // v2: map note first
         { path: '.devforge/progress.md', priority: 1, maxTokens: 500 },
         { path: '.devforge/decisions.md', priority: 2, maxTokens: 400 },
         { path: '.devforge/overview.md', priority: 3, maxTokens: 300 },
@@ -2158,6 +2159,121 @@ project-root/
       digest += `\n---\n*Digest: ~${totalTokens} tokens (cap: ${MAX_TOKENS})*`;
       return digest;
     }
+
+    // ==================== BRAIN V2: LINKED ATOMIC NOTES ====================
+    // One small note per topic/decision under .devforge/notes/, linked with
+    // [[wikilinks]]. .devforge/index.md is the map note (name + summary +
+    // links). The digest carries the map, never full note contents; full
+    // content is fetched on demand by name via readBrainNote(name).
+
+    const BRAIN_NOTES_DIR = '.devforge/notes/';
+    const BRAIN_INDEX_PATH = '.devforge/index.md';
+
+    function isBrainNotePath(path) {
+      return typeof path === 'string' && path.startsWith(BRAIN_NOTES_DIR) && path.endsWith('.md') && path !== BRAIN_INDEX_PATH;
+    }
+
+    function brainNotePath(name) {
+      if (!name) return null;
+      let n = String(name).trim().replace(/\.md$/i, '');
+      if (n.startsWith(BRAIN_NOTES_DIR)) return BRAIN_NOTES_DIR + n.slice(BRAIN_NOTES_DIR.length);
+      if (n.startsWith('.devforge/notes/')) return n; // defensive, unreachable
+      if (n.startsWith('notes/')) return '.devforge/' + n;
+      return BRAIN_NOTES_DIR + n + '.md';
+    }
+
+    // Extract [[wikilink]]s from note content → array of note names
+    function parseBrainLinks(content) {
+      if (!content) return [];
+      const seen = new Set();
+      const links = [];
+      const re = /\[\[([^\[\]]+?)\]\]/g;
+      let m;
+      while ((m = re.exec(content)) !== null) {
+        const name = m[1].split('|')[0].trim().replace(/\.md$/i, '');
+        if (name && !seen.has(name.toLowerCase())) { seen.add(name.toLowerCase()); links.push(name); }
+      }
+      return links;
+    }
+
+    // One-line summary: 'Summary:' line if present, else first non-heading text line
+    function parseBrainSummary(content) {
+      if (!content) return '';
+      for (const line of content.split('\n')) {
+        const t = line.replace(/^[>\s*\-\|]+/, '').trim();
+        if (!t || t.startsWith('#')) continue;
+        if (/^summary:/i.test(t)) return t.slice(8).trim();
+        return t.slice(0, 120);
+      }
+      return '';
+    }
+
+    // List all atomic notes: {name, path, summary, links, chars}
+    function listBrainNotes(session) {
+      if (!session || !session.files) return [];
+      return Object.entries(session.files)
+        .filter(([path]) => isBrainNotePath(path))
+        .map(([path, content]) => {
+          const name = path.slice(BRAIN_NOTES_DIR.length).replace(/\.md$/i, '');
+          return { name, path, summary: parseBrainSummary(content), links: parseBrainLinks(content), chars: (content || '').length };
+        });
+    }
+
+    // Create/update one atomic note, then auto-update the index map
+    function writeBrainNote(session, name, content) {
+      if (!session || !name || typeof content !== 'string') return null;
+      const path = brainNotePath(name);
+      const isNew = !session.files[path];
+      session.files[path] = content;
+      rebuildBrainIndex(session);
+      const links = parseBrainLinks(content);
+      logActivity(`${isNew ? 'Created' : 'Updated'} brain note "${name}" (${content.length} chars${links.length ? ", links: " + links.map(l => '[[' + l + ']]').join(', ') : ''})`, 'success');
+      return path;
+    }
+
+    // Map note: every note by name + one-line summary + its [[links]]
+    function buildBrainIndexContent(session) {
+      const notes = listBrainNotes(session);
+      let md = '# Brain Index — Note Map\n\n';
+      md += `*One line per atomic note under ${BRAIN_NOTES_DIR}*. Read the map first, then fetch a note by name with a \`\`\`brain-read:note-name block. Digest carries this map, never full note contents.\n\n`;
+      if (notes.length === 0) {
+        md += '_No atomic notes yet. Create the first under .devforge/notes/ — one topic/decision per small file, linked with [[wikilinks]]._\n\n';
+      } else {
+        for (const n of notes) {
+          const links = n.links.length ? ' → ' + n.links.map(l => '[[' + l + ']]').join(', ') : '';
+          md += `- **[[${n.name}]]**: ${n.summary || '(no summary)'}${links}\n`;
+        }
+        md += '\n### Backlinks\n\n';
+        for (const n of notes) {
+          const back = notes.filter(o => o.name !== n.name && o.links.some(l => l.toLowerCase() === n.name.toLowerCase()));
+          if (back.length) md += `- [[${n.name}]] ← ${back.map(o => '[[' + o.name + ']]').join(', ')}\n`;
+        }
+      }
+      md += '---\n\n*[Auto-updated whenever a note is created or updated. Keep notes short: one topic each.]*\n';
+      return md;
+    }
+
+    function rebuildBrainIndex(session) {
+      if (!session) return;
+      session.files[BRAIN_INDEX_PATH] = buildBrainIndexContent(session);
+      logActivity('Brain index map updated: ' + listBrainNotes(session).length + ' note(s) listed', 'success');
+    }
+
+    // Retrieval by name, on demand: fetches ONLY the named note's full content
+    function readBrainNote(name) {
+      const session = getCurrentSession();
+      if (!session) return null;
+      const path = brainNotePath(name);
+      const content = session.files[path];
+      if (content === undefined) {
+        const names = listBrainNotes(session).map(n => n.name);
+        logActivity(`readBrainNote("${name}"): not found. Available notes: ${names.join(', ') || 'none'}`, 'warning');
+        return null;
+      }
+      logActivity(`readBrainNote("${name}"): fetched ${estimateTokens(content)} tokens from ${path}`, 'success');
+      return content;
+    }
+
 // ==================== PLAN + BUILD MODE ====================
 
 // Save current plan to .devforge/current-plan.md
@@ -2964,9 +3080,11 @@ function addPlanStep(text, index = -1) {
       const activeFile = session.activeFile;
       
       // Separate brain files from project files
-      const brainFilePaths = ['.devforge/overview.md', '.devforge/architecture.md', '.devforge/decisions.md', '.devforge/progress.md', '.devforge/notes.md'];
-      const projectFiles = fileEntries.filter(([path]) => !brainFilePaths.includes(path));
-      const brainFiles = fileEntries.filter(([path]) => brainFilePaths.includes(path));
+      // v2: notes/*, index.md and map also belong to the Brain, not project files
+      const isBrainFile = path => isBrainNotePath(path) || path === BRAIN_INDEX_PATH ||
+        ['.devforge/overview.md', '.devforge/architecture.md', '.devforge/decisions.md', '.devforge/progress.md', '.devforge/notes.md'].includes(path);
+      const projectFiles = fileEntries.filter(([path]) => !isBrainFile(path));
+      const brainFiles = fileEntries.filter(([path]) => isBrainFile(path));
       
       // For project files: send outlines for unchanged, full for active
       const recentProjectFiles = projectFiles.slice(-3);
