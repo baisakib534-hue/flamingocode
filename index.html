@@ -1770,6 +1770,83 @@ WORK STYLE:
       log.scrollTop = log.scrollHeight;
     }
 
+    // ==================== STAGE 4: SKILL / PLUGIN / MCP RENDERING ====================
+
+    // Render built-in skill packs in settings
+    function renderBuiltinSkillPacks() {
+      const container = document.getElementById('builtinSkillPackList');
+      if (!container) return;
+      container.innerHTML = '';
+
+      Object.entries(BUILTIN_SKILL_PACKS).forEach(([key, pack]) => {
+        const item = document.createElement('div');
+        item.style.cssText = 'display:flex; align-items:center; justify-content:space-between; padding:8px 10px; background:var(--bg-surface); border:1px solid var(--border-color); border-radius:5px;';
+        item.innerHTML = `
+          <div style="flex:1; min-width:0;">
+            <div style="font-weight:600; font-size:12px; color:var(--accent-blue);">${escapeHtml(pack.name)}</div>
+            <div style="font-size:10px; color:var(--text-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(pack.instructions.slice(0, 80))}...</div>
+          </div>
+          <span style="font-size:9px; padding:2px 6px; background:var(--success); color:var(--bg-dark); border-radius:3px;">BUILT-IN</span>
+        `;
+        container.appendChild(item);
+      });
+    }
+
+    // Render built-in plugin packs in settings
+    function renderBuiltinPluginPacks() {
+      const container = document.getElementById('builtinPluginPackList');
+      if (!container) return;
+      container.innerHTML = '';
+
+      Object.entries(BUILTIN_PLUGIN_PACKS).forEach(([key, pack]) => {
+        const item = document.createElement('div');
+        item.style.cssText = 'display:flex; align-items:center; justify-content:space-between; padding:8px 10px; background:var(--bg-surface); border:1px solid var(--border-color); border-radius:5px;';
+        item.innerHTML = `
+          <div style="flex:1; min-width:0;">
+            <div style="font-weight:600; font-size:12px; color:var(--accent-blue);">${escapeHtml(pack.name)}</div>
+            <div style="font-size:10px; color:var(--text-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(pack.description.slice(0, 80))}...</div>
+            <div style="font-size:10px; color:var(--text-dim); margin-top:2px;">Trigger: ${escapeHtml(pack.trigger)} | Steps: ${escapeHtml(pack.steps.join(', '))}</div>
+          </div>
+          <span style="font-size:9px; padding:2px 6px; background:var(--success); color:var(--bg-dark); border-radius:3px;">BUILT-IN</span>
+        `;
+        container.appendChild(item);
+      });
+    }
+
+    // Render MCP server summary in settings
+    function renderMcpServerSummary() {
+      const container = document.getElementById('mcpServerSummaryList');
+      const empty = document.getElementById('mcpServerEmpty');
+      if (!container) return;
+      container.innerHTML = '';
+
+      const servers = Object.values(appState.mcpServers || {});
+      if (servers.length === 0) {
+        if (empty) empty.style.display = 'block';
+        return;
+      }
+      if (empty) empty.style.display = 'none';
+
+      servers.forEach(server => {
+        const item = document.createElement('div');
+        item.style.cssText = 'display:flex; align-items:center; justify-content:space-between; padding:8px 10px; background:var(--bg-surface); border:1px solid var(--border-color); border-radius:5px;';
+        const statusBadge = server.enabled 
+          ? '<span style="font-size:9px; padding:2px 6px; background:var(--success); color:var(--bg-dark); border-radius:3px;">ENABLED</span>'
+          : '<span style="font-size:9px; padding:2px 6px; background:var(--bg-hover); color:var(--text-dim); border-radius:3px;">DISABLED</span>';
+        item.innerHTML = `
+          <div style="flex:1; min-width:0;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <div style="font-weight:600; font-size:12px;">${escapeHtml(server.name)}</div>
+              ${statusBadge}
+            </div>
+            <div style="font-size:10px; color:var(--text-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(server.description || 'No description')}</div>
+            <div style="font-size:10px; color:var(--text-dim); margin-top:2px;">Transport: ${escapeHtml(server.transport)} | ${server.transport === 'stdio' ? 'Command: ' + escapeHtml(server.command || '') : 'URL: ' + escapeHtml(server.url || '')}</div>
+          </div>
+        `;
+        container.appendChild(item);
+      });
+    }
+
     // --- Stage 2: Anti-Stuck Compatibility Layer ---
 
     // 1. Base-URL Normalizer: trim trailing slash, strip /chat/completions, collapse double /v1/v1
@@ -3276,12 +3353,55 @@ CURRENT VIRTUAL FILES:
       document.getElementById('btnCloseTestModal').onclick = () => testModal.classList.remove('active');
       document.getElementById('btnCancelTest').onclick = () => testModal.classList.remove('active');
 
+      // Settings tab switching
+      modal.querySelectorAll('.settings-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+          modal.querySelectorAll('.settings-tab').forEach(t => {
+            t.classList.remove('active');
+            t.style.background = 'var(--bg-surface)';
+            t.style.color = 'var(--text-muted)';
+            t.style.border = '1px solid var(--border-color)';
+          });
+          tab.classList.add('active');
+          tab.style.background = 'var(--accent-blue)';
+          tab.style.color = 'white';
+          tab.style.border = 'none';
+
+          const tabName = tab.getAttribute('data-settings-tab');
+          modal.querySelectorAll('.settings-pane').forEach(p => p.classList.remove('active'));
+          document.getElementById('settingsPane' + tabName.charAt(0).toUpperCase() + tabName.slice(1)).classList.add('active');
+
+          // Render content when tab is opened
+          if (tabName === 'skills') renderBuiltinSkillPacks();
+          if (tabName === 'plugins') renderBuiltinPluginPacks();
+          if (tabName === 'mcp') renderMcpServerSummary();
+        });
+      });
+
       // Close modals on overlay click
       [modal, providerModal, testModal].forEach(m => {
         m.addEventListener('click', (e) => {
           if (e.target === m) m.classList.remove('active');
         });
       });
+
+      // Library modal open buttons
+      document.getElementById('btnOpenSkillPackLibrary').onclick = () => {
+        renderSkillPackList();
+        document.getElementById('skillPackForm').style.display = 'none';
+        document.getElementById('skillPackEmptyState').style.display = 'block';
+        document.getElementById('skillPackLibraryModal').classList.add('active');
+      };
+      document.getElementById('btnOpenPluginPackLibrary').onclick = () => {
+        renderPluginPackList();
+        document.getElementById('pluginPackForm').style.display = 'none';
+        document.getElementById('pluginPackEmptyState').style.display = 'block';
+        document.getElementById('pluginPackLibraryModal').classList.add('active');
+      };
+      document.getElementById('btnOpenMcpRegistry').onclick = () => {
+        renderMcpServerList();
+        document.getElementById('mcpRegistryModal').classList.add('active');
+      };
     }
 
     function setupPaneTabs() {
@@ -3785,6 +3905,459 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
       });
     }
 
+    // ==================== STAGE 4: SKILL / PLUGIN / MCP LIBRARY HANDLERS ====================
+
+    // --- Skill Pack Library ---
+    function renderSkillPackList() {
+      const container = document.getElementById('skillPackList');
+      if (!container) return;
+      container.innerHTML = '';
+
+      // Built-in packs (read-only)
+      Object.entries(BUILTIN_SKILL_PACKS).forEach(([key, pack]) => {
+        const item = document.createElement('div');
+        item.style.cssText = 'display:flex; align-items:center; justify-content:space-between; padding:8px 10px; background:var(--bg-surface); border:1px solid var(--border-color); border-radius:5px; cursor:pointer;';
+        item.onclick = () => selectSkillPackForEdit(key);
+        item.innerHTML = `
+          <div style="flex:1; min-width:0;">
+            <div style="font-weight:600; font-size:12px; color:var(--accent-blue);">${escapeHtml(pack.name)}</div>
+            <div style="font-size:10px; color:var(--text-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(pack.instructions.slice(0, 60))}...</div>
+          </div>
+          <span style="font-size:9px; padding:2px 6px; background:var(--success); color:var(--bg-dark); border-radius:3px;">BUILT-IN</span>
+        `;
+        container.appendChild(item);
+      });
+
+      // Custom packs
+      Object.entries(appState.customSkillPacks || {}).forEach(([key, pack]) => {
+        const item = document.createElement('div');
+        item.style.cssText = 'display:flex; align-items:center; justify-content:space-between; padding:8px 10px; background:var(--bg-surface); border:1px solid var(--border-color); border-radius:5px; cursor:pointer;';
+        item.onclick = () => selectSkillPackForEdit(key);
+        item.innerHTML = `
+          <div style="flex:1; min-width:0;">
+            <div style="font-weight:600; font-size:12px;">${escapeHtml(pack.name)}</div>
+            <div style="font-size:10px; color:var(--text-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(pack.instructions.slice(0, 60))}...</div>
+          </div>
+          <span style="font-size:9px; padding:2px 6px; background:var(--warning); color:var(--bg-dark); border-radius:3px;">CUSTOM</span>
+        `;
+        container.appendChild(item);
+      });
+    }
+
+    function selectSkillPackForEdit(packId) {
+      const isBuiltin = BUILTIN_SKILL_PACKS[packId];
+      const pack = isBuiltin ? BUILTIN_SKILL_PACKS[packId] : appState.customSkillPacks[packId];
+      if (!pack) return;
+
+      const form = document.getElementById('skillPackForm');
+      const emptyState = document.getElementById('skillPackEmptyState');
+
+      emptyState.style.display = 'none';
+      form.style.display = 'flex';
+      form.dataset.packId = packId;
+      form.dataset.isBuiltin = isBuiltin ? 'true' : 'false';
+
+      document.getElementById('skillPackName').value = pack.name;
+      document.getElementById('skillPackInstructions').value = pack.instructions;
+      document.getElementById('skillPackCategory').value = pack.category || 'general';
+
+      document.querySelectorAll('#skillPackList > div').forEach(el => el.style.borderColor = 'var(--border-color)');
+      event.currentTarget.style.borderColor = 'var(--accent-blue)';
+    }
+
+    function saveSkillPack() {
+      const form = document.getElementById('skillPackForm');
+      const packId = form.dataset.packId;
+      const isBuiltin = form.dataset.isBuiltin === 'true';
+
+      const name = document.getElementById('skillPackName').value.trim();
+      const instructions = document.getElementById('skillPackInstructions').value.trim();
+      const category = document.getElementById('skillPackCategory').value;
+
+      if (!name || !instructions) {
+        alert('Name and instructions are required');
+        return;
+      }
+
+      const pack = { id: packId, name, instructions, category, isBuiltin: false };
+
+      if (isBuiltin) {
+        // Can't edit built-in, create as custom with new ID
+        pack.id = 'skill_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+      }
+
+      appState.customSkillPacks = appState.customSkillPacks || {};
+      appState.customSkillPacks[pack.id] = pack;
+      saveAppState();
+
+      renderSkillPackList();
+      document.getElementById('skillPackForm').style.display = 'none';
+      document.getElementById('skillPackEmptyState').style.display = 'block';
+      logActivity(`Skill pack "${pack.name}" saved`, 'success');
+    }
+
+    function deleteSkillPack() {
+      const form = document.getElementById('skillPackForm');
+      const packId = form.dataset.packId;
+      const isBuiltin = form.dataset.isBuiltin === 'true';
+
+      if (isBuiltin) {
+        alert('Cannot delete built-in skill packs');
+        return;
+      }
+
+      if (!confirm('Delete this skill pack?')) return;
+
+      delete appState.customSkillPacks[packId];
+      saveAppState();
+      renderSkillPackList();
+      document.getElementById('skillPackForm').style.display = 'none';
+      document.getElementById('skillPackEmptyState').style.display = 'block';
+      logActivity('Skill pack deleted', 'warning');
+    }
+
+    function setupSkillPackLibraryHandlers() {
+      document.getElementById('btnCloseSkillPackLibrary').onclick = () => document.getElementById('skillPackLibraryModal').classList.remove('active');
+      document.getElementById('btnAddSkillPack').onclick = () => {
+        document.getElementById('skillPackForm').reset();
+        document.getElementById('skillPackForm').dataset.packId = 'skill_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+        document.getElementById('skillPackForm').dataset.isBuiltin = 'false';
+        document.getElementById('skillPackEmptyState').style.display = 'none';
+        document.getElementById('skillPackForm').style.display = 'flex';
+        document.getElementById('skillPackCategory').value = 'general';
+        document.querySelectorAll('#skillPackList > div').forEach(el => el.style.borderColor = 'var(--border-color)');
+      };
+      document.getElementById('btnCancelSkillPack').onclick = () => {
+        document.getElementById('skillPackForm').style.display = 'none';
+        document.getElementById('skillPackEmptyState').style.display = 'block';
+        document.querySelectorAll('#skillPackList > div').forEach(el => el.style.borderColor = 'var(--border-color)');
+      };
+      document.getElementById('skillPackForm').onsubmit = (e) => {
+        e.preventDefault();
+        saveSkillPack();
+      };
+      document.getElementById('skillPackLibraryModal').addEventListener('click', (e) => {
+        if (e.target === e.currentTarget) e.currentTarget.classList.remove('active');
+      });
+    }
+
+    // --- Plugin Pack Library ---
+    function renderPluginPackList() {
+      const container = document.getElementById('pluginPackList');
+      if (!container) return;
+      container.innerHTML = '';
+
+      // Built-in packs (read-only)
+      Object.entries(BUILTIN_PLUGIN_PACKS).forEach(([key, pack]) => {
+        const item = document.createElement('div');
+        item.style.cssText = 'display:flex; align-items:center; justify-content:space-between; padding:8px 10px; background:var(--bg-surface); border:1px solid var(--border-color); border-radius:5px; cursor:pointer;';
+        item.onclick = () => selectPluginPackForEdit(key);
+        item.innerHTML = `
+          <div style="flex:1; min-width:0;">
+            <div style="font-weight:600; font-size:12px; color:var(--accent-blue);">${escapeHtml(pack.name)}</div>
+            <div style="font-size:10px; color:var(--text-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(pack.description.slice(0, 60))}...</div>
+            <div style="font-size:10px; color:var(--text-dim); margin-top:2px;">Trigger: ${escapeHtml(pack.trigger)} | Steps: ${escapeHtml(pack.steps.join(', '))}</div>
+          </div>
+          <span style="font-size:9px; padding:2px 6px; background:var(--success); color:var(--bg-dark); border-radius:3px;">BUILT-IN</span>
+        `;
+        container.appendChild(item);
+      });
+
+      // Custom packs
+      Object.entries(appState.customPluginPacks || {}).forEach(([key, pack]) => {
+        const item = document.createElement('div');
+        item.style.cssText = 'display:flex; align-items:center; justify-content:space-between; padding:8px 10px; background:var(--bg-surface); border:1px solid var(--border-color); border-radius:5px; cursor:pointer;';
+        item.onclick = () => selectPluginPackForEdit(key);
+        item.innerHTML = `
+          <div style="flex:1; min-width:0;">
+            <div style="font-weight:600; font-size:12px;">${escapeHtml(pack.name)}</div>
+            <div style="font-size:10px; color:var(--text-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(pack.description.slice(0, 60))}...</div>
+            <div style="font-size:10px; color:var(--text-dim); margin-top:2px;">Trigger: ${escapeHtml(pack.trigger)} | Steps: ${escapeHtml(pack.steps.join(', '))}</div>
+          </div>
+          <span style="font-size:9px; padding:2px 6px; background:var(--warning); color:var(--bg-dark); border-radius:3px;">CUSTOM</span>
+        `;
+        container.appendChild(item);
+      });
+    }
+
+    function selectPluginPackForEdit(packId) {
+      const isBuiltin = BUILTIN_PLUGIN_PACKS[packId];
+      const pack = isBuiltin ? BUILTIN_PLUGIN_PACKS[packId] : appState.customPluginPacks[packId];
+      if (!pack) return;
+
+      const form = document.getElementById('pluginPackForm');
+      const emptyState = document.getElementById('pluginPackEmptyState');
+
+      emptyState.style.display = 'none';
+      form.style.display = 'flex';
+      form.dataset.packId = packId;
+      form.dataset.isBuiltin = isBuiltin ? 'true' : 'false';
+
+      document.getElementById('pluginPackName').value = pack.name;
+      document.getElementById('pluginPackDescription').value = pack.description;
+      document.getElementById('pluginPackSteps').value = JSON.stringify(pack.steps, null, 2);
+      document.getElementById('pluginPackTrigger').value = pack.trigger;
+
+      document.querySelectorAll('#pluginPackList > div').forEach(el => el.style.borderColor = 'var(--border-color)');
+      event.currentTarget.style.borderColor = 'var(--accent-blue)';
+    }
+
+    function savePluginPack() {
+      const form = document.getElementById('pluginPackForm');
+      const packId = form.dataset.packId;
+      const isBuiltin = form.dataset.isBuiltin === 'true';
+
+      const name = document.getElementById('pluginPackName').value.trim();
+      const description = document.getElementById('pluginPackDescription').value.trim();
+      const stepsText = document.getElementById('pluginPackSteps').value.trim();
+      const trigger = document.getElementById('pluginPackTrigger').value;
+
+      if (!name || !stepsText) {
+        alert('Name and steps are required');
+        return;
+      }
+
+      let steps;
+      try {
+        steps = JSON.parse(stepsText);
+        if (!Array.isArray(steps)) throw new Error();
+      } catch (e) {
+        alert('Steps must be a valid JSON array');
+        return;
+      }
+
+      const pack = { id: packId, name, description, steps, trigger, isBuiltin: false };
+
+      if (isBuiltin) {
+        pack.id = 'plugin_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+      }
+
+      appState.customPluginPacks = appState.customPluginPacks || {};
+      appState.customPluginPacks[pack.id] = pack;
+      saveAppState();
+
+      renderPluginPackList();
+      document.getElementById('pluginPackForm').style.display = 'none';
+      document.getElementById('pluginPackEmptyState').style.display = 'block';
+      logActivity(`Plugin pack "${pack.name}" saved`, 'success');
+    }
+
+    function deletePluginPack() {
+      const form = document.getElementById('pluginPackForm');
+      const packId = form.dataset.packId;
+      const isBuiltin = form.dataset.isBuiltin === 'true';
+
+      if (isBuiltin) {
+        alert('Cannot delete built-in plugin packs');
+        return;
+      }
+
+      if (!confirm('Delete this plugin pack?')) return;
+
+      delete appState.customPluginPacks[packId];
+      saveAppState();
+      renderPluginPackList();
+      document.getElementById('pluginPackForm').style.display = 'none';
+      document.getElementById('pluginPackEmptyState').style.display = 'block';
+      logActivity('Plugin pack deleted', 'warning');
+    }
+
+    function setupPluginPackLibraryHandlers() {
+      document.getElementById('btnClosePluginPackLibrary').onclick = () => document.getElementById('pluginPackLibraryModal').classList.remove('active');
+      document.getElementById('btnAddPluginPack').onclick = () => {
+        document.getElementById('pluginPackForm').reset();
+        document.getElementById('pluginPackForm').dataset.packId = 'plugin_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+        document.getElementById('pluginPackForm').dataset.isBuiltin = 'false';
+        document.getElementById('pluginPackEmptyState').style.display = 'none';
+        document.getElementById('pluginPackForm').style.display = 'flex';
+        document.getElementById('pluginPackTrigger').value = 'post-task';
+        document.querySelectorAll('#pluginPackList > div').forEach(el => el.style.borderColor = 'var(--border-color)');
+      };
+      document.getElementById('btnCancelPluginPack').onclick = () => {
+        document.getElementById('pluginPackForm').style.display = 'none';
+        document.getElementById('pluginPackEmptyState').style.display = 'block';
+        document.querySelectorAll('#pluginPackList > div').forEach(el => el.style.borderColor = 'var(--border-color)');
+      };
+      document.getElementById('pluginPackForm').onsubmit = (e) => {
+        e.preventDefault();
+        savePluginPack();
+      };
+      document.getElementById('pluginPackLibraryModal').addEventListener('click', (e) => {
+        if (e.target === e.currentTarget) e.currentTarget.classList.remove('active');
+      });
+    }
+
+    // --- MCP Registry ---
+    function renderMcpServerList() {
+      const container = document.getElementById('mcpServerList');
+      const empty = document.getElementById('mcpServerEmpty');
+      if (!container) return;
+      container.innerHTML = '';
+
+      const servers = Object.values(appState.mcpServers || {});
+      if (servers.length === 0) {
+        if (empty) empty.style.display = 'block';
+        return;
+      }
+      if (empty) empty.style.display = 'none';
+
+      servers.forEach(server => {
+        const item = document.createElement('div');
+        item.style.cssText = 'display:flex; align-items:center; justify-content:space-between; padding:8px 10px; background:var(--bg-surface); border:1px solid var(--border-color); border-radius:5px; cursor:pointer;';
+        item.onclick = () => selectMcpServerForEdit(server.id);
+        const statusBadge = server.enabled 
+          ? '<span style="font-size:9px; padding:2px 6px; background:var(--success); color:var(--bg-dark); border-radius:3px;">ENABLED</span>'
+          : '<span style="font-size:9px; padding:2px 6px; background:var(--bg-hover); color:var(--text-dim); border-radius:3px;">DISABLED</span>';
+        item.innerHTML = `
+          <div style="flex:1; min-width:0;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <div style="font-weight:600; font-size:12px;">${escapeHtml(server.name)}</div>
+              ${statusBadge}
+            </div>
+            <div style="font-size:10px; color:var(--text-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(server.description || 'No description')}</div>
+            <div style="font-size:10px; color:var(--text-dim); margin-top:2px;">Transport: ${escapeHtml(server.transport)} | ${server.transport === 'stdio' ? 'Command: ' + escapeHtml(server.command || '') : 'URL: ' + escapeHtml(server.url || '')}</div>
+          </div>
+        `;
+        container.appendChild(item);
+      });
+    }
+
+    function selectMcpServerForEdit(serverId) {
+      const server = appState.mcpServers[serverId];
+      if (!server) return;
+
+      document.getElementById('mcpServerModalTitle').textContent = 'Edit MCP Server';
+      document.getElementById('mcpServerModal').dataset.serverId = serverId;
+
+      document.getElementById('mcpServerName').value = server.name;
+      document.getElementById('mcpServerTransport').value = server.transport;
+      document.getElementById('mcpServerCommand').value = server.command || '';
+      document.getElementById('mcpServerUrl').value = server.url || '';
+      document.getElementById('mcpServerEnv').value = server.env ? JSON.stringify(server.env, null, 2) : '';
+      document.getElementById('mcpServerDescription').value = server.description || '';
+      document.getElementById('mcpServerEnabled').checked = server.enabled !== false;
+
+      // Show/hide command vs URL fields
+      updateMcpTransportFields(server.transport);
+
+      document.getElementById('mcpRegistryModal').classList.remove('active');
+      document.getElementById('mcpServerModal').classList.add('active');
+    }
+
+    function updateMcpTransportFields(transport) {
+      const cmdGroup = document.getElementById('groupMcpCommand');
+      const urlGroup = document.getElementById('groupMcpUrl');
+      if (transport === 'stdio') {
+        cmdGroup.style.display = 'block';
+        urlGroup.style.display = 'none';
+      } else {
+        cmdGroup.style.display = 'none';
+        urlGroup.style.display = 'block';
+      }
+    }
+
+    function saveMcpServer() {
+      const modal = document.getElementById('mcpServerModal');
+      const serverId = modal.dataset.serverId || 'mcp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+
+      const name = document.getElementById('mcpServerName').value.trim();
+      const transport = document.getElementById('mcpServerTransport').value;
+      const command = document.getElementById('mcpServerCommand').value.trim();
+      const url = document.getElementById('mcpServerUrl').value.trim();
+      const envText = document.getElementById('mcpServerEnv').value.trim();
+      const description = document.getElementById('mcpServerDescription').value.trim();
+      const enabled = document.getElementById('mcpServerEnabled').checked;
+
+      if (!name) {
+        alert('Server name is required');
+        return;
+      }
+
+      let env = {};
+      if (envText) {
+        try {
+          env = JSON.parse(envText);
+        } catch (e) {
+          alert('Invalid JSON in Environment Variables: ' + e.message);
+          return;
+        }
+      }
+
+      const server = {
+        id: serverId,
+        name,
+        transport,
+        command: transport === 'stdio' ? command : undefined,
+        url: transport !== 'stdio' ? url : undefined,
+        env,
+        description,
+        enabled
+      };
+
+      appState.mcpServers = appState.mcpServers || {};
+      appState.mcpServers[serverId] = server;
+      saveAppState();
+
+      renderMcpServerList();
+      renderMcpServerSummary();
+      modal.classList.remove('active');
+      document.getElementById('mcpRegistryModal').classList.add('active');
+      logActivity(`MCP server "${name}" saved`, 'success');
+    }
+
+    function deleteMcpServer() {
+      const modal = document.getElementById('mcpServerModal');
+      const serverId = modal.dataset.serverId;
+      if (!serverId) return;
+
+      if (!confirm('Delete this MCP server?')) return;
+
+      delete appState.mcpServers[serverId];
+      saveAppState();
+      renderMcpServerList();
+      renderMcpServerSummary();
+      modal.classList.remove('active');
+      document.getElementById('mcpRegistryModal').classList.add('active');
+      logActivity('MCP server deleted', 'warning');
+    }
+
+    function setupMcpRegistryHandlers() {
+      document.getElementById('btnCloseMcpRegistry').onclick = () => document.getElementById('mcpRegistryModal').classList.remove('active');
+      document.getElementById('btnAddMcpServer').onclick = () => {
+        document.getElementById('mcpServerModalTitle').textContent = 'Add MCP Server';
+        document.getElementById('mcpServerModal').dataset.serverId = '';
+        document.getElementById('mcpServerName').value = '';
+        document.getElementById('mcpServerTransport').value = 'stdio';
+        document.getElementById('mcpServerCommand').value = '';
+        document.getElementById('mcpServerUrl').value = '';
+        document.getElementById('mcpServerEnv').value = '';
+        document.getElementById('mcpServerDescription').value = '';
+        document.getElementById('mcpServerEnabled').checked = true;
+        updateMcpTransportFields('stdio');
+        document.getElementById('mcpRegistryModal').classList.remove('active');
+        document.getElementById('mcpServerModal').classList.add('active');
+      };
+      document.getElementById('mcpServerTransport').onchange = (e) => updateMcpTransportFields(e.target.value);
+      document.getElementById('btnCloseMcpServerModal').onclick = () => {
+        document.getElementById('mcpServerModal').classList.remove('active');
+        document.getElementById('mcpRegistryModal').classList.add('active');
+      };
+      document.getElementById('btnCancelMcpServer').onclick = () => {
+        document.getElementById('mcpServerModal').classList.remove('active');
+        document.getElementById('mcpRegistryModal').classList.add('active');
+      };
+      document.getElementById('btnSaveMcpServer').onclick = saveMcpServer;
+      document.getElementById('mcpRegistryModal').addEventListener('click', (e) => {
+        if (e.target === e.currentTarget) e.currentTarget.classList.remove('active');
+      });
+      document.getElementById('mcpServerModal').addEventListener('click', (e) => {
+        if (e.target === e.currentTarget) {
+          e.currentTarget.classList.remove('active');
+          document.getElementById('mcpRegistryModal').classList.add('active');
+        }
+      });
+    }
+
     // ==================== TEAM MODE CORE ====================
 
     // Task status: 'pending' | 'working' | 'idle-done' | 'in-review' | 'rework' | 'approved'
@@ -4122,7 +4695,14 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
         'performance': 'Minimize bundle, lazy load, efficient algorithms, cache strategically.'
       };
 
-      return skillPacks.map(p => packDefs[p]).filter(Boolean).join('\n\n');
+      // Also include custom skill packs
+      const customPacks = appState.customSkillPacks || {};
+
+      return skillPacks.map(p => {
+        if (packDefs[p]) return packDefs[p];
+        if (customPacks[p]) return customPacks[p].instructions;
+        return null;
+      }).filter(Boolean).join('\n\n');
     }
 
     // Execution phase - run tasks in order (respecting dependencies)
