@@ -4113,6 +4113,193 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
       saveAppState();
     }
 
+    // ==================== SUB-AGENT SPAWN SUPPORT ====================
+
+    // Parse spawn: blocks from agent responses
+    function parseSpawnBlocks(responseText) {
+      const spawnRegex = /```spawn:([^\n]+)\n([\s\S]*?)```/g;
+      const matches = [];
+      let match;
+      while ((match = spawnRegex.exec(responseText)) !== null) {
+        const agentName = match[1].trim();
+        const task = match[2].trim();
+        matches.push({ agentName, task });
+      }
+      return matches;
+    }
+
+    // Execute sub-agent
+    async function executeSubAgent(parentAgent, agentName, task) {
+      // Find agent by name in library
+      const subAgent = Object.values(appState.agents).find(a =>
+        a.name.toLowerCase() === agentName.toLowerCase()
+      );
+
+      if (!subAgent) {
+        logActivity(`Sub-agent not found: ${agentName}`, 'warning');
+        return `Sub-agent "${agentName}" not found in library`;
+      }
+
+      logActivity(`${parentAgent.name} spawned sub-agent: ${subAgent.name} (${subAgent.emoji})`, 'info');
+
+      // Build context for sub-agent
+      let context = buildSystemContextWithGuard();
+      const skillInstructions = getSkillPackInstructions(subAgent.skillPacks);
+      if (skillInstructions) context += '\n\n' + skillInstructions;
+
+      context += `\n\nYOUR SUB-TASK: ${task}\n\nYou are ${subAgent.name} (${subAgent.emoji}), spawned by ${parentAgent.name}. Complete this sub-task and return the result. Use file: blocks for any file changes.`;
+
+      const messages = [
+        { role: 'system', content: context },
+        { role: 'user', content: `Complete this sub-task: ${task}` }
+      ];
+
+      const oldProviderId = appState.activeProviderId;
+      const oldAgentId = appState.activeAgentId;
+      appState.activeProviderId = subAgent.providerId;
+      if (subAgent.model) appState.providers[subAgent.providerId].model = subAgent.model;
+
+      try {
+        const response = await callLLM(messages);
+        const { chips, fileModified } = parseAndApplyBlocks(response);
+        const summary = response.replace(/```(file|delete|browse|spawn):[\s\S]*?```/g, '').trim();
+        return summary || 'Sub-task completed (see file changes)';
+      } catch (err) {
+        logActivity(`Sub-agent ${subAgent.name} error: ${err.message}`, 'error');
+        return `Sub-agent error: ${err.message}`;
+      } finally {
+        appState.activeProviderId = oldProviderId;
+        appState.activeAgentId = oldAgentId;
+      }
+    }
+
+    // ==================== TEAM MODE UI HANDLERS ====================
+
+    function setupTeamModeHandlers() {
+      // Tab switching for team pane
+      const teamTab = document.querySelector('.right-tab[data-pane="team"]');
+      if (teamTab) {
+        teamTab.addEventListener('click', () => {
+          document.querySelectorAll('.right-tab').forEach(t => t.classList.remove('active'));
+          teamTab.classList.add('active');
+          document.querySelectorAll('.pane-view').forEach(p => p.classList.remove('active'));
+          document.getElementById('paneTeam').classList.add('active');
+          renderTeamRoster();
+          renderTaskBoard();
+          updateAgentStatusChips();
+        });
+      }
+
+      // Start team button
+      document.getElementById('btnStartTeam').onclick = () => {
+        const prompt = prompt('Enter the task for the team:');
+        if (prompt) runTeamMode(prompt);
+      };
+
+      // Stop team button
+      document.getElementById('btnStopTeam').onclick = stopTeamMode;
+
+      // Make roster items clickable to add to team (from agent library)
+      // This is handled by the agent library - when in team mode, clicking an agent adds them
+    }
+
+    // Enhanced agent library for team mode - add to team
+    function selectAgentForTeam(agentId) {
+      if (appState.teamMode) {
+        alert('Cannot modify team while running');
+        return;
+      }
+      addToTeam(agentId);
+      logActivity(`Added ${appState.agents[agentId]?.name} to team`, 'success');
+    }
+
+    // Set senior developer
+    function setSeniorDeveloper(agentId) {
+      if (appState.teamMode) {
+        alert('Cannot change lead while team is running');
+        return;
+      }
+      if (!appState.teamRoster.includes(agentId)) {
+        alert('Agent must be in team first');
+        return;
+      }
+      appState.teamSeniorId = agentId;
+      renderTeamRoster();
+      updateAgentStatusChips();
+      logActivity(`Set ${appState.agents[agentId]?.name} as Senior Developer`, 'success');
+      saveAppState();
+    }
+
+    // Initialize team mode UI
+    function initTeamModeUI() {
+      renderTeamRoster();
+      renderTaskBoard();
+      updateAgentStatusChips();
+      setTeamPhase('idle');
+    }
+
+    // ==================== AGENTDEF BLOCK PARSING ====================
+
+    // Parse agentdef: blocks for agent-proposed agents
+    function parseAgentDefBlocks(responseText) {
+      const agentDefRegex = /```agentdef:([^\n]+)\n([\s\S]*?)```/g;
+      const matches = [];
+      let match;
+      while ((match = agentDefRegex.exec(responseText)) !== null) {
+        const name = match[1].trim();
+        const jsonStr = match[2].trim();
+        matches.push({ name, jsonStr });
+      }
+      return matches;
+    }
+
+    // Show agent definition approval dialog
+    function showAgentDefApproval(agentDefData) {
+      const modal = document.createElement('div');
+      modal.className = 'modal-overlay';
+      modal.style.zIndex = '1000';
+      modal.innerHTML = `
+        <div class="modal-box" style="width: 600px; max-width: 95vw;">
+          <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-color); padding-bottom:8px;">
+            <h3 style="font-size: 14px; font-weight: 700;">🤖 Agent Proposed: ${escapeHtml(agentDefData.name)}</h3>
+            <button class="section-btn" onclick="this.closest('.modal-overlay').remove()">✕</button>
+          </div>
+          <div style="padding: 12px; max-height: 60vh; overflow-y: auto;">
+            <div style="background:var(--bg-surface); border:1px solid var(--border-color); border-radius:5px; padding:12px; margin-bottom:12px;">
+              <div style="font-size:11px; font-weight:600; margin-bottom:8px;">Review the proposed agent:</div>
+              <pre style="font-size:11px; font-family:var(--font-mono); color:var(--text-muted); white-space:pre-wrap; max-height:300px; overflow:auto;">${escapeHtml(agentDefData.jsonStr)}</pre>
+            </div>
+            <div style="display:flex; gap:8px; justify-content:flex-end;">
+              <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">Reject</button>
+              <button class="btn" onclick="approveAgentDef('${escapeHtml(agentDefData.jsonStr).replace(/'/g, "\\'")}'); this.closest('.modal-overlay').remove()">✓ Approve & Save</button>
+            </div>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modal);
+    }
+
+    // Approve and save agent definition
+    function approveAgentDef(jsonStr) {
+      try {
+        const agentDef = JSON.parse(jsonStr);
+        createAgent({
+          name: agentDef.name,
+          emoji: agentDef.emoji || '🤖',
+          rolePrompt: agentDef.rolePrompt,
+          providerId: appState.activeProviderId,
+          model: agentDef.model || null,
+          temperature: agentDef.temperature || 0.7,
+          skillPacks: (agentDef.skillPacks || []).join(', '),
+          pluginPacks: (agentDef.pluginPacks || []).join(', '),
+          mcpServers: JSON.stringify(agentDef.mcpServers || [])
+        });
+        logActivity(`Approved and saved agent: ${agentDef.name}`, 'success');
+      } catch (err) {
+        alert('Error saving agent: ' + err.message);
+      }
+    }
+
     document.addEventListener('DOMContentLoaded', initApp);
   </script>
 </body>
