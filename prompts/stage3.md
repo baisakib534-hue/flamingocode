@@ -1,1 +1,4 @@
 Read PRD.md and AGENTS.md. Stages 0-2 are committed. Implement ONLY Stage 3 (Agent library, Single mode, TEAM MODE with discussion round, task board, presentation, testing, Senior review loop with rework, sub-agent spawn, auto-create agent). Follow the team protocol faithfully — it is the user's own design. Self-review, then commit with the message "Stage 3: agents, teams and sub-agents". End with the summary format from AGENTS.md. Do not start Stage 4.
+
+
+EXECUTION RULE (from the manager): Never generate one giant edit in a single tool call — long generations die on upstream idle timeouts. Make changes in slices of at most ~150 lines each: apply one slice, then the next. After every 2-3 slices, commit with git (message: progress). If a generation is interrupted, continue from the file's current state instead of restarting.
