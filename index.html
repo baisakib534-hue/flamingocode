@@ -2176,9 +2176,9 @@ project-root/
     function brainNotePath(name) {
       if (!name) return null;
       let n = String(name).trim().replace(/\.md$/i, '');
-      if (n.startsWith(BRAIN_NOTES_DIR)) return BRAIN_NOTES_DIR + n.slice(BRAIN_NOTES_DIR.length);
-      if (n.startsWith('.devforge/notes/')) return n; // defensive, unreachable
-      if (n.startsWith('notes/')) return '.devforge/' + n;
+      if (n.startsWith(BRAIN_NOTES_DIR)) return BRAIN_NOTES_DIR + n.slice(BRAIN_NOTES_DIR.length) + '.md';
+      if (n.startsWith('.devforge/notes/')) return '.devforge/notes/' + n.slice('.devforge/notes/'.length) + '.md'; // defensive
+      if (n.startsWith('notes/')) return '.devforge/' + n + '.md';
       return BRAIN_NOTES_DIR + n + '.md';
     }
 
@@ -2527,6 +2527,19 @@ function addPlanStep(text, index = -1) {
       for (const [path, content] of Object.entries(BRAIN_TEMPLATES)) {
         brainFiles[`.devforge/${path}`] = content;
       }
+
+      // Brain v2: seed the atomic-notes layer (starter note + index map)
+      brainFiles['.devforge/notes/2026-10-24-project-start.md'] =
+`# Project Start
+
+Summary: First atomic note for this session. Split into one note per topic as the project evolves.
+
+Links: [[Brain Index]]
+
+## Body
+
+<!-- One topic/decision per small note. Link related notes with [[wikilinks]]. -->`;
+      brainFiles['.devforge/index.md'] = buildBrainIndexContent({ files: brainFiles });
       
       appState.sessions[id] = {
         id,
@@ -3073,7 +3086,7 @@ function addPlanStep(text, index = -1) {
       const brainDigest = buildBrainDigest(session);
       let context = brainDigest + '\n\n---\n\n';
       
-      context += 'You are FlamingoCode AI, an expert software developer in a browser IDE.\nYou edit the user\'s project by returning code blocks using this EXACT syntax:\n\nTo create or overwrite a file:\n```file:path/to/file.ext\n[full file content here]\n```\n\nTo delete a file:\n```delete:path/to/file.ext\n```\n\nTo navigate the browser pane:\n```browse:https://example.com\n```\n\nRULES:\n1. Always write COMPLETE file contents inside file: blocks. Never use comments like "// rest of code remains the same".\n2. Keep text explanation brief and concise.\n3. Use modern, clean, self-contained HTML/CSS/JavaScript.\n4. MAINTAIN THE BRAIN: After each step, update .devforge/progress.md with what was done. When making a real architectural decision, append to .devforge/decisions.md with date, decision, and rationale.\n\nCURRENT VIRTUAL FILES (outlines for unchanged, full for active):\n';
+      context += 'You are FlamingoCode AI, an expert software developer in a browser IDE.\nYou edit the user\'s project by returning code blocks using this EXACT syntax:\n\nTo create or overwrite a file:\n```file:path/to/file.ext\n[full file content here]\n```\n\nTo delete a file:\n```delete:path/to/file.ext\n```\n\nTo navigate the browser pane:\n```browse:https://example.com\n```\n\nRULES:\n1. Always write COMPLETE file contents inside file: blocks. Never use comments like "// rest of code remains the same".\n2. Keep text explanation brief and concise.\n3. Use modern, clean, self-contained HTML/CSS/JavaScript.\n4. MAINTAIN THE BRAIN: After each step, update .devforge/progress.md with what was done. When making a real architectural decision, append to .devforge/decisions.md with date, decision, and rationale.\n5. ATOMIC NOTES (Brain v2): For each significant topic/decision, create a SMALL note file under .devforge/notes/ (one topic per file, plain markdown, e.g. .devforge/notes/2026-10-24-auth-choice.md). Link related notes with [[wikilinks]] inside the note. A one-line summary and links are auto-written to the map note .devforge/index.md, which the brain digest carries instead of full note contents.\n6. RETRIEVAL BY NAME: To read a note\'s full content, request it on demand with a block like:\n\`\`\`brain-read:2026-10-24-auth-choice\n\`\`\`\nNEVER rewrite whole notes from memory — read the map first, fetch the named note only.\n\nCURRENT VIRTUAL FILES (outlines for unchanged, full for active):\n';
 
       let totalTokens = estimateTokens(context);
       const fileEntries = Object.entries(session.files);
