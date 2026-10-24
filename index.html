@@ -7305,6 +7305,244 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
       setTeamPhase('idle');
     }
 
+    // ==================== TEAM MODE v2 — FLAGSHIP TEAM ROOM ====================
+    // v2 EXTENDS Stage 3 team mode (never its own replacement):
+    // templates / role presets / live chat + jump-in / drag-to-reassign board /
+    // senior diff review + arbitration / parallel-sequential / auto-team /
+    // team memory (Project Brain) / cost-time + budget cap / specialists /
+    // voting / human checkpoints / replay + transcript export.
+
+    function getTeamV2() {
+      if (!appState.teamV2) {
+        appState.teamV2 = {
+          execMode: 'sequential',       // 'sequential' | 'parallel'
+          budgetCap: null,              // USD cap, null = unlimited
+          usage: {},                    // agentId -> {calls, tokensIn, tokensOut, ms, cost}
+          votes: [],                    // {options, tally, winner, at}
+          disputes: [],                 // {agents, topic, arbitration, overruled, at}
+          checkpoints: [],              // {reason, answer, at}
+          session: [],                  // replay events {t, type, text}
+          lastReviewFlags: [],          // senior diff view data
+          lastReviewApproved: false,
+          userRedirect: null            // pending jump-in message for next agent turn
+        };
+      }
+      if (!Array.isArray(appState.teamV2.session)) appState.teamV2.session = [];
+      return appState.teamV2;
+    }
+
+    // Record a replay event for every visible team-room happening
+    function recordSessionEvent(type, text) {
+      getTeamV2().session.push({ t: Date.now(), type, text });
+    }
+
+    // ---------- Role presets (Stage 4 spec: real senior-dev playbooks) ----------
+    const TEAM_V2_ROLE_PRESETS = {
+      pm: {
+        name: 'Product Manager', emoji: '🧭',
+        rolePrompt: 'You are the Product Manager. You translate the user request into clear requirements and acceptance criteria. You guard scope: cut anything the user did not ask for. You write concise, checkable specs.',
+        skillPacks: ['no-ai-slop', 'git-workflow'], costPerK: 0.002
+      },
+      senior: {
+        name: 'Senior Developer', emoji: '👨‍💼',
+        rolePrompt: 'You are the Senior Developer (Team Lead). You own the architecture, task breakdown, arbitration of disagreements, and final approval. You never let bad work pass review.',
+        skillPacks: ['debugging-discipline', 'api-design', 'git-workflow'], costPerK: 0.003
+      },
+      frontend: {
+        name: 'Frontend Dev', emoji: '🎨',
+        rolePrompt: 'You are the Frontend Developer. You build user-facing HTML/CSS/JS: responsive, accessible, performant, consistent with the existing design system. You do not ship placeholder UI.',
+        skillPacks: ['senior-frontend', 'no-ai-slop', 'accessibility'], costPerK: 0.002
+      },
+      backend: {
+        name: 'Backend Dev', emoji: '⚙️',
+        rolePrompt: 'You are the Backend Developer. You own data flow, storage, APIs and state. You write robust async code with real error handling — no TODO error paths.',
+        skillPacks: ['api-design', 'debugging-discipline', 'backend-craft'], costPerK: 0.002
+      },
+      qa: {
+        name: 'QA Tester', emoji: '🧪',
+        rolePrompt: 'You are the QA Tester. You test like a hostile user: click everything, break inputs, treat every console error as a failure. You record testing-qa pass/fail honestly — never fake a PASS.',
+        skillPacks: ['testing-qa', 'no-ai-slop'], costPerK: 0.001
+      },
+      devops: {
+        name: 'DevOps', emoji: '🚀',
+        rolePrompt: 'You are the DevOps engineer. You own build logistics: git workflow, environment concerns, bundling, caching, and release hygiene. You keep the workspace clean.',
+        skillPacks: ['git-workflow', 'performance', 'debugging-discipline'], costPerK: 0.002
+      },
+      docs: {
+        name: 'Docs Writer', emoji: '📝',
+        rolePrompt: 'You are the Docs Writer. You produce real user-facing documentation and changelogs: accurate steps, no filler. You document what was actually built, including known issues.',
+        skillPacks: ['no-ai-slop', 'git-workflow'], costPerK: 0.001
+      },
+      security: {
+        name: 'Security Expert', emoji: '🛡',
+        rolePrompt: 'You are the Security Expert. You audit for XSS, injection, token/secret leaks and auth bypass. Every unchecked input is an issue until proven safe.',
+        skillPacks: ['security-review', 'debugging-discipline'], costPerK: 0.002
+      },
+      performance: {
+        name: 'Performance Expert', emoji: '⚡',
+        rolePrompt: 'You are the Performance Expert. You profile hot paths, cut bundle size, lazy-load, cache strategically and remove layout thrash. You report numbers, not vibes.',
+        skillPacks: ['performance', 'senior-frontend', 'debugging-discipline'], costPerK: 0.002
+      },
+      database: {
+        name: 'Database Expert', emoji: '🗄',
+        rolePrompt: 'You are the Database Expert. You own data modelling, migrations and persistence integrity. Every write path is idempotent and error-safe.',
+        skillPacks: ['backend-craft', 'debugging-discipline', 'api-design'], costPerK: 0.002
+      },
+      accessibility: {
+        name: 'Accessibility Expert', emoji: '♿',
+        rolePrompt: 'You are the Accessibility Expert. You enforce semantic HTML, ARIA labels, keyboard navigation and color contrast.',
+        skillPacks: ['accessibility', 'senior-frontend'], costPerK: 0.002
+      }
+    };
+
+    // ---------- Team templates: one click = roles + models + prompts ----------
+    // QA AGENT REQUIRED: every template includes the qa role (tested-qa rule).
+    const TEAM_V2_TEMPLATES = {
+      'web-app': {
+        label: '🌐 Web App Team',
+        prompt: null,
+        roles: ['pm', 'senior', 'frontend', 'backend', 'qa', 'docs'],
+        seniorKey: 'senior'
+      },
+      'api': {
+        label: '🔌 API Team',
+        roles: ['pm', 'senior', 'backend', 'qa', 'devops', 'docs'],
+        seniorKey: 'senior'
+      },
+      'bug-hunt': {
+        label: '🐛 Bug Hunt Team',
+        roles: ['senior', 'frontend', 'backend', 'qa', 'security'],
+        seniorKey: 'senior'
+      },
+      'design': {
+        label: '🖌 Design Team',
+        roles: ['pm', 'senior', 'frontend', 'accessibility', 'qa', 'docs'],
+        seniorKey: 'senior'
+      }
+    };
+
+    // Create (or reuse) an agent from a v2 role preset key
+    function ensureAgentFromPreset(presetKey) {
+      const preset = TEAM_V2_ROLE_PRESETS[presetKey];
+      if (!preset) return null;
+      const existing = Object.values(appState.agents).find(a => a.name === preset.name && a.presetKey === presetKey);
+      if (existing) return existing;
+      const agent = createAgent({
+        name: preset.name,
+        emoji: preset.emoji,
+        rolePrompt: preset.rolePrompt,
+        providerId: appState.activeProviderId,
+        model: null,
+        temperature: 0.7,
+        skillPacks: preset.skillPacks.join(', '),
+        pluginPacks: '',
+        mcpServers: JSON.stringify([])
+      });
+      if (agent && agent.id) appState.agents[agent.id].presetKey = presetKey;
+      return agent;
+    }
+
+    function teamRosterHasQA() {
+      return appState.teamRoster.some(id => {
+        const a = appState.agents[id];
+        return a && (a.presetKey === 'qa' || (Array.isArray(a.skillPacks) && a.skillPacks.includes('testing-qa')));
+      });
+    }
+
+    // Hard rule from the spec: nobody reaches a run without a QA agent recorded.
+    function ensureQAInTeam() {
+      if (teamRosterHasQA()) return null;
+      const qa = ensureAgentFromPreset('qa');
+      if (qa && !appState.teamRoster.includes(qa.id)) appState.teamRoster.push(qa.id);
+      appendTeamChat('system', null, 'QA AGENT REQUIRED: auto-added QA Tester — the Autonomy pre-commit gate stays blocked without recorded testing-qa.');
+      logActivity('QA Tester auto-added to team (mandatory)', 'warning');
+      return qa;
+    }
+
+    // ---------- Apply a template: build/reuse agents, force QA, set lead ----------
+    function applyTeamTemplate(templateKey) {
+      if (appState.teamMode) { alert('Cannot change team while running'); return null; }
+      const tpl = TEAM_V2_TEMPLATES[templateKey];
+      if (!tpl) return null;
+
+      getTeamV2().applyingTemplate = templateKey;
+      appState.teamRoster = [];
+      appState.teamSeniorId = null;
+
+      tpl.roles.forEach(key => {
+        const agent = ensureAgentFromPreset(key);
+        if (agent && !appState.teamRoster.includes(agent.id)) appState.teamRoster.push(agent.id);
+      });
+
+      if (!teamRosterHasQA()) ensureQAInTeam();
+
+      const seniorAgent = Object.values(appState.agents).find(a => appState.teamRoster.includes(a.id) && a.presetKey === tpl.seniorKey);
+      appState.teamSeniorId = seniorAgent ? seniorAgent.id : appState.teamRoster[0];
+
+      appState.teamTaskBoard = [];
+      appState.teamChat = [];
+      saveAppState();
+      renderTeamRoster();
+      renderTaskBoard();
+      updateAgentStatusChips();
+      const chat = document.getElementById('teamChat');
+      if (chat) {
+        chat.innerHTML = '';
+        appendTeamChat('system', null, `Team template applied: ${tpl.label} — ${appState.teamRoster.length} agents (QA included by default; Senior: ${appState.agents[appState.teamSeniorId]?.name}).`);
+      }
+      recordSessionEvent('template', `Selected team template: ${tpl.label}`);
+      logActivity(`Team template "${templateKey}" applied`, 'success');
+      return tpl;
+    }
+
+    function clearTeamByTemplate() { /* keep — used if all templates removed */ }
+
+    // ---------- Auto-team: the software picks the composition from the prompt ----------
+    function autoTeamFromPrompt(userPrompt) {
+      if (appState.teamMode) { alert('Cannot change team while running'); return; }
+      const text = (userPrompt || '').toLowerCase();
+      const seen = new Set();
+      const rosterKeys = [];
+      const pick = key => { if (!seen.has(key)) { seen.add(key); rosterKeys.push(key); } };
+
+      pick('senior'); // lead always
+      if (/\bweb|page|website|ui|landing|frontend|html|css|button|layout|react\b/.test(text)) pick('frontend');
+      if (/\bapi|endpoint|backend|server|fetch|request|route|json\b/.test(text)) pick('backend');
+      if (/\bbug|regression|repro|broken|fix\b/.test(text)) pick('security');
+      if (/\bdesign|ux|style|look|typography\b/.test(text)) { pick('frontend'); pick('accessibility'); }
+      if (/\bdatabase|storage|schema|migration|model\b/.test(text)) pick('database');
+      if (/\bdeploy|build|ci|release|bundle\b/.test(text)) pick('devops');
+      if (/\bdocs|readme|documentation\b/.test(text)) pick('docs');
+      if (rosterKeys.length < 4) { pick('frontend'); pick('backend'); pick('pm'); }
+
+      pick('pm');
+      pick('qa'); // ALWAYS assign QA
+      getTeamV2().applyingTemplate = 'auto';
+
+      appState.teamRoster = [];
+      appState.teamSeniorId = null;
+      rosterKeys.forEach(key => {
+        const agent = ensureAgentFromPreset(key);
+        if (agent && !appState.teamRoster.includes(agent.id)) appState.teamRoster.push(agent.id);
+      });
+      const seniorAgent = appState.agents[appState.teamRoster[0]];
+      appState.teamSeniorId = seniorAgent.id;
+      appState.teamTaskBoard = [];
+      appState.teamChat = [];
+      saveAppState();
+      renderTeamRoster();
+      renderTaskBoard();
+      updateAgentStatusChips();
+      const chat = document.getElementById('teamChat');
+      if (chat) {
+        chat.innerHTML = '';
+        const names = appState.teamRoster.map(id => appState.agents[id].name).join(', ');
+        appendTeamChat('system', null, `AUTO-TEAM assembled from your prompt: ${names}. QA always included; Senior ${seniorAgent.name} leads.`);
+      }
+      recordSessionEvent('auto-team', `Auto-team assembled: ${names}`);
+      logActivity('Auto-team assembled: ' + names, 'success');
+    }
+
     // ==================== AGENTDEF BLOCK PARSING ====================
 
     // Parse agentdef: blocks for agent-proposed agents
