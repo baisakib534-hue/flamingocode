@@ -1010,13 +1010,14 @@
       </div>
 
       <!-- Settings Tabs -->
-      <div style="display:flex; gap:4px; margin-bottom: 12px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px;">
+      <div style="display:flex; gap:4px; margin-bottom: 12px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; flex-wrap: wrap;">
         <button class="settings-tab active" data-settings-tab="providers" style="padding: 6px 12px; background: var(--accent-blue); color: white; border: none; border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">Providers</button>
         <button class="settings-tab" data-settings-tab="skills" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">Skill Packs</button>
         <button class="settings-tab" data-settings-tab="plugins" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">Plugin Packs</button>
         <button class="settings-tab" data-settings-tab="mcp" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">MCP Registry</button>
         <button class="settings-tab" data-settings-tab="behavior" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">Behavior</button>
         <button class="settings-tab" data-settings-tab="autonomy" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">Autonomy</button>
+        <button class="settings-tab" data-settings-tab="backup" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">Backup</button>
       </div>
 
       <!-- Providers Tab -->
@@ -1210,6 +1211,61 @@
           <div id="precommitChecks" style="display: flex; flex-direction: column; gap: 4px; font-size: 11px; margin-bottom: 8px;"></div>
           <div style="font-size: 10px; color: var(--text-dim);">Gate Status: <span id="precommitGateStatus" style="color: var(--warning); font-weight: 600;">Pending</span></div>
         </div>
+      </div>
+    </div>
+    <div style="border-top: 1px solid var(--border-color); padding-top: 12px;">
+      <div style="display:flex; justify-content:flex-end; gap:8px;">
+        <button class="btn btn-secondary" id="btnCancelSettings">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Backup Tab -->
+  <div class="settings-pane" id="settingsPaneBackup" style="display: none; flex-direction: column;">
+    <div style="max-height: 40vh; overflow-y: auto; margin-bottom: 12px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
+        <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Full Backup</span>
+      </div>
+      
+      <!-- Warning about sensitive data -->
+      <div style="background: rgba(245, 158, 11, 0.1); border: 1px solid var(--warning); border-radius: 6px; padding: 12px; margin-bottom: 16px;">
+        <div style="display: flex; align-items: flex-start; gap: 8px;">
+          <span style="font-size: 16px; flex-shrink: 0;">⚠️</span>
+          <div style="flex: 1;">
+            <div style="font-weight: 600; font-size: 12px; color: var(--warning); margin-bottom: 4px;">Sensitive Data Warning</div>
+            <div style="font-size: 11px; color: var(--text-muted); line-height: 1.5;">
+              The backup file contains <strong>ALL</strong> your data including:
+              <ul style="margin: 8px 0 0 20px; padding: 0; font-size: 10px;">
+                <li>All sessions (projects, files, chat history)</li>
+                <li>All providers <strong>including API keys</strong></li>
+                <li>All agents and team configurations</li>
+                <li>All custom skill packs, plugin packs, and MCP servers</li>
+                <li>All settings (Uncensored Mode, diff review, autonomy, etc.)</li>
+                <li>All checkpoints and brain notes</li>
+              </ul>
+              <strong>Treat the backup file like a password database.</strong> Do not share it publicly or commit it to version control.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Export Backup -->
+      <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; padding: 16px; margin-bottom: 16px;">
+        <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">Export Backup</div>
+        <div style="font-size: 11px; color: var(--text-dim); margin-bottom: 12px;">Download a complete JSON backup of all data.</div>
+        <button class="btn" id="btnExportBackup" style="padding: 8px 16px; font-size: 12px;">📥 Export Backup</button>
+        <div id="exportBackupStatus" style="margin-top: 8px; font-size: 10px; color: var(--text-dim);"></div>
+      </div>
+
+      <!-- Import Backup -->
+      <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; padding: 16px;">
+        <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">Import Backup</div>
+        <div style="font-size: 11px; color: var(--text-dim); margin-bottom: 12px;">Select a backup JSON file to restore. This will <strong>replace all current data</strong>.</div>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;">
+          <input type="file" id="importBackupFile" accept=".json" style="flex: 1; min-width: 200px; background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 4px; padding: 6px 8px; color: var(--text-main); font-size: 11px;" />
+        </div>
+        <button class="btn" id="btnImportBackup" style="padding: 8px 16px; font-size: 12px; background: var(--danger);" disabled>📤 Import Backup</button>
+        <div id="importBackupStatus" style="margin-top: 8px; font-size: 10px; color: var(--text-dim);"></div>
       </div>
     </div>
     <div style="border-top: 1px solid var(--border-color); padding-top: 12px;">
@@ -3217,6 +3273,246 @@ Links: [[Brain Index]]
       if (btnViewCatalog) {
         btnViewCatalog.onclick = () => showFullCatalogModal();
       }
+    }
+
+    // ==================== BACKUP TAB ====================
+    function renderBackupTab() {
+      const exportBtn = document.getElementById('btnExportBackup');
+      const importBtn = document.getElementById('btnImportBackup');
+      const importFile = document.getElementById('importBackupFile');
+      const exportStatus = document.getElementById('exportBackupStatus');
+      const importStatus = document.getElementById('importBackupStatus');
+
+      if (exportBtn) {
+        exportBtn.onclick = () => exportBackup();
+      }
+      if (importBtn) {
+        importBtn.onclick = () => importBackup();
+      }
+      if (importFile) {
+        importFile.onchange = (e) => {
+          importBtn.disabled = !e.target.files.length;
+          if (importStatus) importStatus.textContent = e.target.files.length ? 'File selected: ' + e.target.files[0].name : '';
+        };
+      }
+      if (exportStatus) exportStatus.textContent = '';
+      if (importStatus) importStatus.textContent = '';
+    }
+
+    // Export all app state to a JSON file
+    function exportBackup() {
+      const btn = document.getElementById('btnExportBackup');
+      const status = document.getElementById('exportBackupStatus');
+      if (btn) { btn.disabled = true; btn.textContent = 'Exporting...'; }
+      if (status) { status.textContent = 'Preparing backup...'; status.style.color = 'var(--accent-blue)'; }
+
+      try {
+        // Build complete backup object
+        const backup = {
+          version: '1.0',
+          timestamp: Date.now(),
+          exportedAt: new Date().toISOString(),
+          appName: 'FlamingoCode',
+          data: {
+            sessions: appState.sessions || {},
+            activeSessionId: appState.activeSessionId,
+            providers: appState.providers || {},
+            activeProviderId: appState.activeProviderId,
+            agents: appState.agents || {},
+            activeAgentId: appState.activeAgentId,
+            teamMode: appState.teamMode,
+            teamRoster: appState.teamRoster || [],
+            teamSeniorId: appState.teamSeniorId,
+            teamTaskBoard: appState.teamTaskBoard || [],
+            teamChat: appState.teamChat || [],
+            teamPhase: appState.teamPhase,
+            teamReviewRound: appState.teamReviewRound,
+            teamV2: appState.teamV2 || {},
+            planMode: appState.planMode,
+            currentPlan: appState.currentPlan || [],
+            planStepIndex: appState.planStepIndex,
+            planPaused: appState.planPaused,
+            planRevisionCount: appState.planRevisionCount,
+            planMaxSteps: appState.planMaxSteps,
+            planMaxRevisions: appState.planMaxRevisions,
+            uncensoredPerProject: appState.uncensoredPerProject || {},
+            uncensoredPerModel: appState.uncensoredPerModel || {},
+            autonomy: appState.autonomy || {},
+            checkpoints: appState.checkpoints || [],
+            checkpointCap: appState.checkpointCap,
+            diffReviewEnabled: appState.diffReviewEnabled,
+            customSkillPacks: appState.customSkillPacks || {},
+            customPluginPacks: appState.customPluginPacks || {},
+            mcpServers: appState.mcpServers || {},
+            provider: appState.provider || {}
+          }
+        };
+
+        // Convert to JSON string
+        const jsonString = JSON.stringify(backup, null, 2);
+        const blob = new Blob([jsonString], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+
+        // Create download link
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'flamingocode-backup-' + new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-') + '.json';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        if (status) { status.textContent = 'Backup exported successfully!'; status.style.color = 'var(--success)'; }
+        logActivity('Full backup exported', 'success');
+      } catch (err) {
+        if (status) { status.textContent = 'Export failed: ' + err.message; status.style.color = 'var(--danger)'; }
+        logActivity('Backup export failed: ' + err.message, 'error');
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = '📥 Export Backup'; }
+      }
+    }
+
+    // Import backup from JSON file
+    function importBackup() {
+      const fileInput = document.getElementById('importBackupFile');
+      const btn = document.getElementById('btnImportBackup');
+      const status = document.getElementById('importBackupStatus');
+
+      const file = fileInput?.files?.[0];
+      if (!file) {
+        if (status) { status.textContent = 'Please select a backup file first.'; status.style.color = 'var(--warning)'; }
+        return;
+      }
+
+      // Confirm with detailed explanation
+      const confirmMsg = 
+        '⚠️ IMPORT BACKUP - THIS REPLACES ALL DATA\n\n' +
+        'This will completely replace your current data with the backup:\n' +
+        '• All sessions (projects, files, chat history)\n' +
+        '• All providers (including API keys)\n' +
+        '• All agents and team configurations\n' +
+        '• All custom skill packs, plugin packs, MCP servers\n' +
+        '• All settings (Uncensored Mode, diff review, autonomy, etc.)\n' +
+        '• All checkpoints and brain notes\n\n' +
+        'A safety checkpoint of your current state will be created first (if checkpoints are enabled).\n\n' +
+        'Are you sure you want to continue?';
+
+      if (!confirm(confirmMsg)) {
+        if (status) { status.textContent = 'Import cancelled.'; status.style.color = 'var(--text-dim)'; }
+        return;
+      }
+
+      if (btn) { btn.disabled = true; btn.textContent = 'Importing...'; }
+      if (status) { status.textContent = 'Reading backup file...'; status.style.color = 'var(--accent-blue)'; }
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          if (status) { status.textContent = 'Parsing backup...'; }
+          const jsonString = e.target.result;
+          const backup = JSON.parse(jsonString);
+
+          // Validate backup structure
+          if (!backup.version || !backup.data) {
+            throw new Error('Invalid backup file format');
+          }
+
+          // Create safety checkpoint before restore (uses A1 checkpoint system)
+          if (appState.checkpoints !== undefined && typeof createCheckpoint === 'function') {
+            if (status) { status.textContent = 'Creating safety checkpoint...'; }
+            createCheckpoint('Pre-import safety backup');
+          }
+
+          if (status) { status.textContent = 'Restoring data...'; }
+
+          // Restore all data
+          const data = backup.data;
+          appState.sessions = data.sessions || {};
+          appState.activeSessionId = data.activeSessionId || Object.keys(appState.sessions)[0] || null;
+          appState.providers = data.providers || {};
+          appState.activeProviderId = data.activeProviderId || Object.keys(appState.providers)[0] || null;
+          appState.agents = data.agents || {};
+          appState.activeAgentId = data.activeAgentId || Object.keys(appState.agents)[0] || null;
+          appState.teamMode = data.teamMode || false;
+          appState.teamRoster = data.teamRoster || [];
+          appState.teamSeniorId = data.teamSeniorId || null;
+          appState.teamTaskBoard = data.teamTaskBoard || [];
+          appState.teamChat = data.teamChat || [];
+          appState.teamPhase = data.teamPhase || 'idle';
+          appState.teamReviewRound = data.teamReviewRound || 0;
+          appState.teamV2 = data.teamV2 || {};
+          appState.planMode = data.planMode || 'chat';
+          appState.currentPlan = data.currentPlan || [];
+          appState.planStepIndex = data.planStepIndex || 0;
+          appState.planPaused = data.planPaused || false;
+          appState.planRevisionCount = data.planRevisionCount || 0;
+          appState.planMaxSteps = data.planMaxSteps || 25;
+          appState.planMaxRevisions = data.planMaxRevisions || 5;
+          appState.uncensoredPerProject = data.uncensoredPerProject || {};
+          appState.uncensoredPerModel = data.uncensoredPerModel || {};
+          appState.autonomy = data.autonomy || { checks: { 'testing-qa': false, 'security-review': false, 'domain-skill': false }, taskHistory: [], lastToolsUsed: [] };
+          appState.checkpoints = data.checkpoints || [];
+          appState.checkpointCap = data.checkpointCap || 30;
+          appState.diffReviewEnabled = data.diffReviewEnabled !== false;
+          appState.customSkillPacks = data.customSkillPacks || {};
+          appState.customPluginPacks = data.customPluginPacks || {};
+          appState.mcpServers = data.mcpServers || {};
+          appState.provider = data.provider || { preset: '9router', baseUrl: 'https://ninerouter-zltx.onrender.com/v1', model: '9router', apiKey: '', corsProxy: '' };
+
+          // Ensure required structures exist
+          if (!appState.autonomy.checks) appState.autonomy.checks = { 'testing-qa': false, 'security-review': false, 'domain-skill': false };
+          if (!appState.autonomy.taskHistory) appState.autonomy.taskHistory = [];
+          if (!appState.autonomy.lastToolsUsed) appState.autonomy.lastToolsUsed = [];
+
+          // Save and refresh UI
+          saveAppState();
+          syncLegacyProvider();
+
+          // Refresh all UI
+          renderSessionPicker();
+          renderProviderList();
+          renderAgentList();
+          renderTeamRoster();
+          renderTaskBoard();
+          updateAgentStatusChips();
+          renderCheckpointPanel();
+          renderDiffReviewPanel();
+          updateUncensoredUI();
+          updatePlanControlsVisibility();
+          updateTeamBudgetDisplay();
+          renderFileTree();
+          renderTabs();
+          renderChatHistory();
+
+          const session = getCurrentSession();
+          if (session?.activeFile && session.files[session.activeFile] !== undefined) {
+            openFile(session.activeFile);
+          }
+          refreshPreview();
+
+          if (status) { status.textContent = 'Backup imported successfully! Page will refresh...'; status.style.color = 'var(--success)'; }
+          logActivity('Full backup imported from ' + backup.exportedAt, 'success');
+
+          // Small delay then show success
+          setTimeout(() => {
+            alert('Backup imported successfully!\n\nAll data has been restored from the backup file.');
+            // Optionally reload the page to ensure clean state
+            // location.reload();
+          }, 500);
+
+        } catch (err) {
+          if (status) { status.textContent = 'Import failed: ' + err.message; status.style.color = 'var(--danger)'; }
+          logActivity('Backup import failed: ' + err.message, 'error');
+        } finally {
+          if (btn) { btn.disabled = false; btn.textContent = '📤 Import Backup'; }
+          fileInput.value = '';
+        }
+      };
+      reader.onerror = () => {
+        if (status) { status.textContent = 'Failed to read file.'; status.style.color = 'var(--danger)'; }
+        if (btn) { btn.disabled = false; btn.textContent = '📤 Import Backup'; }
+      };
+      reader.readAsText(file);
     }
 
     // Show full catalog modal
@@ -5800,6 +6096,7 @@ Rules:
           if (tabName === 'mcp') renderMcpServerSummary();
           if (tabName === 'behavior') renderUncensoredBehaviorTab();
           if (tabName === 'autonomy') renderAutonomyTab();
+          if (tabName === 'backup') renderBackupTab();
         });
       });
 
