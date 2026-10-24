@@ -3897,9 +3897,10 @@ CURRENT VIRTUAL FILES:
       const chips = [];
       const toolsUsed = [];
       let fileModified = false;
+      const noteReads = []; // v2: notes fetched on demand via brain-read blocks
 
       // Regex for fenced blocks: ```file:filename\ncontent```
-      const blockRegex = /```(file|delete|browse):([^\n]*)\n([\s\S]*?)```/g;
+      const blockRegex = /```(file|delete|browse|brain-read):([^\n]*)\n([\s\S]*?)```/g;
       let match;
 
       while ((match = blockRegex.exec(responseText)) !== null) {
@@ -3908,7 +3909,12 @@ CURRENT VIRTUAL FILES:
         const blockContent = match[3];
 
         if (actionType === 'file') {
-          session.files[targetPath] = blockContent;
+          if (isBrainNotePath(targetPath)) {
+            // v2: writing an atomic note auto-updates .devforge/index.md
+            writeBrainNote(session, targetPath, blockContent);
+          } else {
+            session.files[targetPath] = blockContent;
+          }
           fileModified = true;
           const lineCount = blockContent.split('\n').length;
           chips.push({ type: 'file', label: `Updated ${targetPath} (${lineCount} lines)` });
@@ -3916,10 +3922,18 @@ CURRENT VIRTUAL FILES:
           toolsUsed.push({ name: 'file-write', type: 'skill' });
         } else if (actionType === 'delete') {
           delete session.files[targetPath];
+          if (isBrainNotePath(targetPath)) rebuildBrainIndex(session); // v2: index follows note deletions
           fileModified = true;
           chips.push({ type: 'delete', label: `Deleted ${targetPath}` });
           logActivity(`Agent deleted ${targetPath}`, 'warning');
           toolsUsed.push({ name: 'file-delete', type: 'skill' });
+        } else if (actionType === 'brain-read') {
+          // v2: on-demand retrieval by name — fetches ONLY the named note
+          const noteName = targetPath || blockContent.trim();
+          const noteContent = readBrainNote(noteName);
+          noteReads.push({ name: noteName, content: noteContent });
+          chips.push({ type: 'read', label: noteContent !== null ? `Read brain note "${noteName}"` : `Note "${noteName}" not found` });
+          toolsUsed.push({ name: 'brain-read', type: 'skill' });
         } else if (actionType === 'browse') {
           const url = targetPath || blockContent.trim();
           document.getElementById('browserUrlInput').value = url;
@@ -3943,7 +3957,7 @@ CURRENT VIRTUAL FILES:
         saveAppState();
       }
 
-      return { chips, fileModified, toolsUsed };
+      return { chips, fileModified, toolsUsed, noteReads };
     }
 
     // Compress conversation history when it exceeds 60% of context window
@@ -4162,8 +4176,21 @@ async function sendAgentPrompt(userPrompt, autoTurn = 0) {
 
         session.chatHistory.push({ role: 'assistant', content: reply });
 
-        const { chips, fileModified, toolsUsed } = parseAndApplyBlocks(reply);
+        const { chips, fileModified, toolsUsed, noteReads } = parseAndApplyBlocks(reply);
         appendChatMessage('agent', reply, chips, toolsUsed);
+
+        // Brain v2: notes fetched via brain-read are injected on the next turn
+        if (noteReads && noteReads.length > 0 && autoTurn < 3) {
+          agentWorking = false;
+          stopTimer();
+          const fetched = noteReads.filter(r => r.content !== null)
+            .map(r => `--- BRAIN NOTE: ${r.name} (full content) ---\n${r.content}`).join('\n\n');
+          const followUp = fetched
+            ? `The following brain notes were fetched on demand (full contents):\n\n${fetched}\n\nContinue the current task using these notes.`
+            : `Brain note "${noteReads[0].name}" not found. Check the note map in .devforge/index.md for available names, then continue.`;
+          logActivity('Injecting ' + fetched.split('## ').length + ' brain note(s) by name into next turn', 'info');
+          return sendAgentPrompt(followUp, autoTurn + 1);
+        }
 
         // Auto-continue loop up to 3 turns if files were updated and reply needs continuation
         if (fileModified && autoTurn < 3) {
@@ -4553,10 +4580,16 @@ Rules:
 
     function setupEditorListeners() {
       const textarea = document.getElementById('editorTextarea');
+      // Brain v2: manual edits to a note or the map rebuild the index (debounced)
+      let indexRebuildTimer = null;
       textarea.addEventListener('input', () => {
         const session = getCurrentSession();
         if (session && session.activeFile) {
           session.files[session.activeFile] = textarea.value;
+          if (isBrainNotePath(session.activeFile)) {
+            clearTimeout(indexRebuildTimer);
+            indexRebuildTimer = setTimeout(() => rebuildBrainIndex(session), 500);
+          }
           updateLineNumbers();
           refreshPreview();
           saveAppState();
