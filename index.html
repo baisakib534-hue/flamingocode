@@ -6187,15 +6187,22 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
           'approved': { bg: 'rgba(16, 185, 129, 0.2)', border: 'var(--success)', fg: 'var(--success)' }
         };
         const c = colors[task.status] || colors.pending;
+        // PART 4: gate-blocked tasks are flagged red and name the missing check
+        if (task.gate && task.gate.status === 'blocked') {
+          c.bg = 'rgba(239, 68, 68, 0.10)';
+          c.border = 'var(--danger)';
+          c.fg = 'var(--danger)';
+        }
 
         const item = document.createElement('div');
         item.style.cssText = 'padding:8px 10px; background:' + c.bg + '; border:1px solid ' + c.border + '; border-radius:5px; color:' + c.fg + ';';
         item.innerHTML = `
           <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:4px;">
             <div style="font-weight:600; font-size:12px; flex:1;">${escapeHtml(task.title)}</div>
-            <span style="font-size:9px; font-weight:700; padding:1px 5px; border-radius:3px; background:${c.border}; color:${c.fg};">${task.status.toUpperCase()}</span>
+            <span style="font-size:9px; font-weight:700; padding:1px 5px; border-radius:3px; background:${c.border}; color:${c.fg};">${(task.gate && task.gate.status === 'blocked') ? 'GATE-BLOCKED' : task.status.toUpperCase()}</span>
           </div>
           <div style="font-size:10px; color:var(--text-dim); margin-bottom:4px;">${escapeHtml(task.description)}</div>
+          ${renderTaskGateLine(task)}
           <div style="display:flex; justify-content:space-between; align-items:center; font-size:10px;">
             <span>${agent ? escapeHtml(agent.emoji + ' ' + agent.name) : 'Unassigned'}${isSenior ? ' ★' : ''}</span>
             ${task.dependsOn && task.dependsOn.length ? '<span style="color:var(--text-dim);">↳ Depends: ' + task.dependsOn.map(d => '#' + (tasks.findIndex(t => t.id === d) + 1)).join(', ') + '</span>' : ''}
@@ -6430,12 +6437,18 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
             // Execute agent with task
             const result = await executeAgentTask(agent, task);
             task.output = result;
-            task.status = 'idle-done';
+            // PART 4: pre-commit gate — done-transition is refused while mandatory checks are unrecorded
+            const gateOK = tryTaskDoneTransition(task, 'idle-done');
             completed.add(task.id);
             progress = true;
 
-            appendTeamChat('status', task.owner, `Completed: ${task.description}`);
-            logActivity(`${agent.name} completed task: ${task.title}`, 'success');
+            if (gateOK) {
+              appendTeamChat('status', task.owner, `Completed: ${task.description}`);
+              logActivity(`${agent.name} completed task: ${task.title}`, 'success');
+            } else {
+              appendTeamChat('status', task.owner, `Work finished but GATE BLOCKED — missing: ${task.gate.missing.join(', ')}. Task held until the mandatory checks are recorded.`);
+              logActivity(`${agent.name} finished "${task.title}" but the pre-commit gate blocked the done-transition`, 'warning');
+            }
           } catch (err) {
             task.status = 'rework';
             appendTeamChat('error', task.owner, `Failed: ${err.message}`);
@@ -6592,11 +6605,21 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
         const reworkLines = review.match(/REWORK:\s*([^|]+)\s*\|\s*Issue:\s*([^|]+)\s*\|\s*Fix:\s*([^\n]+)/gi) || [];
 
         if (reworkLines.length === 0 && review.toUpperCase().includes('APPROVED')) {
-          // All approved!
-          appState.teamTaskBoard.forEach(t => { if (t.status !== 'approved') t.status = 'approved'; });
+          // Senior approves: record the mandatory checks FIRST, then pass the tasks through the pre-commit gate.
+          recordAutonomyCheck('security-review', true);
+          recordAutonomyCheck('domain-skill', true);
+          let gateBlocked = false;
+          appState.teamTaskBoard.forEach(t => {
+            if (t.status === 'approved') return;
+            if (!tryTaskDoneTransition(t, 'approved')) gateBlocked = true;
+          });
+          releaseGateBlockedTasks();
           renderTaskBoard();
           updateAgentStatusChips();
-          recordAutonomyCheck('security-review', true);
+          if (gateBlocked) {
+            appendTeamChat('system', null, 'Approval held by the pre-commit gate — mandatory checks still unrecorded. Tasks stay blocked until recorded.');
+            return { approved: false, reworkItems: [] };
+          }
           return { approved: true, reworkItems: [] };
         }
 
@@ -6650,7 +6673,10 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
           try {
             const newOutput = await callLLMWithAgent(reworkMessages, agent);
             task.output = newOutput;
-            task.status = 'idle-done';
+            // PART 4: rework completion is also a done-transition — gate applies
+            if (!tryTaskDoneTransition(task, 'idle-done')) {
+              appendTeamChat('status', task.owner, 'Rework finished but GATE BLOCKED — missing: ' + task.gate.missing.join(', '));
+            }
             const { chips, fileModified } = parseAndApplyBlocks(newOutput);
             logActivity(`${agent.name} completed rework for ${task.title}`, 'success');
           } catch (err) {
@@ -6714,6 +6740,17 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
           }
           if (reviewResult.escalated) break;
           // Loop continues for rework
+        }
+
+        // PART 4: last gate pass — re-evaluate blocked tasks against checks recorded during the run
+        releaseGateBlockedTasks();
+        renderTaskBoard();
+        updateAgentStatusChips();
+        const stillBlocked = appState.teamTaskBoard.filter(t => t.gate && t.gate.status === 'blocked');
+        if (stillBlocked.length) {
+          appendTeamChat('system', null, 'PRE-COMMIT GATE still holds: ' + stillBlocked.map(t => `"${t.title}" (${t.gate.missing.join(', ')})`).join('; '));
+        } else if (appState.teamTaskBoard.length) {
+          appendTeamChat('system', null, 'PRE-COMMIT GATE: all tasks passed (testing-qa, security-review, domain-skill recorded).');
         }
 
         // Phase 6: Final report
@@ -6793,6 +6830,103 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
       return { passed: true };
     }
 
+    // ---- PART 4: PRE-COMMIT GATE ON TASKS (done-transition blocker) ----
+
+    const AUTONOMY_MANDATORY_CHECKS = [
+      { id: 'testing-qa', label: 'testing-qa' },
+      { id: 'security-review', label: 'security-review' },
+      { id: 'domain-skill', label: 'domain-skill' }
+    ];
+
+    // Pick the relevant domain skill for a task from its description (Autonomy spec point 4).
+    function pickDomainSkillForTask(task) {
+      const text = ((task && (task.description || task.title)) || '').toLowerCase();
+      const rules = [
+        { skill: 'senior-frontend', words: ['ui', 'css', 'html', 'layout', 'page', 'button', 'form', 'style', 'responsive', 'component', 'modal', 'menu', 'nav'] },
+        { skill: 'api-design', words: ['api', 'endpoint', 'provider', 'request', 'response', 'streaming', 'cors', 'xhr', 'fetch', 'http'] },
+        { skill: 'backend-craft', words: ['storage', 'database', 'data model', 'migration', 'auth', 'session', 'persist', 'state', 'queue'] },
+        { skill: 'testing-qa', words: ['test', 'qa', 'coverage', 'assert', 'smoke test'] },
+        { skill: 'security-review', words: ['security', 'secret', 'token', 'key', 'xss', 'injection', 'csrf'] },
+        { skill: 'accessibility', words: ['aria', 'a11y', 'contrast', 'keyboard', 'screen reader', 'accessible'] },
+        { skill: 'performance', words: ['performance', 'speed', 'latency', 'bundle', 'cache', 'lazy', 'optimize'] },
+        { skill: 'debugging-discipline', words: ['bug', 'fix', 'error handling', 'crash', 'stuck', 'frozen'] },
+        { skill: 'git-workflow', words: ['commit', 'branch', 'pull request', 'merge', 'git'] },
+        { skill: 'no-ai-slop', words: ['copy', 'text', 'content', 'wording', 'branding', 'design'] },
+        { skill: 'design-taste', words: ['visual', 'color', 'typography', 'spacing', 'look', 'polish'] }
+      ];
+      for (const r of rules) {
+        if (r.words.some(w => text.includes(w))) return r.skill;
+      }
+      return 'senior-frontend';
+    }
+
+    function initTaskGate(task) {
+      if (!task.gate) {
+        task.gate = { status: 'pending', missing: [], domainSkill: null, blockedFrom: null };
+      }
+      return task.gate;
+    }
+
+    // Evaluate the gate for ONE task: 'pending' -> 'blocked' (with named missing checks) -> 'passed'.
+    function evalTaskGateStatus(task) {
+      const checks = (appState.autonomy && appState.autonomy.checks) || {};
+      const gate = initTaskGate(task);
+      const missing = [];
+      if (!checks['testing-qa']) missing.push('testing-qa');
+      if (!checks['security-review']) missing.push('security-review');
+      if (!gate.domainSkill) gate.domainSkill = pickDomainSkillForTask(task);
+      if (!checks['domain-skill']) missing.push('domain-skill (' + gate.domainSkill + ')');
+      return { status: missing.length ? 'blocked' : 'passed', missing: missing };
+    }
+
+    // The blocker. EVERY done-transition (idle-done / approved) must go through here.
+    function tryTaskDoneTransition(task, targetStatus) {
+      initTaskGate(task);
+      const g = evalTaskGateStatus(task);
+      if (g.status !== 'passed') {
+        task.gate.status = 'blocked';
+        task.gate.missing = g.missing;
+        task.gate.blockedFrom = targetStatus || 'idle-done';
+        logActivity('Pre-commit gate REFUSED done-transition for "' + task.title + '" — missing: ' + g.missing.join(', '), 'warning');
+        return false;
+      }
+      task.gate.status = 'passed';
+      task.gate.missing = [];
+      task.status = targetStatus || 'idle-done';
+      return true;
+    }
+
+    // Once the mandatory checks get recorded, blocked tasks are re-evaluated and released.
+    function releaseGateBlockedTasks() {
+      if (!appState.teamTaskBoard) return 0;
+      let released = 0;
+      appState.teamTaskBoard.forEach(task => {
+        if (!task.gate || task.gate.status !== 'blocked') return;
+        const g = evalTaskGateStatus(task);
+        if (g.status === 'passed') {
+          if (tryTaskDoneTransition(task, task.gate.blockedFrom || 'idle-done')) released++;
+        }
+      });
+      if (released > 0) {
+        logActivity('Pre-commit gate released ' + released + ' blocked task(s)', 'success');
+        renderTaskBoard();
+        updateAgentStatusChips();
+      }
+      return released;
+    }
+
+    // Visible gate status line rendered on each task card.
+    function renderTaskGateLine(task) {
+      initTaskGate(task);
+      if (task.gate.status === 'blocked') {
+        return '<div style="font-size:9px; font-weight:700; margin-top:4px; color:var(--danger);">⛔ GATE: blocked — missing: ' + escapeHtml(task.gate.missing.join(', ')) + '</div>';
+      }
+      if (task.gate.status === 'passed') {
+        return '<div style="font-size:9px; font-weight:700; margin-top:4px; color:var(--success);">✓ GATE: passed</div>';
+      }
+      return '<div style="font-size:9px; font-weight:600; margin-top:4px; color:var(--text-dim);">⏳ GATE: pending (testing-qa · security-review · domain-skill)</div>';
+    }
+
     // Record a check as passed
     function recordAutonomyCheck(checkName, passed = true) {
       if (!appState.autonomy) {
@@ -6818,6 +6952,11 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
       }
       
       logActivity(`Autonomy check recorded: ${checkName} = ${passed ? 'PASS' : 'FAIL'}`, passed ? 'success' : 'warning');
+
+      // PART 4: a newly recorded check may unblock tasks held by the pre-commit gate
+      if (appState.teamTaskBoard && appState.teamTaskBoard.length) {
+        releaseGateBlockedTasks();
+      }
     }
 
     // Parse spawn: blocks from agent responses
