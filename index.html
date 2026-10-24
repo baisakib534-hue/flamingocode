@@ -889,6 +889,7 @@
         <button class="settings-tab" data-settings-tab="plugins" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">Plugin Packs</button>
         <button class="settings-tab" data-settings-tab="mcp" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">MCP Registry</button>
         <button class="settings-tab" data-settings-tab="behavior" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">Behavior</button>
+        <button class="settings-tab" data-settings-tab="autonomy" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">Autonomy</button>
       </div>
 
       <!-- Providers Tab -->
@@ -1000,6 +1001,68 @@
         <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 8px;">Auto = use project setting. On/Off = override for this specific model.</div>
         <div id="uncensoredModelOverrideList" style="display: flex; flex-direction: column; gap: 4px;">
           <!-- Model overrides rendered here -->
+        </div>
+      </div>
+    </div>
+    <div style="border-top: 1px solid var(--border-color); padding-top: 12px;">
+      <div style="display:flex; justify-content:flex-end; gap:8px;">
+        <button class="btn btn-secondary" id="btnCancelSettings">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Autonomy Tab -->
+  <div class="settings-pane" id="settingsPaneAutonomy" style="display: none; flex-direction: column;">
+    <div style="max-height: 40vh; overflow-y: auto; margin-bottom: 12px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
+        <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Autonomy Engine</span>
+      </div>
+      <div id="autonomyContent" style="display: flex; flex-direction: column; gap: 12px;">
+        <!-- Catalog Injection Status -->
+        <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; padding: 12px;">
+          <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">Catalog Injection</div>
+          <div style="font-size: 12px; color: var(--text-main); margin-bottom: 4px;">The full installed catalog (skills, plugins, MCPs) is injected into every agent's context at session start.</div>
+          <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 8px;">Status: <span id="catalogInjectionStatus" style="color: var(--success); font-weight: 600;">Active</span></div>
+          <button class="btn btn-secondary" id="btnViewCatalog" style="padding: 4px 10px; font-size: 11px;">View Full Catalog</button>
+        </div>
+        
+        <!-- Mandatory-Use Rule -->
+        <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; padding: 12px;">
+          <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">Mandatory-Use Rule</div>
+          <div style="font-size: 12px; color: var(--text-main); margin-bottom: 4px;">On EVERY task, the agent MUST list which installed skills/plugins/MCPs apply and use them. "No tool applies" is only valid for trivial tasks with a one-line reason.</div>
+          <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 8px;">Enforcement: <span id="mandatoryUseStatus" style="color: var(--accent-blue); font-weight: 600;">Enabled</span></div>
+        </div>
+
+        <!-- Installed Skills -->
+        <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; padding: 12px;">
+          <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">Mandatory Pre-installed Skills</div>
+          <div id="mandatorySkillsList" style="display: flex; flex-direction: column; gap: 4px; font-size: 11px;"></div>
+        </div>
+
+        <!-- Installed MCPs -->
+        <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; padding: 12px;">
+          <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">Mandatory Pre-installed MCPs</div>
+          <div id="mandatoryMcpsList" style="display: flex; flex-direction: column; gap: 4px; font-size: 11px;"></div>
+        </div>
+
+        <!-- NEW Skills for Vibe-Coding -->
+        <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; padding: 12px;">
+          <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">NEW Skills for Vibe-Coding Development</div>
+          <div id="vibeSkillsList" style="display: flex; flex-direction: column; gap: 4px; font-size: 11px;"></div>
+        </div>
+
+        <!-- NEW MCPs -->
+        <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; padding: 12px;">
+          <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">NEW MCPs (Build Environment)</div>
+          <div id="newMcpsList" style="display: flex; flex-direction: column; gap: 4px; font-size: 11px;"></div>
+        </div>
+
+        <!-- Pre-commit Gate -->
+        <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; padding: 12px;">
+          <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">Pre-commit Gate</div>
+          <div style="font-size: 12px; color: var(--text-main); margin-bottom: 4px;">No work is marked done until mandatory checks pass:</div>
+          <div id="precommitChecks" style="display: flex; flex-direction: column; gap: 4px; font-size: 11px; margin-bottom: 8px;"></div>
+          <div style="font-size: 10px; color: var(--text-dim);">Gate Status: <span id="precommitGateStatus" style="color: var(--warning); font-weight: 600;">Pending</span></div>
         </div>
       </div>
     </div>
@@ -1813,6 +1876,18 @@ WORK STYLE:
       // Uncensored Mode state
       uncensoredPerProject: {},  // { [projectId]: boolean }
       uncensoredPerModel: {},    // { ['providerId|modelId']: 'auto' | 'on' | 'off' }
+      // Autonomy Engine state
+      autonomy: {
+        catalogInjected: true,
+        mandatoryUseEnabled: true,
+        lastToolsUsed: [],  // Tools used in last task
+        checks: {
+          'testing-qa': false,
+          'security-review': false,
+          'domain-skill': false
+        },
+        taskHistory: []  // History of tasks with tools used
+      },
       // Legacy single provider fields for backward compatibility
       provider: {
         preset: '9router',
@@ -2526,6 +2601,209 @@ function addPlanStep(text, index = -1) {
           }
         };
       }
+    }
+
+    // Render Autonomy Engine tab
+    function renderAutonomyTab() {
+      // Catalog Injection Status
+      const catalogStatus = document.getElementById('catalogInjectionStatus');
+      if (catalogStatus) {
+        catalogStatus.textContent = 'Active';
+        catalogStatus.style.color = 'var(--success)';
+      }
+      
+      // Mandatory-Use Rule Status
+      const mandatoryStatus = document.getElementById('mandatoryUseStatus');
+      if (mandatoryStatus) {
+        mandatoryStatus.textContent = 'Enabled';
+        mandatoryStatus.style.color = 'var(--accent-blue)';
+      }
+
+      // Render Mandatory Pre-installed Skills
+      const mandatorySkillsList = document.getElementById('mandatorySkillsList');
+      if (mandatorySkillsList) {
+        const mandatorySkills = [
+          { name: 'no-ai-slop', desc: 'Produce work indistinguishable from a careful human developer. No generic AI filler in UI, copy, or code.' },
+          { name: 'senior-frontend', desc: 'Frontend expertise: layout, interactions, preview behavior.' },
+          { name: 'testing-qa', desc: 'Test like a hostile user: clicks everything, breaks inputs, reads console errors as failures.' },
+          { name: 'security-review', desc: 'Security review checklist for client-side apps and API integrations.' },
+          { name: 'performance', desc: 'Performance optimization and profiling.' },
+          { name: 'accessibility', desc: 'Accessibility essentials for IDE-style web apps used on phones and desktops.' },
+          { name: 'api-design', desc: 'Hardened client design for calling heterogeneous LLM/provider APIs.' },
+          { name: 'debugging-discipline', desc: 'Systematic debugging methodology.' },
+          { name: 'git-workflow', desc: 'Clean git habits for staged agent-built projects.' }
+        ];
+        mandatorySkillsList.innerHTML = mandatorySkills.map(s => 
+          `<div style="display:flex; align-items:center; gap:8px; padding:6px 8px; background:var(--bg-dark); border:1px solid var(--border-color); border-radius:4px;">
+            <span style="font-weight:600; color:var(--accent-blue); font-family:var(--font-mono); font-size:10px;">${escapeHtml(s.name)}</span>
+            <span style="color:var(--text-muted); font-size:10px;">${escapeHtml(s.desc)}</span>
+          </div>`
+        ).join('');
+      }
+
+      // Render Mandatory Pre-installed MCPs
+      const mandatoryMcpsList = document.getElementById('mandatoryMcpsList');
+      if (mandatoryMcpsList) {
+        const mandatoryMcps = [
+          { name: 'context7', desc: 'Docs lookup — up-to-date documentation and code examples for any library.' },
+          { name: 'playwright', desc: 'Browser testing — full Playwright automation for testing and scraping.' },
+          { name: 'sequential-thinking', desc: 'Hard problems — step-by-step reasoning for complex tasks.' }
+        ];
+        mandatoryMcpsList.innerHTML = mandatoryMcps.map(m => 
+          `<div style="display:flex; align-items:center; gap:8px; padding:6px 8px; background:var(--bg-dark); border:1px solid var(--border-color); border-radius:4px;">
+            <span style="font-weight:600; color:var(--warning); font-family:var(--font-mono); font-size:10px;">${escapeHtml(m.name)}</span>
+            <span style="color:var(--text-muted); font-size:10px;">${escapeHtml(m.desc)}</span>
+          </div>`
+        ).join('');
+      }
+
+      // Render NEW Skills for Vibe-Coding
+      const vibeSkillsList = document.getElementById('vibeSkillsList');
+      if (vibeSkillsList) {
+        const vibeSkills = [
+          { name: 'vibe-coding-orchestrator', desc: 'The loop: understand → plan → scaffold → build in slices → test → fix → polish; never claim done with tests failing.' },
+          { name: 'human-dev-sense', desc: 'Develop like a human dev: edge cases, empty/error/loading states, UX judgment, good naming, consistency, no over-engineering.' },
+          { name: 'test-first', desc: 'Write the check before the code; red → green → refactor; happy path + edge paths.' },
+          { name: 'design-taste', desc: 'Visual judgment: spacing scale, type hierarchy, colour discipline, anti-slop rules.' },
+          { name: 'backend-craft', desc: 'Data modelling, API design, auth, errors, migrations, observability.' },
+          { name: 'ship-ready', desc: 'Deployment discipline: env handling, build checks, CI basics, rollback, changelog.' }
+        ];
+        vibeSkillsList.innerHTML = vibeSkills.map(s => 
+          `<div style="display:flex; align-items:center; gap:8px; padding:6px 8px; background:var(--bg-dark); border:1px solid var(--border-color); border-radius:4px;">
+            <span style="font-weight:600; color:var(--success); font-family:var(--font-mono); font-size:10px;">${escapeHtml(s.name)}</span>
+            <span style="color:var(--text-muted); font-size:10px;">${escapeHtml(s.desc)}</span>
+          </div>`
+        ).join('');
+      }
+
+      // Render NEW MCPs
+      const newMcpsList = document.getElementById('newMcpsList');
+      if (newMcpsList) {
+        const newMcps = [
+          { name: 'github', desc: 'Repo ops: issues, PRs, branches, file operations.' },
+          { name: 'memory', desc: 'Persistent knowledge-graph memory across sessions.' },
+          { name: 'fetch', desc: 'Fetch docs/pages the agent needs while building.' }
+        ];
+        newMcpsList.innerHTML = newMcps.map(m => 
+          `<div style="display:flex; align-items:center; gap:8px; padding:6px 8px; background:var(--bg-dark); border:1px solid var(--border-color); border-radius:4px;">
+            <span style="font-weight:600; color:var(--warning); font-family:var(--font-mono); font-size:10px;">${escapeHtml(m.name)}</span>
+            <span style="color:var(--text-muted); font-size:10px;">${escapeHtml(m.desc)}</span>
+          </div>`
+        ).join('');
+      }
+
+      // Render Pre-commit Gate checks
+      const precommitChecks = document.getElementById('precommitChecks');
+      const precommitGateStatus = document.getElementById('precommitGateStatus');
+      if (precommitChecks) {
+        const checks = [
+          { id: 'testing-qa', name: 'Testing-QA', desc: 'Tests pass', status: appState.autonomy?.checks?.['testing-qa'] ? 'pass' : 'pending' },
+          { id: 'security-review', name: 'Security Review', desc: 'No secrets, no injection holes', status: appState.autonomy?.checks?.['security-review'] ? 'pass' : 'pending' },
+          { id: 'domain-skill', name: 'Relevant Domain Skill', desc: 'Skill for the change type', status: appState.autonomy?.checks?.['domain-skill'] ? 'pass' : 'pending' }
+        ];
+        precommitChecks.innerHTML = checks.map(c => 
+          `<div style="display:flex; align-items:center; gap:8px; padding:6px 8px; background:var(--bg-dark); border:1px solid var(--border-color); border-radius:4px;">
+            <span style="width:10px; height:10px; border-radius:50%; background:${c.status === 'pass' ? 'var(--success)' : 'var(--warning)'};" title="${c.status === 'pass' ? 'Passed' : 'Pending'}"></span>
+            <span style="font-weight:600; color:var(--text-main); font-size:10px;">${escapeHtml(c.name)}</span>
+            <span style="color:var(--text-dim); font-size:10px;">${escapeHtml(c.desc)}</span>
+          </div>`
+        ).join('');
+      }
+      if (precommitGateStatus) {
+        const allPassed = appState.autonomy?.checks?.['testing-qa'] && appState.autonomy?.checks?.['security-review'] && appState.autonomy?.checks?.['domain-skill'];
+        precommitGateStatus.textContent = allPassed ? 'Passed' : 'Pending';
+        precommitGateStatus.style.color = allPassed ? 'var(--success)' : 'var(--warning)';
+      }
+
+      // View Catalog button
+      const btnViewCatalog = document.getElementById('btnViewCatalog');
+      if (btnViewCatalog) {
+        btnViewCatalog.onclick = () => showFullCatalogModal();
+      }
+    }
+
+    // Show full catalog modal
+    function showFullCatalogModal() {
+      const modal = document.createElement('div');
+      modal.className = 'modal-overlay';
+      modal.style.zIndex = '1001';
+      modal.innerHTML = `
+        <div class="modal-box" style="width: 700px; max-width: 95vw; max-height: 85vh;">
+          <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-color); padding-bottom:8px;">
+            <h3 style="font-size: 14px; font-weight: 700;">Full Installed Catalog</h3>
+            <button class="section-btn" onclick="this.closest('.modal-overlay').remove()">✕</button>
+          </div>
+          <div style="max-height: 60vh; overflow-y: auto; padding: 12px;">
+            <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">Mandatory Pre-installed Skills (from jcode pack)</div>
+            <div id="fullCatalogSkills" style="display: flex; flex-direction: column; gap: 4px; margin-bottom: 16px;"></div>
+            <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">Mandatory Pre-installed MCPs</div>
+            <div id="fullCatalogMcps" style="display: flex; flex-direction: column; gap: 4px; margin-bottom: 16px;"></div>
+            <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">NEW Skills for Vibe-Coding Development</div>
+            <div id="fullCatalogVibeSkills" style="display: flex; flex-direction: column; gap: 4px; margin-bottom: 16px;"></div>
+            <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">NEW MCPs (Build Environment)</div>
+            <div id="fullCatalogNewMcps" style="display: flex; flex-direction: column; gap: 4px;"></div>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modal);
+      
+      // Populate the modal
+      const mandatorySkills = [
+        { name: 'no-ai-slop', desc: 'Produce work indistinguishable from a careful human developer. No generic AI filler in UI, copy, or code.' },
+        { name: 'senior-frontend', desc: 'Frontend expertise: layout, interactions, preview behavior.' },
+        { name: 'testing-qa', desc: 'Test like a hostile user: clicks everything, breaks inputs, reads console errors as failures.' },
+        { name: 'security-review', desc: 'Security review checklist for client-side apps and API integrations.' },
+        { name: 'performance', desc: 'Performance optimization and profiling.' },
+        { name: 'accessibility', desc: 'Accessibility essentials for IDE-style web apps used on phones and desktops.' },
+        { name: 'api-design', desc: 'Hardened client design for calling heterogeneous LLM/provider APIs.' },
+        { name: 'debugging-discipline', desc: 'Systematic debugging methodology.' },
+        { name: 'git-workflow', desc: 'Clean git habits for staged agent-built projects.' }
+      ];
+      document.getElementById('fullCatalogSkills').innerHTML = mandatorySkills.map(s => 
+        `<div style="display:flex; align-items:center; gap:8px; padding:6px 8px; background:var(--bg-dark); border:1px solid var(--border-color); border-radius:4px;">
+          <span style="font-weight:600; color:var(--accent-blue); font-family:var(--font-mono); font-size:10px;">${escapeHtml(s.name)}</span>
+          <span style="color:var(--text-muted); font-size:10px;">${escapeHtml(s.desc)}</span>
+        </div>`
+      ).join('');
+      
+      const mandatoryMcps = [
+        { name: 'context7', desc: 'Docs lookup — up-to-date documentation and code examples for any library.' },
+        { name: 'playwright', desc: 'Browser testing — full Playwright automation for testing and scraping.' },
+        { name: 'sequential-thinking', desc: 'Hard problems — step-by-step reasoning for complex tasks.' }
+      ];
+      document.getElementById('fullCatalogMcps').innerHTML = mandatoryMcps.map(m => 
+        `<div style="display:flex; align-items:center; gap:8px; padding:6px 8px; background:var(--bg-dark); border:1px solid var(--border-color); border-radius:4px;">
+          <span style="font-weight:600; color:var(--warning); font-family:var(--font-mono); font-size:10px;">${escapeHtml(m.name)}</span>
+          <span style="color:var(--text-muted); font-size:10px;">${escapeHtml(m.desc)}</span>
+        </div>`
+      ).join('');
+      
+      const vibeSkills = [
+        { name: 'vibe-coding-orchestrator', desc: 'The loop: understand → plan → scaffold → build in slices → test → fix → polish; never claim done with tests failing.' },
+        { name: 'human-dev-sense', desc: 'Develop like a human dev: edge cases, empty/error/loading states, UX judgment, good naming, consistency, no over-engineering.' },
+        { name: 'test-first', desc: 'Write the check before the code; red → green → refactor; happy path + edge paths.' },
+        { name: 'design-taste', desc: 'Visual judgment: spacing scale, type hierarchy, colour discipline, anti-slop rules.' },
+        { name: 'backend-craft', desc: 'Data modelling, API design, auth, errors, migrations, observability.' },
+        { name: 'ship-ready', desc: 'Deployment discipline: env handling, build checks, CI basics, rollback, changelog.' }
+      ];
+      document.getElementById('fullCatalogVibeSkills').innerHTML = vibeSkills.map(s => 
+        `<div style="display:flex; align-items:center; gap:8px; padding:6px 8px; background:var(--bg-dark); border:1px solid var(--border-color); border-radius:4px;">
+          <span style="font-weight:600; color:var(--success); font-family:var(--font-mono); font-size:10px;">${escapeHtml(s.name)}</span>
+          <span style="color:var(--text-muted); font-size:10px;">${escapeHtml(s.desc)}</span>
+        </div>`
+      ).join('');
+      
+      const newMcps = [
+        { name: 'github', desc: 'Repo ops: issues, PRs, branches, file operations.' },
+        { name: 'memory', desc: 'Persistent knowledge-graph memory across sessions.' },
+        { name: 'fetch', desc: 'Fetch docs/pages the agent needs while building.' }
+      ];
+      document.getElementById('fullCatalogNewMcps').innerHTML = newMcps.map(m => 
+        `<div style="display:flex; align-items:center; gap:8px; padding:6px 8px; background:var(--bg-dark); border:1px solid var(--border-color); border-radius:4px;">
+          <span style="font-weight:600; color:var(--warning); font-family:var(--font-mono); font-size:10px;">${escapeHtml(m.name)}</span>
+          <span style="color:var(--text-muted); font-size:10px;">${escapeHtml(m.desc)}</span>
+        </div>`
+      ).join('');
     }
 
     // --- Stage 2: Anti-Stuck Compatibility Layer ---
@@ -3381,7 +3659,7 @@ CURRENT VIRTUAL FILES:
       return context;
     }
 
-    function appendChatMessage(role, content, chips = []) {
+    function appendChatMessage(role, content, chips = [], toolsUsed = []) {
       const chat = document.getElementById('chatMessages');
       const msg = document.createElement('div');
       msg.className = `msg msg-${role}`;
@@ -3404,6 +3682,23 @@ CURRENT VIRTUAL FILES:
           html += '</div>';
         }
 
+        // Tools Used strip
+        if (toolsUsed && toolsUsed.length > 0) {
+          html += '<div style="margin-top:8px; padding:6px 8px; background:var(--bg-dark); border:1px solid var(--border-color); border-radius:4px; font-size:10px;">';
+          html += '<div style="font-weight:600; color:var(--accent-blue); margin-bottom:4px; font-family:var(--font-mono);">Tools Used:</div>';
+          html += '<div style="display:flex; flex-wrap:wrap; gap:4px;">';
+          toolsUsed.forEach(tool => {
+            const typeColor = tool.type === 'skill' ? 'var(--accent-blue)' : tool.type === 'plugin' ? 'var(--success)' : tool.type === 'mcp' ? 'var(--warning)' : 'var(--text-muted)';
+            html += `<span style="background:${typeColor}20; color:${typeColor}; padding:2px 6px; border-radius:3px; font-family:var(--font-mono); font-size:9px;">${escapeHtml(tool.name)} (${tool.type})</span>`;
+          });
+          html += '</div></div>';
+        } else if (toolsUsed && toolsUsed.length === 0) {
+          // Show reason for no tools
+          html += '<div style="margin-top:8px; padding:6px 8px; background:var(--bg-dark); border:1px solid var(--border-color); border-radius:4px; font-size:10px; color:var(--text-dim);">';
+          html += 'No tools applied — trivial task (no tool-match required).';
+          html += '</div>';
+        }
+
         msg.innerHTML = html || '<em>Action completed.</em>';
       } else {
         msg.textContent = content;
@@ -3420,6 +3715,7 @@ CURRENT VIRTUAL FILES:
     function parseAndApplyBlocks(responseText) {
       const session = getCurrentSession();
       const chips = [];
+      const toolsUsed = [];
       let fileModified = false;
 
       // Regex for fenced blocks: ```file:filename\ncontent```
@@ -3437,17 +3733,20 @@ CURRENT VIRTUAL FILES:
           const lineCount = blockContent.split('\n').length;
           chips.push({ type: 'file', label: `Updated ${targetPath} (${lineCount} lines)` });
           logActivity(`Agent updated ${targetPath} (${lineCount} lines)`, 'success');
+          toolsUsed.push({ name: 'file-write', type: 'skill' });
         } else if (actionType === 'delete') {
           delete session.files[targetPath];
           fileModified = true;
           chips.push({ type: 'delete', label: `Deleted ${targetPath}` });
           logActivity(`Agent deleted ${targetPath}`, 'warning');
+          toolsUsed.push({ name: 'file-delete', type: 'skill' });
         } else if (actionType === 'browse') {
           const url = targetPath || blockContent.trim();
           document.getElementById('browserUrlInput').value = url;
           document.getElementById('browserIframe').src = url;
           chips.push({ type: 'browse', label: `Browsed to ${url}` });
           logActivity(`Agent navigated browser to ${url}`, 'info');
+          toolsUsed.push({ name: 'browser', type: 'mcp' });
         }
       }
 
@@ -3464,7 +3763,7 @@ CURRENT VIRTUAL FILES:
         saveAppState();
       }
 
-      return { chips, fileModified };
+      return { chips, fileModified, toolsUsed };
     }
 
     // Compress conversation history when it exceeds 60% of context window
@@ -3683,8 +3982,8 @@ async function sendAgentPrompt(userPrompt, autoTurn = 0) {
 
         session.chatHistory.push({ role: 'assistant', content: reply });
 
-        const { chips, fileModified } = parseAndApplyBlocks(reply);
-        appendChatMessage('agent', reply, chips);
+        const { chips, fileModified, toolsUsed } = parseAndApplyBlocks(reply);
+        appendChatMessage('agent', reply, chips, toolsUsed);
 
         // Auto-continue loop up to 3 turns if files were updated and reply needs continuation
         if (fileModified && autoTurn < 3) {
@@ -3692,6 +3991,15 @@ async function sendAgentPrompt(userPrompt, autoTurn = 0) {
           agentWorking = false;
           stopTimer();
           return sendAgentPrompt("Continue refining or complete any remaining steps if needed. If finished, reply briefly with no code blocks.", autoTurn + 1);
+        }
+
+        // Task completed - check pre-commit gate for final completion
+        if (fileModified && autoTurn >= 3) {
+          const gateCheck = checkPrecommitGate('chat-task');
+          if (!gateCheck.passed) {
+            appendChatMessage('system', gateCheck.message);
+            logActivity('Pre-commit gate blocked task completion', 'warning');
+          }
         }
 
       } catch (err) {
@@ -3879,11 +4187,22 @@ Rules:
 
         session.chatHistory.push({ role: 'assistant', content: reply });
         
-        const { chips, fileModified } = parseAndApplyBlocks(reply);
-        appendChatMessage('agent', reply, chips);
+        const { chips, fileModified, toolsUsed } = parseAndApplyBlocks(reply);
+        appendChatMessage('agent', reply, chips, toolsUsed);
 
         if (fileModified) {
-          // Step completed successfully
+          // Step completed successfully - check pre-commit gate
+          const gateCheck = checkPrecommitGate('plan-step');
+          if (!gateCheck.passed) {
+            appendChatMessage('system', gateCheck.message);
+            logActivity('Pre-commit gate blocked step completion', 'warning');
+            // Don't mark as done, let user run checks first
+            agentWorking = false;
+            stopTimer();
+            saveAppState();
+            return;
+          }
+          
           step.done = true;
           step.current = false;
           savePlanToBrainFile();
@@ -4561,6 +4880,7 @@ Rules:
           if (tabName === 'plugins') renderBuiltinPluginPacks();
           if (tabName === 'mcp') renderMcpServerSummary();
           if (tabName === 'behavior') renderUncensoredBehaviorTab();
+          if (tabName === 'autonomy') renderAutonomyTab();
         });
       });
 
@@ -6106,11 +6426,11 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
         const response = await callLLM(messages);
 
         // Parse and apply any file blocks
-        const { chips, fileModified } = parseAndApplyBlocks(response);
+        const { chips, fileModified, toolsUsed } = parseAndApplyBlocks(response);
 
         // Return summary for presentation
         const summary = response.replace(/```(file|delete|browse):[\s\S]*?```/g, '').trim();
-        return summary || 'Task completed (see file changes)';
+        return { summary: summary || 'Task completed (see file changes)', toolsUsed };
       } finally {
         appState.activeProviderId = oldProviderId;
         appState.activeAgentId = oldAgentId;
@@ -6177,6 +6497,9 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
         appendTeamChat('test-result', qaAgent.id, qaResult);
 
         const passed = !qaResult.toLowerCase().includes('fail');
+        if (passed) {
+          recordAutonomyCheck('testing-qa', true);
+        }
         return { passed, errors: passed ? [] : [qaResult] };
       } catch (err) {
         appendTeamChat('error', qaAgent.id, `QA error: ${err.message}`);
@@ -6211,6 +6534,7 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
           appState.teamTaskBoard.forEach(t => { if (t.status !== 'approved') t.status = 'approved'; });
           renderTaskBoard();
           updateAgentStatusChips();
+          recordAutonomyCheck('security-review', true);
           return { approved: true, reworkItems: [] };
         }
 
@@ -6333,6 +6657,13 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
         // Phase 6: Final report
         await runFinalReport();
 
+        // Check pre-commit gate before final completion
+        const gateCheck = checkPrecommitGate('team-mode');
+        if (!gateCheck.passed) {
+          appendTeamChat('system', null, gateCheck.message);
+          logActivity('Pre-commit gate blocked team completion', 'warning');
+        }
+
         logActivity('Team mode completed', 'success');
       } catch (err) {
         logActivity('Team mode error: ' + err.message, 'error');
@@ -6381,6 +6712,52 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
 
     // ==================== SUB-AGENT SPAWN SUPPORT ====================
 
+    // Pre-commit gate: check if mandatory checks pass
+    function checkPrecommitGate(taskType = 'general') {
+      const checks = appState.autonomy?.checks || { 'testing-qa': false, 'security-review': false, 'domain-skill': false };
+      const allPassed = checks['testing-qa'] && checks['security-review'] && checks['domain-skill'];
+      
+      if (!allPassed) {
+        const failed = [];
+        if (!checks['testing-qa']) failed.push('Testing-QA (tests must pass)');
+        if (!checks['security-review']) failed.push('Security Review (no secrets, no injection holes)');
+        if (!checks['domain-skill']) failed.push('Relevant Domain Skill (skill for the change type)');
+        
+        const message = `⚠️ **Pre-commit Gate Blocked**\n\nThe following mandatory checks have not passed:\n${failed.map(f => `• ${f}`).join('\n')}\n\nPlease run the required checks before marking this task as done.`;
+        
+        return { passed: false, message, failed };
+      }
+      
+      return { passed: true };
+    }
+
+    // Record a check as passed
+    function recordAutonomyCheck(checkName, passed = true) {
+      if (!appState.autonomy) {
+        appState.autonomy = { checks: { 'testing-qa': false, 'security-review': false, 'domain-skill': false }, taskHistory: [], lastToolsUsed: [] };
+      }
+      if (!appState.autonomy.checks) {
+        appState.autonomy.checks = { 'testing-qa': false, 'security-review': false, 'domain-skill': false };
+      }
+      appState.autonomy.checks[checkName] = passed;
+      saveAppState();
+      
+      // Re-render autonomy tab if open
+      const precommitGateStatus = document.getElementById('precommitGateStatus');
+      if (precommitGateStatus) {
+        const allPassed = appState.autonomy.checks['testing-qa'] && appState.autonomy.checks['security-review'] && appState.autonomy.checks['domain-skill'];
+        precommitGateStatus.textContent = allPassed ? 'Passed' : 'Pending';
+        precommitGateStatus.style.color = allPassed ? 'var(--success)' : 'var(--warning)';
+      }
+      
+      const precommitChecks = document.getElementById('precommitChecks');
+      if (precommitChecks) {
+        renderAutonomyTab(); // Re-render to update check statuses
+      }
+      
+      logActivity(`Autonomy check recorded: ${checkName} = ${passed ? 'PASS' : 'FAIL'}`, passed ? 'success' : 'warning');
+    }
+
     // Parse spawn: blocks from agent responses
     function parseSpawnBlocks(responseText) {
       const spawnRegex = /```spawn:([^\n]+)\n([\s\S]*?)```/g;
@@ -6408,10 +6785,50 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
 
       logActivity(`${parentAgent.name} spawned sub-agent: ${subAgent.name} (${subAgent.emoji})`, 'info');
 
-      // Build context for sub-agent
+      // Build context for sub-agent with full catalog and mandatory-use rule
       let context = buildSystemContextWithGuard();
       const skillInstructions = getSkillPackInstructions(subAgent.skillPacks);
       if (skillInstructions) context += '\n\n' + skillInstructions;
+
+      // Inject full catalog and mandatory-use rule for autonomy
+      context += '\n\n=== AUTONOMY ENGINE: CATALOG INJECTION ===';
+      context += '\nThe following skills, plugins, and MCPs are installed and available. You MUST use them where applicable.';
+      context += '\n\n--- MANDATORY PRE-INSTALLED SKILLS (jcode pack) ---';
+      context += '\n• no-ai-slop: Produce work indistinguishable from a careful human developer. No generic AI filler in UI, copy, or code.';
+      context += '\n• senior-frontend: Frontend expertise: layout, interactions, preview behavior.';
+      context += '\n• testing-qa: Test like a hostile user: clicks everything, breaks inputs, reads console errors as failures.';
+      context += '\n• security-review: Security review checklist for client-side apps and API integrations.';
+      context += '\n• performance: Performance optimization and profiling.';
+      context += '\n• accessibility: Accessibility essentials for IDE-style web apps used on phones and desktops.';
+      context += '\n• api-design: Hardened client design for calling heterogeneous LLM/provider APIs.';
+      context += '\n• debugging-discipline: Systematic debugging methodology.';
+      context += '\n• git-workflow: Clean git habits for staged agent-built projects.';
+      context += '\n\n--- MANDATORY PRE-INSTALLED MCPs ---';
+      context += '\n• context7: Docs lookup — up-to-date documentation and code examples for any library.';
+      context += '\n• playwright: Browser testing — full Playwright automation for testing and scraping.';
+      context += '\n• sequential-thinking: Hard problems — step-by-step reasoning for complex tasks.';
+      context += '\n\n--- NEW SKILLS FOR VIBE-CODING DEVELOPMENT ---';
+      context += '\n• vibe-coding-orchestrator: The loop: understand → plan → scaffold → build in slices → test → fix → polish; never claim done with tests failing.';
+      context += '\n• human-dev-sense: Develop like a human dev: edge cases, empty/error/loading states, UX judgment, good naming, consistency, no over-engineering.';
+      context += '\n• test-first: Write the check before the code; red → green → refactor; happy path + edge paths.';
+      context += '\n• design-taste: Visual judgment: spacing scale, type hierarchy, colour discipline, anti-slop rules.';
+      context += '\n• backend-craft: Data modelling, API design, auth, errors, migrations, observability.';
+      context += '\n• ship-ready: Deployment discipline: env handling, build checks, CI basics, rollback, changelog.';
+      context += '\n\n--- NEW MCPs (BUILD ENVIRONMENT) ---';
+      context += '\n• github: Repo ops: issues, PRs, branches, file operations.';
+      context += '\n• memory: Persistent knowledge-graph memory across sessions.';
+      context += '\n• fetch: Fetch docs/pages the agent needs while building.';
+      context += '\n\n=== MANDATORY-USE RULE ===';
+      context += '\nOn EVERY task, you MUST list which installed skills/plugins/MCPs apply and use them.';
+      context += '\n"No tool applies" is only valid for trivial tasks with a one-line reason.';
+      context += '\n\n=== PRE-COMMIT GATE ===';
+      context += '\nNo work is marked done until mandatory checks pass:';
+      context += '\n• testing-qa: Tests pass';
+      context += '\n• security-review: No secrets, no injection holes';
+      context += '\n• domain-skill: Relevant domain skill for the change type';
+      context += '\n\n=== SUB-AGENT INHERITANCE ===';
+      context += '\nYou are a sub-agent spawned by ' + parentAgent.name + '. You inherit the full catalog and mandatory-use rule.';
+      context += '\nYou can invoke skills, plugins, and MCP tools on your own.';
 
       context += `\n\nYOUR SUB-TASK: ${task}\n\nYou are ${subAgent.name} (${subAgent.emoji}), spawned by ${parentAgent.name}. Complete this sub-task and return the result. Use file: blocks for any file changes.`;
 
@@ -6427,9 +6844,9 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
 
       try {
         const response = await callLLM(messages);
-        const { chips, fileModified } = parseAndApplyBlocks(response);
+        const { chips, fileModified, toolsUsed } = parseAndApplyBlocks(response);
         const summary = response.replace(/```(file|delete|browse|spawn):[\s\S]*?```/g, '').trim();
-        return summary || 'Sub-task completed (see file changes)';
+        return { summary: summary || 'Sub-task completed (see file changes)', toolsUsed };
       } catch (err) {
         logActivity(`Sub-agent ${subAgent.name} error: ${err.message}`, 'error');
         return `Sub-agent error: ${err.message}`;
