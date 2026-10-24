@@ -3411,6 +3411,185 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
       });
     }
 
+    // ==================== TEAM MODE CORE ====================
+
+    // Task status: 'pending' | 'working' | 'idle-done' | 'in-review' | 'rework' | 'approved'
+    // Team phase: 'idle' | 'discussion' | 'execution' | 'presentation' | 'testing' | 'review' | 'complete'
+
+    function resetTeamState() {
+      appState.teamRoster = [];
+      appState.teamSeniorId = null;
+      appState.teamTaskBoard = [];
+      appState.teamChat = [];
+      appState.teamPhase = 'idle';
+      appState.teamReviewRound = 0;
+      appState.teamMode = false;
+      saveAppState();
+    }
+
+    function setTeamPhase(phase) {
+      appState.teamPhase = phase;
+      const badge = document.getElementById('teamPhaseBadge');
+      if (badge) {
+        badge.textContent = phase;
+        badge.style.background = phase === 'discussion' ? 'var(--accent-blue)' :
+                                phase === 'execution' ? 'var(--warning)' :
+                                phase === 'testing' ? 'var(--success)' :
+                                phase === 'review' ? 'var(--danger)' :
+                                phase === 'complete' ? 'var(--success)' : 'var(--bg-hover)';
+        badge.style.color = phase === 'idle' ? 'var(--text-muted)' : 'var(--bg-dark)';
+      }
+      saveAppState();
+    }
+
+    function renderTeamRoster() {
+      const container = document.getElementById('teamRoster');
+      if (!container) return;
+      container.innerHTML = '';
+
+      appState.teamRoster.forEach(agentId => {
+        const agent = appState.agents[agentId];
+        if (!agent) return;
+
+        const isSenior = agentId === appState.teamSeniorId;
+        const item = document.createElement('div');
+        item.style.cssText = 'display:flex; align-items:center; gap:8px; padding:6px 8px; background:var(--bg-surface); border:1px solid var(--border-color); border-radius:4px;';
+        item.innerHTML = `
+          <span style="font-size:16px;">${escapeHtml(agent.emoji)}</span>
+          <div style="flex:1; min-width:0;">
+            <div style="font-weight:600; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(agent.name)}${isSenior ? ' <span style="font-size:9px; font-weight:700; padding:1px 4px; background:var(--warning); color:var(--bg-dark); border-radius:3px;">LEAD</span>' : ''}</div>
+            <div style="font-size:10px; color:var(--text-dim);">${escapeHtml(agent.providerId ? appState.providers[agent.providerId]?.name : 'No provider')}</div>
+          </div>
+          ${!isSenior ? `<button class="btn btn-secondary" style="padding:2px 6px; font-size:10px;" onclick="removeFromTeam('${agentId}')">Remove</button>` : ''}
+        `;
+        container.appendChild(item);
+      });
+    }
+
+    function addToTeam(agentId) {
+      if (!appState.teamRoster.includes(agentId)) {
+        appState.teamRoster.push(agentId);
+        if (!appState.teamSeniorId) appState.teamSeniorId = agentId;
+        saveAppState();
+        renderTeamRoster();
+        updateAgentStatusChips();
+      }
+    }
+
+    function removeFromTeam(agentId) {
+      appState.teamRoster = appState.teamRoster.filter(id => id !== agentId);
+      if (appState.teamSeniorId === agentId) {
+        appState.teamSeniorId = appState.teamRoster[0] || null;
+      }
+      saveAppState();
+      renderTeamRoster();
+      updateAgentStatusChips();
+    }
+
+    function updateAgentStatusChips() {
+      const container = document.getElementById('agentStatusChips');
+      if (!container) return;
+      container.innerHTML = '';
+
+      appState.teamRoster.forEach(agentId => {
+        const agent = appState.agents[agentId];
+        if (!agent) return;
+
+        const task = appState.teamTaskBoard.find(t => t.owner === agentId);
+        const status = task ? task.status : 'idle';
+        const isSenior = agentId === appState.teamSeniorId;
+
+        const chip = document.createElement('div');
+        chip.style.cssText = 'display:flex; align-items:center; gap:6px; padding:4px 8px; border-radius:12px; font-size:11px; font-weight:500;';
+        const colors = {
+          'idle': { bg: 'var(--bg-hover)', fg: 'var(--text-dim)', dot: 'var(--text-dim)' },
+          'working': { bg: 'rgba(59, 130, 246, 0.2)', fg: 'var(--accent-blue)', dot: 'var(--accent-blue)' },
+          'idle-done': { bg: 'rgba(16, 185, 129, 0.2)', fg: 'var(--success)', dot: 'var(--success)' },
+          'in-review': { bg: 'rgba(245, 158, 11, 0.2)', fg: 'var(--warning)', dot: 'var(--warning)' },
+          'rework': { bg: 'rgba(239, 68, 68, 0.2)', fg: 'var(--danger)', dot: 'var(--danger)' },
+          'approved': { bg: 'rgba(16, 185, 129, 0.3)', fg: 'var(--success)', dot: 'var(--success)' }
+        };
+        const c = colors[status] || colors.idle;
+        chip.style.background = c.bg;
+        chip.style.color = c.fg;
+        chip.innerHTML = `<span style="width:6px; height:6px; border-radius:50%; background:${c.dot};"></span>${escapeHtml(agent.emoji)} ${escapeHtml(agent.name)}${isSenior ? ' ★' : ''}`;
+        container.appendChild(chip);
+      });
+    }
+
+    function renderTaskBoard() {
+      const board = document.getElementById('taskBoard');
+      const stats = document.getElementById('taskBoardStats');
+      if (!board) return;
+
+      const tasks = appState.teamTaskBoard;
+      if (tasks.length === 0) {
+        board.innerHTML = '<div style="font-size: 11px; color: var(--text-dim); text-align: center; padding: 20px;">No tasks yet. Start a team run to begin.</div>';
+        if (stats) stats.textContent = '';
+        return;
+      }
+
+      const statusCounts = { pending: 0, working: 0, 'idle-done': 0, 'in-review': 0, rework: 0, approved: 0 };
+      tasks.forEach(t => statusCounts[t.status] = (statusCounts[t.status] || 0) + 1);
+      if (stats) stats.textContent = `${statusCounts.approved}/${tasks.length} approved • ${statusCounts.working} working • ${statusCounts.rework} rework`;
+
+      board.innerHTML = '';
+      tasks.forEach((task, idx) => {
+        const agent = appState.agents[task.owner];
+        const isSenior = task.owner === appState.teamSeniorId;
+        const colors = {
+          'pending': { bg: 'var(--bg-hover)', border: 'var(--border-color)', fg: 'var(--text-dim)' },
+          'working': { bg: 'rgba(59, 130, 246, 0.15)', border: 'var(--accent-blue)', fg: 'var(--accent-blue)' },
+          'idle-done': { bg: 'rgba(16, 185, 129, 0.15)', border: 'var(--success)', fg: 'var(--success)' },
+          'in-review': { bg: 'rgba(245, 158, 11, 0.15)', border: 'var(--warning)', fg: 'var(--warning)' },
+          'rework': { bg: 'rgba(239, 68, 68, 0.15)', border: 'var(--danger)', fg: 'var(--danger)' },
+          'approved': { bg: 'rgba(16, 185, 129, 0.2)', border: 'var(--success)', fg: 'var(--success)' }
+        };
+        const c = colors[task.status] || colors.pending;
+
+        const item = document.createElement('div');
+        item.style.cssText = 'padding:8px 10px; background:' + c.bg + '; border:1px solid ' + c.border + '; border-radius:5px; color:' + c.fg + ';';
+        item.innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:4px;">
+            <div style="font-weight:600; font-size:12px; flex:1;">${escapeHtml(task.title)}</div>
+            <span style="font-size:9px; font-weight:700; padding:1px 5px; border-radius:3px; background:${c.border}; color:${c.fg};">${task.status.toUpperCase()}</span>
+          </div>
+          <div style="font-size:10px; color:var(--text-dim); margin-bottom:4px;">${escapeHtml(task.description)}</div>
+          <div style="display:flex; justify-content:space-between; align-items:center; font-size:10px;">
+            <span>${agent ? escapeHtml(agent.emoji + ' ' + agent.name) : 'Unassigned'}${isSenior ? ' ★' : ''}</span>
+            ${task.dependsOn && task.dependsOn.length ? '<span style="color:var(--text-dim);">↳ Depends: ' + task.dependsOn.map(d => '#' + (tasks.findIndex(t => t.id === d) + 1)).join(', ') + '</span>' : ''}
+          </div>
+        `;
+        board.appendChild(item);
+      });
+    }
+
+    function appendTeamChat(role, agentId, content) {
+      const chat = document.getElementById('teamChat');
+      if (!chat) return;
+
+      const agent = appState.agents[agentId];
+      const isSenior = agentId === appState.teamSeniorId;
+
+      const msg = document.createElement('div');
+      msg.style.cssText = 'display:flex; gap:8px; padding:6px 8px; background:var(--bg-surface); border:1px solid var(--border-color); border-radius:5px;';
+      msg.innerHTML = `
+        <span style="font-size:16px; flex-shrink:0;">${agent ? escapeHtml(agent.emoji) : '🤖'}</span>
+        <div style="flex:1; min-width:0;">
+          <div style="display:flex; align-items:center; gap:6px; margin-bottom:2px;">
+            <span style="font-weight:600; font-size:11px;">${agent ? escapeHtml(agent.name) : 'Agent'}${isSenior ? ' <span style="font-size:9px; padding:1px 3px; background:var(--warning); color:var(--bg-dark); border-radius:3px;">LEAD</span>' : ''}</span>
+            <span style="font-size:9px; color:var(--text-dim);">[${role.toUpperCase()}]</span>
+          </div>
+          <div style="font-size:11px; color:var(--text-main); white-space:pre-wrap; word-break:break-word;">${escapeHtml(content)}</div>
+        </div>
+      `;
+      chat.appendChild(msg);
+      chat.scrollTop = chat.scrollHeight;
+
+      appState.teamChat.push({ role, agentId, content, timestamp: Date.now() });
+      saveAppState();
+    }
+
     document.addEventListener('DOMContentLoaded', initApp);
   </script>
 </body>
