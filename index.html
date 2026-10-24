@@ -622,6 +622,52 @@
       .app-main.show-preview .panel-right { display: flex; }
       .app-main.show-browser .panel-right { display: flex; }
     }
+
+    /* Diff Review Styles */
+    .diff-file {
+      animation: slideIn 0.2s ease-out;
+    }
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .diff-line {
+      display: flex;
+      padding: 2px 8px;
+      border-radius: 3px;
+      margin: 1px 4px;
+    }
+    .diff-line.diff-added {
+      background: rgba(16, 185, 129, 0.15);
+    }
+    .diff-line.diff-removed {
+      background: rgba(239, 68, 68, 0.15);
+    }
+    .diff-line.diff-unchanged {
+      color: var(--text-dim);
+    }
+    .diff-prefix {
+      display: inline-block;
+      width: 16px;
+      text-align: center;
+      font-weight: 600;
+      user-select: none;
+      margin-right: 8px;
+    }
+    .diff-added .diff-prefix { color: var(--success); }
+    .diff-removed .diff-prefix { color: var(--danger); }
+    .diff-unchanged .diff-prefix { color: var(--text-dim); }
+    .diff-content {
+      flex: 1;
+      white-space: pre-wrap;
+      word-break: break-all;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      line-height: 1.6;
+    }
+    .diff-file:hover {
+      border-color: var(--accent-blue);
+    }
   </style>
 </head>
 <body>
@@ -707,6 +753,7 @@
         <button class="right-tab" data-pane="browser">Browser</button>
         <button class="right-tab" data-pane="activity">Activity</button>
         <button class="right-tab" data-pane="history">History</button>
+        <button class="right-tab" data-pane="diffReview">Diff Review</button>
       </div>
 
       <div class="right-content">
@@ -898,6 +945,25 @@
             </div>
           </div>
         </div>
+
+        <!-- Diff Review Pane -->
+        <div class="pane-view" id="paneDiffReview">
+          <div style="flex:1; overflow-y:auto; padding: 12px; display:flex; flex-direction:column; gap:12px;">
+            <div style="display:flex; align-items:center; justify-content:space-between; padding: 8px 12px; background:var(--bg-surface); border:1px solid var(--border-color); border-radius:5px;">
+              <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Pending Changes</div>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <span id="pendingChangesCount" style="font-size: 10px; color: var(--text-dim);">0 files</span>
+              </div>
+            </div>
+            <div id="diffReviewList" style="flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:8px;">
+              <div style="font-size: 11px; color: var(--text-dim); text-align: center; padding: 20px;">No pending changes. Agent changes will appear here for review when diff review is enabled.</div>
+            </div>
+            <div id="diffReviewActions" style="display:none; flex-direction:row; gap:8px; justify-content:flex-end; padding-top:8px; border-top:1px solid var(--border-color);">
+              <button class="btn btn-secondary" id="btnRejectAllChanges" style="padding: 6px 12px; font-size: 11px;">Reject All</button>
+              <button class="btn" id="btnAcceptAllChanges" style="padding: 6px 12px; font-size: 11px;">Accept All</button>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -928,6 +994,10 @@
     <button class="mobile-nav-btn" data-mobile-tab="history">
       <span>🕐</span>
       <span>History</span>
+    </button>
+    <button class="mobile-nav-btn" data-mobile-tab="diffReview">
+      <span>🔍</span>
+      <span>Diff</span>
     </button>
   </nav>
 
@@ -1058,6 +1128,19 @@
         <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 8px;">Auto = use project setting. On/Off = override for this specific model.</div>
         <div id="uncensoredModelOverrideList" style="display: flex; flex-direction: column; gap: 4px;">
           <!-- Model overrides rendered here -->
+        </div>
+        <hr style="border: none; border-top: 1px solid var(--border-color); margin: 12px 0;">
+        <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">Diff Review</div>
+        <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 8px;">When enabled, agent file changes are shown as diffs for review before being applied.</div>
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+          <div style="flex: 1; min-width: 0;">
+            <div style="font-weight: 600; font-size: 12px; color: var(--text-main);">Review changes before applying</div>
+            <div style="font-size: 10px; color: var(--text-dim); margin-top: 2px;">Toggle OFF to auto-apply agent changes immediately (legacy behavior).</div>
+          </div>
+          <label class="toggle-switch" style="cursor: pointer; flex-shrink: 0;">
+            <input type="checkbox" id="diffReviewToggleSettings" style="display: none;" checked />
+            <span class="toggle-slider"></span>
+          </label>
         </div>
       </div>
     </div>
@@ -1954,6 +2037,9 @@ WORK STYLE:
       // Checkpoint / Time-travel state
       checkpoints: [],  // Array of {id, label, timestamp, files, brainState, sessionId}
       checkpointCap: 30,
+      // Diff Review state
+      diffReviewEnabled: true,  // Default ON
+      pendingChanges: null,     // { responseText, changes: [{type, path, oldContent, newContent, action}] }
       // Legacy single provider fields for backward compatibility
       provider: {
         preset: '9router',
@@ -2904,6 +2990,17 @@ Links: [[Brain Index]]
       
       // Render Plan + Build settings
       renderPlanBuildSettings();
+
+      // Diff Review toggle
+      const diffReviewToggle = document.getElementById('diffReviewToggleSettings');
+      if (diffReviewToggle) {
+        diffReviewToggle.checked = appState.diffReviewEnabled !== false; // Default ON
+        diffReviewToggle.onchange = (e) => {
+          appState.diffReviewEnabled = e.target.checked;
+          saveAppState();
+          logActivity(e.target.checked ? 'Diff review enabled' : 'Diff review disabled (auto-apply)', 'info');
+        };
+      }
     }
 
     // Update Plan + Build settings inputs
@@ -4106,6 +4203,36 @@ CURRENT VIRTUAL FILES:
 
     function parseAndApplyBlocks(responseText) {
       const session = getCurrentSession();
+      
+      // Check if diff review is enabled
+      if (appState.diffReviewEnabled) {
+        // Collect changes for review instead of applying immediately
+        const { changes, chips, toolsUsed, noteReads } = parseAndCollectChanges(responseText);
+        
+        if (changes.length > 0) {
+          // Create checkpoint before agent changes
+          createCheckpoint('Agent edit (pending review)');
+          
+          // Store pending changes
+          appState.pendingChanges = {
+            responseText,
+            changes,
+            timestamp: Date.now()
+          };
+          
+          // Switch to diff review panel
+          document.querySelector('.right-tab[data-pane="diffReview"]').click();
+          
+          saveAppState();
+          return { chips, fileModified: false, toolsUsed, noteReads, pendingReview: true };
+        }
+        
+        // No file changes, apply browse/brain-read immediately
+        const { chips: otherChips, toolsUsed: otherTools } = parseAndCollectChanges(responseText);
+        return { chips: otherChips, fileModified: false, toolsUsed: otherTools, noteReads };
+      }
+      
+      // Legacy behavior: apply immediately
       const chips = [];
       const toolsUsed = [];
       let fileModified = false;
@@ -4176,6 +4303,324 @@ CURRENT VIRTUAL FILES:
       }
 
       return { chips, fileModified, toolsUsed, noteReads };
+    }
+
+    // ==================== DIFF REVIEW SYSTEM ====================
+
+    // Compute unified diff between old and new content
+    function computeDiff(oldContent, newContent) {
+      // Handle empty content - split('\n') on empty string returns [''], so filter that out
+      const oldLines = oldContent ? oldContent.split('\n') : [];
+      const newLines = newContent ? newContent.split('\n') : [];
+      
+      const diff = [];
+      let i = 0, j = 0;
+      
+      while (i < oldLines.length || j < newLines.length) {
+        if (i < oldLines.length && j < newLines.length && oldLines[i] === newLines[j]) {
+          diff.push({ type: 'unchanged', line: oldLines[i] });
+          i++; j++;
+        } else if (i < oldLines.length && j < newLines.length) {
+          // Check if this is a modification (line exists in both but different)
+          // Look ahead to see if lines match later
+          let foundMatch = false;
+          for (let ni = i; ni < Math.min(i + 5, oldLines.length); ni++) {
+            for (let nj = j; nj < Math.min(j + 5, newLines.length); nj++) {
+              if (oldLines[ni] === newLines[nj]) {
+                // Found a match, everything between is a change
+                for (let k = i; k < ni; k++) {
+                  diff.push({ type: 'removed', line: oldLines[k] });
+                }
+                for (let k = j; k < nj; k++) {
+                  diff.push({ type: 'added', line: newLines[k] });
+                }
+                i = ni; j = nj;
+                foundMatch = true;
+                break;
+              }
+            }
+            if (foundMatch) break;
+          }
+          if (!foundMatch) {
+            // No nearby match, treat as removal + addition
+            diff.push({ type: 'removed', line: oldLines[i] });
+            i++;
+            if (j < newLines.length) {
+              diff.push({ type: 'added', line: newLines[j] });
+              j++;
+            }
+          }
+        } else if (i < oldLines.length) {
+          diff.push({ type: 'removed', line: oldLines[i] });
+          i++;
+        } else if (j < newLines.length) {
+          diff.push({ type: 'added', line: newLines[j] });
+          j++;
+        }
+      }
+      
+      return diff;
+    }
+
+    // Render a single file diff as HTML
+    function renderFileDiff(change) {
+      const { path, oldContent, newContent, action } = change;
+      
+      let diffHtml = '';
+      
+      if (action === 'delete') {
+        // Show deleted file
+        const diff = computeDiff(oldContent, '');
+        diffHtml = diff.map(d => {
+          const cls = d.type === 'removed' ? 'diff-removed' : d.type === 'added' ? 'diff-added' : 'diff-unchanged';
+          const prefix = d.type === 'removed' ? '-' : d.type === 'added' ? '+' : ' ';
+          return `<div class="diff-line ${cls}"><span class="diff-prefix">${prefix}</span><span class="diff-content">${escapeHtml(d.line)}</span></div>`;
+        }).join('');
+      } else if (action === 'create') {
+        // Show new file
+        const diff = computeDiff('', newContent);
+        diffHtml = diff.map(d => {
+          const cls = d.type === 'removed' ? 'diff-removed' : d.type === 'added' ? 'diff-added' : 'diff-unchanged';
+          const prefix = d.type === 'removed' ? '-' : d.type === 'added' ? '+' : ' ';
+          return `<div class="diff-line ${cls}"><span class="diff-prefix">${prefix}</span><span class="diff-content">${escapeHtml(d.line)}</span></div>`;
+        }).join('');
+      } else {
+        // Modify - show unified diff
+        const diff = computeDiff(oldContent, newContent);
+        diffHtml = diff.map(d => {
+          const cls = d.type === 'removed' ? 'diff-removed' : d.type === 'added' ? 'diff-added' : 'diff-unchanged';
+          const prefix = d.type === 'removed' ? '-' : d.type === 'added' ? '+' : ' ';
+          return `<div class="diff-line ${cls}"><span class="diff-prefix">${prefix}</span><span class="diff-content">${escapeHtml(d.line)}</span></div>`;
+        }).join('');
+      }
+      
+      const actionBadge = action === 'delete' 
+        ? '<span style="background:rgba(239,68,68,0.2); color:var(--danger); padding:2px 6px; border-radius:3px; font-size:9px; font-weight:600;">DELETE</span>'
+        : action === 'create'
+          ? '<span style="background:rgba(16,185,129,0.2); color:var(--success); padding:2px 6px; border-radius:3px; font-size:9px; font-weight:600;">NEW</span>'
+          : '<span style="background:rgba(59,130,246,0.2); color:var(--accent-blue); padding:2px 6px; border-radius:3px; font-size:9px; font-weight:600;">MODIFY</span>';
+      
+      return `
+        <div class="diff-file" data-path="${escapeHtml(path)}" style="background:var(--bg-surface); border:1px solid var(--border-color); border-radius:6px; overflow:hidden;">
+          <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:var(--bg-panel); border-bottom:1px solid var(--border-color);">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="font-family:var(--font-mono); font-size:12px; color:var(--text-main);">${escapeHtml(path)}</span>
+              ${actionBadge}
+            </div>
+            <div style="display:flex; gap:6px;">
+              <button class="btn btn-secondary btn-accept-file" data-path="${escapeHtml(path)}" style="padding:4px 10px; font-size:10px;">Accept</button>
+              <button class="btn btn-secondary btn-reject-file" data-path="${escapeHtml(path)}" style="padding:4px 10px; font-size:10px; color:var(--danger); border-color:var(--danger);">Reject</button>
+            </div>
+          </div>
+          <div class="diff-content" style="max-height:300px; overflow:auto; font-family:var(--font-mono); font-size:11px; line-height:1.6; padding:8px;">
+            ${diffHtml}
+          </div>
+        </div>
+      `;
+    }
+
+    // Render the diff review panel
+    function renderDiffReviewPanel() {
+      const container = document.getElementById('diffReviewList');
+      const countEl = document.getElementById('pendingChangesCount');
+      const actionsEl = document.getElementById('diffReviewActions');
+      
+      if (!container) return;
+      
+      if (!appState.pendingChanges || !appState.pendingChanges.changes || appState.pendingChanges.changes.length === 0) {
+        container.innerHTML = '<div style="font-size: 11px; color: var(--text-dim); text-align: center; padding: 20px;">No pending changes. Agent changes will appear here for review when diff review is enabled.</div>';
+        if (countEl) countEl.textContent = '0 files';
+        if (actionsEl) actionsEl.style.display = 'none';
+        return;
+      }
+      
+      const changes = appState.pendingChanges.changes;
+      if (countEl) countEl.textContent = `${changes.length} file${changes.length !== 1 ? 's' : ''}`;
+      if (actionsEl) actionsEl.style.display = 'flex';
+      
+      container.innerHTML = changes.map(renderFileDiff).join('');
+      
+      // Attach event handlers
+      container.querySelectorAll('.btn-accept-file').forEach(btn => {
+        btn.onclick = () => acceptFileChange(btn.getAttribute('data-path'));
+      });
+      container.querySelectorAll('.btn-reject-file').forEach(btn => {
+        btn.onclick = () => rejectFileChange(btn.getAttribute('data-path'));
+      });
+    }
+
+    // Accept a single file change
+    function acceptFileChange(path) {
+      if (!appState.pendingChanges) return;
+      
+      const change = appState.pendingChanges.changes.find(c => c.path === path);
+      if (!change) return;
+      
+      const session = getCurrentSession();
+      if (!session) return;
+      
+      // Apply the change
+      if (change.action === 'delete') {
+        delete session.files[path];
+        if (isBrainNotePath(path)) rebuildBrainIndex(session);
+        logActivity(`Accepted: Deleted ${path}`, 'warning');
+      } else if (change.action === 'create') {
+        session.files[path] = change.newContent;
+        if (isBrainNotePath(path)) writeBrainNote(session, path, change.newContent);
+        logActivity(`Accepted: Created ${path}`, 'success');
+      } else {
+        session.files[path] = change.newContent;
+        if (isBrainNotePath(path)) writeBrainNote(session, path, change.newContent);
+        logActivity(`Accepted: Modified ${path}`, 'success');
+      }
+      
+      // Remove from pending
+      appState.pendingChanges.changes = appState.pendingChanges.changes.filter(c => c.path !== path);
+      
+      // If no more pending changes, clear pendingChanges and apply
+      if (appState.pendingChanges.changes.length === 0) {
+        finalizePendingChanges();
+      } else {
+        saveAppState();
+        renderDiffReviewPanel();
+        refreshUI();
+      }
+    }
+
+    // Reject a single file change
+    function rejectFileChange(path) {
+      if (!appState.pendingChanges) return;
+      
+      // Remove from pending without applying
+      appState.pendingChanges.changes = appState.pendingChanges.changes.filter(c => c.path !== path);
+      
+      logActivity(`Rejected change to ${path}`, 'info');
+      
+      // If no more pending changes, clear pendingChanges
+      if (appState.pendingChanges.changes.length === 0) {
+        finalizePendingChanges();
+      } else {
+        saveAppState();
+        renderDiffReviewPanel();
+      }
+    }
+
+    // Accept all pending changes
+    function acceptAllChanges() {
+      if (!appState.pendingChanges) return;
+      
+      const session = getCurrentSession();
+      if (!session) return;
+      
+      appState.pendingChanges.changes.forEach(change => {
+        if (change.action === 'delete') {
+          delete session.files[change.path];
+          if (isBrainNotePath(change.path)) rebuildBrainIndex(session);
+        } else if (change.action === 'create') {
+          session.files[change.path] = change.newContent;
+          if (isBrainNotePath(change.path)) writeBrainNote(session, change.path, change.newContent);
+        } else {
+          session.files[change.path] = change.newContent;
+          if (isBrainNotePath(change.path)) writeBrainNote(session, change.path, change.newContent);
+        }
+      });
+      
+      logActivity(`Accepted all ${appState.pendingChanges.changes.length} changes`, 'success');
+      finalizePendingChanges();
+    }
+
+    // Reject all pending changes
+    function rejectAllChanges() {
+      if (!appState.pendingChanges) return;
+      
+      const count = appState.pendingChanges.changes.length;
+      logActivity(`Rejected all ${count} changes`, 'warning');
+      finalizePendingChanges();
+    }
+
+    // Finalize pending changes - apply to UI and clear
+    function finalizePendingChanges() {
+      appState.pendingChanges = null;
+      saveAppState();
+      refreshUI();
+      renderDiffReviewPanel();
+    }
+
+    // Refresh UI after changes
+    function refreshUI() {
+      const session = getCurrentSession();
+      if (!session) return;
+      
+      if (session.activeFile && session.files[session.activeFile] !== undefined) {
+        document.getElementById('editorTextarea').value = session.files[session.activeFile];
+        updateLineNumbers();
+      } else {
+        openFile(Object.keys(session.files)[0] || 'index.html');
+      }
+      renderFileTree();
+      renderTabs();
+      refreshPreview();
+    }
+
+    // Parse agent response and collect changes (without applying)
+    function parseAndCollectChanges(responseText) {
+      const session = getCurrentSession();
+      const changes = [];
+      const chips = [];
+      const toolsUsed = [];
+      const noteReads = [];
+
+      // Regex for fenced blocks: ```file:filename\ncontent```
+      const blockRegex = /```(file|delete|browse|brain-read):([^\n]*)\n([\s\S]*?)```/g;
+      let match;
+
+      while ((match = blockRegex.exec(responseText)) !== null) {
+        const actionType = match[1];
+        const targetPath = match[2].trim();
+        const blockContent = match[3];
+
+        if (actionType === 'file') {
+          const oldContent = session.files[targetPath];
+          const isNewFile = oldContent === undefined;
+          
+          changes.push({
+            type: 'file',
+            path: targetPath,
+            oldContent: oldContent || '',
+            newContent: blockContent,
+            action: isNewFile ? 'create' : 'modify'
+          });
+          
+          const lineCount = blockContent.split('\n').length;
+          chips.push({ type: 'file', label: `Updated ${targetPath} (${lineCount} lines)` });
+          toolsUsed.push({ name: 'file-write', type: 'skill' });
+        } else if (actionType === 'delete') {
+          const oldContent = session.files[targetPath];
+          
+          changes.push({
+            type: 'delete',
+            path: targetPath,
+            oldContent: oldContent || '',
+            newContent: '',
+            action: 'delete'
+          });
+          
+          chips.push({ type: 'delete', label: `Deleted ${targetPath}` });
+          toolsUsed.push({ name: 'file-delete', type: 'skill' });
+        } else if (actionType === 'brain-read') {
+          const noteName = targetPath || blockContent.trim();
+          const noteContent = readBrainNote(noteName);
+          noteReads.push({ name: noteName, content: noteContent });
+          chips.push({ type: 'read', label: noteContent !== null ? `Read brain note "${noteName}"` : `Note "${noteName}" not found` });
+          toolsUsed.push({ name: 'brain-read', type: 'skill' });
+        } else if (actionType === 'browse') {
+          const url = targetPath || blockContent.trim();
+          chips.push({ type: 'browse', label: `Browsed to ${url}` });
+          toolsUsed.push({ name: 'browser', type: 'mcp' });
+        }
+      }
+
+      return { changes, chips, toolsUsed, noteReads };
     }
 
     // Compress conversation history when it exceeds 60% of context window
@@ -4757,10 +5202,39 @@ Rules:
         if (msg.role === 'user') {
           appendChatMessage('user', msg.content);
         } else if (msg.role === 'assistant') {
-          const { chips } = parseAndApplyBlocks(msg.content);
+          const { chips } = parseBlocksForDisplay(msg.content);
           appendChatMessage('agent', msg.content, chips);
         }
       });
+    }
+
+    // Parse blocks for display only (no application, no checkpoints, no pending changes)
+    function parseBlocksForDisplay(responseText) {
+      const session = getCurrentSession();
+      const chips = [];
+
+      const blockRegex = /```(file|delete|browse|brain-read):([^\n]*)\n([\s\S]*?)```/g;
+      let match;
+
+      while ((match = blockRegex.exec(responseText)) !== null) {
+        const actionType = match[1];
+        const targetPath = match[2].trim();
+
+        if (actionType === 'file') {
+          const lineCount = match[3].split('\n').length;
+          chips.push({ type: 'file', label: `Updated ${targetPath} (${lineCount} lines)` });
+        } else if (actionType === 'delete') {
+          chips.push({ type: 'delete', label: `Deleted ${targetPath}` });
+        } else if (actionType === 'brain-read') {
+          const noteName = targetPath || match[3].trim();
+          chips.push({ type: 'read', label: `Read brain note "${noteName}"` });
+        } else if (actionType === 'browse') {
+          const url = targetPath || match[3].trim();
+          chips.push({ type: 'browse', label: `Browsed to ${url}` });
+        }
+      }
+
+      return { chips };
     }
 
     function createNewFile() {
@@ -5376,6 +5850,10 @@ Rules:
             document.getElementById('paneHistory').classList.add('active');
             renderCheckpointPanel();
           }
+          if (paneName === 'diffReview') {
+            document.getElementById('paneDiffReview').classList.add('active');
+            renderDiffReviewPanel();
+          }
         });
       });
     }
@@ -5400,6 +5878,8 @@ Rules:
             document.querySelector('.right-tab[data-pane="browser"]').click();
           } else if (tab === 'history') {
             document.querySelector('.right-tab[data-pane="history"]').click();
+          } else if (tab === 'diffReview') {
+            document.querySelector('.right-tab[data-pane="diffReview"]').click();
           }
         });
       });
@@ -5578,6 +6058,12 @@ Rules:
         const newCap = prompt('Enter checkpoint cap (1-100):', appState.checkpointCap);
         if (newCap !== null) setCheckpointCap(newCap);
       };
+
+      // Diff Review panel handlers
+      const btnAcceptAll = document.getElementById('btnAcceptAllChanges');
+      const btnRejectAll = document.getElementById('btnRejectAllChanges');
+      if (btnAcceptAll) btnAcceptAll.onclick = acceptAllChanges;
+      if (btnRejectAll) btnRejectAll.onclick = rejectAllChanges;
 
       setupEditorListeners();
       setupSettingsModal();
