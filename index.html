@@ -1057,6 +1057,12 @@
           <div id="newMcpsList" style="display: flex; flex-direction: column; gap: 4px; font-size: 11px;"></div>
         </div>
 
+        <!-- Plugin Packs (product runtime library, later stage) -->
+        <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; padding: 12px;">
+          <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">Plugin Packs (runtime library, ships in a later stage)</div>
+          <div id="pluginPacksList" style="display: flex; flex-direction: column; gap: 4px; font-size: 11px;"></div>
+        </div>
+
         <!-- Pre-commit Gate -->
         <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; padding: 12px;">
           <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">Pre-commit Gate</div>
@@ -2603,6 +2609,86 @@ function addPlanStep(text, index = -1) {
       }
     }
 
+    // ==================== AUTONOMY ENGINE: CATALOG (single source of truth) ====================
+    // Used by: the Autonomy settings tab, the full-catalog modal, session-start
+    // context injection, and every sub-agent spawn template. If you add a skill,
+    // plugin or MCP, add it here and it propagates everywhere.
+    const AUTONOMY_CATALOG = {
+      skills: [
+        { name: 'no-ai-slop', desc: 'Produce work indistinguishable from a careful human developer. No generic AI filler in UI, copy, or code.' },
+        { name: 'senior-frontend', desc: 'Frontend expertise: layout, interactions, preview behavior.' },
+        { name: 'testing-qa', desc: 'Test like a hostile user: clicks everything, breaks inputs, reads console errors as failures.' },
+        { name: 'security-review', desc: 'Security review checklist for client-side apps and API integrations.' },
+        { name: 'performance', desc: 'Performance optimization and profiling.' },
+        { name: 'accessibility', desc: 'Accessibility essentials for IDE-style web apps used on phones and desktops.' },
+        { name: 'api-design', desc: 'Hardened client design for calling heterogeneous LLM/provider APIs.' },
+        { name: 'debugging-discipline', desc: 'Systematic debugging methodology.' },
+        { name: 'git-workflow', desc: 'Clean git habits for staged agent-built projects.' }
+      ],
+      mcps: [
+        { name: 'context7', desc: 'Docs lookup — up-to-date documentation and code examples for any library.' },
+        { name: 'playwright', desc: 'Browser testing — full Playwright automation for testing and scraping.' },
+        { name: 'sequential-thinking', desc: 'Hard problems — step-by-step reasoning for complex tasks.' }
+      ],
+      vibeSkills: [
+        { name: 'vibe-coding-orchestrator', desc: 'The loop: understand → plan → scaffold → build in slices → test → fix → polish; never claim done with tests failing.' },
+        { name: 'human-dev-sense', desc: 'Develop like a human dev: edge cases, empty/error/loading states, UX judgment, good naming, consistency, no over-engineering.' },
+        { name: 'test-first', desc: 'Write the check before the code; red → green → refactor; happy path + edge paths.' },
+        { name: 'design-taste', desc: 'Visual judgment: spacing scale, type hierarchy, colour discipline, anti-slop rules.' },
+        { name: 'backend-craft', desc: 'Data modelling, API design, auth, errors, migrations, observability.' },
+        { name: 'ship-ready', desc: 'Deployment discipline: env handling, build checks, CI basics, rollback, changelog.' }
+      ],
+      newMcps: [
+        { name: 'github', desc: 'Repo ops: issues, PRs, branches, file operations.' },
+        { name: 'memory', desc: 'Persistent knowledge-graph memory across sessions.' },
+        { name: 'fetch', desc: 'Fetch docs/pages the agent needs while building.' }
+      ],
+      pluginPacks: [
+        { name: 'component-pack', desc: 'Forms, tables, charts, modals. Ready-made UI code the agent drops in instead of generating from scratch.' },
+        { name: 'auth-pack', desc: 'Sign-in, sessions, protected routes.' },
+        { name: 'payments-pack', desc: 'Checkout and billing flows.' },
+        { name: 'ai-integration-pack', desc: 'Provider-agnostic LLM client.' },
+        { name: 'i18n-pack', desc: 'Translations and locale handling.' },
+        { name: 'analytics-pack', desc: 'Event tracking and reporting.' }
+      ]
+    };
+
+    // Plain-text catalog + rule, injected into agent context and spawn templates.
+    function buildAutonomyCatalogText() {
+      let text = '=== AUTONOMY ENGINE: INSTALLED CATALOG ===\n';
+      text += 'These skills, plugins and MCPs are installed and available to you right now.\n\n';
+      text += '--- MANDATORY PRE-INSTALLED SKILLS (jcode pack) ---\n';
+      text += AUTONOMY_CATALOG.skills.map(s => '• ' + s.name + ': ' + s.desc).join('\n');
+      text += '\n\n--- MANDATORY PRE-INSTALLED MCPs ---\n';
+      text += AUTONOMY_CATALOG.mcps.map(m => '• ' + m.name + ': ' + m.desc).join('\n');
+      text += '\n\n--- SKILLS FOR VIBE-CODING DEVELOPMENT ---\n';
+      text += AUTONOMY_CATALOG.vibeSkills.map(s => '• ' + s.name + ': ' + s.desc).join('\n');
+      text += '\n\n--- MCPs (BUILD ENVIRONMENT) ---\n';
+      text += AUTONOMY_CATALOG.newMcps.map(m => '• ' + m.name + ': ' + m.desc).join('\n');
+      text += '\n\n--- PLUGIN PACKS (product runtime library, ships in a later stage) ---\n';
+      text += AUTONOMY_CATALOG.pluginPacks.map(p => '• ' + p.name + ': ' + p.desc).join('\n');
+      return text;
+    }
+
+    function buildMandatoryUseRuleText() {
+      return '=== MANDATORY-USE RULE ===\n' +
+        'You are autonomous by default. On EVERY task, BEFORE acting, you MUST list which installed skills/plugins/MCPs apply to this task and use them.\n' +
+        'Do not wait to be told, do not wait for @mentions — decide yourself and apply them.\n' +
+        '"No tool applies" is only valid for trivial tasks, and you must say so in one line.\n' +
+        'At the end of every task reply, declare what you used on a single line in exactly this format:\n' +
+        'Tools used: skill-a, skill-b, mcp-name\n' +
+        '(one comma-separated list, plain names, no bullets). This line is parsed by the UI for the per-task "Tools used" strip.';
+    }
+
+    function buildPrecommitGateText() {
+      return '=== PRE-COMMIT GATE ===\n' +
+        'No work is called done until these mandatory checks are recorded as run:\n' +
+        '• testing-qa: tests pass (click through the preview like a hostile user; every console error is a failure)\n' +
+        '• security-review: no secrets, no injection holes (XSS, unvalidated inputs, leaked keys)\n' +
+        '• domain-skill: the relevant domain skill for the change type was applied and named in your Tools used line\n' +
+        'The app will refuse to mark a task done until all three are recorded.';
+    }
+
     // Render Autonomy Engine tab
     function renderAutonomyTab() {
       // Catalog Injection Status
@@ -2622,17 +2708,7 @@ function addPlanStep(text, index = -1) {
       // Render Mandatory Pre-installed Skills
       const mandatorySkillsList = document.getElementById('mandatorySkillsList');
       if (mandatorySkillsList) {
-        const mandatorySkills = [
-          { name: 'no-ai-slop', desc: 'Produce work indistinguishable from a careful human developer. No generic AI filler in UI, copy, or code.' },
-          { name: 'senior-frontend', desc: 'Frontend expertise: layout, interactions, preview behavior.' },
-          { name: 'testing-qa', desc: 'Test like a hostile user: clicks everything, breaks inputs, reads console errors as failures.' },
-          { name: 'security-review', desc: 'Security review checklist for client-side apps and API integrations.' },
-          { name: 'performance', desc: 'Performance optimization and profiling.' },
-          { name: 'accessibility', desc: 'Accessibility essentials for IDE-style web apps used on phones and desktops.' },
-          { name: 'api-design', desc: 'Hardened client design for calling heterogeneous LLM/provider APIs.' },
-          { name: 'debugging-discipline', desc: 'Systematic debugging methodology.' },
-          { name: 'git-workflow', desc: 'Clean git habits for staged agent-built projects.' }
-        ];
+        const mandatorySkills = AUTONOMY_CATALOG.skills;
         mandatorySkillsList.innerHTML = mandatorySkills.map(s => 
           `<div style="display:flex; align-items:center; gap:8px; padding:6px 8px; background:var(--bg-dark); border:1px solid var(--border-color); border-radius:4px;">
             <span style="font-weight:600; color:var(--accent-blue); font-family:var(--font-mono); font-size:10px;">${escapeHtml(s.name)}</span>
@@ -2644,11 +2720,7 @@ function addPlanStep(text, index = -1) {
       // Render Mandatory Pre-installed MCPs
       const mandatoryMcpsList = document.getElementById('mandatoryMcpsList');
       if (mandatoryMcpsList) {
-        const mandatoryMcps = [
-          { name: 'context7', desc: 'Docs lookup — up-to-date documentation and code examples for any library.' },
-          { name: 'playwright', desc: 'Browser testing — full Playwright automation for testing and scraping.' },
-          { name: 'sequential-thinking', desc: 'Hard problems — step-by-step reasoning for complex tasks.' }
-        ];
+        const mandatoryMcps = AUTONOMY_CATALOG.mcps;
         mandatoryMcpsList.innerHTML = mandatoryMcps.map(m => 
           `<div style="display:flex; align-items:center; gap:8px; padding:6px 8px; background:var(--bg-dark); border:1px solid var(--border-color); border-radius:4px;">
             <span style="font-weight:600; color:var(--warning); font-family:var(--font-mono); font-size:10px;">${escapeHtml(m.name)}</span>
@@ -2660,14 +2732,7 @@ function addPlanStep(text, index = -1) {
       // Render NEW Skills for Vibe-Coding
       const vibeSkillsList = document.getElementById('vibeSkillsList');
       if (vibeSkillsList) {
-        const vibeSkills = [
-          { name: 'vibe-coding-orchestrator', desc: 'The loop: understand → plan → scaffold → build in slices → test → fix → polish; never claim done with tests failing.' },
-          { name: 'human-dev-sense', desc: 'Develop like a human dev: edge cases, empty/error/loading states, UX judgment, good naming, consistency, no over-engineering.' },
-          { name: 'test-first', desc: 'Write the check before the code; red → green → refactor; happy path + edge paths.' },
-          { name: 'design-taste', desc: 'Visual judgment: spacing scale, type hierarchy, colour discipline, anti-slop rules.' },
-          { name: 'backend-craft', desc: 'Data modelling, API design, auth, errors, migrations, observability.' },
-          { name: 'ship-ready', desc: 'Deployment discipline: env handling, build checks, CI basics, rollback, changelog.' }
-        ];
+        const vibeSkills = AUTONOMY_CATALOG.vibeSkills;
         vibeSkillsList.innerHTML = vibeSkills.map(s => 
           `<div style="display:flex; align-items:center; gap:8px; padding:6px 8px; background:var(--bg-dark); border:1px solid var(--border-color); border-radius:4px;">
             <span style="font-weight:600; color:var(--success); font-family:var(--font-mono); font-size:10px;">${escapeHtml(s.name)}</span>
@@ -2679,15 +2744,23 @@ function addPlanStep(text, index = -1) {
       // Render NEW MCPs
       const newMcpsList = document.getElementById('newMcpsList');
       if (newMcpsList) {
-        const newMcps = [
-          { name: 'github', desc: 'Repo ops: issues, PRs, branches, file operations.' },
-          { name: 'memory', desc: 'Persistent knowledge-graph memory across sessions.' },
-          { name: 'fetch', desc: 'Fetch docs/pages the agent needs while building.' }
-        ];
+        const newMcps = AUTONOMY_CATALOG.newMcps;
         newMcpsList.innerHTML = newMcps.map(m => 
           `<div style="display:flex; align-items:center; gap:8px; padding:6px 8px; background:var(--bg-dark); border:1px solid var(--border-color); border-radius:4px;">
             <span style="font-weight:600; color:var(--warning); font-family:var(--font-mono); font-size:10px;">${escapeHtml(m.name)}</span>
             <span style="color:var(--text-muted); font-size:10px;">${escapeHtml(m.desc)}</span>
+          </div>`
+        ).join('');
+      }
+
+      // Render Plugin Packs (product runtime library)
+      const pluginPacksList = document.getElementById('pluginPacksList');
+      if (pluginPacksList) {
+        const pluginPacks = AUTONOMY_CATALOG.pluginPacks;
+        pluginPacksList.innerHTML = pluginPacks.map(p => 
+          `<div style="display:flex; align-items:center; gap:8px; padding:6px 8px; background:var(--bg-dark); border:1px solid var(--border-color); border-radius:4px;">
+            <span style="font-weight:600; color:var(--success); font-family:var(--font-mono); font-size:10px;">${escapeHtml(p.name)}</span>
+            <span style="color:var(--text-muted); font-size:10px;">${escapeHtml(p.desc)}</span>
           </div>`
         ).join('');
       }
@@ -2742,23 +2815,15 @@ function addPlanStep(text, index = -1) {
             <div id="fullCatalogVibeSkills" style="display: flex; flex-direction: column; gap: 4px; margin-bottom: 16px;"></div>
             <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">NEW MCPs (Build Environment)</div>
             <div id="fullCatalogNewMcps" style="display: flex; flex-direction: column; gap: 4px;"></div>
+            <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px; margin-top: 16px;">Plugin Packs (runtime library, ships in a later stage)</div>
+            <div id="fullCatalogPluginPacks" style="display: flex; flex-direction: column; gap: 4px;"></div>
           </div>
         </div>
       `;
       document.body.appendChild(modal);
       
       // Populate the modal
-      const mandatorySkills = [
-        { name: 'no-ai-slop', desc: 'Produce work indistinguishable from a careful human developer. No generic AI filler in UI, copy, or code.' },
-        { name: 'senior-frontend', desc: 'Frontend expertise: layout, interactions, preview behavior.' },
-        { name: 'testing-qa', desc: 'Test like a hostile user: clicks everything, breaks inputs, reads console errors as failures.' },
-        { name: 'security-review', desc: 'Security review checklist for client-side apps and API integrations.' },
-        { name: 'performance', desc: 'Performance optimization and profiling.' },
-        { name: 'accessibility', desc: 'Accessibility essentials for IDE-style web apps used on phones and desktops.' },
-        { name: 'api-design', desc: 'Hardened client design for calling heterogeneous LLM/provider APIs.' },
-        { name: 'debugging-discipline', desc: 'Systematic debugging methodology.' },
-        { name: 'git-workflow', desc: 'Clean git habits for staged agent-built projects.' }
-      ];
+      const mandatorySkills = AUTONOMY_CATALOG.skills;
       document.getElementById('fullCatalogSkills').innerHTML = mandatorySkills.map(s => 
         `<div style="display:flex; align-items:center; gap:8px; padding:6px 8px; background:var(--bg-dark); border:1px solid var(--border-color); border-radius:4px;">
           <span style="font-weight:600; color:var(--accent-blue); font-family:var(--font-mono); font-size:10px;">${escapeHtml(s.name)}</span>
@@ -2766,11 +2831,7 @@ function addPlanStep(text, index = -1) {
         </div>`
       ).join('');
       
-      const mandatoryMcps = [
-        { name: 'context7', desc: 'Docs lookup — up-to-date documentation and code examples for any library.' },
-        { name: 'playwright', desc: 'Browser testing — full Playwright automation for testing and scraping.' },
-        { name: 'sequential-thinking', desc: 'Hard problems — step-by-step reasoning for complex tasks.' }
-      ];
+      const mandatoryMcps = AUTONOMY_CATALOG.mcps;
       document.getElementById('fullCatalogMcps').innerHTML = mandatoryMcps.map(m => 
         `<div style="display:flex; align-items:center; gap:8px; padding:6px 8px; background:var(--bg-dark); border:1px solid var(--border-color); border-radius:4px;">
           <span style="font-weight:600; color:var(--warning); font-family:var(--font-mono); font-size:10px;">${escapeHtml(m.name)}</span>
@@ -2778,14 +2839,7 @@ function addPlanStep(text, index = -1) {
         </div>`
       ).join('');
       
-      const vibeSkills = [
-        { name: 'vibe-coding-orchestrator', desc: 'The loop: understand → plan → scaffold → build in slices → test → fix → polish; never claim done with tests failing.' },
-        { name: 'human-dev-sense', desc: 'Develop like a human dev: edge cases, empty/error/loading states, UX judgment, good naming, consistency, no over-engineering.' },
-        { name: 'test-first', desc: 'Write the check before the code; red → green → refactor; happy path + edge paths.' },
-        { name: 'design-taste', desc: 'Visual judgment: spacing scale, type hierarchy, colour discipline, anti-slop rules.' },
-        { name: 'backend-craft', desc: 'Data modelling, API design, auth, errors, migrations, observability.' },
-        { name: 'ship-ready', desc: 'Deployment discipline: env handling, build checks, CI basics, rollback, changelog.' }
-      ];
+      const vibeSkills = AUTONOMY_CATALOG.vibeSkills;
       document.getElementById('fullCatalogVibeSkills').innerHTML = vibeSkills.map(s => 
         `<div style="display:flex; align-items:center; gap:8px; padding:6px 8px; background:var(--bg-dark); border:1px solid var(--border-color); border-radius:4px;">
           <span style="font-weight:600; color:var(--success); font-family:var(--font-mono); font-size:10px;">${escapeHtml(s.name)}</span>
@@ -2793,15 +2847,19 @@ function addPlanStep(text, index = -1) {
         </div>`
       ).join('');
       
-      const newMcps = [
-        { name: 'github', desc: 'Repo ops: issues, PRs, branches, file operations.' },
-        { name: 'memory', desc: 'Persistent knowledge-graph memory across sessions.' },
-        { name: 'fetch', desc: 'Fetch docs/pages the agent needs while building.' }
-      ];
+      const newMcps = AUTONOMY_CATALOG.newMcps;
       document.getElementById('fullCatalogNewMcps').innerHTML = newMcps.map(m => 
         `<div style="display:flex; align-items:center; gap:8px; padding:6px 8px; background:var(--bg-dark); border:1px solid var(--border-color); border-radius:4px;">
           <span style="font-weight:600; color:var(--warning); font-family:var(--font-mono); font-size:10px;">${escapeHtml(m.name)}</span>
           <span style="color:var(--text-muted); font-size:10px;">${escapeHtml(m.desc)}</span>
+        </div>`
+      ).join('');
+
+      const pluginPacks = AUTONOMY_CATALOG.pluginPacks;
+      document.getElementById('fullCatalogPluginPacks').innerHTML = pluginPacks.map(p => 
+        `<div style="display:flex; align-items:center; gap:8px; padding:6px 8px; background:var(--bg-dark); border:1px solid var(--border-color); border-radius:4px;">
+          <span style="font-weight:600; color:var(--success); font-family:var(--font-mono); font-size:10px;">${escapeHtml(p.name)}</span>
+          <span style="color:var(--text-muted); font-size:10px;">${escapeHtml(p.desc)}</span>
         </div>`
       ).join('');
     }
@@ -2945,6 +3003,10 @@ function addPlanStep(text, index = -1) {
       if (brainFiles.length > 0) {
         context += '\n[Brain files (.devforge/*) included in digest above]\n';
       }
+
+      // Autonomy Engine: catalog + mandatory-use rule + pre-commit gate.
+      // Always injected, never opt-in — spec part 1 (catalog injection at session start).
+      context += '\n\n' + buildAutonomyCatalogText() + '\n\n' + buildMandatoryUseRuleText() + '\n\n' + buildPrecommitGateText() + '\n';
 
       return context;
     }
