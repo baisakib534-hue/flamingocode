@@ -6511,7 +6511,11 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
         const agent = appState.agents[agentId];
         const provider = appState.providers[agent.providerId];
 
-        const systemPrompt = agent.rolePrompt + '\n\nYou are in a TEAM DISCUSSION round. The team lead (Senior Developer) will make final task assignments. Give a brief 2-3 sentence proposal on how you could contribute to this task. Do not write code.';
+        // v2: live chat — if the user jumped in, inject the redirect into this agent's turn
+        const userRedirect = consumeTeamRedirect();
+        const redirectNote = userRedirect ? `\n\nUSER JUMPED INTO THE CHAT AND SAYS: "${userRedirect}"\nThe user is inside the team room and this message redirects the plan. Address it directly.` : '';
+
+        const systemPrompt = agent.rolePrompt + '\n\nYou are in a TEAM DISCUSSION round. The team lead (Senior Developer) will make final task assignments. Give a brief 2-3 sentence proposal on how you could contribute to this task. Do not write code.' + redirectNote;
 
         const messages = [
           { role: 'system', content: systemPrompt },
@@ -6528,7 +6532,10 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
 
       // Senior finalizes task board
       const senior = appState.agents[appState.teamSeniorId];
-      const seniorPrompt = senior.rolePrompt + '\n\nYou are the Senior Developer. Review the team discussion and create a FINAL TASK BOARD. Output tasks in this EXACT format:\nTask: [description] | Owner: [agent name] | Depends on: [task numbers or "none"]\n\nOne task per line. Be specific and actionable.';
+      // v2: user may jump in just before the lead finalizes the board
+      const seniorRedirectNote0 = consumeTeamRedirect();
+      const seniorPrompt = senior.rolePrompt + '\n\nYou are the Senior Developer. Review the team discussion and create a FINAL TASK BOARD. Output tasks in this EXACT format:\nTask: [description] | Owner: [agent name] | Depends on: [task numbers or "none"]\n\nOne task per line. Be specific and actionable.'
+        + (seniorRedirectNote0 ? `\n\nIMPORTANT — the USER interrupted the discussion with this message: "${seniorRedirectNote0}". Fold it into the task board.` : '');
 
       const seniorMessages = [
         { role: 'system', content: seniorPrompt },
@@ -7671,6 +7678,65 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
       if (btn) btn.textContent = getTeamV2().execMode === 'parallel' ? '⇉ Parallel: ON' : '⏱ Sequential';
       saveAppState();
       logActivity('Team execution mode: ' + getTeamV2().execMode, 'info');
+    }
+
+    // ---------- Add specialist mid-task (one click) ----------
+    const TEAM_V2_SPECIALIST_KEYS = ['security', 'performance', 'accessibility', 'database', 'qa'];
+    function addSpecialistMidTask(specialistKey) {
+      if (!TEAM_V2_SPECIALIST_KEYS.includes(specialistKey)) {
+        logActivity('Unknown specialist: ' + specialistKey, 'warning');
+        return;
+      }
+      const agent = ensureAgentFromPreset(specialistKey);
+      if (!agent) return;
+      if (!appState.teamRoster.includes(agent.id)) appState.teamRoster.push(agent.id);
+
+      // Attach the specialist to relevant open work, or create an audit task
+      const open = appState.teamTaskBoard.find(t => ['pending', 'idle-done', 'in-review', 'rework'].includes(t.status));
+      const domain = pickDomainSkillForTask(open || {});
+      if (open && domain === specialistKey) {
+        open.reviewers = Array.isArray(open.reviewers) ? open.reviewers.concat(agent.id) : [agent.id];
+        appendTeamChat('status', agent.id, `Joined mid-task. Reviewing "${open.title}" as ${agent.name}.`);
+      } else {
+        appState.teamTaskBoard.push({
+          id: 'task_sp_' + Date.now(),
+          title: agent.name + ' audit',
+          description: `${agent.name} (${specialistKey} specialist, added mid-task): audit the current team output from your domain and post issues in the chat.`,
+          owner: agent.id,
+          status: 'pending',
+          dependsOn: [],
+          output: '',
+          special: true,
+          createdAt: Date.now()
+        });
+        appendTeamChat('status', agent.id, `${agent.name} joined mid-task with an ${specialistKey} audit task.`);
+      }
+      saveAppState();
+      renderTeamRoster();
+      renderTaskBoard();
+      updateAgentStatusChips();
+      updateTeamBudgetDisplay();
+      recordSessionEvent('specialist', `${agent.name} (${specialistKey}) added mid-task`);
+      logActivity(`Specialist ${agent.name} added mid-task`, 'success');
+    }
+
+    // ---------- Live team chat: user jumps in mid-discussion ----------
+    function sendTeamJumpIn() {
+      const input = document.getElementById('teamJumpIn');
+      const text = (input?.value || '').trim();
+      if (!text) return;
+      appendTeamChat('user', null, text);
+      recordSessionEvent('jump-in', text);
+      getTeamV2().userRedirect = text;
+      input.value = '';
+      logActivity('You jumped into the team discussion — agents will take your message into account next turn', 'info');
+    }
+
+    // Returns the pending redirect message and consumes it (called by hooks)
+    function consumeTeamRedirect() {
+      const r = getTeamV2().userRedirect;
+      getTeamV2().userRedirect = null;
+      return r;
     }
 
     // ==================== AGENTDEF BLOCK PARSING ====================
