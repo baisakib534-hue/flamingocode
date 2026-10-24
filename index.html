@@ -644,6 +644,7 @@
     <section class="panel-right" id="panelRight">
       <div class="right-header-tabs">
         <button class="right-tab active" data-pane="agent">Agent</button>
+        <button class="right-tab" data-pane="team">Team</button>
         <button class="right-tab" data-pane="preview">Preview</button>
         <button class="right-tab" data-pane="browser">Browser</button>
         <button class="right-tab" data-pane="activity">Activity</button>
@@ -676,6 +677,63 @@
           <div class="chat-input-wrapper">
             <input type="text" id="chatInput" class="chat-input" placeholder="Ask agent to build, edit, or fix..." />
             <button class="btn" id="btnSend">Send</button>
+          </div>
+        </div>
+
+        <!-- Team Mode Pane -->
+        <div class="pane-view" id="paneTeam">
+          <div style="display:flex; flex-direction:column; height:100%; overflow:hidden;">
+            <!-- Team Mode Header -->
+            <div style="display:flex; align-items:center; gap:8px; padding:8px 12px; background:var(--bg-surface); border-bottom:1px solid var(--border-color);">
+              <div style="display:flex; align-items:center; gap:6px;">
+                <span style="font-size: 12px; font-weight: 600; color: var(--text-main);">Team Mode</span>
+                <span id="teamPhaseBadge" style="font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 3px; background: var(--bg-hover); color: var(--text-muted);">idle</span>
+              </div>
+              <div style="flex:1;"></div>
+              <button class="btn btn-secondary" id="btnOpenAgentLibrary" style="padding: 4px 8px; font-size: 11px;">👥 Agent Library</button>
+              <button class="btn" id="btnStartTeam" style="padding: 4px 10px; font-size: 11px;">▶ Start Team</button>
+              <button class="btn btn-secondary" id="btnStopTeam" style="padding: 4px 10px; font-size: 11px; display:none;">⏹ Stop</button>
+            </div>
+
+            <!-- Team Content Area -->
+            <div style="display:flex; flex:1; overflow:hidden;">
+              <!-- Left: Roster & Task Board -->
+              <div style="width: 350px; min-width: 300px; border-right: 1px solid var(--border-color); display:flex; flex-direction:column; background: var(--bg-panel);">
+                <!-- Roster -->
+                <div style="padding: 8px 12px; border-bottom: 1px solid var(--border-color);">
+                  <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px;">Roster</div>
+                  <div id="teamRoster" style="display:flex; flex-direction:column; gap:4px;"></div>
+                </div>
+
+                <!-- Task Board -->
+                <div style="flex:1; overflow-y:auto; padding: 8px 12px;">
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
+                    <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Task Board</span>
+                    <span id="taskBoardStats" style="font-size: 10px; color: var(--text-dim);"></span>
+                  </div>
+                  <div id="taskBoard" style="display:flex; flex-direction:column; gap:4px;">
+                    <div style="font-size: 11px; color: var(--text-dim); text-align: center; padding: 20px;">No tasks yet. Start a team run to begin.</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Right: Team Chat & Agent Status -->
+              <div style="flex:1; min-width: 0; display:flex; flex-direction:column; background: var(--bg-panel);">
+                <!-- Team Chat -->
+                <div style="flex:1; overflow-y:auto; padding: 12px; display:flex; flex-direction:column; gap:8px;">
+                  <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Team Discussion</div>
+                  <div id="teamChat" style="flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:6px;">
+                    <div style="font-size: 11px; color: var(--text-dim); text-align: center; padding: 20px;">Team chat will appear here during discussion round.</div>
+                  </div>
+                </div>
+
+                <!-- Agent Status Chips -->
+                <div style="padding: 8px 12px; border-top: 1px solid var(--border-color); background: var(--bg-surface);">
+                  <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px;">Agent Status</div>
+                  <div id="agentStatusChips" style="display:flex; flex-wrap:wrap; gap:6px;"></div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -750,6 +808,127 @@
       <div style="border-top: 1px solid var(--border-color); padding-top: 12px;">
         <div style="display:flex; justify-content:flex-end; gap:8px;">
           <button class="btn btn-secondary" id="btnCancelSettings">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Agent Library Modal -->
+  <div class="modal-overlay" id="agentLibraryModal">
+    <div class="modal-box" style="width: 700px; max-width: 95vw;">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-color); padding-bottom:8px;">
+        <h3 style="font-size: 14px; font-weight: 700;">Agent Library</h3>
+        <button class="section-btn" id="btnCloseAgentLibrary">✕</button>
+      </div>
+
+      <div style="display:flex; gap:12px; height: 50vh;">
+        <!-- Agent List -->
+        <div style="flex: 1; max-width: 300px; display:flex; flex-direction:column;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
+            <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Agents</span>
+            <div style="display:flex; gap:4px;">
+              <button class="btn" id="btnAddAgent" style="padding: 4px 10px; font-size: 11px;">+ Add Agent</button>
+              <button class="btn btn-secondary" id="btnAutoCreateAgent" style="padding: 4px 10px; font-size: 11px;">✨ Auto-Create</button>
+            </div>
+          </div>
+          <div id="agentList" style="flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:4px;">
+            <!-- Agent items rendered here -->
+          </div>
+        </div>
+
+        <!-- Agent Detail / Edit Form -->
+        <div style="flex: 1; min-width: 0; display:flex; flex-direction:column;" id="agentDetailPanel">
+          <div style="font-size: 11px; color: var(--text-dim); padding: 8px; background: var(--bg-surface); border-radius: 5px; margin-bottom: 12px;">Select an agent to edit, or click + Add Agent to create a new one.</div>
+          <form id="agentForm" style="flex:1; overflow-y:auto; display:none; flex-direction:column; gap:12px;">
+            <div class="form-group">
+              <label class="form-label">Name</label>
+              <input type="text" id="agentName" class="form-input" placeholder="e.g., Code Reviewer" required />
+            </div>
+            <div class="form-group" style="flex-direction: row; align-items: center; gap: 12px;">
+              <label class="form-label" style="min-width: 80px;">Emoji</label>
+              <input type="text" id="agentEmoji" class="form-input" placeholder="🤖" maxlength="2" style="width: 60px; text-align: center; font-size: 18px;" required />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Role / System Prompt</label>
+              <textarea id="agentRolePrompt" class="form-input" placeholder="Describe the agent's role, responsibilities, and work style..." style="min-height: 140px; font-family: var(--font-mono); font-size: 11px;" required></textarea>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Provider</label>
+              <select id="agentProvider" class="form-select"></select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Model</label>
+              <input type="text" id="agentModel" class="form-input" placeholder="Leave empty for provider default" />
+            </div>
+            <div class="form-group" style="flex-direction: row; align-items: center; gap: 12px;">
+              <label class="form-label" style="min-width: 120px;">Temperature</label>
+              <input type="range" id="agentTemperature" min="0" max="2" step="0.1" value="0.7" style="flex:1;" />
+              <span id="agentTemperatureValue" style="min-width: 32px; text-align: right; font-family: var(--font-mono);">0.7</span>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Skill Packs (comma-separated)</label>
+              <input type="text" id="agentSkillPacks" class="form-input" placeholder="no-ai-slop, senior-frontend, testing-qa" />
+              <span style="font-size:10px; color:var(--text-dim);">Available: no-ai-slop, senior-frontend, testing-qa, api-design, debugging-discipline, git-workflow, security-review, accessibility, performance</span>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Plugin Packs (comma-separated)</label>
+              <input type="text" id="agentPluginPacks" class="form-input" placeholder="console-error-sweep, auto-test-after-build" />
+              <span style="font-size:10px; color:var(--text-dim);">Available: console-error-sweep, auto-test-after-build, changelog-writer, format-tidy</span>
+            </div>
+            <div class="form-group">
+              <label class="form-label">MCP Servers (JSON array)</label>
+              <textarea id="agentMcpServers" class="form-input" placeholder='[{"name": "filesystem", "transport": "stdio", "command": "npx @modelcontextprotocol/server-filesystem"}]' style="min-height: 60px; font-family: var(--font-mono); font-size: 11px;"></textarea>
+              <span style="font-size:10px; color:var(--text-dim);">Note: MCP execution requires desktop version. Web version summarizes purpose into context only.</span>
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:8px; border-top:1px solid var(--border-color); padding-top:12px;">
+              <button type="button" class="btn btn-secondary" id="btnCancelAgent">Cancel</button>
+              <button type="submit" class="btn" id="btnSaveAgent">Save Agent</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Auto-Create Agent Modal -->
+  <div class="modal-overlay" id="autoCreateAgentModal">
+    <div class="modal-box" style="width: 500px; max-width: 95vw;">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-color); padding-bottom:8px;">
+        <h3 style="font-size: 14px; font-weight: 700;">✨ Auto-Create Agent</h3>
+        <button class="section-btn" id="btnCloseAutoCreateAgent">✕</button>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:12px;">
+        <p style="font-size: 12px; color: var(--text-muted);">Describe what kind of agent you need. The current model will generate a complete agent definition.</p>
+        <div class="form-group">
+          <label class="form-label">Describe the agent you need</label>
+          <textarea id="autoCreateDescription" class="form-input" placeholder="e.g., An agent that specializes in writing comprehensive unit tests for JavaScript code, using Vitest, with focus on edge cases and mocking strategies." style="min-height: 100px; font-family: var(--font-mono); font-size: 11px;"></textarea>
+        </div>
+        <div id="autoCreateProgress" style="display:none; color: var(--accent-blue); font-size: 12px;">Generating agent definition...</div>
+        <div id="autoCreateResult" style="display:none; max-height: 300px; overflow-y:auto; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 5px; padding: 12px; font-family: var(--font-mono); font-size: 11px;"></div>
+        <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:8px; border-top:1px solid var(--border-color); padding-top:12px;">
+          <button class="btn btn-secondary" id="btnCancelAutoCreate">Cancel</button>
+          <button class="btn" id="btnGenerateAgent" style="display:none;">Generate</button>
+          <button class="btn" id="btnSaveGeneratedAgent" style="display:none;">Save Agent</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- AgentDef Approval Modal -->
+  <div class="modal-overlay" id="agentDefApprovalModal">
+    <div class="modal-box" style="width: 600px; max-width: 95vw;">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-color); padding-bottom:8px;">
+        <h3 style="font-size: 14px; font-weight: 700;">🤖 Agent Proposed by Agent</h3>
+        <button class="section-btn" id="btnCloseAgentDefApproval">✕</button>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:12px;">
+        <p style="font-size: 12px; color: var(--text-muted);">An agent has proposed creating a new agent. Review the definition below and approve to add it to your library.</p>
+        <div id="agentDefPreview" style="max-height: 300px; overflow-y:auto; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 5px; padding: 12px; font-family: var(--font-mono); font-size: 11px;"></div>
+        <div style="display:flex; justify-content:flex-end; gap:8px; border-top:1px solid var(--border-color); padding-top:12px;">
+          <button class="btn btn-secondary" id="btnRejectAgentDef">Reject</button>
+          <button class="btn" id="btnApproveAgentDef">Approve & Save</button>
         </div>
       </div>
     </div>
@@ -988,11 +1167,133 @@
       }
     };
 
+    // Built-in Agent Presets - Dev Team
+    const AGENT_PRESETS = {
+      'senior-dev': {
+        id: 'agent_senior_dev',
+        name: 'Senior Developer',
+        emoji: '👑',
+        rolePrompt: `You are the Senior Developer (Team Lead). You own the architecture, task breakdown, and final approval.
+
+RESPONSIBILITIES:
+- Analyze the user's request and propose a clear technical approach
+- Break work into discrete, well-scoped tasks with clear ownership
+- Assign tasks to team members based on their expertise
+- Review all completed work against requirements
+- Identify bugs, gaps, or deviations and assign precise rework
+- Escalate to user only after 3 review rounds with summary
+
+WORK STYLE:
+- Be decisive but collaborative in discussion round
+- Write tasks as: "Task: [description] | Owner: [agent name] | Depends on: [task ids or none]"
+- In review, cite exact file/line issues and the exact fix needed
+- Never do implementation work yourself — delegate and review
+- Keep messages concise and actionable`, 
+        providerId: null, // Uses active provider
+        model: null, // Uses provider default
+        temperature: 0.3,
+        skillPacks: ['no-ai-slop', 'senior-frontend', 'api-design', 'debugging-discipline', 'git-workflow'],
+        pluginPacks: [],
+        mcpServers: [],
+        isPreset: true
+      },
+      'frontend-dev': {
+        id: 'agent_frontend_dev',
+        name: 'Frontend Developer',
+        emoji: '🎨',
+        rolePrompt: `You are the Frontend Developer. You own all UI, layout, interactions, and preview behavior.
+
+RESPONSIBILITIES:
+- Implement HTML/CSS/JS for user-facing features
+- Ensure responsive, accessible, performant interfaces
+- Follow the project's design system (CSS variables, spacing, typography)
+- No placeholder UI, no lorem ipsum, no purple gradients
+- Test interactions in the preview pane
+- Report console errors from preview as failures
+
+WORK STYLE:
+- Write complete, self-contained components
+- Use vanilla JS/CSS only — no frameworks
+- Mobile-first, works on phone and desktop
+- Prefer semantic HTML and CSS variables
+- Present: show the feature working in preview, note any known limits`, 
+        providerId: null,
+        model: null,
+        temperature: 0.4,
+        skillPacks: ['no-ai-slop', 'senior-frontend', 'accessibility', 'performance'],
+        pluginPacks: ['console-error-sweep'],
+        mcpServers: [],
+        isPreset: true
+      },
+      'backend-dev': {
+        id: 'agent_backend_dev',
+        name: 'Backend/API Developer',
+        emoji: '⚙️',
+        rolePrompt: `You are the Backend/API Developer. You own provider calls, data flow, storage, and error handling.
+
+RESPONSIBILITIES:
+- Implement API clients, data fetching, state management
+- Handle all error cases: timeouts, 429, 401, empty responses, streaming failures
+- Apply the anti-stuck compatibility layer (normalization, fallback, retries, guard rails)
+- Design clean interfaces between frontend and data layer
+- Ensure request/response logging for debugging
+
+WORK STYLE:
+- Write robust, production-grade async code
+- Never leave error handling as TODO
+- Use the existing compatibility utilities (normalizeBaseUrl, parseSSEStream, etc.)
+- Present: show request logs, latency, error handling paths`, 
+        providerId: null,
+        model: null,
+        temperature: 0.3,
+        skillPacks: ['no-ai-slop', 'api-design', 'debugging-discipline', 'security-review'],
+        pluginPacks: [],
+        mcpServers: [],
+        isPreset: true
+      },
+      'qa-tester': {
+        id: 'agent_qa_tester',
+        name: 'QA Tester',
+        emoji: '🔍',
+        rolePrompt: `You are the QA Tester. You test like a hostile user: click everything, break inputs, read console errors as failures.
+
+RESPONSIBILITIES:
+- Execute test steps in the preview iframe (click, type, drag, scroll, wait, assert)
+- Capture and report ALL console errors from the preview
+- Verify each acceptance criterion from the task board
+- Test edge cases: empty states, rapid clicks, long inputs, network failures
+- File repro steps for every failure with exact selector and action
+
+WORK STYLE:
+- Be thorough and adversarial
+- Every console error is a failure
+- Report: "FAIL: [selector] — [expected] vs [actual] — repro: [steps]"
+- Pass only when everything works and console is clean
+- Present: test results table with pass/fail, console errors list`, 
+        providerId: null,
+        model: null,
+        temperature: 0.2,
+        skillPacks: ['no-ai-slop', 'testing-qa', 'debugging-discipline'],
+        pluginPacks: ['console-error-sweep', 'auto-test-after-build'],
+        mcpServers: [],
+        isPreset: true
+      }
+    };
+
     let appState = {
       sessions: {},
       activeSessionId: null,
       providers: {},  // Multiple providers by ID
       activeProviderId: null,
+      agents: {},  // Agent library by ID
+      activeAgentId: null,  // For single mode
+      teamMode: false,
+      teamRoster: [],  // Array of agent IDs in team
+      teamSeniorId: null,  // Senior Developer agent ID
+      teamTaskBoard: [],  // Tasks with owner, status, etc.
+      teamChat: [],  // Discussion round messages
+      teamPhase: null,  // 'discussion' | 'execution' | 'presentation' | 'testing' | 'review' | 'complete'
+      teamReviewRound: 0,
       // Legacy single provider fields for backward compatibility
       provider: {
         preset: '9router',
@@ -1022,6 +1323,20 @@
       }
       if (!appState.activeProviderId || !appState.providers[appState.activeProviderId]) {
         appState.activeProviderId = Object.keys(appState.providers)[0];
+      }
+      // Initialize agents if empty
+      if (!appState.agents || Object.keys(appState.agents).length === 0) {
+        // Create built-in Dev Team agents
+        Object.values(AGENT_PRESETS).forEach(preset => {
+          const agent = JSON.parse(JSON.stringify(preset));
+          agent.providerId = appState.activeProviderId;
+          appState.agents[agent.id] = agent;
+        });
+        // Set first agent as active for single mode
+        appState.activeAgentId = Object.keys(appState.agents)[0];
+      }
+      if (!appState.activeAgentId || !appState.agents[appState.activeAgentId]) {
+        appState.activeAgentId = Object.keys(appState.agents)[0];
       }
       // Sync legacy provider field for backward compatibility
       syncLegacyProvider();
