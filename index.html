@@ -7720,6 +7720,98 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
       logActivity(`Specialist ${agent.name} added mid-task`, 'success');
     }
 
+    // ---------- Human checkpoints: ONLY on big decisions ----------
+    function isBigDecision(text) {
+      return /\b(architect|architecture|database schema|delete all|purge|drop table|migration|spend|budget|pay|purchase|api key|encryption|auth system|auth design|deploy|production|security hardening)\b/i.test(text || '');
+    }
+
+    function requestHumanCheckpoint(reason) {
+      return new Promise(resolve => {
+        const v2 = getTeamV2();
+        v2.checkpoints.push({ reason, answer: null, at: Date.now() });
+        const banner = document.getElementById('teamCheckpointBanner');
+        if (banner) {
+          banner.style.display = 'flex';
+          banner.innerHTML = `
+            <span>🚧 HUMAN CHECKPOINT — big decision: ${escapeHtml(reason)}</span>
+            <div style="flex:1;"></div>
+            <button class="btn" style="padding:2px 8px; font-size:10px;" id="btnCheckpointApprove">✓ Approve — continue</button>
+            <button class="btn btn-secondary" style="padding:2px 8px; font-size:10px;" id="btnCheckpointOverride">✍ I decide</button>
+          `;
+          document.getElementById('btnCheckpointApprove').onclick = () => {
+            banner.style.display = 'none';
+            resolve({ approved: true, userNote: null });
+          };
+          document.getElementById('btnCheckpointOverride').onclick = () => {
+            const note = prompt('Your decision for the team (goes into the plan):', '');
+            banner.style.display = 'none';
+            resolve({ approved: false, userNote: note || 'User overrode without a note — continue in the user\'s direction.' });
+          };
+        } else {
+          resolve({ approved: true, userNote: null });
+        }
+        recordSessionEvent('checkpoint', 'HUMAN CHECKPOINT requested: ' + reason);
+      });
+    }
+
+    // ---------- Architecture voting: agents vote, user sees tally + winner ----------
+    async function runArchitectureVote() {
+      if (!appState.teamRoster.length) { alert('Assemble a team first (pick a template or Auto-team).'); return; }
+      const userPrompt = getTeamV2().lastPrompt || 'the current team task';
+      const options = ['A', 'B'];
+      appendTeamChat('system', null, `🗳 ARCHITECTURE VOTE on approach options ${options.join(' / ')}. Each member votes with reasoning; Senior arbitrates ties.`);
+      recordSessionEvent('vote-start', 'Architecture vote started');
+
+      const tally = {};
+      const perAgent = [];
+      for (const agentId of appState.teamRoster) {
+        const agent = appState.agents[agentId];
+        if (!agent || agentId === appState.teamSeniorId) continue;
+        let resp;
+        try {
+          resp = await callLLMWithAgent([
+            { role: 'system', content: agent.rolePrompt },
+            { role: 'user', content: `Task: ${userPrompt}\n\nVOTE: choose option A or B for the architecture approach (A = safer/steadier, B = bolder/modern). Reply with EXACTLY "VOTE: A" or "VOTE: B" plus one short reason sentence.` }
+          ], agent);
+        } catch (err) {
+          appendTeamChat('error', agent.id, `Vote failed: ${err.message}`);
+          continue;
+        }
+        const m = (resp || '').match(/VOTE:\s*([AB])/i);
+        const choice = m ? m[1].toUpperCase() : null;
+        tally[choice || 'abstain'] = (tally[choice || 'abstain'] || 0) + 1;
+        perAgent.push({ agent: agent.name, choice, resp: (resp || '').trim() });
+        appendTeamChat('vote', agent.id, (choice ? `VOTES ${choice}` : 'abstains') + '. ' + (resp || '').replace(/^VOTE:\s*[AB]$/i, '').trim());
+      }
+
+      const votesA = tally['A'] || 0, votesB = tally['B'] || 0;
+      let winner = votesA === votesB ? 'tie' : (votesA > votesB ? 'A' : 'B');
+      if (winner === 'tie') {
+        const senior = appState.agents[appState.teamSeniorId];
+        appendTeamChat('decision', senior.id, `Tie (${votesA}-${votesB}). As Senior Developer I arbitrate: breaking the tie with the lower-risk option A.`);
+        winner = 'A';
+      }
+
+      getTeamV2().votes.push({ options, tally: { A: votesA, B: votesB }, winner, at: Date.now() });
+      appendTeamChat('decision', null, `🗳 VOTE RESULT: ${winner === 'A' ? 'A' : 'B'} wins — A ${votesA} / B ${votesB}${winner === 'tie' ? ' (tie broken by Senior)' : ''}. Winner recorded into team memory.`);
+      recordSessionEvent('vote-result', `Vote result: ${winner} (${votesA}-${votesB})`);
+      logActivity(`Architecture vote complete: ${winner} wins`, 'success');
+      renderVoteResult(votesA, votesB, winner);
+      return { votesA, votesB, winner, perAgent };
+    }
+
+    function renderVoteResult(votesA, votesB, winner) {
+      let el = document.getElementById('teamVoteResult');
+      if (!el) {
+        el = document.createElement('div');
+        el.id = 'teamVoteResult';
+        const chips = document.getElementById('agentStatusChips');
+        if (chips && chips.parentElement) chips.parentElement.insertBefore(el, chips);
+      }
+      el.style.cssText = 'padding:6px 10px; margin-top:6px; border:1px solid var(--border-color); border-radius:5px; font-size:11px; background:var(--bg-surface);';
+      el.innerHTML = `🗳 Last architecture vote: <b>Option ${winner}</b> wins — A ${votesA} / B ${votesB}`;
+    }
+
     // ---------- Live team chat: user jumps in mid-discussion ----------
     function sendTeamJumpIn() {
       const input = document.getElementById('teamJumpIn');
