@@ -790,28 +790,90 @@
   <div class="modal-overlay" id="settingsModal">
     <div class="modal-box" style="width: 600px; max-width: 95vw;">
       <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-color); padding-bottom:8px;">
-        <h3 style="font-size: 14px; font-weight: 700;">Provider Manager</h3>
+        <h3 style="font-size: 14px; font-weight: 700;">Settings</h3>
         <button class="section-btn" id="btnCloseSettings">✕</button>
       </div>
 
-      <!-- Provider List -->
-      <div style="max-height: 40vh; overflow-y: auto; margin-bottom: 12px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
-          <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Providers</span>
-          <button class="btn" id="btnAddProvider" style="padding: 4px 10px; font-size: 11px;">+ Add Provider</button>
-        </div>
-        <div id="providerList" style="display: flex; flex-direction: column; gap: 6px;">
-          <!-- Provider items rendered here -->
+      <!-- Settings Tabs -->
+      <div style="display:flex; gap:4px; margin-bottom: 12px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px;">
+        <button class="settings-tab active" data-settings-tab="providers" style="padding: 6px 12px; background: var(--accent-blue); color: white; border: none; border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">Providers</button>
+        <button class="settings-tab" data-settings-tab="skills" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">Skill Packs</button>
+        <button class="settings-tab" data-settings-tab="plugins" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">Plugin Packs</button>
+        <button class="settings-tab" data-settings-tab="mcp" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">MCP Registry</button>
+      </div>
+
+      <!-- Providers Tab -->
+      <div class="settings-pane active" id="settingsPaneProviders" style="display: flex; flex-direction: column;">
+        <div style="max-height: 40vh; overflow-y: auto; margin-bottom: 12px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
+            <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Providers</span>
+            <button class="btn" id="btnAddProvider" style="padding: 4px 10px; font-size: 11px;">+ Add Provider</button>
+          </div>
+          <div id="providerList" style="display: flex; flex-direction: column; gap: 6px;">
+            <!-- Provider items rendered here -->
+          </div>
         </div>
       </div>
 
-      <div style="border-top: 1px solid var(--border-color); padding-top: 12px;">
-        <div style="display:flex; justify-content:flex-end; gap:8px;">
-          <button class="btn btn-secondary" id="btnCancelSettings">Close</button>
+      <!-- Skill Packs Tab -->
+      <div class="settings-pane" id="settingsPaneSkills" style="display: none; flex-direction: column;">
+        <div style="max-height: 40vh; overflow-y: auto; margin-bottom: 12px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
+            <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Built-in Skill Packs</span>
+            <button class="btn" id="btnOpenSkillPackLibrary" style="padding: 4px 10px; font-size: 11px;">📚 Open Library</button>
+          </div>
+          <div id="builtinSkillPackList" style="display: flex; flex-direction: column; gap: 6px;">
+            <!-- Built-in skill packs rendered here -->
+          </div>
+        </div>
+        <div style="border-top: 1px solid var(--border-color); padding-top: 12px;">
+          <div style="font-size: 11px; color: var(--text-dim); margin-bottom: 8px;">Built-in packs are read-only. Use the library to create custom packs.</div>
+          <div style="display:flex; justify-content:flex-end; gap:8px;">
+            <button class="btn btn-secondary" id="btnCancelSettings">Close</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Plugin Packs Tab -->
+      <div class="settings-pane" id="settingsPanePlugins" style="display: none; flex-direction: column;">
+        <div style="max-height: 40vh; overflow-y: auto; margin-bottom: 12px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
+            <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Built-in Plugin Packs</span>
+            <button class="btn" id="btnOpenPluginPackLibrary" style="padding: 4px 10px; font-size: 11px;">📚 Open Library</button>
+          </div>
+          <div id="builtinPluginPackList" style="display: flex; flex-direction: column; gap: 6px;">
+            <!-- Built-in plugin packs rendered here -->
+          </div>
+        </div>
+        <div style="border-top: 1px solid var(--border-color); padding-top: 12px;">
+          <div style="font-size: 11px; color: var(--text-dim); margin-bottom: 8px;">Built-in packs are read-only. Use the library to create custom packs.</div>
+          <div style="display:flex; justify-content:flex-end; gap:8px;">
+            <button class="btn btn-secondary" id="btnCancelSettings">Close</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- MCP Registry Tab -->
+      <div class="settings-pane" id="settingsPaneMcp" style="display: none; flex-direction: column;">
+        <div style="max-height: 40vh; overflow-y: auto; margin-bottom: 12px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
+            <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">MCP Servers</span>
+            <button class="btn" id="btnOpenMcpRegistry" style="padding: 4px 10px; font-size: 11px;">📚 Open Registry</button>
+          </div>
+          <div id="mcpServerSummaryList" style="display: flex; flex-direction: column; gap: 6px;">
+            <!-- MCP server summary rendered here -->
+          </div>
+        </div>
+        <div style="border-top: 1px solid var(--border-color); padding-top: 12px;">
+          <div style="font-size: 11px; color: var(--text-dim); margin-bottom: 8px;">MCP servers are global. Assign them to agents in the Agent Library.</div>
+          <div style="display:flex; justify-content:flex-end; gap:8px;">
+            <button class="btn btn-secondary" id="btnCancelSettings">Close</button>
+          </div>
         </div>
       </div>
     </div>
   </div>
+
 
   <!-- Agent Library Modal -->
   <div class="modal-overlay" id="agentLibraryModal">
@@ -1058,6 +1120,208 @@
   </div>
 
   <script>
+  <!-- Skill Pack Library Modal -->
+  <div class="modal-overlay" id="skillPackLibraryModal">
+    <div class="modal-box" style="width: 700px; max-width: 95vw;">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-color); padding-bottom:8px;">
+        <h3 style="font-size: 14px; font-weight: 700;">Skill Pack Library</h3>
+        <button class="section-btn" id="btnCloseSkillPackLibrary">✕</button>
+      </div>
+
+      <div style="display:flex; gap:12px; height: 60vh;">
+        <!-- Skill Pack List -->
+        <div style="flex: 1; max-width: 350px; display:flex; flex-direction:column;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
+            <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Skill Packs</span>
+            <button class="btn" id="btnAddSkillPack" style="padding: 4px 10px; font-size: 11px;">+ Add Pack</button>
+          </div>
+          <div id="skillPackList" style="flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:4px;">
+            <!-- Skill pack items rendered here -->
+          </div>
+        </div>
+
+        <!-- Skill Pack Detail / Edit Form -->
+        <div style="flex: 1; min-width: 0; display:flex; flex-direction:column;" id="skillPackDetailPanel">
+          <div id="skillPackEmptyState" style="font-size: 11px; color: var(--text-dim); padding: 8px; background: var(--bg-surface); border-radius: 5px; margin-bottom: 12px;">Select a skill pack to edit, or click + Add Pack to create a new one.</div>
+          <form id="skillPackForm" style="flex:1; overflow-y:auto; display:none; flex-direction:column; gap:12px;">
+            <div class="form-group">
+              <label class="form-label">Name</label>
+              <input type="text" id="skillPackName" class="form-input" placeholder="e.g., My Custom Pack" required />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Instructions (injected into agent system prompt)</label>
+              <textarea id="skillPackInstructions" class="form-input" placeholder="Describe the skill, best practices, and rules for agents to follow..." style="min-height: 200px; font-family: var(--font-mono); font-size: 11px;" required></textarea>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Category</label>
+              <select id="skillPackCategory" class="form-select">
+                <option value="general">General</option>
+                <option value="frontend">Frontend</option>
+                <option value="backend">Backend</option>
+                <option value="testing">Testing & QA</option>
+                <option value="security">Security</option>
+                <option value="performance">Performance</option>
+                <option value="accessibility">Accessibility</option>
+                <option value="api">API Design</option>
+                <option value="debugging">Debugging</option>
+                <option value="git">Git Workflow</option>
+              </select>
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:8px; border-top:1px solid var(--border-color); padding-top:12px;">
+              <button type="button" class="btn btn-secondary" id="btnCancelSkillPack">Cancel</button>
+              <button type="submit" class="btn" id="btnSaveSkillPack">Save Skill Pack</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Plugin Pack Library Modal -->
+  <div class="modal-overlay" id="pluginPackLibraryModal">
+    <div class="modal-box" style="width: 700px; max-width: 95vw;">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-color); padding-bottom:8px;">
+        <h3 style="font-size: 14px; font-weight: 700;">Plugin Pack Library</h3>
+        <button class="section-btn" id="btnClosePluginPackLibrary">✕</button>
+      </div>
+
+      <div style="display:flex; gap:12px; height: 60vh;">
+        <!-- Plugin Pack List -->
+        <div style="flex: 1; max-width: 350px; display:flex; flex-direction:column;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
+            <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Plugin Packs</span>
+            <button class="btn" id="btnAddPluginPack" style="padding: 4px 10px; font-size: 11px;">+ Add Pack</button>
+          </div>
+          <div id="pluginPackList" style="flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:4px;">
+            <!-- Plugin pack items rendered here -->
+          </div>
+        </div>
+
+        <!-- Plugin Pack Detail / Edit Form -->
+        <div style="flex: 1; min-width: 0; display:flex; flex-direction:column;" id="pluginPackDetailPanel">
+          <div id="pluginPackEmptyState" style="font-size: 11px; color: var(--text-dim); padding: 8px; background: var(--bg-surface); border-radius: 5px; margin-bottom: 12px;">Select a plugin pack to edit, or click + Add Pack to create a new one.</div>
+          <form id="pluginPackForm" style="flex:1; overflow-y:auto; display:none; flex-direction:column; gap:12px;">
+            <div class="form-group">
+              <label class="form-label">Name</label>
+              <input type="text" id="pluginPackName" class="form-input" placeholder="e.g., My Custom Plugin" required />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Description</label>
+              <input type="text" id="pluginPackDescription" class="form-input" placeholder="Brief description of what this plugin does" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Pipeline Steps (JSON array)</label>
+              <textarea id="pluginPackSteps" class="form-input" placeholder='["step1", "step2", "step3"]' style="min-height: 120px; font-family: var(--font-mono); font-size: 11px;" required></textarea>
+              <span style="font-size:10px; color:var(--text-dim);">Each step is a string identifier. Built-in steps: console-error-sweep, auto-test-after-build, changelog-writer, format-tidy</span>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Trigger</label>
+              <select id="pluginPackTrigger" class="form-select">
+                <option value="post-build">Post-Build</option>
+                <option value="post-task">Post-Task</option>
+                <option value="pre-commit">Pre-Commit</option>
+                <option value="manual">Manual Only</option>
+              </select>
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:8px; border-top:1px solid var(--border-color); padding-top:12px;">
+              <button type="button" class="btn btn-secondary" id="btnCancelPluginPack">Cancel</button>
+              <button type="submit" class="btn" id="btnSavePluginPack">Save Plugin Pack</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MCP Registry Modal -->
+  <div class="modal-overlay" id="mcpRegistryModal">
+    <div class="modal-box" style="width: 700px; max-width: 95vw;">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-color); padding-bottom:8px;">
+        <h3 style="font-size: 14px; font-weight: 700;">MCP Registry</h3>
+        <button class="section-btn" id="btnCloseMcpRegistry">✕</button>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:12px; max-height: 70vh; overflow-y:auto;">
+        <div style="font-size: 11px; color: var(--warning); background: rgba(245, 158, 11, 0.1); border: 1px solid var(--warning); padding: 10px; border-radius: 5px;">
+          <strong>⚠ Desktop Execution Only:</strong> MCP servers are declared here for agent context. Actual MCP execution requires the desktop version with the jcode engine. The web version summarizes each server's purpose into the agent's system prompt.
+        </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">MCP Servers</span>
+          <button class="btn" id="btnAddMcpServer" style="padding: 4px 10px; font-size: 11px;">+ Add Server</button>
+        </div>
+
+        <div id="mcpServerList" style="display:flex; flex-direction:column; gap:6px;">
+          <!-- MCP server items rendered here -->
+        </div>
+
+        <div id="mcpServerEmpty" style="font-size: 11px; color: var(--text-dim); text-align: center; padding: 20px;">No MCP servers configured. Click + Add Server to register one.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MCP Server Edit Modal -->
+  <div class="modal-overlay" id="mcpServerModal">
+    <div class="modal-box" style="width: 520px; max-width: 95vw;">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-color); padding-bottom:8px;">
+        <h3 style="font-size: 14px; font-weight: 700;" id="mcpServerModalTitle">Add MCP Server</h3>
+        <button class="section-btn" id="btnCloseMcpServerModal">✕</button>
+      </div>
+
+      <div style="max-height: 60vh; overflow-y: auto;">
+        <div class="form-group">
+          <label class="form-label">Server Name</label>
+          <input type="text" id="mcpServerName" class="form-input" placeholder="e.g., filesystem" required />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Transport</label>
+          <select id="mcpServerTransport" class="form-select">
+            <option value="stdio">stdio (local process)</option>
+            <option value="sse">SSE (Server-Sent Events)</option>
+            <option value="streamable-http">Streamable HTTP</option>
+          </select>
+        </div>
+
+        <div class="form-group" id="groupMcpCommand">
+          <label class="form-label">Command (for stdio)</label>
+          <input type="text" id="mcpServerCommand" class="form-input" placeholder="npx @modelcontextprotocol/server-filesystem /path/to/dir" />
+        </div>
+
+        <div class="form-group" id="groupMcpUrl" style="display: none;">
+          <label class="form-label">URL (for SSE/Streamable HTTP)</label>
+          <input type="text" id="mcpServerUrl" class="form-input" placeholder="http://localhost:3000/mcp" />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Environment Variables (JSON)</label>
+          <textarea id="mcpServerEnv" class="form-input" placeholder='{"API_KEY": "value"}' style="min-height: 60px; font-family: var(--font-mono); font-size: 11px;"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Description / Purpose</label>
+          <textarea id="mcpServerDescription" class="form-input" placeholder="What this server provides to agents (tools, resources, prompts)..." style="min-height: 80px;"></textarea>
+        </div>
+
+        <div class="form-group" style="flex-direction: row; align-items: center; gap: 8px;">
+          <label style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; min-width: 120px;">Enabled</label>
+          <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 12px; color: var(--text-main);">
+            <input type="checkbox" id="mcpServerEnabled" checked />
+            <span>Enable this server</span>
+          </label>
+        </div>
+
+        <div style="font-size: 10px; color: var(--text-dim); padding: 8px; background: var(--bg-surface); border-radius: 5px;">
+          This server will be summarized into agent context. Real execution requires desktop version.
+        </div>
+      </div>
+
+      <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:8px; border-top:1px solid var(--border-color); padding-top:12px;">
+        <button class="btn btn-secondary" id="btnCancelMcpServer">Cancel</button>
+        <button class="btn" id="btnSaveMcpServer">Save Server</button>
+      </div>
+    </div>
+  </div>
     // --- DevForge Stage 0 Core State & VFS ---
     const STORAGE_KEY = 'devforge_studio_v1';
 
@@ -1280,7 +1544,113 @@ WORK STYLE:
       }
     };
 
+    // Built-in Skill Packs (read-only)
+    const BUILTIN_SKILL_PACKS = {
+      'no-ai-slop': {
+        id: 'skill_no-ai-slop',
+        name: 'no-ai-slop',
+        instructions: 'Write real content, consistent design system, no lorem ipsum, no purple-gradient clichés, no placeholder boxes.',
+        category: 'general',
+        isBuiltin: true
+      },
+      'senior-frontend': {
+        id: 'skill_senior-frontend',
+        name: 'senior-frontend',
+        instructions: 'Implement HTML/CSS/JS for user-facing features. Responsive, accessible, performant. Follow design system. No placeholder UI. Test in preview.',
+        category: 'frontend',
+        isBuiltin: true
+      },
+      'testing-qa': {
+        id: 'skill_testing-qa',
+        name: 'testing-qa',
+        instructions: 'Test like a hostile user. Click everything, break inputs, read console errors as failures. Every console error is a failure.',
+        category: 'testing',
+        isBuiltin: true
+      },
+      'api-design': {
+        id: 'skill_api-design',
+        name: 'api-design',
+        instructions: 'Design clean interfaces. Handle all error cases: timeouts, 429, 401, empty responses, streaming failures.',
+        category: 'api',
+        isBuiltin: true
+      },
+      'debugging-discipline': {
+        id: 'skill_debugging-discipline',
+        name: 'debugging-discipline',
+        instructions: 'Write robust async code. Never leave error handling as TODO. Use existing compatibility utilities.',
+        category: 'debugging',
+        isBuiltin: true
+      },
+      'git-workflow': {
+        id: 'skill_git-workflow',
+        name: 'git-workflow',
+        instructions: 'Clean commits, meaningful messages. Keep git status clean.',
+        category: 'git',
+        isBuiltin: true
+      },
+      'security-review': {
+        id: 'skill_security-review',
+        name: 'security-review',
+        instructions: 'Check for XSS, CSRF, injection, auth bypass. Validate all inputs.',
+        category: 'security',
+        isBuiltin: true
+      },
+      'accessibility': {
+        id: 'skill_accessibility',
+        name: 'accessibility',
+        instructions: 'Semantic HTML, ARIA labels, keyboard navigation, color contrast, screen reader support.',
+        category: 'accessibility',
+        isBuiltin: true
+      },
+      'performance': {
+        id: 'skill_performance',
+        name: 'performance',
+        instructions: 'Minimize bundle, lazy load, efficient algorithms, cache strategically.',
+        category: 'performance',
+        isBuiltin: true
+      }
+    };
+
+    // Built-in Plugin Packs (read-only)
+    const BUILTIN_PLUGIN_PACKS = {
+      'console-error-sweep': {
+        id: 'plugin_console-error-sweep',
+        name: 'console-error-sweep',
+        description: 'Captures and reports all console errors from the preview iframe as test failures',
+        steps: ['console-error-sweep'],
+        trigger: 'post-task',
+        isBuiltin: true
+      },
+      'auto-test-after-build': {
+        id: 'plugin_auto-test-after-build',
+        name: 'auto-test-after-build',
+        description: 'Automatically runs test suite after successful build',
+        steps: ['auto-test-after-build'],
+        trigger: 'post-build',
+        isBuiltin: true
+      },
+      'changelog-writer': {
+        id: 'plugin_changelog-writer',
+        name: 'changelog-writer',
+        description: 'Generates changelog entries from commit messages',
+        steps: ['changelog-writer'],
+        trigger: 'pre-commit',
+        isBuiltin: true
+      },
+      'format-tidy': {
+        id: 'plugin_format-tidy',
+        name: 'format-tidy',
+        description: 'Auto-formats code using configured formatter (Prettier, etc.)',
+        steps: ['format-tidy'],
+        trigger: 'pre-commit',
+        isBuiltin: true
+      }
+    };
+
     let appState = {
+      customSkillPacks: {},  // User-created skill packs
+      customPluginPacks: {},  // User-created plugin packs
+      mcpServers: {},  // MCP server registry
       sessions: {},
       activeSessionId: null,
       providers: {},  // Multiple providers by ID
