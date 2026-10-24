@@ -3590,6 +3590,529 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
       saveAppState();
     }
 
+    // ==================== TEAM MODE ORCHESTRATION ====================
+
+    // Parse task board from Senior's discussion message
+    function parseTaskBoardFromDiscussion(seniorMessage) {
+      // Expected format from Senior: "Task: [description] | Owner: [agent name] | Depends on: [task ids or none]"
+      const lines = seniorMessage.split('\n');
+      const tasks = [];
+      let taskId = 1;
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed.startsWith('Task:')) continue;
+
+        // Parse: Task: [desc] | Owner: [name] | Depends on: [ids]
+        const taskMatch = trimmed.match(/Task:\s*([^|]+)\s*\|\s*Owner:\s*([^|]+)\s*(?:\|\s*Depends on:\s*(.+))?/i);
+        if (!taskMatch) continue;
+
+        const description = taskMatch[1].trim();
+        const ownerName = taskMatch[2].trim();
+        const dependsRaw = taskMatch[3]?.trim() || 'none';
+
+        // Find agent by name
+        const ownerAgent = Object.values(appState.agents).find(a =>
+          appState.teamRoster.includes(a.id) && a.name.toLowerCase() === ownerName.toLowerCase()
+        );
+
+        if (!ownerAgent) {
+          logActivity(`Task owner not found: ${ownerName}`, 'warning');
+          continue;
+        }
+
+        let dependsOn = [];
+        if (dependsRaw && dependsRaw.toLowerCase() !== 'none') {
+          dependsOn = dependsRaw.split(',').map(s => s.trim()).filter(Boolean);
+        }
+
+        tasks.push({
+          id: 'task_' + taskId++,
+          title: description.split(' ').slice(0, 8).join(' ') + (description.length > 50 ? '...' : ''),
+          description: description,
+          owner: ownerAgent.id,
+          status: 'pending',
+          dependsOn: dependsOn,
+          output: '',
+          createdAt: Date.now()
+        });
+      }
+
+      return tasks;
+    }
+
+    // Discussion round - agents discuss how to split work
+    async function runDiscussionRound(userPrompt) {
+      setTeamPhase('discussion');
+
+      // Clear team chat
+      const chat = document.getElementById('teamChat');
+      if (chat) chat.innerHTML = '';
+
+      appendTeamChat('system', null, `Team discussion started for: "${userPrompt}"`);
+
+      // Each agent (except senior) gives brief input
+      const nonSeniorAgents = appState.teamRoster.filter(id => id !== appState.teamSeniorId);
+
+      for (const agentId of nonSeniorAgents) {
+        const agent = appState.agents[agentId];
+        const provider = appState.providers[agent.providerId];
+
+        const systemPrompt = agent.rolePrompt + '\n\nYou are in a TEAM DISCUSSION round. The team lead (Senior Developer) will make final task assignments. Give a brief 2-3 sentence proposal on how you could contribute to this task. Do not write code.';
+
+        const messages = [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: `Team task: ${userPrompt}\n\nYour role: ${agent.name}. Propose how you can contribute.` }
+        ];
+
+        try {
+          const response = await callLLMWithAgent(messages, agent);
+          appendTeamChat('discussion', agentId, response);
+        } catch (err) {
+          appendTeamChat('error', agentId, `Error: ${err.message}`);
+        }
+      }
+
+      // Senior finalizes task board
+      const senior = appState.agents[appState.teamSeniorId];
+      const seniorPrompt = senior.rolePrompt + '\n\nYou are the Senior Developer. Review the team discussion and create a FINAL TASK BOARD. Output tasks in this EXACT format:\nTask: [description] | Owner: [agent name] | Depends on: [task numbers or "none"]\n\nOne task per line. Be specific and actionable.';
+
+      const seniorMessages = [
+        { role: 'system', content: seniorPrompt },
+        { role: 'user', content: `User request: ${userPrompt}\n\nTeam discussion complete. Create the task board now.` }
+      ];
+
+      try {
+        const seniorResponse = await callLLMWithAgent(seniorMessages, senior);
+        appendTeamChat('decision', appState.teamSeniorId, seniorResponse);
+
+        // Parse and store task board
+        const tasks = parseTaskBoardFromDiscussion(seniorResponse);
+        if (tasks.length === 0) {
+          throw new Error('Senior did not create any valid tasks');
+        }
+        appState.teamTaskBoard = tasks;
+        saveAppState();
+        renderTaskBoard();
+
+        logActivity(`Task board created with ${tasks.length} tasks`, 'success');
+      } catch (err) {
+        logActivity('Failed to create task board: ' + err.message, 'error');
+        throw err;
+      }
+    }
+
+    // Call LLM with specific agent's config
+    async function callLLMWithAgent(messages, agent) {
+      const provider = appState.providers[agent.providerId];
+      if (!provider) throw new Error('Agent has no valid provider');
+
+      // Build context with agent's skill packs
+      let context = buildSystemContextWithGuard();
+
+      // Add skill pack instructions
+      const skillInstructions = getSkillPackInstructions(agent.skillPacks);
+      if (skillInstructions) context += '\n\n' + skillInstructions;
+
+      const fullMessages = [
+        { role: 'system', content: context },
+        ...messages
+      ];
+
+      // Temporarily switch to agent's provider/model
+      const oldProviderId = appState.activeProviderId;
+      const oldAgentId = appState.activeAgentId;
+      appState.activeProviderId = agent.providerId;
+      if (agent.model) appState.providers[agent.providerId].model = agent.model;
+
+      try {
+        const response = await callLLM(fullMessages);
+        return response;
+      } finally {
+        appState.activeProviderId = oldProviderId;
+        appState.activeAgentId = oldAgentId;
+      }
+    }
+
+    // Get skill pack instructions
+    function getSkillPackInstructions(skillPacks) {
+      const packDefs = {
+        'no-ai-slop': 'Write real content, consistent design system, no lorem ipsum, no purple-gradient clichés, no placeholder boxes.',
+        'senior-frontend': 'Implement HTML/CSS/JS for user-facing features. Responsive, accessible, performant. Follow design system. No placeholder UI. Test in preview.',
+        'testing-qa': 'Test like a hostile user. Click everything, break inputs, read console errors as failures. Every console error is a failure.',
+        'api-design': 'Design clean interfaces. Handle all error cases: timeouts, 429, 401, empty responses, streaming failures.',
+        'debugging-discipline': 'Write robust async code. Never leave error handling as TODO. Use existing compatibility utilities.',
+        'git-workflow': 'Clean commits, meaningful messages. Keep git status clean.',
+        'security-review': 'Check for XSS, CSRF, injection, auth bypass. Validate all inputs.',
+        'accessibility': 'Semantic HTML, ARIA labels, keyboard navigation, color contrast, screen reader support.',
+        'performance': 'Minimize bundle, lazy load, efficient algorithms, cache strategically.'
+      };
+
+      return skillPacks.map(p => packDefs[p]).filter(Boolean).join('\n\n');
+    }
+
+    // Execution phase - run tasks in order (respecting dependencies)
+    async function runExecutionPhase() {
+      setTeamPhase('execution');
+      appendTeamChat('system', null, '=== EXECUTION PHASE STARTED ===');
+
+      const tasks = appState.teamTaskBoard;
+      const completed = new Set();
+
+      // Process tasks respecting dependencies
+      while (completed.size < tasks.length) {
+        let progress = false;
+
+        for (const task of tasks) {
+          if (completed.has(task.id)) continue;
+
+          // Check dependencies
+          const depsMet = task.dependsOn.every(depId => completed.has(depId));
+          if (!depsMet) continue;
+
+          // Mark as working
+          task.status = 'working';
+          renderTaskBoard();
+          updateAgentStatusChips();
+
+          const agent = appState.agents[task.owner];
+          appendTeamChat('status', task.owner, `Starting task: ${task.description}`);
+
+          try {
+            // Execute agent with task
+            const result = await executeAgentTask(agent, task);
+            task.output = result;
+            task.status = 'idle-done';
+            completed.add(task.id);
+            progress = true;
+
+            appendTeamChat('status', task.owner, `Completed: ${task.description}`);
+            logActivity(`${agent.name} completed task: ${task.title}`, 'success');
+          } catch (err) {
+            task.status = 'rework';
+            appendTeamChat('error', task.owner, `Failed: ${err.message}`);
+            logActivity(`${agent.name} failed task: ${err.message}`, 'error');
+            // Continue with other tasks
+          }
+
+          renderTaskBoard();
+          updateAgentStatusChips();
+        }
+
+        if (!progress) {
+          // Check for circular deps or stuck tasks
+          const stuck = tasks.filter(t => !completed.has(t.id) && t.status !== 'working');
+          if (stuck.length > 0) {
+            logActivity('Some tasks stuck, marking as rework', 'warning');
+            stuck.forEach(t => { t.status = 'rework'; completed.add(t.id); });
+          }
+        }
+      }
+
+      appendTeamChat('system', null, '=== EXECUTION PHASE COMPLETE ===');
+    }
+
+    // Execute a single agent task
+    async function executeAgentTask(agent, task) {
+      const provider = appState.providers[agent.providerId];
+      const session = getCurrentSession();
+
+      // Build agent's context
+      let context = buildSystemContextWithGuard();
+      const skillInstructions = getSkillPackInstructions(agent.skillPacks);
+      if (skillInstructions) context += '\n\n' + skillInstructions;
+
+      context += `\n\nYOUR TASK: ${task.description}\n\nYou are ${agent.name} (${agent.emoji}). Complete this task and return the result. Use file: blocks for any file changes.`;
+
+      const messages = [
+        { role: 'system', content: context },
+        { role: 'user', content: `Complete this task: ${task.description}` }
+      ];
+
+      // Use agent's model/provider
+      const oldProviderId = appState.activeProviderId;
+      const oldAgentId = appState.activeAgentId;
+      appState.activeProviderId = agent.providerId;
+      if (agent.model) appState.providers[agent.providerId].model = agent.model;
+
+      try {
+        // Send prompt and get response
+        const response = await callLLM(messages);
+
+        // Parse and apply any file blocks
+        const { chips, fileModified } = parseAndApplyBlocks(response);
+
+        // Return summary for presentation
+        const summary = response.replace(/```(file|delete|browse):[\s\S]*?```/g, '').trim();
+        return summary || 'Task completed (see file changes)';
+      } finally {
+        appState.activeProviderId = oldProviderId;
+        appState.activeAgentId = oldAgentId;
+      }
+    }
+
+    // Presentation phase - each agent presents their work
+    async function runPresentationPhase() {
+      setTeamPhase('presentation');
+      appendTeamChat('system', null, '=== PRESENTATION PHASE ===');
+
+      for (const task of appState.teamTaskBoard) {
+        const agent = appState.agents[task.owner];
+        task.status = 'in-review';
+        renderTaskBoard();
+        updateAgentStatusChips();
+
+        const presentation = `**${agent.name} presents:**\nTask: ${task.description}\nResult: ${task.output}\nFiles changed: see action chips above.`;
+        appendTeamChat('presentation', task.owner, presentation);
+
+        // Small delay for UI
+        await new Promise(r => setTimeout(r, 300));
+      }
+    }
+
+    // Testing phase - QA runs tests
+    async function runTestingPhase() {
+      setTeamPhase('testing');
+      appendTeamChat('system', null, '=== TESTING PHASE ===');
+
+      const qaAgent = appState.teamRoster
+        .map(id => appState.agents[id])
+        .find(a => a.skillPacks?.includes('testing-qa'));
+
+      if (!qaAgent) {
+        appendTeamChat('system', null, 'No QA tester in team - skipping automated tests');
+        return { passed: true, errors: [] };
+      }
+
+      // Run basic console error sweep
+      const iframe = document.getElementById('previewIframe');
+      let consoleErrors = [];
+
+      if (iframe && iframe.contentWindow) {
+        try {
+          // Trigger any lazy-loaded scripts
+          iframe.contentWindow.postMessage({ type: 'DEVFORGE_TEST_SWEEP' }, '*');
+          await new Promise(r => setTimeout(r, 1000));
+        } catch (e) {
+          // Ignore cross-origin
+        }
+      }
+
+      // QA agent reviews the work
+      const qaPrompt = qaAgent.rolePrompt + '\n\nReview the completed work. Check for:\n1. Console errors in preview\n2. All tasks meet acceptance criteria\n3. No broken functionality\n4. Edge cases handled\n\nReport: PASS or FAIL with specific issues.';
+
+      const messages = [
+        { role: 'system', content: qaPrompt },
+        { role: 'user', content: `Review team output:\n${appState.teamTaskBoard.map(t => `- ${t.title} (${appState.agents[t.owner]?.name}): ${t.output}`).join('\n')}` }
+      ];
+
+      try {
+        const qaResult = await callLLMWithAgent(messages, qaAgent);
+        appendTeamChat('test-result', qaAgent.id, qaResult);
+
+        const passed = !qaResult.toLowerCase().includes('fail');
+        return { passed, errors: passed ? [] : [qaResult] };
+      } catch (err) {
+        appendTeamChat('error', qaAgent.id, `QA error: ${err.message}`);
+        return { passed: false, errors: [err.message] };
+      }
+    }
+
+    // Senior review phase
+    async function runReviewPhase() {
+      setTeamPhase('review');
+      appState.teamReviewRound++;
+      appendTeamChat('system', null, `=== SENIOR REVIEW ROUND ${appState.teamReviewRound}/3 ===`);
+
+      const senior = appState.agents[appState.teamSeniorId];
+
+      const reviewPrompt = senior.rolePrompt + '\n\nREVIEW PHASE: Inspect all agents\' work and test results. For each issue, respond with:\nREWORK: [agent name] | Issue: [exact problem] | Fix: [exact fix needed]\n\nIf everything is approved, respond with: APPROVED - [summary]';
+
+      const messages = [
+        { role: 'system', content: reviewPrompt },
+        { role: 'user', content: `Review round ${appState.teamReviewRound}.\n\nTask Board:\n${appState.teamTaskBoard.map(t => `- ${t.title} [${t.status}] by ${appState.agents[t.owner]?.name}: ${t.output}`).join('\n')}\n\nTest Results: (from testing phase)` }
+      ];
+
+      try {
+        const review = await callLLMWithAgent(messages, senior);
+        appendTeamChat('review', appState.teamSeniorId, review);
+
+        // Parse rework directives
+        const reworkLines = review.match(/REWORK:\s*([^|]+)\s*\|\s*Issue:\s*([^|]+)\s*\|\s*Fix:\s*([^\n]+)/gi) || [];
+
+        if (reworkLines.length === 0 && review.toUpperCase().includes('APPROVED')) {
+          // All approved!
+          appState.teamTaskBoard.forEach(t => { if (t.status !== 'approved') t.status = 'approved'; });
+          renderTaskBoard();
+          updateAgentStatusChips();
+          return { approved: true, reworkItems: [] };
+        }
+
+        // Apply rework
+        const reworkItems = [];
+        for (const line of reworkLines) {
+          const match = line.match(/REWORK:\s*([^|]+)\s*\|\s*Issue:\s*([^|]+)\s*\|\s*Fix:\s*([^\n]+)/i);
+          if (!match) continue;
+
+          const agentName = match[1].trim();
+          const issue = match[2].trim();
+          const fix = match[3].trim();
+
+          const agent = Object.values(appState.agents).find(a =>
+            appState.teamRoster.includes(a.id) && a.name.toLowerCase() === agentName.toLowerCase()
+          );
+
+          if (agent) {
+            const task = appState.teamTaskBoard.find(t => t.owner === agent.id && t.status !== 'approved');
+            if (task) {
+              task.status = 'rework';
+              task.reworkNote = { issue, fix };
+              reworkItems.push({ agentId: agent.id, taskId: task.id, issue, fix });
+            }
+          }
+        }
+
+        renderTaskBoard();
+        updateAgentStatusChips();
+
+        if (reworkItems.length === 0) {
+          // No specific rework but not approved - approve all
+          appState.teamTaskBoard.forEach(t => { if (t.status !== 'approved') t.status = 'approved'; });
+          return { approved: true, reworkItems: [] };
+        }
+
+        // Execute rework
+        for (const item of reworkItems) {
+          const agent = appState.agents[item.agentId];
+          const task = appState.teamTaskBoard.find(t => t.id === item.taskId);
+
+          appendTeamChat('rework', agent.id, `REWORK: ${item.issue} — Fix: ${item.fix}`);
+
+          const reworkPrompt = agent.rolePrompt + `\n\nREWORK REQUIRED:\nIssue: ${item.issue}\nRequired Fix: ${item.fix}\n\nPrevious output: ${task.output}\n\nApply the fix and return updated result.`;
+
+          const reworkMessages = [
+            { role: 'system', content: reworkPrompt },
+            { role: 'user', content: `Fix the issue: ${item.issue}` }
+          ];
+
+          try {
+            const newOutput = await callLLMWithAgent(reworkMessages, agent);
+            task.output = newOutput;
+            task.status = 'idle-done';
+            const { chips, fileModified } = parseAndApplyBlocks(newOutput);
+            logActivity(`${agent.name} completed rework for ${task.title}`, 'success');
+          } catch (err) {
+            logActivity(`Rework failed for ${agent.name}: ${err.message}`, 'error');
+          }
+        }
+
+        renderTaskBoard();
+        updateAgentStatusChips();
+
+        // Check if we've hit max review rounds
+        if (appState.teamReviewRound >= 3) {
+          appendTeamChat('system', null, 'Max review rounds reached. Escalating to user.');
+          return { approved: false, reworkItems, escalated: true };
+        }
+
+        return { approved: false, reworkItems };
+      } catch (err) {
+        logActivity('Senior review error: ' + err.message, 'error');
+        return { approved: false, reworkItems: [], error: err.message };
+      }
+    }
+
+    // Main team orchestration entry point
+    async function runTeamMode(userPrompt) {
+      if (appState.teamRoster.length === 0) {
+        alert('Add agents to the team first');
+        return;
+      }
+      if (!appState.teamSeniorId) {
+        alert('Designate a Senior Developer');
+        return;
+      }
+
+      appState.teamMode = true;
+      const btnStart = document.getElementById('btnStartTeam');
+      const btnStop = document.getElementById('btnStopTeam');
+      if (btnStart) btnStart.style.display = 'none';
+      if (btnStop) btnStop.style.display = 'inline-flex';
+
+      try {
+        // Phase 1: Discussion
+        await runDiscussionRound(userPrompt);
+
+        // Phase 2: Execution
+        await runExecutionPhase();
+
+        // Phase 3: Presentation
+        await runPresentationPhase();
+
+        // Phase 4: Testing
+        const testResult = await runTestingPhase();
+
+        // Phase 5: Review loop (max 3 rounds)
+        let approved = false;
+        while (!approved && appState.teamReviewRound < 3) {
+          const reviewResult = await runReviewPhase();
+          if (reviewResult.approved) {
+            approved = true;
+            break;
+          }
+          if (reviewResult.escalated) break;
+          // Loop continues for rework
+        }
+
+        // Phase 6: Final report
+        await runFinalReport();
+
+        logActivity('Team mode completed', 'success');
+      } catch (err) {
+        logActivity('Team mode error: ' + err.message, 'error');
+        appendTeamChat('error', null, `Team mode failed: ${err.message}`);
+      } finally {
+        appState.teamMode = false;
+        setTeamPhase('idle');
+        if (btnStart) btnStart.style.display = 'inline-flex';
+        if (btnStop) btnStop.style.display = 'none';
+        saveAppState();
+      }
+    }
+
+    // Final report by Senior
+    async function runFinalReport() {
+      appendTeamChat('system', null, '=== FINAL REPORT ===');
+
+      const senior = appState.agents[appState.teamSeniorId];
+      const reportPrompt = senior.rolePrompt + '\n\nWrite a final summary report covering:\n1. What was built\n2. Who did what\n3. Test results\n4. Any known issues or limitations\n\nBe concise but complete.';
+
+      const messages = [
+        { role: 'system', content: reportPrompt },
+        { role: 'user', content: `Generate final report for completed team run.` }
+      ];
+
+      try {
+        const report = await callLLMWithAgent(messages, senior);
+        appendTeamChat('final-report', appState.teamSeniorId, report);
+        logActivity('Final report generated', 'success');
+      } catch (err) {
+        appendTeamChat('error', appState.teamSeniorId, `Report generation failed: ${err.message}`);
+      }
+    }
+
+    // Stop team mode
+    function stopTeamMode() {
+      appState.teamMode = false;
+      setTeamPhase('idle');
+      const btnStart = document.getElementById('btnStartTeam');
+      const btnStop = document.getElementById('btnStopTeam');
+      if (btnStart) btnStart.style.display = 'inline-flex';
+      if (btnStop) btnStop.style.display = 'none';
+      logActivity('Team mode stopped by user', 'warning');
+      saveAppState();
+    }
+
     document.addEventListener('DOMContentLoaded', initApp);
   </script>
 </body>
