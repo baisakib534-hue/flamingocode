@@ -711,7 +711,37 @@
       <div class="right-content">
         <!-- Agent Chat Pane -->
         <div class="pane-view active" id="paneAgent">
-          <div class="chat-messages" id="chatMessages">
+          <!-- Mode Selector & Plan Panel Header -->
+          <div class="agent-pane-header" style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:var(--bg-surface); border-bottom:1px solid var(--border-color); gap:8px; flex-wrap:wrap;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Mode</span>
+              <select id="modeSelector" class="form-select" style="padding:4px 8px; font-size:11px; min-width:140px;" title="Select agent mode">
+                <option value="chat">💬 Chat</option>
+                <option value="plan">📋 Plan</option>
+                <option value="plan-build">🔨 Plan + Build</option>
+              </select>
+              <span id="modeStatus" style="font-size: 10px; color: var(--text-dim);"></span>
+            </div>
+            <div id="planControls" style="display:none; align-items:center; gap:6px;" aria-label="Plan execution controls">
+              <button class="btn btn-secondary" id="btnPausePlan" style="padding:3px 8px; font-size:10px;" title="Pause plan execution">⏸ Pause</button>
+              <button class="btn btn-secondary" id="btnSkipStep" style="padding:3px 8px; font-size:10px;" title="Skip current step">⏭ Skip</button>
+              <button class="btn btn-secondary" id="btnReplan" style="padding:3px 8px; font-size:10px;" title="Re-plan from current step">🔄 Re-plan</button>
+            </div>
+          </div>
+          
+          <!-- Plan Checklist Panel (collapsible, beside chat) -->
+          <div id="planPanelWrapper" style="display:none; border-bottom:1px solid var(--border-color);">
+            <div style="display:flex; align-items:center; justify-content:space-between; padding:6px 12px; background:var(--bg-surface); border-bottom:1px solid var(--border-color);">
+              <div style="display:flex; align-items:center; gap:8px;">
+                <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Plan</span>
+                <span id="planProgress" style="font-size: 10px; color: var(--accent-blue); font-weight:600;"></span>
+              </div>
+              <button class="btn btn-secondary" id="btnTogglePlanPanel" style="padding:2px 8px; font-size:10px;" title="Collapse/expand plan panel">▼</button>
+            </div>
+            <div id="planChecklist" style="max-height:200px; overflow-y:auto; padding:8px 12px; background:var(--bg-panel);"></div>
+          </div>
+          
+          <div class="chat-messages" id="chatMessages" style="flex:1; overflow-y:auto;">
             <div class="msg msg-system">FlamingoCode Agent ready. Ask me to create or modify code in your virtual FS.</div>
           </div>
           
@@ -949,6 +979,21 @@
             <input type="checkbox" id="uncensoredToggleSettings" style="display: none;" />
             <span class="toggle-slider"></span>
           </label>
+        </div>
+        <hr style="border: none; border-top: 1px solid var(--border-color); margin: 12px 0;">
+        <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">Plan + Build Limits</div>
+        <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 12px;">Configure caps for automatic planning and execution.</div>
+        <div style="display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 12px;">
+          <div style="flex: 1; min-width: 150px;">
+            <label style="display: block; font-size: 11px; color: var(--text-muted); margin-bottom: 4px;">Max Plan Steps</label>
+            <input type="number" id="planMaxStepsInput" class="form-input" min="1" max="100" value="25" style="width: 100%; padding: 6px 8px; font-size: 12px;" />
+            <div style="font-size: 10px; color: var(--text-dim); margin-top: 2px;">Maximum steps in a generated plan (default: 25)</div>
+          </div>
+          <div style="flex: 1; min-width: 150px;">
+            <label style="display: block; font-size: 11px; color: var(--text-muted); margin-bottom: 4px;">Max Re-plan Revisions</label>
+            <input type="number" id="planMaxRevisionsInput" class="form-input" min="0" max="20" value="5" style="width: 100%; padding: 6px 8px; font-size: 12px;" />
+            <div style="font-size: 10px; color: var(--text-dim); margin-top: 2px;">Maximum re-plan attempts per step (default: 5)</div>
+          </div>
         </div>
         <hr style="border: none; border-top: 1px solid var(--border-color); margin: 12px 0;">
         <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">Per-Model Override</div>
@@ -1757,6 +1802,14 @@ WORK STYLE:
       teamChat: [],  // Discussion round messages
       teamPhase: null,  // 'discussion' | 'execution' | 'presentation' | 'testing' | 'review' | 'complete'
       teamReviewRound: 0,
+      // Plan + Build mode state
+      planMode: 'chat',  // 'chat' | 'plan' | 'plan-build'
+      currentPlan: [],  // Array of plan steps: {id, text, done, current, note, revised}
+      planStepIndex: 0,
+      planPaused: false,
+      planRevisionCount: 0,
+      planMaxSteps: 25,
+      planMaxRevisions: 5,
       // Uncensored Mode state
       uncensoredPerProject: {},  // { [projectId]: boolean }
       uncensoredPerModel: {},    // { ['providerId|modelId']: 'auto' | 'on' | 'off' }
@@ -2024,7 +2077,250 @@ project-root/
       digest += `\n---\n*Digest: ~${totalTokens} tokens (cap: ${MAX_TOKENS})*`;
       return digest;
     }
+// ==================== PLAN + BUILD MODE ====================
 
+// Save current plan to .devforge/current-plan.md
+function savePlanToBrainFile() {
+  const session = getCurrentSession();
+  if (!session) return;
+  
+  let content = '# Current Plan\n\n';
+  content += `Mode: ${appState.planMode}\n`;
+  content += `Revision: ${appState.planRevisionCount}/${appState.planMaxRevisions}\n`;
+  content += `Steps: ${appState.currentPlan.filter(s => s.done).length}/${appState.currentPlan.length}\n\n`;
+  
+  appState.currentPlan.forEach((step, index) => {
+    const status = step.done ? '[x]' : step.current ? '[~]' : '[ ]';
+    const revised = step.revised ? ' *(revised)*' : '';
+    const note = step.note ? `\n    > Note: ${step.note}` : '';
+    content += `${index + 1}. ${status} ${step.text}${revised}${note}\n`;
+  });
+  
+  session.files['.devforge/current-plan.md'] = content;
+  saveAppState();
+}
+
+// Load plan from .devforge/current-plan.md
+function loadPlanFromBrainFile() {
+  const session = getCurrentSession();
+  if (!session || !session.files['.devforge/current-plan.md']) return null;
+  
+  const content = session.files['.devforge/current-plan.md'];
+  const lines = content.split('\n');
+  const plan = [];
+  
+  for (const line of lines) {
+    const match = line.match(/^\d+\.\s+\[([ x~])\]\s+(.+?)\s*(\*\(revised\)\*)?$/);
+    if (match) {
+      const [, status, text, revised] = match;
+      plan.push({
+        id: 'step_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+        text: text.trim(),
+        done: status === 'x',
+        current: status === '~',
+        revised: !!revised,
+        note: ''
+      });
+    }
+  }
+  
+  if (plan.length > 0) {
+    // Extract mode and revision from header
+    const modeMatch = content.match(/Mode:\s*(\w+)/);
+    const revisionMatch = content.match(/Revision:\s*(\d+)\//);
+    if (modeMatch) appState.planMode = modeMatch[1];
+    if (revisionMatch) appState.planRevisionCount = parseInt(revisionMatch[1]);
+    
+    return plan;
+  }
+  return null;
+}
+
+// Parse plan from agent response
+function parsePlanFromResponse(responseText) {
+  const lines = responseText.split('\n');
+  const plan = [];
+  let inPlan = false;
+  
+  for (const line of lines) {
+    // Match numbered list items: 1. text, 2. text, etc.
+    const match = line.match(/^\s*(\d+)[.)]\s+(.+)$/);
+    if (match) {
+      inPlan = true;
+      plan.push({
+        id: 'step_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+        text: match[2].trim(),
+        done: false,
+        current: false,
+        revised: false,
+        note: ''
+      });
+    } else if (inPlan && line.trim() && !line.match(/^\s*\d+[.)]/)) {
+      // Check if it's a continuation or we've left the plan
+      if (!line.match(/^\s*[-*]/)) break;
+    }
+  }
+  
+  return plan.length > 0 ? plan : null;
+}
+
+// Render plan checklist in UI
+function renderPlanChecklist() {
+  const container = document.getElementById('planChecklist');
+  const progressEl = document.getElementById('planProgress');
+  if (!container) return;
+  
+  const doneCount = appState.currentPlan.filter(s => s.done).length;
+  const totalCount = appState.currentPlan.length;
+  
+  if (progressEl) {
+    progressEl.textContent = `${doneCount}/${totalCount} steps`;
+  }
+  
+  if (totalCount === 0) {
+    container.innerHTML = '<div style="font-size: 11px; color: var(--text-dim); text-align: center; padding: 20px;">No active plan. Switch to Plan or Plan+Build mode and send a task.</div>';
+    return;
+  }
+  
+  container.innerHTML = '';
+  
+  appState.currentPlan.forEach((step, index) => {
+    const item = document.createElement('div');
+    item.style.cssText = 'display:flex; align-items:flex-start; gap:8px; padding:6px 8px; border-radius:4px; margin-bottom:4px; background:' + (step.current ? 'var(--accent-glow)' : 'transparent') + '; border:' + (step.current ? '1px solid var(--accent-blue)' : '1px solid transparent') + '; transition:all 0.2s;';
+    
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.checked = step.done;
+    checkbox.style.cssText = 'margin-top:2px; accent-color:var(--accent-blue); cursor:pointer;';
+    checkbox.onchange = (e) => {
+      step.done = e.target.checked;
+      if (step.done) step.current = false;
+      savePlanToBrainFile();
+      renderPlanChecklist();
+      updatePlanControlsVisibility();
+    };
+    
+    const textDiv = document.createElement('div');
+    textDiv.style.cssText = 'flex:1; min-width:0; font-size:12px; color:' + (step.done ? 'var(--text-dim)' : 'var(--text-main)') + '; text-decoration:' + (step.done ? 'line-through' : 'none') + '; word-break:break-word;';
+    textDiv.textContent = `${index + 1}. ${step.text}` + (step.revised ? ' (revised)' : '');
+    
+    if (step.note) {
+      const noteDiv = document.createElement('div');
+      noteDiv.style.cssText = 'font-size:10px; color:var(--text-dim); margin-top:2px; padding-left:24px; border-left:2px solid var(--border-color);';
+      noteDiv.textContent = '💬 ' + step.note;
+      textDiv.appendChild(noteDiv);
+    }
+    
+    const noteBtn = document.createElement('button');
+    noteBtn.textContent = step.note ? '📝' : '➕';
+    noteBtn.style.cssText = 'background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:11px; padding:2px; opacity:' + (step.note ? '1' : '0.5') + '; transition:opacity 0.2s;';
+    noteBtn.title = step.note ? 'Edit note' : 'Add note';
+    noteBtn.onclick = () => {
+      const newNote = prompt('Add/edit note for this step:', step.note || '');
+      if (newNote !== null) {
+        step.note = newNote.trim();
+        savePlanToBrainFile();
+        renderPlanChecklist();
+      }
+    };
+    
+    const deleteBtn = document.createElement('button');
+    deleteBtn.textContent = '✕';
+    deleteBtn.style.cssText = 'background:none; border:none; color:var(--danger); cursor:pointer; font-size:11px; padding:2px; opacity:0; transition:opacity 0.2s;';
+    deleteBtn.title = 'Delete step';
+    item.onmouseenter = () => { deleteBtn.style.opacity = '1'; };
+    item.onmouseleave = () => { deleteBtn.style.opacity = '0'; };
+    deleteBtn.onclick = (e) => {
+      e.stopPropagation();
+      if (confirm('Delete this step?')) {
+        appState.currentPlan.splice(index, 1);
+        savePlanToBrainFile();
+        renderPlanChecklist();
+        updatePlanControlsVisibility();
+      }
+    };
+    
+    item.appendChild(checkbox);
+    item.appendChild(textDiv);
+    item.appendChild(noteBtn);
+    item.appendChild(deleteBtn);
+    container.appendChild(item);
+  });
+}
+
+// Update plan controls visibility based on mode
+function updatePlanControlsVisibility() {
+  const planControls = document.getElementById('planControls');
+  const planPanelWrapper = document.getElementById('planPanelWrapper');
+  const modeSelector = document.getElementById('modeSelector');
+  const modeStatus = document.getElementById('modeStatus');
+  
+  if (!planControls || !planPanelWrapper || !modeSelector) return;
+  
+  const mode = appState.planMode;
+  
+  // Update mode selector
+  modeSelector.value = mode;
+  
+  // Update status text
+  if (modeStatus) {
+    if (mode === 'plan') {
+      modeStatus.textContent = '(planning only)'; 
+    } else if (mode === 'plan-build') {
+      modeStatus.textContent = appState.planPaused ? '(paused)' : '(executing)'; 
+    } else {
+      modeStatus.textContent = '';
+    }
+  }
+  
+  // Show/hide plan panel and controls
+  const hasPlan = appState.currentPlan.length > 0;
+  
+  if (mode === 'chat') {
+    planPanelWrapper.style.display = 'none';
+    planControls.style.display = 'none';
+  } else if (mode === 'plan') {
+    planPanelWrapper.style.display = hasPlan ? 'block' : 'none';
+    planControls.style.display = 'none';
+  } else if (mode === 'plan-build') {
+    planPanelWrapper.style.display = hasPlan ? 'block' : 'none';
+    planControls.style.display = hasPlan ? 'flex' : 'none';
+  }
+  
+  // Update pause button text
+  const pauseBtn = document.getElementById('btnPausePlan');
+  if (pauseBtn) {
+    pauseBtn.textContent = appState.planPaused ? '▶ Resume' : '⏸ Pause';
+  }
+}
+
+// Add a new step to the plan
+function addPlanStep(text, index = -1) {
+  if (appState.currentPlan.length >= appState.planMaxSteps) {
+    logActivity(`Max steps (${appState.planMaxSteps}) reached`, 'warning');
+    return false;
+  }
+  
+  const step = {
+    id: 'step_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+    text: text.trim(),
+    done: false,
+    current: false,
+    revised: false,
+    note: ''
+  };
+  
+  if (index >= 0 && index < appState.currentPlan.length) {
+    appState.currentPlan.splice(index, 0, step);
+  } else {
+    appState.currentPlan.push(step);
+  }
+  
+  savePlanToBrainFile();
+  renderPlanChecklist();
+  updatePlanControlsVisibility();
+  return true;
+}
     function createNewSession(name) {
       const id = 'sess_' + Date.now();
       const sessionName = name || 'Session ' + (Object.keys(appState.sessions).length + 1);
@@ -2197,6 +2493,39 @@ project-root/
         item.appendChild(select);
         container.appendChild(item);
       });
+      
+      // Render Plan + Build settings
+      renderPlanBuildSettings();
+    }
+
+    // Update Plan + Build settings inputs
+    function renderPlanBuildSettings() {
+      const maxStepsInput = document.getElementById('planMaxStepsInput');
+      const maxRevisionsInput = document.getElementById('planMaxRevisionsInput');
+      
+      if (maxStepsInput) {
+        maxStepsInput.value = appState.planMaxSteps;
+        maxStepsInput.onchange = (e) => {
+          const val = parseInt(e.target.value, 10);
+          if (!isNaN(val) && val >= 1 && val <= 100) {
+            appState.planMaxSteps = val;
+            saveAppState();
+            logActivity(`Max plan steps set to ${val}`, 'info');
+          }
+        };
+      }
+      
+      if (maxRevisionsInput) {
+        maxRevisionsInput.value = appState.planMaxRevisions;
+        maxRevisionsInput.onchange = (e) => {
+          const val = parseInt(e.target.value, 10);
+          if (!isNaN(val) && val >= 0 && val <= 20) {
+            appState.planMaxRevisions = val;
+            saveAppState();
+            logActivity(`Max re-plan revisions set to ${val}`, 'info');
+          }
+        };
+      }
     }
 
     // --- Stage 2: Anti-Stuck Compatibility Layer ---
@@ -3315,6 +3644,21 @@ async function sendAgentPrompt(userPrompt, autoTurn = 0) {
         session.chatHistory.push({ role: 'user', content: userPrompt });
       }
 
+      // Handle Plan mode - generate plan only, no file changes
+      if (appState.planMode === 'plan' && autoTurn === 0) {
+        return sendPlanPrompt(userPrompt);
+      }
+
+      // Handle Plan+Build mode - execute plan step by step
+      if (appState.planMode === 'plan-build' && autoTurn === 0) {
+        // First, generate plan if we don't have one
+        if (appState.currentPlan.length === 0) {
+          return sendPlanPrompt(userPrompt, true); // true = will execute after planning
+        }
+        // Otherwise, execute the next step
+        return executeNextPlanStep();
+      }
+
       // Check if we need to compress history
       maybeCompressHistory(session);
       
@@ -3358,6 +3702,253 @@ async function sendAgentPrompt(userPrompt, autoTurn = 0) {
         stopTimer();
         saveAppState();
       }
+    }
+
+    // ==================== PLAN MODE LOGIC ====================
+    
+    // Send a prompt to generate a plan (Plan mode or initial Plan+Build)
+    async function sendPlanPrompt(userPrompt, executeAfter = false) {
+      const session = getCurrentSession();
+      
+      // Check if we need to compress history
+      maybeCompressHistory(session);
+      updateTokenMeter(session);
+      startTimer();
+
+      try {
+        const sanitizedHistory = sanitizeHistoryForReplay(session.chatHistory);
+        
+        // Build a special system prompt for planning
+        const planSystemPrompt = `You are FlamingoCode AI, an expert software developer in a browser IDE.
+You are in PLANNING MODE. Your task is to create a detailed, step-by-step plan for the user's request.
+
+RULES FOR PLANNING:
+1. Output a NUMBERED LIST of SMALL, VERIFIABLE steps (each step ≈ one small request / one file)
+2. Each step should be specific and actionable
+3. Steps should be in logical order with dependencies clear
+4. Do NOT write any code - only the plan
+5. Format: each line starts with a number (1., 2., etc.)
+6. Maximum ${appState.planMaxSteps} steps
+
+Example format:
+1. Create index.html with basic structure and semantic HTML
+2. Add style.css with dark theme using CSS variables
+3. Implement script.js with todo app logic (add, delete, toggle, filter)
+4. Add localStorage persistence for tasks
+5. Test in preview and verify no console errors
+
+CURRENT VIRTUAL FILES (outlines):
+` + buildSystemContextWithGuard().split('CURRENT VIRTUAL FILES')[1] || '';
+
+        let messages = [
+          { role: 'system', content: planSystemPrompt },
+          ...sanitizedHistory,
+          { role: 'user', content: userPrompt }
+        ];
+
+        messages = enforceRequestBudget(messages, session);
+
+        logActivity('Generating plan with ' + appState.providers[appState.activeProviderId].name + '...', 'info');
+        const reply = await callLLM(messages);
+
+        session.chatHistory.push({ role: 'assistant', content: reply });
+        appendChatMessage('agent', reply, []);
+
+        // Parse the plan from the response
+        const plan = parsePlanFromResponse(reply);
+        if (plan && plan.length > 0) {
+          appState.currentPlan = plan;
+          savePlanToBrainFile();
+          renderPlanChecklist();
+          updatePlanControlsVisibility();
+          logActivity(`Plan created with ${plan.length} steps`, 'success');
+          
+          if (executeAfter && appState.planMode === 'plan-build') {
+            // Start executing the first step
+            agentWorking = false;
+            stopTimer();
+            return executeNextPlanStep();
+          }
+        } else {
+          logActivity('Failed to parse plan from response', 'error');
+          appendChatMessage('system', 'Could not generate a valid plan. Please try rephrasing your request.');
+        }
+      } catch (err) {
+        logActivity('Plan Error: ' + err.message, 'error');
+        appendChatMessage('system', 'Error generating plan: ' + err.message);
+      } finally {
+        agentWorking = false;
+        stopTimer();
+        saveAppState();
+      }
+    }
+
+    // Execute the next step in the plan (Plan+Build mode)
+    async function executeNextPlanStep() {
+      if (appState.planPaused) {
+        logActivity('Plan execution paused', 'info');
+        agentWorking = false;
+        stopTimer();
+        return;
+      }
+
+      // Check revision cap
+      if (appState.planRevisionCount >= appState.planMaxRevisions) {
+        logActivity(`Max revisions (${appState.planMaxRevisions}) reached. Stopping.`, 'warning');
+        appendChatMessage('system', `Maximum plan revisions (${appState.planMaxRevisions}) reached. Please re-plan or continue manually.`);
+        showPlanSummary();
+        agentWorking = false;
+        stopTimer();
+        return;
+      }
+
+      // Find next undone step
+      let stepIndex = appState.currentPlan.findIndex(s => !s.done);
+      if (stepIndex === -1) {
+        // All steps done!
+        logActivity('All plan steps completed!', 'success');
+        appendChatMessage('system', '🎉 All plan steps completed!');
+        showPlanSummary();
+        agentWorking = false;
+        stopTimer();
+        return;
+      }
+
+      // Check step cap
+      if (stepIndex >= appState.planMaxSteps) {
+        logActivity(`Max steps (${appState.planMaxSteps}) reached.`, 'warning');
+        appendChatMessage('system', `Maximum steps (${appState.planMaxSteps}) reached.`);
+        showPlanSummary();
+        agentWorking = false;
+        stopTimer();
+        return;
+      }
+
+      const step = appState.currentPlan[stepIndex];
+      appState.planStepIndex = stepIndex;
+      
+      // Mark current step
+      appState.currentPlan.forEach((s, i) => s.current = i === stepIndex);
+      savePlanToBrainFile();
+      renderPlanChecklist();
+      updatePlanControlsVisibility();
+
+      const session = getCurrentSession();
+      
+      // Build prompt for this specific step
+      const stepPrompt = `Plan Step ${stepIndex + 1}/${appState.currentPlan.length}: ${step.text}
+
+Execute ONLY this step. Write complete file contents using file: blocks.
+Do not do other steps. When done, reply briefly.
+
+Context: This is step ${stepIndex + 1} of ${appState.currentPlan.length} in the plan.`;
+
+      maybeCompressHistory(session);
+      updateTokenMeter(session);
+      startTimer();
+
+      try {
+        const sanitizedHistory = sanitizeHistoryForReplay(session.chatHistory);
+        
+        // Add brain digest + plan context to system prompt
+        const stepSystemPrompt = `You are FlamingoCode AI, an expert software developer in a browser IDE.
+You are executing a plan step by step.
+
+CURRENT PLAN:
+${appState.currentPlan.map((s, i) => `${i + 1}. ${s.done ? '[x]' : i === stepIndex ? '[~]' : '[ ]'} ${s.text}`).join('\n')}
+
+EXECUTE ONLY STEP ${stepIndex + 1}: ${step.text}
+
+Rules:
+1. Write COMPLETE file contents inside file: blocks
+2. Only work on this specific step
+3. When done, reply briefly with no code blocks
+4. If you need to revise the plan, note it in your response
+` + buildSystemContextWithGuard().split('CURRENT VIRTUAL FILES')[1] || '';
+
+        let messages = [
+          { role: 'system', content: stepSystemPrompt },
+          ...sanitizedHistory,
+          { role: 'user', content: stepPrompt }
+        ];
+
+        messages = enforceRequestBudget(messages, session);
+
+        logActivity(`Executing step ${stepIndex + 1}: ${step.text}`, 'info');
+        const reply = await callLLM(messages);
+
+        session.chatHistory.push({ role: 'assistant', content: reply });
+        
+        const { chips, fileModified } = parseAndApplyBlocks(reply);
+        appendChatMessage('agent', reply, chips);
+
+        if (fileModified) {
+          // Step completed successfully
+          step.done = true;
+          step.current = false;
+          savePlanToBrainFile();
+          renderPlanChecklist();
+          logActivity(`Step ${stepIndex + 1} completed`, 'success');
+          
+          // Auto-continue to next step
+          agentWorking = false;
+          stopTimer();
+          return executeNextPlanStep();
+        } else {
+          // No files modified - might be an explanation or issue
+          logActivity(`Step ${stepIndex + 1} - no file changes detected`, 'warning');
+          appendChatMessage('system', 'Step did not produce file changes. Continuing...');
+          
+          // Still mark as done to avoid infinite loop
+          step.done = true;
+          step.current = false;
+          savePlanToBrainFile();
+          renderPlanChecklist();
+          
+          agentWorking = false;
+          stopTimer();
+          return executeNextPlanStep();
+        }
+      } catch (err) {
+        logActivity(`Step ${stepIndex + 1} Error: ` + err.message, 'error');
+        appendChatMessage('system', 'Error in step ' + (stepIndex + 1) + ': ' + err.message);
+        
+        // On error, don't mark as done - let user decide to skip/retry/replan
+        step.current = false;
+        savePlanToBrainFile();
+        renderPlanChecklist();
+        updatePlanControlsVisibility();
+        
+        agentWorking = false;
+        stopTimer();
+        saveAppState();
+      }
+    }
+
+    // Show final plan summary
+    function showPlanSummary() {
+      const done = appState.currentPlan.filter(s => s.done).length;
+      const total = appState.currentPlan.length;
+      const changed = appState.currentPlan.filter(s => s.revised).length;
+      const skipped = total - done;
+      
+      let summary = `## Plan Execution Summary\n\n`;
+      summary += `**Mode:** ${appState.planMode === 'plan-build' ? 'Plan + Build' : 'Plan'}\n`;
+      summary += `**Total Steps:** ${total}\n`;
+      summary += `**Completed:** ${done}\n`;
+      summary += `**Revised:** ${changed}\n`;
+      summary += `**Skipped/Remaining:** ${skipped}\n`;
+      summary += `**Revisions Used:** ${appState.planRevisionCount}/${appState.planMaxRevisions}\n\n`;
+      summary += `### Step Details:\n`;
+      
+      appState.currentPlan.forEach((step, index) => {
+        let status = step.done ? '✅ Done' : step.revised ? '🔄 Revised' : '⏭ Skipped';
+        summary += `${index + 1}. ${status} - ${step.text}\n`;
+        if (step.note) summary += `   > Note: ${step.note}\n`;
+      });
+      
+      appendChatMessage('agent', summary, []);
+      logActivity('Plan execution finished', 'success');
     }
 
     function usePromptChip(text) {
@@ -4069,6 +4660,111 @@ async function sendAgentPrompt(userPrompt, autoTurn = 0) {
       });
     }
 
+    // ==================== PLAN MODE UI HANDLERS ====================
+    
+    function setupPlanModeHandlers() {
+      // Mode selector change
+      const modeSelector = document.getElementById('modeSelector');
+      if (modeSelector) {
+        modeSelector.onchange = (e) => {
+          appState.planMode = e.target.value;
+          saveAppState();
+          updatePlanControlsVisibility();
+          
+          // Load existing plan from brain file if switching to plan mode
+          if (e.target.value !== 'chat') {
+            const loadedPlan = loadPlanFromBrainFile();
+            if (loadedPlan) {
+              appState.currentPlan = loadedPlan;
+              renderPlanChecklist();
+            }
+          }
+          
+          logActivity(`Mode changed to: ${e.target.value}`, 'info');
+        };
+      }
+
+      // Plan panel toggle
+      const btnTogglePlanPanel = document.getElementById('btnTogglePlanPanel');
+      if (btnTogglePlanPanel) {
+        btnTogglePlanPanel.onclick = () => {
+          const checklist = document.getElementById('planChecklist');
+          if (checklist) {
+            const isHidden = checklist.style.display === 'none';
+            checklist.style.display = isHidden ? 'block' : 'none';
+            btnTogglePlanPanel.textContent = isHidden ? '▼' : '▶';
+          }
+        };
+      }
+
+      // Pause/Resume button
+      const btnPausePlan = document.getElementById('btnPausePlan');
+      if (btnPausePlan) {
+        btnPausePlan.onclick = () => {
+          appState.planPaused = !appState.planPaused;
+          saveAppState();
+          updatePlanControlsVisibility();
+          
+          if (!appState.planPaused && appState.planMode === 'plan-build') {
+            // Resume execution
+            executeNextPlanStep();
+          } else {
+            logActivity(appState.planPaused ? 'Plan execution paused' : 'Plan execution resumed', 'info');
+          }
+        };
+      }
+
+      // Skip step button
+      const btnSkipStep = document.getElementById('btnSkipStep');
+      if (btnSkipStep) {
+        btnSkipStep.onclick = () => {
+          if (appState.currentPlan.length === 0) return;
+          const stepIndex = appState.currentPlan.findIndex(s => !s.done);
+          if (stepIndex >= 0) {
+            const step = appState.currentPlan[stepIndex];
+            step.done = true;
+            step.current = false;
+            step.note = (step.note ? step.note + '; ' : '') + 'Skipped by user';
+            savePlanToBrainFile();
+            renderPlanChecklist();
+            logActivity(`Step ${stepIndex + 1} skipped: ${step.text}`, 'warning');
+            
+            if (appState.planMode === 'plan-build') {
+              executeNextPlanStep();
+            }
+          }
+        };
+      }
+
+      // Re-plan button
+      const btnReplan = document.getElementById('btnReplan');
+      if (btnReplan) {
+        btnReplan.onclick = async () => {
+          if (appState.planRevisionCount >= appState.planMaxRevisions) {
+            alert(`Max revisions (${appState.planMaxRevisions}) reached. Cannot re-plan further.`);
+            return;
+          }
+          
+          const newPrompt = prompt('Enter new or revised task for re-planning:');
+          if (!newPrompt) return;
+          
+          appState.planRevisionCount++;
+          appState.currentPlan = [];
+          savePlanToBrainFile();
+          renderPlanChecklist();
+          updatePlanControlsVisibility();
+          
+          logActivity(`Re-planning (revision ${appState.planRevisionCount}/${appState.planMaxRevisions})...`, 'info');
+          
+          if (appState.planMode === 'plan') {
+            await sendPlanPrompt(newPrompt);
+          } else if (appState.planMode === 'plan-build') {
+            await sendPlanPrompt(newPrompt, true);
+          }
+        };
+      }
+    }
+
     function initApp() {
       loadAppState();
       renderSessionPicker();
@@ -4115,6 +4811,7 @@ async function sendAgentPrompt(userPrompt, autoTurn = 0) {
       setupAgentLibraryHandlers();
       setupAutoCreateAgentHandlers();
       setupTeamModeHandlers();
+      setupPlanModeHandlers();
       initTeamModeUI();
 
       const session = getCurrentSession();
@@ -4122,6 +4819,15 @@ async function sendAgentPrompt(userPrompt, autoTurn = 0) {
       renderTabs();
       renderChatHistory();
       updateUncensoredUI();
+      updatePlanControlsVisibility();
+      
+      // Load plan from brain file if exists
+      const loadedPlan = loadPlanFromBrainFile();
+      if (loadedPlan) {
+        appState.currentPlan = loadedPlan;
+        renderPlanChecklist();
+      }
+      
       if (session.activeFile && session.files[session.activeFile] !== undefined) {
         openFile(session.activeFile);
       } else {
