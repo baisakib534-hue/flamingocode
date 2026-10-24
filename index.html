@@ -755,6 +755,10 @@
           <div style="font-size: 9px; color: var(--success);" id="tokensSaved">+0 saved</div>
         </div>
       </div>
+      <!-- Usage Meter -->
+      <div id="headerUsageMeter" style="display: flex; align-items: center; gap: 8px; margin-left: 12px; padding-left: 12px; border-left: 1px solid var(--border-color); font-size: 11px; color: var(--text-muted); min-width: 200px;">
+        <span style="font-family:var(--font-mono); font-size:11px; color:var(--accent-blue);">0 req</span> · <span style="font-family:var(--font-mono); font-size:11px; color:var(--text-main);">0 tok</span> · <span style="font-family:var(--font-mono); font-size:11px; color:var(--success);">$0.0000</span>
+      </div>
       <button class="btn btn-secondary" id="btnSettings" style="padding: 4px 8px; font-size: 11px;">⚙️ Provider</button>
     </div>
   </header>
@@ -1113,6 +1117,7 @@
         <button class="settings-tab" data-settings-tab="skills" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">Skill Packs</button>
         <button class="settings-tab" data-settings-tab="plugins" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">Plugin Packs</button>
         <button class="settings-tab" data-settings-tab="mcp" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">MCP Registry</button>
+        <button class="settings-tab" data-settings-tab="usage" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">Usage & Quota</button>
         <button class="settings-tab" data-settings-tab="behavior" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">Behavior</button>
         <button class="settings-tab" data-settings-tab="autonomy" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">Autonomy</button>
         <button class="settings-tab" data-settings-tab="backup" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">Backup</button>
@@ -1186,6 +1191,56 @@
             <button class="btn btn-secondary" id="btnCancelSettings">Close</button>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Usage & Quota Dashboard Tab -->
+  <div class="settings-pane" id="settingsPaneUsage" style="display: none; flex-direction: column;">
+    <div style="max-height: 40vh; overflow-y: auto; margin-bottom: 12px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
+        <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Usage & Quota Dashboard</span>
+        <button class="btn btn-secondary" id="btnResetUsage" style="padding: 4px 10px; font-size: 11px;">Reset All</button>
+      </div>
+      
+      <!-- Current Session Summary -->
+      <div id="usageCurrentSession" style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; padding: 12px; margin-bottom: 16px;">
+        <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">Current Session</div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px;">
+          <div style="background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 4px; padding: 8px; text-align: center;">
+            <div style="font-size: 10px; color: var(--text-dim); text-transform: uppercase;">Requests</div>
+            <div id="usageCurrRequests" style="font-size: 16px; font-weight: 700; color: var(--accent-blue); font-family: var(--font-mono);">0</div>
+          </div>
+          <div style="background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 4px; padding: 8px; text-align: center;">
+            <div style="font-size: 10px; color: var(--text-dim); text-transform: uppercase;">Tokens</div>
+            <div id="usageCurrTokens" style="font-size: 16px; font-weight: 700; color: var(--text-main); font-family: var(--font-mono);">0</div>
+          </div>
+          <div style="background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 4px; padding: 8px; text-align: center;">
+            <div style="font-size: 10px; color: var(--text-dim); text-transform: uppercase;">Est. Cost</div>
+            <div id="usageCurrCost" style="font-size: 16px; font-weight: 700; color: var(--success); font-family: var(--font-mono);">$0.0000</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Per-Provider Stats -->
+      <div style="margin-bottom: 16px;">
+        <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">Per Provider</div>
+        <div id="usageProviderList" style="display: flex; flex-direction: column; gap: 8px;">
+          <!-- Provider entries rendered here -->
+        </div>
+      </div>
+
+      <!-- Per-Project Stats -->
+      <div>
+        <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">Per Project</div>
+        <div id="usageProjectList" style="display: flex; flex-direction: column; gap: 8px;">
+          <!-- Project entries rendered here -->
+        </div>
+      </div>
+    </div>
+    <div style="border-top: 1px solid var(--border-color); padding-top: 12px;">
+      <div style="display:flex; justify-content:flex-end; gap:8px;">
+        <button class="btn btn-secondary" id="btnCancelSettings">Close</button>
       </div>
     </div>
   </div>
@@ -2201,6 +2256,15 @@ WORK STYLE:
         model: '9router',
         apiKey: '',
         corsProxy: ''
+      },
+      // Usage & Quota tracking
+      usage: {
+        // Per-provider totals: { [providerId]: { requests, promptTokens, completionTokens, totalTokens, cost, models: { [modelId]: {...} } } }
+        byProvider: {},
+        // Per-project totals: { [sessionId]: { requests, promptTokens, completionTokens, totalTokens, cost, models: { [modelId]: {...} } } }
+        byProject: {},
+        // Current session totals (for header meter)
+        currentSession: { requests: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0, cost: 0 }
       }
     };
 
@@ -2248,6 +2312,18 @@ WORK STYLE:
       if (!appState.checkpointCap) {
         appState.checkpointCap = 30;
       }
+      
+      // Initialize usage tracking
+      if (!appState.usage) {
+        appState.usage = {
+          byProvider: {},
+          byProject: {},
+          currentSession: { requests: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0, cost: 0 }
+        };
+      }
+      if (!appState.usage.byProvider) appState.usage.byProvider = {};
+      if (!appState.usage.byProject) appState.usage.byProject = {};
+      if (!appState.usage.currentSession) appState.usage.currentSession = { requests: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0, cost: 0 };
       
       if (!appState.sessions || Object.keys(appState.sessions).length === 0) {
         createNewSession('Default Studio');
@@ -4350,6 +4426,7 @@ Links: [[Brain Index]]
       };
       appState.activeSessionId = id;
       saveAppState();
+      updateHeaderUsageMeter();
       return id;
     }
 
@@ -5207,6 +5284,292 @@ Links: [[Brain Index]]
       log.scrollTop = log.scrollHeight;
     }
 
+    // Cost estimation per 1K tokens (approximate, user can adjust in provider settings later)
+    const MODEL_COSTS = {
+      // OpenAI
+      'gpt-4o': { input: 0.0025, output: 0.01 },
+      'gpt-4o-mini': { input: 0.00015, output: 0.0006 },
+      'gpt-4-turbo': { input: 0.01, output: 0.03 },
+      'gpt-3.5-turbo': { input: 0.0005, output: 0.0015 },
+      'o1-preview': { input: 0.015, output: 0.06 },
+      'o1-mini': { input: 0.003, output: 0.012 },
+      // Anthropic
+      'claude-3-5-sonnet': { input: 0.003, output: 0.015 },
+      'claude-3-5-haiku': { input: 0.0008, output: 0.004 },
+      'claude-3-opus': { input: 0.015, output: 0.075 },
+      'claude-3-sonnet': { input: 0.003, output: 0.015 },
+      'claude-3-haiku': { input: 0.00025, output: 0.00125 },
+      // Groq (free tier)
+      'llama-3.3-70b-versatile': { input: 0, output: 0 },
+      'llama-3.1-70b-versatile': { input: 0, output: 0 },
+      'mixtral-8x7b': { input: 0, output: 0 },
+      'gemma2-9b-it': { input: 0, output: 0 },
+      // DuckDuckGo (free)
+      'gpt-4o-mini': { input: 0, output: 0 },
+      'claude-3-haiku-20240307': { input: 0, output: 0 },
+      'meta-llama/Llama-3.3-70B-Instruct-Turbo': { input: 0, output: 0 },
+      'mistralai/Mixtral-8x7B-Instruct-v0.1': { input: 0, output: 0 },
+      // Pollinations (free)
+      'openai': { input: 0, output: 0 },
+      // 9router / OmniRoute (free)
+      '9router': { input: 0, output: 0 },
+      'qoder': { input: 0, output: 0 },
+      // Default fallback
+      'default': { input: 0.001, output: 0.002 }
+    };
+
+    function getModelCost(modelName) {
+      const key = modelName.toLowerCase();
+      for (const [modelKey, cost] of Object.entries(MODEL_COSTS)) {
+        if (key.includes(modelKey.toLowerCase()) || modelKey.toLowerCase().includes(key)) {
+          return cost;
+        }
+      }
+      return MODEL_COSTS['default'];
+    }
+
+    function estimateCost(promptTokens, completionTokens, modelName) {
+      const cost = getModelCost(modelName);
+      return (promptTokens / 1000) * cost.input + (completionTokens / 1000) * cost.output;
+    }
+
+    function getQuotaResetTime(provider) {
+      // Estimate quota reset time based on provider type
+      // Free tier providers typically reset daily at midnight UTC or on a rolling 24h window
+      const now = new Date();
+      const resetTimes = {
+        'duckduckgo': new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0), // Daily midnight
+        'pollinations': new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0),
+        '9router': new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0),
+        'omniroute-cloud': new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0),
+        'omniroute-local': null, // Local, no quota
+        'groq': new Date(now.getTime() + 24 * 60 * 60 * 1000), // Rolling 24h
+        'openrouter': new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0),
+        'custom': null
+      };
+      const type = provider.type || 'custom';
+      const presetKey = provider.presetKey || 'custom';
+      return resetTimes[presetKey] || resetTimes[type] || new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    }
+
+    function getFreeQuotaLimit(provider) {
+      // Estimated free tier limits (requests per day)
+      const quotas = {
+        'duckduckgo': 50,
+        'pollinations': 100,
+        '9router': 200,
+        'omniroute-cloud': 200,
+        'omniroute-local': Infinity,
+        'groq': 30, // RPM limit, daily higher
+        'openrouter': 50, // Depends on credits
+        'custom': null
+      };
+      const type = provider.type || 'custom';
+      const presetKey = provider.presetKey || 'custom';
+      return quotas[presetKey] || quotas[type] || null;
+    }
+
+    function trackUsage(providerId, modelName, usage, sessionId) {
+      if (!usage) return;
+      
+      const promptTokens = usage.prompt_tokens || usage.input_tokens || 0;
+      const completionTokens = usage.completion_tokens || usage.output_tokens || 0;
+      const totalTokens = usage.total_tokens || (promptTokens + completionTokens);
+      
+      const cost = estimateCost(promptTokens, completionTokens, modelName);
+      const provider = appState.providers[providerId];
+      
+      // Update provider totals
+      if (!appState.usage.byProvider[providerId]) {
+        appState.usage.byProvider[providerId] = {
+          requests: 0,
+          promptTokens: 0,
+          completionTokens: 0,
+          totalTokens: 0,
+          cost: 0,
+          models: {}
+        };
+      }
+      const prov = appState.usage.byProvider[providerId];
+      prov.requests += 1;
+      prov.promptTokens += promptTokens;
+      prov.completionTokens += completionTokens;
+      prov.totalTokens += totalTokens;
+      prov.cost += cost;
+      if (!prov.models[modelName]) {
+        prov.models[modelName] = { requests: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0, cost: 0 };
+      }
+      prov.models[modelName].requests += 1;
+      prov.models[modelName].promptTokens += promptTokens;
+      prov.models[modelName].completionTokens += completionTokens;
+      prov.models[modelName].totalTokens += totalTokens;
+      prov.models[modelName].cost += cost;
+      
+      // Update project totals
+      const projectId = sessionId || appState.activeSessionId;
+      if (projectId) {
+        if (!appState.usage.byProject[projectId]) {
+          appState.usage.byProject[projectId] = {
+            requests: 0,
+            promptTokens: 0,
+            completionTokens: 0,
+            totalTokens: 0,
+            cost: 0,
+            models: {}
+          };
+        }
+        const proj = appState.usage.byProject[projectId];
+        proj.requests += 1;
+        proj.promptTokens += promptTokens;
+        proj.completionTokens += completionTokens;
+        proj.totalTokens += totalTokens;
+        proj.cost += cost;
+        if (!proj.models[modelName]) {
+          proj.models[modelName] = { requests: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0, cost: 0 };
+        }
+        proj.models[modelName].requests += 1;
+        proj.models[modelName].promptTokens += promptTokens;
+        proj.models[modelName].completionTokens += completionTokens;
+        proj.models[modelName].totalTokens += totalTokens;
+        proj.models[modelName].cost += cost;
+      }
+      
+      // Update current session (for header meter)
+      appState.usage.currentSession.requests += 1;
+      appState.usage.currentSession.promptTokens += promptTokens;
+      appState.usage.currentSession.completionTokens += completionTokens;
+      appState.usage.currentSession.totalTokens += totalTokens;
+      appState.usage.currentSession.cost += cost;
+      
+      saveAppState();
+      updateHeaderUsageMeter();
+    }
+
+    function updateHeaderUsageMeter() {
+      const meter = document.getElementById('headerUsageMeter');
+      if (!meter) return;
+      const s = appState.usage.currentSession;
+      meter.innerHTML = `<span style="font-family:var(--font-mono); font-size:11px; color:var(--accent-blue);">${s.requests} req</span> · <span style="font-family:var(--font-mono); font-size:11px; color:var(--text-main);">${s.totalTokens.toLocaleString()} tok</span> · <span style="font-family:var(--font-mono); font-size:11px; color:var(--success);">$${s.cost.toFixed(4)}</span>`;
+      meter.title = `Requests: ${s.requests}\nPrompt tokens: ${s.promptTokens.toLocaleString()}\nCompletion tokens: ${s.completionTokens.toLocaleString()}\nTotal tokens: ${s.totalTokens.toLocaleString()}\nEst. cost: $${s.cost.toFixed(4)}`;
+    }
+
+    function renderUsageDashboard() {
+      // Current session
+      const s = appState.usage.currentSession;
+      document.getElementById('usageCurrRequests').textContent = s.requests;
+      document.getElementById('usageCurrTokens').textContent = s.totalTokens.toLocaleString();
+      document.getElementById('usageCurrCost').textContent = '$' + s.cost.toFixed(4);
+
+      // Per Provider
+      const providerList = document.getElementById('usageProviderList');
+      if (providerList) {
+        providerList.innerHTML = '';
+        const providers = Object.entries(appState.usage.byProvider);
+        if (providers.length === 0) {
+          providerList.innerHTML = '<div style="font-size: 11px; color: var(--text-dim); padding: 12px; text-align: center;">No usage data yet. Make some API calls to see stats.</div>';
+        } else {
+          providers.forEach(([providerId, data]) => {
+            const provider = appState.providers[providerId];
+            const providerName = provider ? provider.name : providerId;
+            const limit = getFreeQuotaLimit(provider || {});
+            const resetTime = getQuotaResetTime(provider || {});
+            const used = data.requests;
+            const remaining = limit ? Math.max(0, limit - used) : '∞';
+            const resetStr = resetTime ? resetTime.toLocaleTimeString() : 'No limit';
+            
+            const el = document.createElement('div');
+            el.style.cssText = 'background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; padding: 10px 12px;';
+            el.innerHTML = `
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px;">
+                <div style="font-weight:600; color:var(--text-main);">${escapeHtml(providerName)}</div>
+                <div style="font-size: 10px; color: var(--text-dim);">${escapeHtml(provider?.model || '')}</div>
+              </div>
+              <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 6px; font-size: 11px;">
+                <div><span style="color:var(--text-dim);">Requests:</span> <span style="font-weight:600; font-family:var(--font-mono);">${data.requests}</span></div>
+                <div><span style="color:var(--text-dim);">Tokens:</span> <span style="font-weight:600; font-family:var(--font-mono);">${data.totalTokens.toLocaleString()}</span></div>
+                <div><span style="color:var(--text-dim);">Cost:</span> <span style="font-weight:600; font-family:var(--font-mono); color:var(--success);">$${data.cost.toFixed(4)}</span></div>
+                <div><span style="color:var(--text-dim);">Quota:</span> <span style="font-weight:600; font-family:var(--font-mono);">${remaining}/${limit || '∞'}</span></div>
+                <div><span style="color:var(--text-dim);">Resets:</span> <span style="font-weight:600; font-family:var(--font-mono);">${resetStr}</span></div>
+              </div>
+              ${Object.entries(data.models).length > 1 ? `
+                <details style="margin-top: 8px;">
+                  <summary style="font-size: 10px; color: var(--text-muted); cursor: pointer;">Models (${Object.keys(data.models).length})</summary>
+                  <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 4px; margin-top: 6px; font-size: 10px;">
+                    ${Object.entries(data.models).map(([model, mdata]) => `
+                      <div style="background:var(--bg-dark); border:1px solid var(--border-color); border-radius:3px; padding:4px 6px;">
+                        <div style="font-weight:600; color:var(--text-main);">${escapeHtml(model)}</div>
+                        <div style="color:var(--text-dim);">${mdata.requests} req · ${mdata.totalTokens.toLocaleString()} tok · $${mdata.cost.toFixed(4)}</div>
+                      </div>
+                    `).join('')}
+                  </div>
+                </details>
+              ` : ''}
+            `;
+            providerList.appendChild(el);
+          });
+        }
+      }
+
+      // Per Project
+      const projectList = document.getElementById('usageProjectList');
+      if (projectList) {
+        projectList.innerHTML = '';
+        const projects = Object.entries(appState.usage.byProject);
+        if (projects.length === 0) {
+          projectList.innerHTML = '<div style="font-size: 11px; color: var(--text-dim); padding: 12px; text-align: center;">No project usage data yet.</div>';
+        } else {
+          projects.forEach(([projectId, data]) => {
+            const session = appState.sessions[projectId];
+            const projectName = session ? session.name : projectId;
+            
+            const el = document.createElement('div');
+            el.style.cssText = 'background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; padding: 10px 12px;';
+            el.innerHTML = `
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px;">
+                <div style="font-weight:600; color:var(--text-main);">${escapeHtml(projectName)}</div>
+                <div style="font-size: 10px; color: var(--text-dim);">${projectId.slice(0, 8)}...</div>
+              </div>
+              <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 6px; font-size: 11px;">
+                <div><span style="color:var(--text-dim);">Requests:</span> <span style="font-weight:600; font-family:var(--font-mono);">${data.requests}</span></div>
+                <div><span style="color:var(--text-dim);">Tokens:</span> <span style="font-weight:600; font-family:var(--font-mono);">${data.totalTokens.toLocaleString()}</span></div>
+                <div><span style="color:var(--text-dim);">Cost:</span> <span style="font-weight:600; font-family:var(--font-mono); color:var(--success);">$${data.cost.toFixed(4)}</span></div>
+              </div>
+              ${Object.entries(data.models).length > 1 ? `
+                <details style="margin-top: 8px;">
+                  <summary style="font-size: 10px; color: var(--text-muted); cursor: pointer;">Models (${Object.keys(data.models).length})</summary>
+                  <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 4px; margin-top: 6px; font-size: 10px;">
+                    ${Object.entries(data.models).map(([model, mdata]) => `
+                      <div style="background:var(--bg-dark); border:1px solid var(--border-color); border-radius:3px; padding:4px 6px;">
+                        <div style="font-weight:600; color:var(--text-main);">${escapeHtml(model)}</div>
+                        <div style="color:var(--text-dim);">${mdata.requests} req · ${mdata.totalTokens.toLocaleString()} tok · $${mdata.cost.toFixed(4)}</div>
+                      </div>
+                    `).join('')}
+                  </div>
+                </details>
+              ` : ''}
+            `;
+            projectList.appendChild(el);
+          });
+        }
+      }
+
+      // Reset button
+      const resetBtn = document.getElementById('btnResetUsage');
+      if (resetBtn) {
+        resetBtn.onclick = () => {
+          if (confirm('Reset ALL usage data? This cannot be undone.')) {
+            appState.usage.byProvider = {};
+            appState.usage.byProject = {};
+            appState.usage.currentSession = { requests: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0, cost: 0 };
+            saveAppState();
+            renderUsageDashboard();
+            updateHeaderUsageMeter();
+            logActivity('Usage data reset', 'warning');
+          }
+        };
+      }
+    }
+
     // --- Editor & File System UI ---
     function renderFileTree() {
       const tree = document.getElementById('fileTree');
@@ -5597,7 +5960,10 @@ Links: [[Brain Index]]
                 finish_reason: finishReason || 'stop',
                 usage
               });
-
+              
+              // Track usage for dashboard
+              trackUsage(provider.id, provider.model, usage);
+              
               return fullContent;
             } catch (streamErr) {
               if (streamIdleTimeout) clearTimeout(streamIdleTimeout);
@@ -5692,7 +6058,10 @@ Links: [[Brain Index]]
             finish_reason: finishReason || 'stop',
             usage
           });
-
+          
+          // Track usage for dashboard
+          trackUsage(provider.id, provider.model, usage);
+          
           hideRateLimitCountdown();
           return fullContent;
         } catch (err) {
@@ -5801,7 +6170,11 @@ Links: [[Brain Index]]
       if (!fullContent) {
         fullContent = text.replace(/data:\s*/g, '').trim();
       }
-
+      
+      // Track usage for dashboard (DuckDuckGo doesn't return token counts, estimate)
+      const estimatedUsage = { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
+      trackUsage(provider.id, model, estimatedUsage);
+      
       return fullContent;
     }
 
@@ -7008,6 +7381,7 @@ Rules:
       renderTabs();
       renderChatHistory();
       updateUncensoredUI();
+      updateHeaderUsageMeter();
       const session = getCurrentSession();
       if (session.activeFile && session.files[session.activeFile] !== undefined) {
         document.getElementById('editorTextarea').value = session.files[session.activeFile];
@@ -7643,6 +8017,7 @@ Rules:
           if (tabName === 'behavior') renderUncensoredBehaviorTab();
           if (tabName === 'autonomy') renderAutonomyTab();
           if (tabName === 'backup') renderBackupTab();
+          if (tabName === 'usage') renderUsageDashboard();
         });
       });
 
@@ -8049,6 +8424,7 @@ Rules:
 
     function initApp() {
       loadAppState();
+      updateHeaderUsageMeter();
       renderSessionPicker();
 
       document.getElementById('sessionSelect').onchange = (e) => switchSession(e.target.value);
