@@ -3031,6 +3031,102 @@ CURRENT VIRTUAL FILES:
       logActivity('DevForge Studio initialized successfully', 'success');
     }
 
+    // ==================== STAGE 3: AGENTS & TEAM MODE ====================
+
+    // --- Agent Library Management ---
+
+    function generateAgentId() {
+      return 'agent_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+    }
+
+    function validateAgent(agent) {
+      if (!agent.name || !agent.name.trim()) return 'Agent name is required';
+      if (!agent.emoji || !agent.emoji.trim()) return 'Emoji avatar is required';
+      if (!agent.rolePrompt || !agent.rolePrompt.trim()) return 'Role prompt is required';
+      if (!agent.providerId || !appState.providers[agent.providerId]) return 'Valid provider is required';
+      if (typeof agent.temperature !== 'number' || agent.temperature < 0 || agent.temperature > 2) {
+        return 'Temperature must be a number between 0 and 2';
+      }
+      return null;
+    }
+
+    function createAgent(agentData) {
+      const agent = {
+        id: generateAgentId(),
+        name: agentData.name.trim(),
+        emoji: agentData.emoji.trim(),
+        rolePrompt: agentData.rolePrompt.trim(),
+        providerId: agentData.providerId,
+        model: agentData.model?.trim() || null,
+        temperature: Number(agentData.temperature) || 0.7,
+        skillPacks: (agentData.skillPacks || '').split(',').map(s => s.trim()).filter(Boolean),
+        pluginPacks: (agentData.pluginPacks || '').split(',').map(s => s.trim()).filter(Boolean),
+        mcpServers: [],
+        isPreset: false,
+        createdAt: Date.now()
+      };
+
+      try {
+        if (agentData.mcpServers?.trim()) {
+          agent.mcpServers = JSON.parse(agentData.mcpServers);
+        }
+      } catch (e) {
+        console.warn('Invalid MCP servers JSON:', e);
+      }
+
+      const error = validateAgent(agent);
+      if (error) throw new Error(error);
+
+      appState.agents[agent.id] = agent;
+      saveAppState();
+      return agent;
+    }
+
+    function updateAgent(agentId, updates) {
+      const agent = appState.agents[agentId];
+      if (!agent) throw new Error('Agent not found');
+
+      const updated = { ...agent, ...updates };
+      if (updates.skillPacks !== undefined) updated.skillPacks = (updates.skillPacks || '').split(',').map(s => s.trim()).filter(Boolean);
+      if (updates.pluginPacks !== undefined) updated.pluginPacks = (updates.pluginPacks || '').split(',').map(s => s.trim()).filter(Boolean);
+      if (updates.mcpServers !== undefined) {
+        try {
+          updated.mcpServers = JSON.parse(updates.mcpServers || '[]');
+        } catch (e) {
+          throw new Error('Invalid MCP servers JSON');
+        }
+      }
+
+      const error = validateAgent(updated);
+      if (error) throw new Error(error);
+
+      appState.agents[agentId] = updated;
+      saveAppState();
+      return updated;
+    }
+
+    function deleteAgent(agentId) {
+      if (!appState.agents[agentId]) throw new Error('Agent not found');
+      if (Object.keys(appState.agents).length <= 1) throw new Error('Cannot delete the last agent');
+      if (appState.activeAgentId === agentId) {
+        appState.activeAgentId = Object.keys(appState.agents).find(id => id !== agentId);
+      }
+      appState.teamRoster = appState.teamRoster.filter(id => id !== agentId);
+      if (appState.teamSeniorId === agentId) {
+        appState.teamSeniorId = appState.teamRoster[0] || null;
+      }
+      delete appState.agents[agentId];
+      saveAppState();
+    }
+
+    function getAgent(agentId) {
+      return appState.agents[agentId];
+    }
+
+    function listAgents() {
+      return Object.values(appState.agents);
+    }
+
     document.addEventListener('DOMContentLoaded', initApp);
   </script>
 </body>
