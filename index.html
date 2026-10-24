@@ -488,6 +488,59 @@
     }
     .btn-secondary:hover { background: var(--bg-hover); }
 
+    /* Voice Input */
+    .chat-input-wrapper .voice-lang-select {
+      flex-shrink: 0;
+    }
+    .chat-input-wrapper .voice-lang-select:focus {
+      outline: none;
+      border-color: var(--accent-blue);
+    }
+    #btnVoiceInput {
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: background-color 0.2s, box-shadow 0.2s, transform 0.1s;
+    }
+    #btnVoiceInput.recording {
+      background: var(--danger);
+      color: white;
+      border-color: var(--danger);
+      animation: voicePulse 1s infinite;
+      box-shadow: 0 0 8px var(--danger);
+    }
+    #btnVoiceInput.recording:hover {
+      background: #ff3333;
+    }
+    #btnVoiceInput.error {
+      background: var(--warning);
+      color: var(--bg-dark);
+      border-color: var(--warning);
+    }
+    @keyframes voicePulse {
+      0% { box-shadow: 0 0 4px var(--danger); }
+      50% { box-shadow: 0 0 16px var(--danger), 0 0 24px var(--danger); }
+      100% { box-shadow: 0 0 4px var(--danger); }
+    }
+    .voice-status {
+      font-size: 10px;
+      color: var(--text-dim);
+      padding: 2px 8px;
+      background: var(--bg-surface);
+      border-radius: 4px;
+      margin-left: 4px;
+      white-space: nowrap;
+    }
+    .voice-status.listening {
+      color: var(--danger);
+      background: rgba(255, 68, 68, 0.1);
+    }
+    .voice-status.error {
+      color: var(--warning);
+      background: rgba(245, 158, 11, 0.1);
+    }
+
     /* Preview Pane */
     .preview-frame {
       width: 100%;
@@ -812,6 +865,11 @@
 
           <div class="chat-input-wrapper">
             <input type="text" id="chatInput" class="chat-input" placeholder="Ask agent to build, edit, or fix..." />
+            <button class="btn btn-secondary" id="btnVoiceInput" title="Voice input (Click to start)" style="padding: 8px 10px; min-width: 44px;">🎤</button>
+            <select id="voiceLangSelect" class="voice-lang-select" title="Speech recognition language" style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-main); padding: 8px 8px; font-size: 11px; min-width: 90px;">
+              <option value="en-US">English (US)</option>
+              <option value="bn-BD">Bangla (বাংলা)</option>
+            </select>
             <button class="btn" id="btnSend">Send</button>
           </div>
         </div>
@@ -6206,6 +6264,178 @@ Rules:
       chatInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') handleSend();
       });
+
+      // ==================== VOICE INPUT ====================
+      setupVoiceInput();
+    }
+
+    // ==================== VOICE INPUT ====================
+    function setupVoiceInput() {
+      const btnVoiceInput = document.getElementById('btnVoiceInput');
+      const voiceLangSelect = document.getElementById('voiceLangSelect');
+      const chatInput = document.getElementById('chatInput');
+
+      if (!btnVoiceInput || !voiceLangSelect || !chatInput) return;
+
+      // Check for SpeechRecognition support
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        btnVoiceInput.disabled = true;
+        btnVoiceInput.title = 'Speech recognition not supported in this browser';
+        btnVoiceInput.classList.add('error');
+        btnVoiceInput.textContent = '⚠';
+        logActivity('Voice input: SpeechRecognition API not available', 'warning');
+        return;
+      }
+
+      const recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = voiceLangSelect.value;
+
+      let isRecording = false;
+      let interimTranscript = '';
+      let finalTranscript = '';
+
+      const updateMicButton = (state) => {
+        btnVoiceInput.classList.remove('recording', 'error');
+        btnVoiceInput.textContent = '🎤';
+        switch (state) {
+          case 'recording':
+            btnVoiceInput.classList.add('recording');
+            btnVoiceInput.title = 'Voice input active — Click to stop';
+            btnVoiceInput.textContent = '⏺';
+            break;
+          case 'error':
+            btnVoiceInput.classList.add('error');
+            btnVoiceInput.title = 'Voice input error — Click to retry';
+            btnVoiceInput.textContent = '⚠';
+            break;
+          default:
+            btnVoiceInput.title = 'Voice input (Click to start)';
+            btnVoiceInput.textContent = '🎤';
+        }
+      };
+
+      const showStatus = (message, type = '') => {
+        let statusEl = document.getElementById('voiceStatus');
+        if (!statusEl) {
+          statusEl = document.createElement('span');
+          statusEl.id = 'voiceStatus';
+          statusEl.className = 'voice-status';
+          btnVoiceInput.parentNode.insertBefore(statusEl, btnVoiceInput.nextSibling);
+        }
+        statusEl.textContent = message;
+        statusEl.className = 'voice-status' + (type ? ' ' + type : '');
+        if (type === 'error') {
+          setTimeout(() => {
+            if (statusEl.parentNode) statusEl.remove();
+          }, 5000);
+        } else if (!type) {
+          setTimeout(() => {
+            if (statusEl.parentNode) statusEl.remove();
+          }, 3000);
+        }
+      };
+
+      recognition.onstart = () => {
+        isRecording = true;
+        interimTranscript = '';
+        finalTranscript = '';
+        updateMicButton('recording');
+        showStatus('Listening...', 'listening');
+        logActivity('Voice input: Started listening', 'info');
+      };
+
+      recognition.onresult = (event) => {
+        interimTranscript = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const transcript = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            finalTranscript += transcript;
+          } else {
+            interimTranscript += transcript;
+          }
+        }
+        // Show live interim transcript in the input
+        chatInput.value = finalTranscript + interimTranscript;
+      };
+
+      recognition.onerror = (event) => {
+        isRecording = false;
+        updateMicButton('error');
+        
+        let message = 'Voice input error';
+        switch (event.error) {
+          case 'no-speech':
+            message = 'No speech detected — try again';
+            break;
+          case 'audio-capture':
+            message = 'Microphone not accessible';
+            break;
+          case 'not-allowed':
+          case 'permission-denied':
+            message = 'Microphone permission denied — enable in browser settings';
+            break;
+          case 'network':
+            message = 'Network error — check connection';
+            break;
+          case 'service-not-allowed':
+            message = 'Speech service not allowed';
+            break;
+          default:
+            message = `Error: ${event.error}`;
+        }
+        showStatus(message, 'error');
+        logActivity(`Voice input error: ${event.error}`, 'error');
+      };
+
+      recognition.onend = () => {
+        if (isRecording) {
+          // Recognition stopped but we were still recording - restart for continuous
+          try {
+            recognition.lang = voiceLangSelect.value;
+            recognition.start();
+          } catch (e) {
+            isRecording = false;
+            updateMicButton('idle');
+            showStatus('Recognition stopped', 'error');
+          }
+        } else {
+          updateMicButton('idle');
+          // Final transcript is already in chatInput from onresult
+          if (finalTranscript.trim()) {
+            showStatus('Ready to send', '');
+          }
+        }
+      };
+
+      voiceLangSelect.onchange = () => {
+        recognition.lang = voiceLangSelect.value;
+        if (isRecording) {
+          recognition.stop();
+          // onend will restart with new language
+        }
+        logActivity(`Voice input language changed to: ${voiceLangSelect.value}`, 'info');
+      };
+
+      btnVoiceInput.onclick = () => {
+        if (isRecording) {
+          recognition.stop();
+          isRecording = false;
+        } else {
+          try {
+            recognition.lang = voiceLangSelect.value;
+            recognition.start();
+          } catch (e) {
+            updateMicButton('error');
+            showStatus('Failed to start: ' + e.message, 'error');
+            logActivity(`Voice input start failed: ${e.message}`, 'error');
+          }
+        }
+      };
+
+      logActivity('Voice input initialized', 'success');
     }
 
     // ==================== PLAN MODE UI HANDLERS ====================
