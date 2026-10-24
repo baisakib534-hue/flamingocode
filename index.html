@@ -643,6 +643,19 @@
           <span class="toggle-slider"></span>
         </label>
       </div>
+      <!-- Token Meter -->
+      <div id="tokenMeter" style="display: flex; align-items: center; gap: 8px; margin-left: 12px; padding-left: 12px; border-left: 1px solid var(--border-color);">
+        <div style="display: flex; flex-direction: column; gap: 2px; min-width: 100px;">
+          <div style="display: flex; align-items: center; gap: 6px; font-size: 10px; color: var(--text-muted);">
+            <span style="font-weight: 600; color: var(--text-main);" id="tokenEstimate">~0 tok</span>
+            <span id="tokenBudgetBar" style="flex: 1; height: 4px; background: var(--bg-dark); border-radius: 2px; overflow: hidden; position: relative;">
+              <div id="tokenBudgetFill" style="height: 100%; width: 0%; background: var(--accent-blue); border-radius: 2px; transition: width 0.3s, background 0.3s;"></div>
+            </span>
+            <span style="font-size: 9px; color: var(--text-dim);" id="tokenBudgetText">0%</span>
+          </div>
+          <div style="font-size: 9px; color: var(--success);" id="tokensSaved">+0 saved</div>
+        </div>
+      </div>
       <button class="btn btn-secondary" id="btnSettings" style="padding: 4px 8px; font-size: 11px;">⚙️ Provider</button>
     </div>
   </header>
@@ -1827,13 +1840,205 @@ WORK STYLE:
       return appState.sessions[appState.activeSessionId];
     }
 
+    // Brain file starter templates
+    const BRAIN_TEMPLATES = {
+      'overview.md': `# Project Overview
+
+## What is this project?
+
+<!-- Describe what this project does in 2-3 sentences -->
+
+## Tech Stack
+
+- Language/Framework: 
+- Key Libraries:
+- Build/Run commands:
+
+## How to Run
+
+\`\`\`bash
+# Install dependencies
+
+# Development
+npm run dev
+
+# Production build
+npm run build
+\`\`\`
+
+## Project Structure
+
+\`\`\`
+project-root/
+├── .devforge/           # Brain files (this folder)
+├── index.html           # Entry point
+├── style.css            # Styles
+├── script.js            # Main logic
+└── ...
+\`\`\``,
+      'architecture.md': `# Architecture
+
+## High-Level Components
+
+<!-- List the main parts of the system and how they connect -->
+
+### Component 1: [Name]
+- Responsibility:
+- Interfaces:
+
+### Component 2: [Name]
+- Responsibility:
+- Interfaces:
+
+## Data Flow
+
+<!-- Describe how data moves through the system -->
+
+## Key Decisions
+
+<!-- Reference decisions.md for detailed rationale -->`,
+      'decisions.md': `# Decisions Log
+
+<!-- Append-only log of significant decisions. Format: -->
+
+## YYYY-MM-DD: [Decision Title]
+
+**Decision:** What was decided.
+
+**Rationale:** Why this choice was made.
+
+**Alternatives considered:** Other options and why they were rejected.
+
+**Impact:** Expected effects on the project.
+
+---
+
+*Add new decisions above this line.*`,
+      'progress.md': `# Progress
+
+## Completed
+
+<!-- Tasks that are done -->
+
+## In Progress
+
+<!-- Tasks currently being worked on -->
+
+## Next Up
+
+<!-- Tasks planned for next session -->
+
+---
+
+*Update after each agent step. The agent should maintain this file.*`,
+      'notes.md': `# Notes
+
+## General Notes
+
+<!-- Free-form notes, observations, reminders -->
+
+## Conversation Summaries
+
+<!-- Compressed summaries of older chat history (auto-generated when context exceeds 60%) -->
+
+---
+
+*Free-form notes area.*`
+    };
+    
+    // Build brain digest from .devforge/ files with ~1500 token cap
+    // Priority order: progress.md > decisions.md (recent) > overview.md > architecture.md > notes.md
+    function buildBrainDigest(session) {
+      if (!session || !session.files) return '';
+      
+      const brainFiles = [
+        { path: '.devforge/progress.md', priority: 1, maxTokens: 500 },
+        { path: '.devforge/decisions.md', priority: 2, maxTokens: 400 },
+        { path: '.devforge/overview.md', priority: 3, maxTokens: 300 },
+        { path: '.devforge/architecture.md', priority: 4, maxTokens: 200 },
+        { path: '.devforge/notes.md', priority: 5, maxTokens: 100 }
+      ];
+      
+      let digest = '# Project Brain Digest\n\n';
+      let totalTokens = estimateTokens(digest);
+      const MAX_TOKENS = 1500;
+      
+      for (const file of brainFiles) {
+        const content = session.files[file.path];
+        if (!content) continue;
+        
+        let fileContent = content;
+        
+        // For decisions.md, only include recent entries (last 5 decisions)
+        if (file.path === '.devforge/decisions.md') {
+          const lines = content.split('\n');
+          const decisionSections = [];
+          let currentSection = [];
+          let inDecision = false;
+          
+          for (const line of lines) {
+            if (line.match(/^## \d{4}-\d{2}-\d{2}:/)) {
+              if (inDecision && currentSection.length > 0) {
+                decisionSections.push(currentSection.join('\n'));
+              }
+              currentSection = [line];
+              inDecision = true;
+            } else if (inDecision) {
+              currentSection.push(line);
+            }
+          }
+          if (currentSection.length > 0) {
+            decisionSections.push(currentSection.join('\n'));
+          }
+          
+          // Keep only last 5 decisions
+          fileContent = decisionSections.slice(-5).join('\n\n');
+        }
+        
+        // Truncate to max tokens for this file
+        const fileHeader = `\n## ${file.path.replace('.devforge/', '').replace('.md', '')}\n\n`;
+        const fileTokens = estimateTokens(fileHeader + fileContent);
+        
+        if (totalTokens + fileTokens > MAX_TOKENS) {
+          // Truncate file content to fit
+          const availableTokens = MAX_TOKENS - totalTokens - estimateTokens(fileHeader);
+          if (availableTokens > 50) {
+            const charsPerToken = 4;
+            const maxChars = availableTokens * charsPerToken;
+            fileContent = fileContent.slice(0, maxChars) + '\n[...truncated...]';
+          } else {
+            // No room for this file, add truncation notice and break
+            digest += `\n[...${file.path} and remaining files truncated due to token limit...]`;
+            break;
+          }
+        }
+        
+        digest += fileHeader + fileContent + '\n';
+        totalTokens = estimateTokens(digest);
+        
+        if (totalTokens >= MAX_TOKENS) {
+          break;
+        }
+      }
+      
+      digest += `\n---\n*Digest: ~${totalTokens} tokens (cap: ${MAX_TOKENS})*`;
+      return digest;
+    }
+
     function createNewSession(name) {
       const id = 'sess_' + Date.now();
       const sessionName = name || 'Session ' + (Object.keys(appState.sessions).length + 1);
+      
+      // Initialize brain files with starter templates
+      const brainFiles = {};
+      for (const [path, content] of Object.entries(BRAIN_TEMPLATES)) {
+        brainFiles[`.devforge/${path}`] = content;
+      }
+      
       appState.sessions[id] = {
         id,
         name: sessionName,
-        files: JSON.parse(JSON.stringify(TEMPLATES.blank)),
+        files: { ...JSON.parse(JSON.stringify(TEMPLATES.blank)), ...brainFiles },
         activeFile: 'index.html',
         openTabs: ['index.html', 'style.css', 'script.js'],
         chatHistory: []
@@ -2083,26 +2288,43 @@ WORK STYLE:
       const contextWindow = provider?.contextWindow || 128000;
       const maxContextTokens = Math.floor(contextWindow * 0.75);
       
-      let context = 'You are FlamingoCode AI, an expert software developer in a browser IDE.\nYou edit the user\'s project by returning code blocks using this EXACT syntax:\n\nTo create or overwrite a file:\n```file:path/to/file.ext\n[full file content here]\n```\n\nTo delete a file:\n```delete:path/to/file.ext\n```\n\nTo navigate the browser pane:\n```browse:https://example.com\n```\n\nRULES:\n1. Always write COMPLETE file contents inside file: blocks. Never use comments like "// rest of code remains the same".\n2. Keep text explanation brief and concise.\n3. Use modern, clean, self-contained HTML/CSS/JavaScript.\n\nCURRENT VIRTUAL FILES:\n';
+      // 1. Start with brain digest (replaces full history replay)
+      const brainDigest = buildBrainDigest(session);
+      let context = brainDigest + '\n\n---\n\n';
+      
+      context += 'You are FlamingoCode AI, an expert software developer in a browser IDE.\nYou edit the user\'s project by returning code blocks using this EXACT syntax:\n\nTo create or overwrite a file:\n```file:path/to/file.ext\n[full file content here]\n```\n\nTo delete a file:\n```delete:path/to/file.ext\n```\n\nTo navigate the browser pane:\n```browse:https://example.com\n```\n\nRULES:\n1. Always write COMPLETE file contents inside file: blocks. Never use comments like "// rest of code remains the same".\n2. Keep text explanation brief and concise.\n3. Use modern, clean, self-contained HTML/CSS/JavaScript.\n4. MAINTAIN THE BRAIN: After each step, update .devforge/progress.md with what was done. When making a real architectural decision, append to .devforge/decisions.md with date, decision, and rationale.\n\nCURRENT VIRTUAL FILES (outlines for unchanged, full for active):\n';
 
       let totalTokens = estimateTokens(context);
       const fileEntries = Object.entries(session.files);
-      const recentFiles = fileEntries.slice(-3);
-      const olderFiles = fileEntries.slice(0, -3);
+      const activeFile = session.activeFile;
       
-      for (const [path, content] of olderFiles) {
+      // Separate brain files from project files
+      const brainFilePaths = ['.devforge/overview.md', '.devforge/architecture.md', '.devforge/decisions.md', '.devforge/progress.md', '.devforge/notes.md'];
+      const projectFiles = fileEntries.filter(([path]) => !brainFilePaths.includes(path));
+      const brainFiles = fileEntries.filter(([path]) => brainFilePaths.includes(path));
+      
+      // For project files: send outlines for unchanged, full for active
+      const recentProjectFiles = projectFiles.slice(-3);
+      const olderProjectFiles = projectFiles.slice(0, -3);
+      
+      // Older files: signatures only
+      for (const [path, content] of olderProjectFiles) {
         const signature = '--- FILE: ' + path + ' (signature) ---\n' + content.slice(0, 200) + '\n[... ' + content.length + ' chars truncated ...]\n';
         const sigTokens = estimateTokens(signature);
         if (totalTokens + sigTokens > maxContextTokens) {
-          context += '\n[... Remaining ' + olderFiles.length + ' files truncated due to context limit ...]';
+          context += '\n[... Remaining ' + olderProjectFiles.length + ' files truncated due to context limit ...]';
           break;
         }
         context += signature;
         totalTokens += sigTokens;
       }
       
-      for (const [path, content] of recentFiles) {
-        const fileBlock = '\n--- FILE: ' + path + ' ---\n' + content + '\n';
+      // Recent files: full content for active, signatures for others
+      for (const [path, content] of recentProjectFiles) {
+        const isActive = path === activeFile;
+        const fileBlock = isActive 
+          ? '\n--- FILE: ' + path + ' (ACTIVE - FULL CONTENT) ---\n' + content + '\n'
+          : '\n--- FILE: ' + path + ' (signature) ---\n' + content.slice(0, 200) + '\n[... ' + content.length + ' chars truncated ...]\n';
         const blockTokens = estimateTokens(fileBlock);
         if (totalTokens + blockTokens > maxContextTokens) {
           context += '\n[... File ' + path + ' truncated due to context limit ...]';
@@ -2110,6 +2332,11 @@ WORK STYLE:
         }
         context += fileBlock;
         totalTokens += blockTokens;
+      }
+      
+      // Brain files: only include as reference note (already in digest)
+      if (brainFiles.length > 0) {
+        context += '\n[Brain files (.devforge/*) included in digest above]\n';
       }
 
       return context;
@@ -2911,7 +3138,174 @@ CURRENT VIRTUAL FILES:
       return { chips, fileModified };
     }
 
-    async function sendAgentPrompt(userPrompt, autoTurn = 0) {
+    // Compress conversation history when it exceeds 60% of context window
+    // Summarizes older turns into notes.md, keeps digest + summary + last 8 turns
+    function maybeCompressHistory(session) {
+      const provider = appState.providers[appState.activeProviderId];
+      const contextWindow = provider?.contextWindow || 128000;
+      const compressionThreshold = Math.floor(contextWindow * 0.60); // 60% threshold
+      
+      // Build current context to estimate tokens
+      const testContext = buildSystemContextWithGuard();
+      const contextTokens = estimateTokens(testContext);
+      
+      // Estimate history tokens
+      const sanitizedHistory = sanitizeHistoryForReplay(session.chatHistory);
+      const historyText = JSON.stringify(sanitizedHistory);
+      const historyTokens = estimateTokens(historyText);
+      
+      const totalEstimatedTokens = contextTokens + historyTokens;
+      
+      if (totalEstimatedTokens > compressionThreshold && sanitizedHistory.length > 10) {
+        // Need to compress - summarize older turns (keep last 8)
+        const keepTurns = 8;
+        const olderTurns = sanitizedHistory.slice(0, -keepTurns);
+        const recentTurns = sanitizedHistory.slice(-keepTurns);
+        
+        if (olderTurns.length === 0) return; // Nothing to compress
+        
+        // Create summary of older turns
+        const summaryPrompt = `Summarize the following conversation history into a concise paragraph. Focus on: key decisions made, files created/modified, problems solved, and current project state. Be specific but brief.
+
+${JSON.stringify(olderTurns, null, 2)}`;
+        
+        // For now, create a simple text summary (in production would call LLM)
+        let summary = `## Conversation Summary (${new Date().toISOString().split('T')[0]})\n\n`;
+        summary += `Compressed ${olderTurns.length} older turns. Key points:\n`;
+        
+        // Extract key info from older turns
+        const userTurns = olderTurns.filter(m => m.role === 'user');
+        const agentTurns = olderTurns.filter(m => m.role === 'assistant');
+        
+        summary += `- ${userTurns.length} user requests, ${agentTurns.length} agent responses\n`;
+        
+        // Note files modified
+        const fileBlocks = olderTurns.flatMap(m => {
+          const matches = m.content?.match(/```file:([^\n]+)/g) || [];
+          return matches.map(match => match.replace('```file:', ''));
+        });
+        if (fileBlocks.length > 0) {
+          summary += `- Files touched: ${[...new Set(fileBlocks)].join(', ')}\n`;
+        }
+        
+        summary += `\n---\n`;
+        
+        // Append to notes.md
+        const notesPath = '.devforge/notes.md';
+        const existingNotes = session.files[notesPath] || '';
+        // Find the "## Conversation Summaries" section and insert after it
+        const insertMarker = '## Conversation Summaries';
+        let newNotes = existingNotes;
+        
+        if (existingNotes.includes(insertMarker)) {
+          const idx = existingNotes.indexOf(insertMarker) + insertMarker.length;
+          newNotes = existingNotes.slice(0, idx) + '\n\n' + summary + existingNotes.slice(idx);
+        } else {
+          newNotes = existingNotes + '\n\n' + summary;
+        }
+        
+        session.files[notesPath] = newNotes;
+        
+        // Replace chat history with compressed version
+        session.chatHistory = [
+          { role: 'system', content: `[COMPRESSED HISTORY] ${summary}` },
+          ...recentTurns
+        ];
+        
+        logActivity(`Compressed ${olderTurns.length} chat turns into notes.md (saved ~${historyTokens - estimateTokens(JSON.stringify(session.chatHistory))} tokens)`, 'success');
+        saveAppState();
+      }
+    }
+
+    // Small-request discipline: enforce per-request token budget (~8K default)
+// Trims in priority: brain digest > current step > current file > outlines > recent turns
+function enforceRequestBudget(messages, session) {
+  const provider = appState.providers[appState.activeProviderId];
+  const contextWindow = provider?.contextWindow || 128000;
+  const budget = Math.min(8000, Math.floor(contextWindow * 0.1)); // Default 8K or 10% of window
+  
+  // Estimate current request tokens
+  const requestText = JSON.stringify(messages);
+  let requestTokens = estimateTokens(requestText);
+  
+  if (requestTokens <= budget) return messages; // Within budget
+  
+  logActivity(`Request budget exceeded: ${requestTokens} tokens > ${budget} budget. Trimming...`, 'warning');
+  
+  // Priority order for trimming:
+  // 1. Brain digest (keep - highest priority)
+  // 2. Current step instruction (keep - in system prompt)
+  // 3. Current file full content (keep if active file)
+  // 4. File outlines (reduce first)
+  // 5. Recent chat turns (reduce last)
+  
+  // The buildSystemContextWithGuard already prioritizes, but we can further trim history
+  const systemMsg = messages[0];
+  const historyMsgs = messages.slice(1);
+  
+  // Trim history from oldest first
+  while (requestTokens > budget && historyMsgs.length > 2) {
+    // Remove oldest non-system message
+    const removed = historyMsgs.shift();
+    const removedTokens = estimateTokens(JSON.stringify(removed));
+    requestTokens -= removedTokens;
+    logActivity(`Trimmed history message (saved ~${removedTokens} tokens)`, 'info');
+  }
+  
+  // If still over budget, we need to trim the system context (more aggressive)
+  if (requestTokens > budget) {
+    logActivity(`Still over budget after history trim: ${requestTokens} tokens. Consider reducing context.`, 'warning');
+  }
+  
+  return [systemMsg, ...historyMsgs];
+}
+
+// Update token meter in header
+function updateTokenMeter(session) {
+  const provider = appState.providers[appState.activeProviderId];
+  const contextWindow = provider?.contextWindow || 128000;
+  
+  // Build the context to estimate tokens
+  const context = buildSystemContextWithGuard();
+  const contextTokens = estimateTokens(context);
+  
+  // Estimate history tokens
+  const sanitizedHistory = sanitizeHistoryForReplay(session.chatHistory);
+  const historyTokens = estimateTokens(JSON.stringify(sanitizedHistory));
+  
+  // Total estimated request tokens
+  const totalTokens = contextTokens + historyTokens;
+  
+  // Budget percentage (against 75% of context window as used in buildSystemContextWithGuard)
+  const budgetLimit = Math.floor(contextWindow * 0.75);
+  const budgetPercent = Math.min(100, Math.round((totalTokens / budgetLimit) * 100));
+  
+  // Estimate tokens saved by compression
+  const fullHistoryTokens = session.chatHistory.length > 0 ? 
+    estimateTokens(JSON.stringify(session.chatHistory)) : 0;
+  const compressedHistoryTokens = sanitizedHistory.length > 0 ?
+    estimateTokens(JSON.stringify(sanitizedHistory)) : 0;
+  const savedTokens = Math.max(0, fullHistoryTokens - compressedHistoryTokens);
+  
+  // Update UI
+  const tokenEstimateEl = document.getElementById('tokenEstimate');
+  const tokenBudgetFillEl = document.getElementById('tokenBudgetFill');
+  const tokenBudgetTextEl = document.getElementById('tokenBudgetText');
+  const tokensSavedEl = document.getElementById('tokensSaved');
+  
+  if (tokenEstimateEl) tokenEstimateEl.textContent = `~${totalTokens.toLocaleString()} tok`;
+  if (tokenBudgetFillEl) {
+    tokenBudgetFillEl.style.width = `${budgetPercent}%`;
+    // Color based on usage
+    if (budgetPercent > 90) tokenBudgetFillEl.style.background = 'var(--danger)';
+    else if (budgetPercent > 70) tokenBudgetFillEl.style.background = 'var(--warning)';
+    else tokenBudgetFillEl.style.background = 'var(--accent-blue)';
+  }
+  if (tokenBudgetTextEl) tokenBudgetTextEl.textContent = `${budgetPercent}%`;
+  if (tokensSavedEl) tokensSavedEl.textContent = savedTokens > 0 ? `+${savedTokens.toLocaleString()} saved` : '+0 saved';
+}
+
+async function sendAgentPrompt(userPrompt, autoTurn = 0) {
       if (agentWorking) return;
       agentWorking = true;
       const session = getCurrentSession();
@@ -2921,15 +3315,24 @@ CURRENT VIRTUAL FILES:
         session.chatHistory.push({ role: 'user', content: userPrompt });
       }
 
+      // Check if we need to compress history
+      maybeCompressHistory(session);
+      
+      // Update token meter
+      updateTokenMeter(session);
+
       startTimer();
 
       try {
         // 9. History hygiene: strip reasoning/thinking blocks and null-content messages
         const sanitizedHistory = sanitizeHistoryForReplay(session.chatHistory);
-        const messages = [
+        let messages = [
           { role: 'system', content: buildSystemContextWithGuard() },
           ...sanitizedHistory
         ];
+
+        // Small-request discipline: enforce per-request budget
+        messages = enforceRequestBudget(messages, session);
 
         logActivity('Calling ' + appState.providers[appState.activeProviderId].name + ' (' + appState.providers[appState.activeProviderId].model + ')...', 'info');
         const reply = await callLLM(messages);
