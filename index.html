@@ -706,6 +706,7 @@
         <button class="right-tab" data-pane="preview">Preview</button>
         <button class="right-tab" data-pane="browser">Browser</button>
         <button class="right-tab" data-pane="activity">Activity</button>
+        <button class="right-tab" data-pane="history">History</button>
       </div>
 
       <div class="right-content">
@@ -881,6 +882,22 @@
             <div class="log-item">Studio initialized. Virtual FS ready.</div>
           </div>
         </div>
+
+        <!-- History / Checkpoints Pane -->
+        <div class="pane-view" id="paneHistory">
+          <div style="flex:1; overflow-y:auto; padding: 12px; display:flex; flex-direction:column; gap:12px;">
+            <div style="display:flex; align-items:center; justify-content:space-between; padding: 8px 12px; background:var(--bg-surface); border:1px solid var(--border-color); border-radius:5px;">
+              <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Checkpoints</div>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <span id="checkpointCapDisplay" style="font-size: 10px; color: var(--text-dim);">Cap: 30 | Stored: 0</span>
+                <button class="btn btn-secondary" id="btnCheckpointCap" style="padding: 3px 8px; font-size: 10px;">Set Cap</button>
+              </div>
+            </div>
+            <div id="checkpointList" style="flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:4px;">
+              <div style="font-size: 11px; color: var(--text-dim); text-align: center; padding: 20px;">No checkpoints yet. Checkpoints are created automatically before agent changes.</div>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -907,6 +924,10 @@
     <button class="mobile-nav-btn" data-mobile-tab="browser">
       <span>🌐</span>
       <span>Browser</span>
+    </button>
+    <button class="mobile-nav-btn" data-mobile-tab="history">
+      <span>🕐</span>
+      <span>History</span>
     </button>
   </nav>
 
@@ -1930,6 +1951,9 @@ WORK STYLE:
         },
         taskHistory: []  // History of tasks with tools used
       },
+      // Checkpoint / Time-travel state
+      checkpoints: [],  // Array of {id, label, timestamp, files, brainState, sessionId}
+      checkpointCap: 30,
       // Legacy single provider fields for backward compatibility
       provider: {
         preset: '9router',
@@ -1977,6 +2001,14 @@ WORK STYLE:
       // Sync legacy provider field for backward compatibility
       syncLegacyProvider();
       
+      // Initialize checkpoints if not present (migration)
+      if (!appState.checkpoints) {
+        appState.checkpoints = [];
+      }
+      if (!appState.checkpointCap) {
+        appState.checkpointCap = 30;
+      }
+      
       if (!appState.sessions || Object.keys(appState.sessions).length === 0) {
         createNewSession('Default Studio');
       }
@@ -1991,6 +2023,136 @@ WORK STYLE:
       } catch (e) {
         console.error('Failed to save state', e);
       }
+    }
+
+    // ==================== CHECKPOINT / TIME-TRAVEL SYSTEM ====================
+    // createCheckpoint: snapshot entire VFS + active Brain state before agent changes
+    // restoreCheckpoint: one-click restore to any checkpoint (creates pre-restore checkpoint)
+    // Cap: default 30, oldest dropped. Panel shows cap.
+
+    function createCheckpoint(label = 'Auto') {
+      const session = getCurrentSession();
+      if (!session) return null;
+
+      const checkpoint = {
+        id: 'cp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+        label: label,
+        timestamp: Date.now(),
+        files: JSON.parse(JSON.stringify(session.files)),
+        brainState: {
+          chatHistory: session.chatHistory ? JSON.parse(JSON.stringify(session.chatHistory)) : [],
+          activeFile: session.activeFile,
+          openTabs: session.openTabs ? [...session.openTabs] : []
+        },
+        sessionId: session.id
+      };
+
+      appState.checkpoints.unshift(checkpoint);
+      pruneCheckpoints();
+      saveAppState();
+      logActivity(`Checkpoint created: ${label} (${appState.checkpoints.length}/${appState.checkpointCap})`, 'info');
+      renderCheckpointPanel();
+      return checkpoint.id;
+    }
+
+    function pruneCheckpoints() {
+      if (appState.checkpoints.length > appState.checkpointCap) {
+        const removed = appState.checkpoints.splice(appState.checkpointCap);
+        logActivity(`Dropped ${removed.length} old checkpoint(s) (cap: ${appState.checkpointCap})`, 'warning');
+      }
+    }
+
+    function restoreCheckpoint(checkpointId) {
+      const idx = appState.checkpoints.findIndex(cp => cp.id === checkpointId);
+      if (idx === -1) {
+        logActivity('Checkpoint not found: ' + checkpointId, 'error');
+        return false;
+      }
+
+      const checkpoint = appState.checkpoints[idx];
+      const session = getCurrentSession();
+      if (!session || session.id !== checkpoint.sessionId) {
+        logActivity('Cannot restore checkpoint from different session', 'error');
+        return false;
+      }
+
+      // Create pre-restore checkpoint first (so undo is undoable)
+      createCheckpoint('Pre-restore: ' + checkpoint.label);
+
+      // Restore files
+      session.files = JSON.parse(JSON.stringify(checkpoint.files));
+      // Restore brain state
+      session.chatHistory = checkpoint.brainState.chatHistory ? JSON.parse(JSON.stringify(checkpoint.brainState.chatHistory)) : [];
+      session.activeFile = checkpoint.brainState.activeFile;
+      session.openTabs = checkpoint.brainState.openTabs ? [...checkpoint.brainState.openTabs] : [];
+
+      saveAppState();
+
+      // Refresh UI
+      renderFileTree();
+      renderTabs();
+      renderChatHistory();
+      if (session.activeFile && session.files[session.activeFile] !== undefined) {
+        openFile(session.activeFile);
+      }
+      refreshPreview();
+      renderCheckpointPanel();
+
+      logActivity(`Restored checkpoint: ${checkpoint.label}`, 'success');
+      return true;
+    }
+
+    function renderCheckpointPanel() {
+      const container = document.getElementById('checkpointList');
+      const capEl = document.getElementById('checkpointCapDisplay');
+      if (!container) return;
+
+      if (capEl) {
+        capEl.textContent = `Cap: ${appState.checkpointCap} | Stored: ${appState.checkpoints.length}`;
+      }
+
+      if (appState.checkpoints.length === 0) {
+        container.innerHTML = '<div style="font-size: 11px; color: var(--text-dim); text-align: center; padding: 20px;">No checkpoints yet. Checkpoints are created automatically before agent changes.</div>';
+        return;
+      }
+
+      container.innerHTML = '';
+      appState.checkpoints.forEach((cp, index) => {
+        const item = document.createElement('div');
+        item.style.cssText = 'display:flex; align-items:center; justify-content:space-between; padding:8px 10px; background:var(--bg-surface); border:1px solid var(--border-color); border-radius:5px; margin-bottom:4px;';
+        const time = new Date(cp.timestamp).toLocaleTimeString();
+        const date = new Date(cp.timestamp).toLocaleDateString();
+        const fileCount = Object.keys(cp.files).length;
+        item.innerHTML = `
+          <div style="flex:1; min-width:0;">
+            <div style="font-weight:600; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(cp.label)}</div>
+            <div style="font-size:10px; color:var(--text-dim);">${date} ${time} · ${fileCount} file(s) · ${cp.brainState.chatHistory?.length || 0} chat msg(s)</div>
+          </div>
+          <button class="btn btn-secondary" style="padding:3px 8px; font-size:10px;" onclick="confirmRestoreCheckpoint('${cp.id}')">Restore</button>
+        `;
+        container.appendChild(item);
+      });
+    }
+
+    function confirmRestoreCheckpoint(checkpointId) {
+      const cp = appState.checkpoints.find(c => c.id === checkpointId);
+      if (!cp) return;
+      if (confirm(`Restore to checkpoint "${cp.label}"?\n\nThis will replace all current files and chat history. A pre-restore checkpoint will be created first so you can undo the restore.`)) {
+        restoreCheckpoint(checkpointId);
+      }
+    }
+
+    function setCheckpointCap(newCap) {
+      const cap = parseInt(newCap, 10);
+      if (isNaN(cap) || cap < 1 || cap > 100) {
+        alert('Checkpoint cap must be between 1 and 100');
+        return;
+      }
+      appState.checkpointCap = cap;
+      pruneCheckpoints();
+      saveAppState();
+      renderCheckpointPanel();
+      logActivity(`Checkpoint cap set to ${cap}`, 'info');
     }
 
     function syncLegacyProvider() {
@@ -3271,6 +3433,7 @@ Links: [[Brain Index]]
       const session = getCurrentSession();
       if (!session || !confirm(`Delete file "${filePath}"?`)) return;
 
+      createCheckpoint('Delete file: ' + filePath);
       delete session.files[filePath];
       logActivity(`Deleted file ${filePath}`, 'warning');
       closeTab(filePath);
@@ -3948,6 +4111,12 @@ CURRENT VIRTUAL FILES:
       let fileModified = false;
       const noteReads = []; // v2: notes fetched on demand via brain-read blocks
 
+      // Create checkpoint before applying any agent file changes
+      const hasFileBlocks = /```(file|delete):/.test(responseText);
+      if (hasFileBlocks) {
+        createCheckpoint('Agent edit');
+      }
+
       // Regex for fenced blocks: ```file:filename\ncontent```
       const blockRegex = /```(file|delete|browse|brain-read):([^\n]*)\n([\s\S]*?)```/g;
       let match;
@@ -4604,6 +4773,7 @@ Rules:
         alert('File already exists!');
         return;
       }
+      createCheckpoint('Create file: ' + cleanName);
       session.files[cleanName] = '';
       logActivity(`Created file: ${cleanName}`, 'success');
       openFile(cleanName);
@@ -4617,6 +4787,7 @@ Rules:
         return;
       }
       const session = getCurrentSession();
+      createCheckpoint('Load template: ' + templateKey);
       session.files = JSON.parse(JSON.stringify(TEMPLATES[templateKey]));
       session.activeFile = 'index.html';
       session.openTabs = Object.keys(session.files);
@@ -4631,6 +4802,7 @@ Rules:
       const textarea = document.getElementById('editorTextarea');
       // Brain v2: manual edits to a note or the map rebuild the index (debounced)
       let indexRebuildTimer = null;
+      let editorCheckpointTimer = null;
       textarea.addEventListener('input', () => {
         const session = getCurrentSession();
         if (session && session.activeFile) {
@@ -4642,6 +4814,17 @@ Rules:
           updateLineNumbers();
           refreshPreview();
           saveAppState();
+        }
+      });
+
+      // Create checkpoint on editor blur (user finished editing)
+      textarea.addEventListener('blur', () => {
+        const session = getCurrentSession();
+        if (session && session.activeFile) {
+          clearTimeout(editorCheckpointTimer);
+          editorCheckpointTimer = setTimeout(() => {
+            createCheckpoint('Edit: ' + session.activeFile);
+          }, 500);
         }
       });
 
@@ -5189,6 +5372,10 @@ Rules:
           }
           if (paneName === 'browser') document.getElementById('paneBrowser').classList.add('active');
           if (paneName === 'activity') document.getElementById('paneActivity').classList.add('active');
+          if (paneName === 'history') {
+            document.getElementById('paneHistory').classList.add('active');
+            renderCheckpointPanel();
+          }
         });
       });
     }
@@ -5211,6 +5398,8 @@ Rules:
             document.querySelector('.right-tab[data-pane="agent"]').click();
           } else if (tab === 'browser') {
             document.querySelector('.right-tab[data-pane="browser"]').click();
+          } else if (tab === 'history') {
+            document.querySelector('.right-tab[data-pane="history"]').click();
           }
         });
       });
@@ -5384,6 +5573,11 @@ Rules:
 
       document.getElementById('btnNewFile').onclick = createNewFile;
       document.getElementById('templateSelect').onchange = (e) => loadTemplate(e.target.value);
+
+      document.getElementById('btnCheckpointCap').onclick = () => {
+        const newCap = prompt('Enter checkpoint cap (1-100):', appState.checkpointCap);
+        if (newCap !== null) setCheckpointCap(newCap);
+      };
 
       setupEditorListeners();
       setupSettingsModal();
