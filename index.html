@@ -804,6 +804,7 @@
         <button class="right-tab" data-pane="team">Team</button>
         <button class="right-tab" data-pane="preview">Preview</button>
         <button class="right-tab" data-pane="browser">Browser</button>
+        <button class="right-tab" data-pane="graph">Graph</button>
         <button class="right-tab" data-pane="activity">Activity</button>
         <button class="right-tab" data-pane="history">History</button>
         <button class="right-tab" data-pane="diffReview">Diff Review</button>
@@ -981,6 +982,41 @@
           <iframe id="browserIframe" class="preview-frame" src="about:blank"></iframe>
         </div>
 
+        <!-- Code Graph Pane -->
+        <div class="pane-view" id="paneGraph">
+          <div style="display:flex; flex-direction:column; height:100%; overflow:hidden;">
+            <div style="display:flex; align-items:center; gap:8px; padding:8px 12px; background:var(--bg-surface); border-bottom:1px solid var(--border-color); flex-wrap:wrap;">
+              <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Code Graph</span>
+              <button class="btn btn-secondary" id="btnBuildGraph" style="padding:4px 10px; font-size:10px;" title="Build or rebuild the code graph">🔄 Build Graph</button>
+              <button class="btn btn-secondary" id="btnRefreshGraph" style="padding:4px 10px; font-size:10px;" title="Refresh graph view">↻ Refresh</button>
+              <input type="text" id="graphSearchInput" placeholder="Filter nodes..." style="flex:1; min-width:150px; background:var(--bg-hover); border:1px solid var(--border-color); border-radius:4px; color:var(--text-main); font-size:11px; padding:4px 8px;" />
+              <select id="graphNodeTypeFilter" style="background:var(--bg-hover); border:1px solid var(--border-color); border-radius:4px; color:var(--text-main); font-size:10px; padding:3px 6px;">
+                <option value="">All Types</option>
+                <option value="file">📄 Files</option>
+                <option value="function">⚡ Functions</option>
+                <option value="class">🏗 Classes</option>
+                <option value="concept">💡 Concepts</option>
+                <option value="variable">📦 Variables</option>
+                <option value="import">📥 Imports</option>
+              </select>
+              <select id="graphEdgeConfidenceFilter" style="background:var(--bg-hover); border:1px solid var(--border-color); border-radius:4px; color:var(--text-main); font-size:10px; padding:3px 6px;">
+                <option value="">All Edges</option>
+                <option value="EXTRACTED">✓ Extracted</option>
+                <option value="INFERRED">~ Inferred</option>
+              </select>
+            </div>
+            <div style="flex:1; overflow:auto; padding:8px 12px; position:relative;">
+              <canvas id="graphCanvas" style="width:100%; height:100%; display:block; background:var(--bg-dark);"></canvas>
+              <div id="graphTooltip" style="position:absolute; pointer-events:none; background:var(--bg-surface); border:1px solid var(--border-color); border-radius:4px; padding:6px 8px; font-size:10px; color:var(--text-main); z-index:10; display:none; max-width:250px; box-shadow:0 4px 12px rgba(0,0,0,0.4);"></div>
+            </div>
+            <div id="graphInfoBar" style="padding:6px 12px; background:var(--bg-surface); border-top:1px solid var(--border-color); font-size:10px; color:var(--text-dim); display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+              <span id="graphNodeCount">0 nodes</span>
+              <span id="graphEdgeCount">0 edges</span>
+              <span id="graphSummary">Click "Build Graph" to index the codebase</span>
+            </div>
+          </div>
+        </div>
+
         <!-- Activity Log Pane -->
         <div class="pane-view" id="paneActivity">
           <div class="activity-log" id="activityLog">
@@ -1048,6 +1084,10 @@
     <button class="mobile-nav-btn" data-mobile-tab="browser">
       <span>🌐</span>
       <span>Browser</span>
+    </button>
+    <button class="mobile-nav-btn" data-mobile-tab="graph">
+      <span>📊</span>
+      <span>Graph</span>
     </button>
     <button class="mobile-nav-btn" data-mobile-tab="history">
       <span>🕐</span>
@@ -2671,6 +2711,1340 @@ project-root/
       logActivity(`readBrainNote("${name}"): fetched ${estimateTokens(content)} tokens from ${path}`, 'success');
       return content;
     }
+
+// ==================== BRAIN CODE GRAPH (Graphify-style) ====================
+// Lightweight in-app code graph indexer over the project VFS.
+// Nodes: files, functions, classes, concepts (from comments/docs)
+// Edges: calls, imports, uses, defines, references
+// Every edge tagged: EXTRACTED (explicit in source) or INFERRED (resolved by indexer)
+// Persisted to .devforge/graph/graph.json with schema version.
+
+const GRAPH_DIR = '.devforge/graph/';
+const GRAPH_FILE = GRAPH_DIR + 'graph.json';
+const GRAPH_SCHEMA_VERSION = 1;
+
+// Node types
+const NODE_TYPES = {
+  FILE: 'file',
+  FUNCTION: 'function',
+  CLASS: 'class',
+  CONCEPT: 'concept',
+  VARIABLE: 'variable',
+  IMPORT: 'import'
+};
+
+// Edge types
+const EDGE_TYPES = {
+  CALLS: 'calls',
+  IMPORTS: 'imports',
+  USES: 'uses',
+  DEFINES: 'defines',
+  REFERENCES: 'references',
+  EXTENDS: 'extends',
+  IMPLEMENTS: 'implements'
+};
+
+// Confidence tags
+const CONFIDENCE = {
+  EXTRACTED: 'EXTRACTED',
+  INFERRED: 'INFERRED'
+};
+
+// Debounce timer for incremental rebuild
+let graphRebuildTimer = null;
+const GRAPH_REBUILD_DEBOUNCE_MS = 500;
+
+// In-memory graph cache
+let codeGraphCache = null;
+let codeGraphDirty = true;
+
+// --- Regex patterns for pragmatic parsing ---
+
+// JS/TS function declarations: function name(), const name = () =>, name() {}, async function
+const FUNC_PATTERNS = [
+  /(?:^|\n)\s*(?:export\s+)?(?:async\s+)?function\s+([a-zA-Z_$][\w$]*)\s*\(/gm,
+  /(?:^|\n)\s*(?:export\s+)?(?:const|let|var)\s+([a-zA-Z_$][\w$]*)\s*=\s*(?:async\s+)?\([^)]*\)\s*=>/gm,
+  /(?:^|\n)\s*(?:export\s+)?(?:const|let|var)\s+([a-zA-Z_$][\w$]*)\s*=\s*(?:async\s+)?function\s*\(/gm,
+  /(?:^|\n)\s*([a-zA-Z_$][\w$]*)\s*\([^)]*\)\s*\{/gm, // method shorthand
+  /(?:^|\n)\s*(?:get|set)\s+([a-zA-Z_$][\w$]*)\s*\(/gm
+];
+
+// JS/TS class declarations
+const CLASS_PATTERN = /(?:^|\n)\s*(?:export\s+)?class\s+([a-zA-Z_$][\w$]*)/gm;
+
+// JS/TS imports
+const IMPORT_PATTERNS = [
+  /import\s+(?:(?:\*|[a-zA-Z_$][\w$]*)\s+as\s+)?([a-zA-Z_$][\w$]*)\s+from\s+['"]([^'"]+)['"]/gm,
+  /import\s+\{([^}]+)\}\s+from\s+['"]([^'"]+)['"]/gm,
+  /import\s+['"]([^'"]+)['"]/gm,
+  /require\(['"]([^'"]+)['"]\)/gm
+];
+
+// JS/TS function calls
+const CALL_PATTERN = /([a-zA-Z_$][\w$]*)\s*\(/gm;
+
+// Concepts from comments: // @concept Name or /* @concept Name */
+const CONCEPT_PATTERN = /@(?:concept|idea|note|todo|fixme|hack|question)\s+([a-zA-Z_$][\w\s$-]*)/gim;
+
+// --- Core Graph Functions ---
+
+function createEmptyGraph() {
+  return {
+    schemaVersion: GRAPH_SCHEMA_VERSION,
+    nodes: [],
+    edges: [],
+    updatedAt: Date.now()
+  };
+}
+
+function getNodeId(type, name, filePath) {
+  return `${type}:${filePath}:${name}`.toLowerCase();
+}
+
+function findNode(graph, nodeId) {
+  return graph.nodes.find(n => n.id === nodeId);
+}
+
+function addNode(graph, type, name, filePath, meta = {}) {
+  const id = getNodeId(type, name, filePath);
+  let node = findNode(graph, id);
+  if (!node) {
+    node = { id, type, name, filePath, meta };
+    graph.nodes.push(node);
+  }
+  return node;
+}
+
+function addEdge(graph, fromId, toId, type, confidence = CONFIDENCE.INFERRED, meta = {}) {
+  // Avoid duplicate edges
+  const exists = graph.edges.some(e => 
+    e.from === fromId && e.to === toId && e.type === type
+  );
+  if (!exists) {
+    graph.edges.push({ from: fromId, to: toId, type, confidence, meta });
+  }
+}
+
+// --- File parsers ---
+
+function parseJavaScript(content, filePath, graph) {
+  const fileNode = addNode(graph, NODE_TYPES.FILE, filePath, filePath, { language: 'javascript' });
+  
+  // Functions
+  for (const pattern of FUNC_PATTERNS) {
+    let match;
+    pattern.lastIndex = 0;
+    while ((match = pattern.exec(content)) !== null) {
+      const funcName = match[1];
+      if (funcName && funcName.length > 1) {
+        const funcNode = addNode(graph, NODE_TYPES.FUNCTION, funcName, filePath, { 
+          language: 'javascript',
+          line: content.slice(0, match.index).split('\n').length
+        });
+        addEdge(graph, fileNode.id, funcNode.id, EDGE_TYPES.DEFINES, CONFIDENCE.EXTRACTED);
+      }
+    }
+  }
+  
+  // Classes
+  let match;
+  CLASS_PATTERN.lastIndex = 0;
+  while ((match = CLASS_PATTERN.exec(content)) !== null) {
+    const className = match[1];
+    const classNode = addNode(graph, NODE_TYPES.CLASS, className, filePath, {
+      language: 'javascript',
+      line: content.slice(0, match.index).split('\n').length
+    });
+    addEdge(graph, fileNode.id, classNode.id, EDGE_TYPES.DEFINES, CONFIDENCE.EXTRACTED);
+  }
+  
+  // Imports
+  for (const pattern of IMPORT_PATTERNS) {
+    pattern.lastIndex = 0;
+    while ((match = pattern.exec(content)) !== null) {
+      const imported = match[1];
+      const from = match[2] || match[1]; // for bare imports
+      const importNode = addNode(graph, NODE_TYPES.IMPORT, imported, filePath, { 
+        from: from,
+        language: 'javascript'
+      });
+      addEdge(graph, fileNode.id, importNode.id, EDGE_TYPES.IMPORTS, CONFIDENCE.EXTRACTED, { from });
+    }
+  }
+  
+  // Function calls (simple heuristic - find identifiers followed by ()
+  const callMatches = [...content.matchAll(CALL_PATTERN)];
+  const seenCalls = new Set();
+  for (const callMatch of callMatches) {
+    const callName = callMatch[1];
+    // Skip common keywords and built-ins
+    if (callName.length > 1 && 
+        !['if', 'for', 'while', 'switch', 'catch', 'return', 'typeof', 'instanceof', 'new', 'console', 'log', 'error', 'warn', 'setTimeout', 'setInterval', 'Promise', 'Object', 'Array', 'String', 'Number', 'Boolean', 'Date', 'Math', 'JSON', 'parseInt', 'parseFloat'].includes(callName) &&
+        !seenCalls.has(callName.toLowerCase())) {
+      seenCalls.add(callName.toLowerCase());
+      const callNode = addNode(graph, NODE_TYPES.FUNCTION, callName, filePath, { 
+        language: 'javascript',
+        isCall: true
+      });
+      // We don't know the target file yet - mark as INFERRED, will resolve later
+      addEdge(graph, fileNode.id, callNode.id, EDGE_TYPES.CALLS, CONFIDENCE.INFERRED);
+    }
+  }
+  
+  // Concepts from comments
+  const conceptMatches = [...content.matchAll(CONCEPT_PATTERN)];
+  for (const cMatch of conceptMatches) {
+    const conceptName = cMatch[1].trim().slice(0, 60);
+    if (conceptName.length > 2) {
+      const conceptNode = addNode(graph, NODE_TYPES.CONCEPT, conceptName, filePath, {
+        language: 'javascript',
+        source: cMatch[0].slice(0, 100)
+      });
+      addEdge(graph, fileNode.id, conceptNode.id, EDGE_TYPES.DEFINES, CONFIDENCE.EXTRACTED);
+    }
+  }
+}
+
+function parseTypeScript(content, filePath, graph) {
+  // TypeScript uses same patterns as JavaScript for now
+  parseJavaScript(content, filePath, graph);
+  
+  // Additional: interfaces, types
+  const interfacePattern = /(?:^|\n)\s*(?:export\s+)?interface\s+([a-zA-Z_$][\w$]*)/gm;
+  let match;
+  while ((match = interfacePattern.exec(content)) !== null) {
+    const name = match[1];
+    const node = addNode(graph, NODE_TYPES.CLASS, name, filePath, { 
+      language: 'typescript',
+      isInterface: true,
+      line: content.slice(0, match.index).split('\n').length
+    });
+    const fileNode = findNode(graph, getNodeId(NODE_TYPES.FILE, filePath, filePath));
+    if (fileNode) addEdge(graph, fileNode.id, node.id, EDGE_TYPES.DEFINES, CONFIDENCE.EXTRACTED);
+  }
+  
+  const typePattern = /(?:^|\n)\s*(?:export\s+)?type\s+([a-zA-Z_$][\w$]*)\s*=/gm;
+  while ((match = typePattern.exec(content)) !== null) {
+    const name = match[1];
+    const node = addNode(graph, NODE_TYPES.CONCEPT, name, filePath, { 
+      language: 'typescript',
+      isTypeAlias: true,
+      line: content.slice(0, match.index).split('\n').length
+    });
+    const fileNode = findNode(graph, getNodeId(NODE_TYPES.FILE, filePath, filePath));
+    if (fileNode) addEdge(graph, fileNode.id, node.id, EDGE_TYPES.DEFINES, CONFIDENCE.EXTRACTED);
+  }
+}
+
+function parseHTML(content, filePath, graph) {
+  const fileNode = addNode(graph, NODE_TYPES.FILE, filePath, filePath, { language: 'html' });
+  
+  // Script tags with src
+  const scriptSrcPattern = /<script\s+[^>]*src\s*=\s*['"]([^'"]+)['"]/gi;
+  let match;
+  while ((match = scriptSrcPattern.exec(content)) !== null) {
+    const src = match[1];
+    const importNode = addNode(graph, NODE_TYPES.IMPORT, src, filePath, { from: src });
+    addEdge(graph, fileNode.id, importNode.id, EDGE_TYPES.IMPORTS, CONFIDENCE.EXTRACTED, { from: src });
+  }
+  
+  // Link tags (CSS)
+  const linkPattern = /<link\s+[^>]*href\s*=\s*['"]([^'"]+\.css)['"]/gi;
+  while ((match = linkPattern.exec(content)) !== null) {
+    const href = match[1];
+    const importNode = addNode(graph, NODE_TYPES.IMPORT, href, filePath, { from: href });
+    addEdge(graph, fileNode.id, importNode.id, EDGE_TYPES.IMPORTS, CONFIDENCE.EXTRACTED, { from: href });
+  }
+  
+  // Inline scripts - parse as JS
+  const inlineScriptPattern = /<script[^>]*>([\s\S]*?)<\/script>/gi;
+  while ((match = inlineScriptPattern.exec(content)) !== null) {
+    const scriptContent = match[1];
+    if (scriptContent.trim() && !scriptContent.includes('src=')) {
+      parseJavaScript(scriptContent, filePath + '::inline-script', graph);
+    }
+  }
+  
+  // IDs and classes as concepts
+  const idPattern = /id\s*=\s*['"]([^'"]+)['"]/gi;
+  while ((match = idPattern.exec(content)) !== null) {
+    const conceptNode = addNode(graph, NODE_TYPES.CONCEPT, `DOM:#${match[1]}`, filePath, { elementType: 'id' });
+    addEdge(graph, fileNode.id, conceptNode.id, EDGE_TYPES.DEFINES, CONFIDENCE.EXTRACTED);
+  }
+  
+  const classPattern = /class\s*=\s*['"]([^'"]+)['"]/gi;
+  while ((match = classPattern.exec(content)) !== null) {
+    const classes = match[1].split(/\s+/);
+    for (const cls of classes) {
+      if (cls.trim()) {
+        const conceptNode = addNode(graph, NODE_TYPES.CONCEPT, `DOM:.${cls.trim()}`, filePath, { elementType: 'class' });
+        addEdge(graph, fileNode.id, conceptNode.id, EDGE_TYPES.DEFINES, CONFIDENCE.EXTRACTED);
+      }
+    }
+  }
+}
+
+function parseCSS(content, filePath, graph) {
+  const fileNode = addNode(graph, NODE_TYPES.FILE, filePath, filePath, { language: 'css' });
+  
+  // CSS classes
+  const classPattern = /\.([a-zA-Z_-][\w-]*)\s*\{/g;
+  let match;
+  while ((match = classPattern.exec(content)) !== null) {
+    const className = match[1];
+    const conceptNode = addNode(graph, NODE_TYPES.CONCEPT, `.${className}`, filePath, { cssType: 'class' });
+    addEdge(graph, fileNode.id, conceptNode.id, EDGE_TYPES.DEFINES, CONFIDENCE.EXTRACTED);
+  }
+  
+  // CSS IDs
+  const idPattern = /#([a-zA-Z_-][\w-]*)\s*\{/g;
+  while ((match = idPattern.exec(content)) !== null) {
+    const idName = match[1];
+    const conceptNode = addNode(graph, NODE_TYPES.CONCEPT, `#${idName}`, filePath, { cssType: 'id' });
+    addEdge(graph, fileNode.id, conceptNode.id, EDGE_TYPES.DEFINES, CONFIDENCE.EXTRACTED);
+  }
+  
+  // @import
+  const importPattern = /@import\s+['"]([^'"]+)['"]/g;
+  while ((match = importPattern.exec(content)) !== null) {
+    const importNode = addNode(graph, NODE_TYPES.IMPORT, match[1], filePath, { from: match[1] });
+    addEdge(graph, fileNode.id, importNode.id, EDGE_TYPES.IMPORTS, CONFIDENCE.EXTRACTED, { from: match[1] });
+  }
+  
+  // CSS custom properties (variables)
+  const varPattern = /(--[\w-]+)\s*:/g;
+  while ((match = varPattern.exec(content)) !== null) {
+    const varNode = addNode(graph, NODE_TYPES.VARIABLE, match[1], filePath, { cssVar: true });
+    addEdge(graph, fileNode.id, varNode.id, EDGE_TYPES.DEFINES, CONFIDENCE.EXTRACTED);
+  }
+}
+
+// --- Main indexer ---
+
+function buildCodeGraph(session) {
+  if (!session || !session.files) {
+    logActivity('buildCodeGraph: no session or files', 'warning');
+    return createEmptyGraph();
+  }
+  
+  const graph = createEmptyGraph();
+  const supportedExtensions = ['.js', '.ts', '.jsx', '.tsx', '.html', '.css', '.mjs', '.cjs'];
+  
+  for (const [filePath, content] of Object.entries(session.files)) {
+    if (!content || typeof content !== 'string') continue;
+    
+    const ext = '.' + filePath.split('.').pop().toLowerCase();
+    if (!supportedExtensions.includes(ext)) continue;
+    
+    try {
+      if (ext === '.html' || ext === '.htm') {
+        parseHTML(content, filePath, graph);
+      } else if (ext === '.css') {
+        parseCSS(content, filePath, graph);
+      } else if (ext === '.ts' || ext === '.tsx') {
+        parseTypeScript(content, filePath, graph);
+      } else {
+        parseJavaScript(content, filePath, graph);
+      }
+    } catch (e) {
+      logActivity(`Graph parse error for ${filePath}: ${e.message}`, 'warning');
+    }
+  }
+  
+  // Resolve cross-file references (INFERRED edges)
+  resolveCrossFileReferences(graph);
+  
+  graph.updatedAt = Date.now();
+  codeGraphCache = graph;
+  codeGraphDirty = false;
+  
+  logActivity(`Code graph built: ${graph.nodes.length} nodes, ${graph.edges.length} edges`, 'success');
+  return graph;
+}
+
+function resolveCrossFileReferences(graph) {
+  // Map of function/class names to their defining nodes
+  const definitions = new Map();
+  for (const node of graph.nodes) {
+    if ((node.type === NODE_TYPES.FUNCTION || node.type === NODE_TYPES.CLASS) && !node.meta.isCall) {
+      const key = `${node.name.toLowerCase()}:${node.filePath}`;
+      definitions.set(key, node.id);
+      // Also index by name only for cross-file resolution
+      const nameKey = node.name.toLowerCase();
+      if (!definitions.has(nameKey)) {
+        definitions.set(nameKey, node.id);
+      }
+    }
+    if (node.type === NODE_TYPES.IMPORT) {
+      definitions.set(`import:${node.name.toLowerCase()}`, node.id);
+    }
+  }
+  
+  // Resolve calls to definitions
+  for (const edge of graph.edges) {
+    if (edge.type === EDGE_TYPES.CALLS && edge.confidence === CONFIDENCE.INFERRED) {
+      const toNode = graph.nodes.find(n => n.id === edge.to);
+      if (toNode && toNode.meta.isCall) {
+        const nameKey = toNode.name.toLowerCase();
+        const defId = definitions.get(nameKey);
+        if (defId && defId !== edge.from) {
+          // Found a definition - update edge to point to it with EXTRACTED confidence
+          edge.to = defId;
+          edge.confidence = CONFIDENCE.EXTRACTED;
+          edge.meta.resolved = true;
+        }
+      }
+    }
+    
+    // Resolve imports to file nodes
+    if (edge.type === EDGE_TYPES.IMPORTS && edge.meta.from) {
+      const importPath = edge.meta.from;
+      // Try to find a matching file node
+      for (const node of graph.nodes) {
+        if (node.type === NODE_TYPES.FILE && 
+            (node.name.endsWith(importPath) || node.name.includes(importPath.replace('./', '')))) {
+          edge.to = node.id;
+          edge.confidence = CONFIDENCE.EXTRACTED;
+          edge.meta.resolvedFile = node.id;
+          break;
+        }
+      }
+    }
+  }
+}
+
+// --- Persistence ---
+
+function saveCodeGraph(session, graph) {
+  if (!session) return false;
+  
+  session.files[GRAPH_FILE] = JSON.stringify(graph, null, 2);
+  saveAppState();
+  logActivity('Code graph saved to ' + GRAPH_FILE, 'success');
+  return true;
+}
+
+function loadCodeGraph(session) {
+  if (!session || !session.files[GRAPH_FILE]) return null;
+  
+  try {
+    const graph = JSON.parse(session.files[GRAPH_FILE]);
+    if (graph.schemaVersion !== GRAPH_SCHEMA_VERSION) {
+      logActivity('Graph schema version mismatch, will rebuild', 'warning');
+      return null;
+    }
+    codeGraphCache = graph;
+    codeGraphDirty = false;
+    logActivity(`Code graph loaded: ${graph.nodes.length} nodes, ${graph.edges.length} edges`, 'success');
+    return graph;
+  } catch (e) {
+    logActivity('Failed to load code graph: ' + e.message, 'warning');
+    return null;
+  }
+}
+
+function getOrBuildCodeGraph(session) {
+  if (!codeGraphDirty && codeGraphCache) return codeGraphCache;
+  
+  let graph = loadCodeGraph(session);
+  if (!graph) {
+    graph = buildCodeGraph(session);
+    saveCodeGraph(session, graph);
+  }
+  return graph;
+}
+
+function markGraphDirty() {
+  codeGraphDirty = true;
+  if (graphRebuildTimer) clearTimeout(graphRebuildTimer);
+  graphRebuildTimer = setTimeout(() => {
+    const session = getCurrentSession();
+    if (session) {
+      const graph = buildCodeGraph(session);
+      saveCodeGraph(session, graph);
+      renderGraphPanel(); // Refresh UI if open
+    }
+  }, GRAPH_REBUILD_DEBOUNCE_MS);
+}
+
+// --- Query APIs ---
+
+function queryGraph(question) {
+  const session = getCurrentSession();
+  if (!session) return { nodes: [], edges: [], summary: 'No active session' };
+  
+  const graph = getOrBuildCodeGraph(session);
+  if (!graph || graph.nodes.length === 0) {
+    return { nodes: [], edges: [], summary: 'Graph is empty — run buildCodeGraph first' };
+  }
+  
+  // Simple keyword-based relevance scoring
+  const keywords = question.toLowerCase()
+    .split(/\s+/)
+    .filter(w => w.length > 2)
+    .slice(0, 10);
+  
+  const scoredNodes = graph.nodes.map(node => {
+    let score = 0;
+    const searchText = `${node.name} ${node.filePath} ${JSON.stringify(node.meta)}`.toLowerCase();
+    for (const kw of keywords) {
+      if (searchText.includes(kw)) score += 1;
+      if (node.name.toLowerCase().includes(kw)) score += 3;
+      if (node.filePath.toLowerCase().includes(kw)) score += 2;
+    }
+    return { node, score };
+  }).filter(s => s.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 30);
+  
+  const relevantNodeIds = new Set(scoredNodes.map(s => s.node.id));
+  
+  // Include connected nodes (1 hop)
+  for (const edge of graph.edges) {
+    if (relevantNodeIds.has(edge.from)) relevantNodeIds.add(edge.to);
+    if (relevantNodeIds.has(edge.to)) relevantNodeIds.add(edge.from);
+  }
+  
+  const subgraphNodes = graph.nodes.filter(n => relevantNodeIds.has(n.id));
+  const subgraphEdges = graph.edges.filter(e => relevantNodeIds.has(e.from) && relevantNodeIds.has(e.to));
+  
+  // Generate summary
+  const topConcepts = subgraphNodes
+    .filter(n => n.type === NODE_TYPES.CONCEPT || n.type === NODE_TYPES.CLASS)
+    .slice(0, 5)
+    .map(n => n.name);
+  
+  return {
+    nodes: subgraphNodes,
+    edges: subgraphEdges,
+    summary: `Found ${subgraphNodes.length} relevant nodes, ${subgraphEdges.length} edges. Top concepts: ${topConcepts.join(', ') || 'none'}`,
+    question
+  };
+}
+
+function pathGraph(fromName, toName) {
+  const session = getCurrentSession();
+  if (!session) return { path: [], summary: 'No active session' };
+  
+  const graph = getOrBuildCodeGraph(session);
+  if (!graph || graph.nodes.length === 0) {
+    return { path: [], summary: 'Graph is empty' };
+  }
+  
+  // Find nodes by name (fuzzy match)
+  const fromNode = graph.nodes.find(n => n.name.toLowerCase().includes(fromName.toLowerCase()));
+  const toNode = graph.nodes.find(n => n.name.toLowerCase().includes(toName.toLowerCase()));
+  
+  if (!fromNode || !toNode) {
+    return { 
+      path: [], 
+      summary: `Node not found: ${!fromNode ? fromName : ''} ${!toNode ? toName : ''}` 
+    };
+  }
+  
+  // BFS for shortest path
+  const queue = [{ nodeId: fromNode.id, path: [fromNode.id] }];
+  const visited = new Set([fromNode.id]);
+  let foundPath = null;
+  
+  while (queue.length > 0 && !foundPath) {
+    const { nodeId, path } = queue.shift();
+    if (nodeId === toNode.id) {
+      foundPath = path;
+      break;
+    }
+    
+    for (const edge of graph.edges) {
+      let nextId = null;
+      if (edge.from === nodeId && !visited.has(edge.to)) nextId = edge.to;
+      else if (edge.to === nodeId && !visited.has(edge.from)) nextId = edge.from;
+      
+      if (nextId) {
+        visited.add(nextId);
+        queue.push({ nodeId: nextId, path: [...path, nextId] });
+      }
+    }
+  }
+  
+  if (!foundPath) {
+    return { path: [], summary: `No path between "${fromName}" and "${toName}"` };
+  }
+  
+  const pathNodes = foundPath.map(id => graph.nodes.find(n => n.id === id)).filter(Boolean);
+  const pathEdges = [];
+  for (let i = 0; i < foundPath.length - 1; i++) {
+    const edge = graph.edges.find(e => 
+      (e.from === foundPath[i] && e.to === foundPath[i+1]) ||
+      (e.to === foundPath[i] && e.from === foundPath[i+1])
+    );
+    if (edge) pathEdges.push(edge);
+  }
+  
+  return {
+    path: pathNodes,
+    edges: pathEdges,
+    summary: `Path length: ${foundPath.length - 1} hops`
+  };
+}
+
+function explainGraph(conceptName) {
+  const session = getCurrentSession();
+  if (!session) return { node: null, connections: [], summary: 'No active session' };
+  
+  const graph = getOrBuildCodeGraph(session);
+  if (!graph) return { node: null, connections: [], summary: 'Graph not built' };
+  
+  const node = graph.nodes.find(n => 
+    n.name.toLowerCase() === conceptName.toLowerCase() ||
+    n.name.toLowerCase().includes(conceptName.toLowerCase())
+  );
+  
+  if (!node) {
+    return { node: null, connections: [], summary: `Concept "${conceptName}" not found in graph` };
+  }
+  
+  // Get all edges connected to this node
+  const connections = graph.edges.filter(e => e.from === node.id || e.to === node.id);
+  const connectedNodeIds = new Set();
+  for (const edge of connections) {
+    connectedNodeIds.add(edge.from === node.id ? edge.to : edge.from);
+  }
+  const connectedNodes = graph.nodes.filter(n => connectedNodeIds.has(n.id));
+  
+  // Group by edge type
+  const byType = {};
+  for (const edge of connections) {
+    const otherId = edge.from === node.id ? edge.to : edge.from;
+    const otherNode = graph.nodes.find(n => n.id === otherId);
+    if (!otherNode) continue;
+    const type = edge.type;
+    if (!byType[type]) byType[type] = [];
+    byType[type].push({ 
+      node: otherNode, 
+      confidence: edge.confidence,
+      direction: edge.from === node.id ? 'outgoing' : 'incoming'
+    });
+  }
+  
+  return {
+    node,
+    connections,
+    connectedNodes,
+    byType,
+    summary: `"${node.name}" (${node.type}) — ${connections.length} connections: ${Object.entries(byType).map(([t, arr]) => `${t}:${arr.length}`).join(', ')}`
+  };
+}
+
+function getGraphSummary() {
+  const session = getCurrentSession();
+  if (!session) return 'No active session';
+  
+  const graph = getOrBuildCodeGraph(session);
+  if (!graph || graph.nodes.length === 0) return 'Code graph is empty';
+  
+  const byType = {};
+  for (const node of graph.nodes) {
+    byType[node.type] = (byType[node.type] || 0) + 1;
+  }
+  
+  const byConfidence = { EXTRACTED: 0, INFERRED: 0 };
+  for (const edge of graph.edges) {
+    byConfidence[edge.confidence] = (byConfidence[edge.confidence] || 0) + 1;
+  }
+  
+  // Top concepts (nodes with most connections)
+  const connectionCounts = {};
+  for (const edge of graph.edges) {
+    connectionCounts[edge.from] = (connectionCounts[edge.from] || 0) + 1;
+    connectionCounts[edge.to] = (connectionCounts[edge.to] || 0) + 1;
+  }
+  const topNodes = Object.entries(connectionCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([id, count]) => {
+      const n = graph.nodes.find(node => node.id === id);
+      return n ? `${n.name} (${count})` : id;
+    });
+  
+  return `Code Graph: ${graph.nodes.length} nodes (${Object.entries(byType).map(([t,c])=>`${t}:${c}`).join(', ')}), ${graph.edges.length} edges (${byConfidence.EXTRACTED} extracted, ${byConfidence.INFERRED} inferred). Hubs: ${topNodes.join(', ')}. Updated: ${new Date(graph.updatedAt).toLocaleTimeString()}`;
+}
+
+// ==================== CODE GRAPH VIEW RENDERING ====================
+
+// Graph visualization state
+let graphViewState = {
+  nodes: [],
+  edges: [],
+  positions: new Map(), // nodeId -> {x, y}
+  selectedNode: null,
+  hoveredNode: null,
+  dragState: null, // {nodeId, startX, startY, nodeStartX, nodeStartY}
+  pan: { x: 0, y: 0 },
+  zoom: 1,
+  animationFrame: null
+};
+
+const NODE_COLORS = {
+  file: '#3b82f6',      // blue
+  function: '#10b981',  // green
+  class: '#8b5cf6',     // purple
+  concept: '#f59e0b',   // amber
+  variable: '#ec4899',  // pink
+  import: '#06b6d4'     // cyan
+};
+
+const NODE_ICONS = {
+  file: '📄',
+  function: '⚡',
+  class: '🏗',
+  concept: '💡',
+  variable: '📦',
+  import: '📥'
+};
+
+function getNodeColor(type) {
+  return NODE_COLORS[type] || '#8e9aaf';
+}
+
+function getNodeIcon(type) {
+  return NODE_ICONS[type] || '•';
+}
+
+function initGraphCanvas() {
+  const canvas = document.getElementById('graphCanvas');
+  if (!canvas) return;
+  
+  const container = canvas.parentElement;
+  const rect = container.getBoundingClientRect();
+  
+  // Set canvas size to match container
+  canvas.width = rect.width * window.devicePixelRatio;
+  canvas.height = rect.height * window.devicePixelRatio;
+  canvas.style.width = rect.width + 'px';
+  canvas.style.height = rect.height + 'px';
+  
+  const ctx = canvas.getContext('2d');
+  ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+  
+  // Initialize pan to center
+  graphViewState.pan = { x: rect.width / 2, y: rect.height / 2 };
+  graphViewState.zoom = 1;
+  
+  // Set up event listeners
+  setupGraphCanvasEvents(canvas);
+  
+  // Start render loop
+  startGraphRenderLoop();
+}
+
+function setupGraphCanvasEvents(canvas) {
+  const container = canvas.parentElement;
+  
+  // Mouse down - drag node or pan
+  container.addEventListener('mousedown', (e) => {
+    const rect = container.getBoundingClientRect();
+    const x = (e.clientX - rect.left - graphViewState.pan.x) / graphViewState.zoom;
+    const y = (e.clientY - rect.top - graphViewState.pan.y) / graphViewState.zoom;
+    
+    // Check if clicking on a node
+    const node = hitTestNode(x, y);
+    if (node) {
+      graphViewState.dragState = {
+        nodeId: node.id,
+        startX: e.clientX,
+        startY: e.clientY,
+        nodeStartX: graphViewState.positions.get(node.id)?.x || 0,
+        nodeStartY: graphViewState.positions.get(node.id)?.y || 0
+      };
+      graphViewState.selectedNode = node.id;
+    } else {
+      // Pan
+      graphViewState.dragState = {
+        panStartX: graphViewState.pan.x,
+        panStartY: graphViewState.pan.y,
+        startX: e.clientX,
+        startY: e.clientY
+      };
+    }
+    e.preventDefault();
+  });
+  
+  // Mouse move - drag or hover
+  container.addEventListener('mousemove', (e) => {
+    const rect = container.getBoundingClientRect();
+    const x = (e.clientX - rect.left - graphViewState.pan.x) / graphViewState.zoom;
+    const y = (e.clientY - rect.top - graphViewState.pan.y) / graphViewState.zoom;
+    
+    if (graphViewState.dragState) {
+      if (graphViewState.dragState.nodeId) {
+        // Drag node
+        const dx = e.clientX - graphViewState.dragState.startX;
+        const dy = e.clientY - graphViewState.dragState.startY;
+        const pos = graphViewState.positions.get(graphViewState.dragState.nodeId);
+        if (pos) {
+          pos.x = graphViewState.dragState.nodeStartX + dx / graphViewState.zoom;
+          pos.y = graphViewState.dragState.nodeStartY + dy / graphViewState.zoom;
+        }
+      } else if (graphViewState.dragState.panStartX !== undefined) {
+        // Pan
+        graphViewState.pan.x = graphViewState.dragState.panStartX + (e.clientX - graphViewState.dragState.startX);
+        graphViewState.pan.y = graphViewState.dragState.panStartY + (e.clientY - graphViewState.dragState.startY);
+      }
+    } else {
+      // Hover
+      const node = hitTestNode(x, y);
+      if (node !== graphViewState.hoveredNode) {
+        graphViewState.hoveredNode = node;
+        updateGraphTooltip(node, e.clientX, e.clientY);
+      }
+    }
+  });
+  
+  // Mouse up - end drag
+  container.addEventListener('mouseup', () => {
+    graphViewState.dragState = null;
+  });
+  
+  // Mouse leave - end drag, hide tooltip
+  container.addEventListener('mouseleave', () => {
+    graphViewState.dragState = null;
+    graphViewState.hoveredNode = null;
+    hideGraphTooltip();
+  });
+  
+  // Click - select node
+  container.addEventListener('click', (e) => {
+    const rect = container.getBoundingClientRect();
+    const x = (e.clientX - rect.left - graphViewState.pan.x) / graphViewState.zoom;
+    const y = (e.clientY - rect.top - graphViewState.pan.y) / graphViewState.zoom;
+    
+    const node = hitTestNode(x, y);
+    if (node) {
+      graphViewState.selectedNode = node.id;
+      onGraphNodeClick(node);
+    } else {
+      graphViewState.selectedNode = null;
+    }
+  });
+  
+  // Wheel - zoom
+  container.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const rect = container.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+    
+    const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+    const newZoom = Math.max(0.1, Math.min(5, graphViewState.zoom * zoomFactor));
+    
+    // Zoom towards mouse position
+    graphViewState.pan.x = mouseX - (mouseX - graphViewState.pan.x) * (newZoom / graphViewState.zoom);
+    graphViewState.pan.y = mouseY - (mouseY - graphViewState.pan.y) * (newZoom / graphViewState.zoom);
+    graphViewState.zoom = newZoom;
+  }, { passive: false });
+  
+  // Double click - reset view
+  container.addEventListener('dblclick', () => {
+    resetGraphView();
+  });
+}
+
+function hitTestNode(x, y) {
+  for (const node of graphViewState.nodes) {
+    const pos = graphViewState.positions.get(node.id);
+    if (!pos) continue;
+    
+    const radius = getNodeRadius(node);
+    const dx = x - pos.x;
+    const dy = y - pos.y;
+    if (dx * dx + dy * dy <= radius * radius) {
+      return node;
+    }
+  }
+  return null;
+}
+
+function getNodeRadius(node) {
+  // Base radius by type
+  const baseRadius = {
+    file: 18,
+    function: 14,
+    class: 16,
+    concept: 12,
+    variable: 10,
+    import: 12
+  };
+  return (baseRadius[node.type] || 12) * 1.2; // Slightly larger for hit testing
+}
+
+function getNodeDrawRadius(node) {
+  const baseRadius = {
+    file: 18,
+    function: 14,
+    class: 16,
+    concept: 12,
+    variable: 10,
+    import: 12
+  };
+  return baseRadius[node.type] || 12;
+}
+
+function updateGraphTooltip(node, clientX, clientY) {
+  const tooltip = document.getElementById('graphTooltip');
+  if (!tooltip || !node) return;
+  
+  const connections = graphViewState.edges.filter(e => e.from === node.id || e.to === node.id);
+  const extracted = connections.filter(e => e.confidence === 'EXTRACTED').length;
+  const inferred = connections.filter(e => e.confidence === 'INFERRED').length;
+  
+  tooltip.innerHTML = `
+    <div style="font-weight:600; color:${getNodeColor(node.type)};">${getNodeIcon(node.type)} ${escapeHtml(node.name)}</div>
+    <div style="color:var(--text-dim); font-size:9px; margin-top:2px;">${escapeHtml(node.filePath)}</div>
+    <div style="color:var(--text-dim); font-size:9px; margin-top:2px;">Type: ${node.type}</div>
+    <div style="margin-top:4px; padding-top:4px; border-top:1px solid var(--border-color); font-size:9px;">
+      Connections: ${connections.length} (✓${extracted} ~${inferred})
+    </div>
+    <div style="font-size:9px; color:var(--accent-blue); margin-top:4px;">Click to open file</div>
+  `;
+  
+  tooltip.style.display = 'block';
+  tooltip.style.left = (clientX + 12) + 'px';
+  tooltip.style.top = (clientY - 12) + 'px';
+}
+
+function hideGraphTooltip() {
+  const tooltip = document.getElementById('graphTooltip');
+  if (tooltip) tooltip.style.display = 'none';
+}
+
+function onGraphNodeClick(node) {
+  // Jump to file in editor
+  if (node.filePath && node.filePath !== node.name) {
+    openFile(node.filePath);
+    // Switch to agent pane to show file
+    switchPane('agent');
+    logActivity(`Opened ${node.filePath} from graph (${node.type}: ${node.name})`, 'info');
+  }
+}
+
+function renderGraphPanel() {
+  const session = getCurrentSession();
+  if (!session) return;
+  
+  const graph = getOrBuildCodeGraph(session);
+  if (!graph) return;
+  
+  // Apply filters
+  const searchText = (document.getElementById('graphSearchInput')?.value || '').toLowerCase();
+  const typeFilter = document.getElementById('graphNodeTypeFilter')?.value || '';
+  const confidenceFilter = document.getElementById('graphEdgeConfidenceFilter')?.value || '';
+  
+  let filteredNodes = graph.nodes.filter(node => {
+    if (typeFilter && node.type !== typeFilter) return false;
+    if (searchText) {
+      const searchable = `${node.name} ${node.filePath} ${JSON.stringify(node.meta)}`.toLowerCase();
+      if (!searchable.includes(searchText)) return false;
+    }
+    return true;
+  });
+  
+  const filteredNodeIds = new Set(filteredNodes.map(n => n.id));
+  let filteredEdges = graph.edges.filter(e => 
+    filteredNodeIds.has(e.from) && filteredNodeIds.has(e.to) &&
+    (!confidenceFilter || e.confidence === confidenceFilter)
+  );
+  
+  graphViewState.nodes = filteredNodes;
+  graphViewState.edges = filteredEdges;
+  
+  // Initialize positions for new nodes
+  const canvas = document.getElementById('graphCanvas');
+  const container = canvas?.parentElement;
+  const width = container?.clientWidth || 400;
+  const height = container?.clientHeight || 300;
+  const centerX = width / 2;
+  const centerY = height / 2;
+  
+  // Force-directed layout initialization for nodes without positions
+  for (const node of filteredNodes) {
+    if (!graphViewState.positions.has(node.id)) {
+      // Place nodes in a circle initially, grouped by file
+      const fileNodes = filteredNodes.filter(n => n.filePath === node.filePath);
+      const fileIndex = filteredNodes.findIndex(n => n.filePath === node.filePath && n.type === 'file');
+      const angle = (fileIndex / Math.max(1, filteredNodes.length)) * Math.PI * 2;
+      const radius = 150 + Math.random() * 100;
+      graphViewState.positions.set(node.id, {
+        x: centerX + Math.cos(angle) * radius,
+        y: centerY + Math.sin(angle) * radius
+      });
+    }
+  }
+  
+  // Run force-directed layout for a few iterations
+  runForceLayout(50);
+  
+  // Update info bar
+  updateGraphInfoBar();
+  
+  // Ensure canvas is initialized
+  if (canvas && !graphViewState.animationFrame) {
+    initGraphCanvas();
+  }
+}
+
+function runForceLayout(iterations) {
+  const nodes = graphViewState.nodes;
+  const edges = graphViewState.edges;
+  const positions = graphViewState.positions;
+  
+  if (nodes.length === 0) return;
+  
+  const canvas = document.getElementById('graphCanvas');
+  const container = canvas?.parentElement;
+  const width = container?.clientWidth || 400;
+  const height = container?.clientHeight || 300;
+  const centerX = width / 2;
+  const centerY = height / 2;
+  
+  // Build adjacency
+  const adjacency = new Map();
+  for (const edge of edges) {
+    if (!adjacency.has(edge.from)) adjacency.set(edge.from, []);
+    if (!adjacency.has(edge.to)) adjacency.set(edge.to, []);
+    adjacency.get(edge.from).push(edge.to);
+    adjacency.get(edge.to).push(edge.from);
+  }
+  
+  for (let iter = 0; iter < iterations; iter++) {
+    const forces = new Map();
+    
+    // Repulsion between all nodes
+    for (let i = 0; i < nodes.length; i++) {
+      const n1 = nodes[i];
+      const p1 = positions.get(n1.id) || { x: centerX, y: centerY };
+      let fx = 0, fy = 0;
+      
+      for (let j = i + 1; j < nodes.length; j++) {
+        const n2 = nodes[j];
+        const p2 = positions.get(n2.id) || { x: centerX, y: centerY };
+        const dx = p1.x - p2.x;
+        const dy = p1.y - p2.y;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 0.1;
+        
+        // Repulsion force
+        const force = 5000 / (dist * dist);
+        fx += (dx / dist) * force;
+        fy += (dy / dist) * force;
+      }
+      
+      forces.set(n1.id, { x: fx, y: fy });
+    }
+    
+    // Attraction along edges
+    for (const edge of edges) {
+      const p1 = positions.get(edge.from);
+      const p2 = positions.get(edge.to);
+      if (!p1 || !p2) continue;
+      
+      const dx = p2.x - p1.x;
+      const dy = p2.y - p1.y;
+      const dist = Math.sqrt(dx * dx + dy * dy) || 0.1;
+      
+      // Spring force
+      const targetDist = 80;
+      const force = (dist - targetDist) * 0.05;
+      
+      const fx = (dx / dist) * force;
+      const fy = (dy / dist) * force;
+      
+      const f1 = forces.get(edge.from) || { x: 0, y: 0 };
+      const f2 = forces.get(edge.to) || { x: 0, y: 0 };
+      
+      f1.x += fx; f1.y += fy;
+      f2.x -= fx; f2.y -= fy;
+      
+      forces.set(edge.from, f1);
+      forces.set(edge.to, f2);
+    }
+    
+    // Center attraction
+    for (const node of nodes) {
+      const pos = positions.get(node.id) || { x: centerX, y: centerY };
+      const f = forces.get(node.id) || { x: 0, y: 0 };
+      const dx = centerX - pos.x;
+      const dy = centerY - pos.y;
+      f.x += dx * 0.001;
+      f.y += dy * 0.001;
+      forces.set(node.id, f);
+    }
+    
+    // Apply forces
+    for (const node of nodes) {
+      const pos = positions.get(node.id);
+      if (!pos) continue;
+      
+      const f = forces.get(node.id);
+      if (!f) continue;
+      
+      // Damping
+      pos.x += f.x * 0.1;
+      pos.y += f.y * 0.1;
+      
+      // Boundaries
+      const margin = 50;
+      pos.x = Math.max(margin, Math.min(width - margin, pos.x));
+      pos.y = Math.max(margin, Math.min(height - margin, pos.y));
+    }
+  }
+}
+
+function startGraphRenderLoop() {
+  if (graphViewState.animationFrame) {
+    cancelAnimationFrame(graphViewState.animationFrame);
+  }
+  
+  function render() {
+    const canvas = document.getElementById('graphCanvas');
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext('2d');
+    const container = canvas.parentElement;
+    const width = container.clientWidth;
+    const height = container.clientHeight;
+    
+    // Clear
+    ctx.clearRect(0, 0, width, height);
+    ctx.fillStyle = 'var(--bg-dark)';
+    ctx.fillRect(0, 0, width, height);
+    
+    // Draw edges
+    drawEdges(ctx);
+    
+    // Draw nodes
+    drawNodes(ctx);
+    
+    graphViewState.animationFrame = requestAnimationFrame(render);
+  }
+  
+  render();
+}
+
+function drawEdges(ctx) {
+  for (const edge of graphViewState.edges) {
+    const p1 = graphViewState.positions.get(edge.from);
+    const p2 = graphViewState.positions.get(edge.to);
+    if (!p1 || !p2) continue;
+    
+    const isSelected = graphViewState.selectedNode === edge.from || graphViewState.selectedNode === edge.to;
+    const isHovered = graphViewState.hoveredNode && (graphViewState.hoveredNode.id === edge.from || graphViewState.hoveredNode.id === edge.to);
+    
+    ctx.beginPath();
+    ctx.moveTo(p1.x, p1.y);
+    ctx.lineTo(p2.x, p2.y);
+    
+    // Color by confidence
+    if (edge.confidence === 'EXTRACTED') {
+      ctx.strokeStyle = isSelected || isHovered ? '#10b981' : 'rgba(16, 185, 129, 0.4)';
+      ctx.lineWidth = isSelected || isHovered ? 2.5 : 1.5;
+    } else {
+      ctx.strokeStyle = isSelected || isHovered ? '#f59e0b' : 'rgba(245, 158, 11, 0.3)';
+      ctx.lineWidth = isSelected || isHovered ? 2 : 1;
+      // Dashed for inferred
+      ctx.setLineDash([4, 4]);
+    }
+    
+    ctx.stroke();
+    ctx.setLineDash([]);
+    
+    // Draw arrowhead for directed edges
+    if (edge.type === 'calls' || edge.type === 'imports' || edge.type === 'defines') {
+      drawArrowhead(ctx, p1.x, p1.y, p2.x, p2.y, edge.confidence === 'EXTRACTED' ? '#10b981' : '#f59e0b');
+    }
+  }
+}
+
+function drawArrowhead(ctx, fromX, fromY, toX, toY, color) {
+  const headLen = 8;
+  const angle = Math.atan2(toY - fromY, toX - fromX);
+  const arrowX = toX - headLen * Math.cos(angle);
+  const arrowY = toY - headLen * Math.sin(angle);
+  
+  ctx.beginPath();
+  ctx.moveTo(arrowX, arrowY);
+  ctx.lineTo(
+    arrowX - headLen * Math.cos(angle - Math.PI / 6),
+    arrowY - headLen * Math.sin(angle - Math.PI / 6)
+  );
+  ctx.lineTo(
+    arrowX - headLen * Math.cos(angle + Math.PI / 6),
+    arrowY - headLen * Math.sin(angle + Math.PI / 6)
+  );
+  ctx.closePath();
+  ctx.fillStyle = color;
+  ctx.fill();
+}
+
+function drawNodes(ctx) {
+  for (const node of graphViewState.nodes) {
+    const pos = graphViewState.positions.get(node.id);
+    if (!pos) continue;
+    
+    const radius = getNodeDrawRadius(node);
+    const color = getNodeColor(node.type);
+    const isSelected = graphViewState.selectedNode === node.id;
+    const isHovered = graphViewState.hoveredNode === node;
+    
+    // Node circle
+    ctx.beginPath();
+    ctx.arc(pos.x, pos.y, radius, 0, Math.PI * 2);
+    
+    if (isSelected) {
+      ctx.fillStyle = color;
+      ctx.fill();
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+    } else if (isHovered) {
+      ctx.fillStyle = color + '33'; // 20% opacity
+      ctx.fill();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    } else {
+      ctx.fillStyle = color + '22'; // 13% opacity
+      ctx.fill();
+      ctx.strokeStyle = color + '88'; // 53% opacity
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
+    
+    // Icon/label
+    ctx.fillStyle = isSelected ? '#fff' : color;
+    ctx.font = `bold ${radius * 0.7}px system-ui`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(getNodeIcon(node.type), pos.x, pos.y + 1);
+    
+    // Name label for larger nodes
+    if (radius >= 14) {
+      ctx.fillStyle = isSelected ? '#fff' : 'var(--text-main)';
+      ctx.font = `10px var(--font-sans)`;
+      ctx.fillText(escapeHtml(node.name).slice(0, 18), pos.x, pos.y + radius + 12);
+    }
+  }
+}
+
+function updateGraphInfoBar() {
+  const nodeCount = document.getElementById('graphNodeCount');
+  const edgeCount = document.getElementById('graphEdgeCount');
+  const summary = document.getElementById('graphSummary');
+  
+  if (nodeCount) nodeCount.textContent = `${graphViewState.nodes.length} nodes`;
+  if (edgeCount) edgeCount.textContent = `${graphViewState.edges.length} edges`;
+  if (summary) {
+    if (graphViewState.nodes.length === 0) {
+      summary.textContent = 'No nodes match current filters';
+    } else {
+      const byType = {};
+      for (const n of graphViewState.nodes) {
+        byType[n.type] = (byType[n.type] || 0) + 1;
+      }
+      summary.textContent = Object.entries(byType).map(([t,c])=>`${t}:${c}`).join(', ');
+    }
+  }
+}
+
+function resetGraphView() {
+  const canvas = document.getElementById('graphCanvas');
+  const container = canvas?.parentElement;
+  const width = container?.clientWidth || 400;
+  const height = container?.clientHeight || 300;
+  
+  graphViewState.pan = { x: width / 2, y: height / 2 };
+  graphViewState.zoom = 1;
+  graphViewState.positions.clear();
+  
+  // Re-run layout
+  renderGraphPanel();
+}
+
+function switchPane(paneName) {
+  // This function should already exist - just ensuring it's called
+  document.querySelectorAll('.right-tab').forEach(tab => {
+    tab.classList.toggle('active', tab.dataset.pane === paneName);
+  });
+  document.querySelectorAll('.pane-view').forEach(pane => {
+    pane.classList.toggle('active', pane.id === 'pane' + paneName.charAt(0).toUpperCase() + paneName.slice(1));
+  });
+}
+
+// Initialize graph panel when tab is shown
+function initGraphPanel() {
+  const btnBuild = document.getElementById('btnBuildGraph');
+  const btnRefresh = document.getElementById('btnRefreshGraph');
+  const searchInput = document.getElementById('graphSearchInput');
+  const typeFilter = document.getElementById('graphNodeTypeFilter');
+  const confidenceFilter = document.getElementById('graphEdgeConfidenceFilter');
+  
+  if (btnBuild) {
+    btnBuild.onclick = () => {
+      const session = getCurrentSession();
+      if (session) {
+        codeGraphDirty = true;
+        const graph = buildCodeGraph(session);
+        saveCodeGraph(session, graph);
+        renderGraphPanel();
+      }
+    };
+  }
+  
+  if (btnRefresh) {
+    btnRefresh.onclick = () => {
+      renderGraphPanel();
+    };
+  }
+  
+  if (searchInput) {
+    searchInput.oninput = () => renderGraphPanel();
+  }
+  
+  if (typeFilter) {
+    typeFilter.onchange = () => renderGraphPanel();
+  }
+  
+  if (confidenceFilter) {
+    confidenceFilter.onchange = () => renderGraphPanel();
+  }
+  
+  // Handle window resize for canvas
+  window.addEventListener('resize', handleGraphResize);
+  
+  // Initialize canvas on first render
+  if (document.getElementById('graphCanvas')) {
+    initGraphCanvas();
+  }
+  
+  renderGraphPanel();
+}
+
+function handleGraphResize() {
+  const canvas = document.getElementById('graphCanvas');
+  if (!canvas) return;
+  
+  const container = canvas.parentElement;
+  const rect = container.getBoundingClientRect();
+  
+  canvas.width = rect.width * window.devicePixelRatio;
+  canvas.height = rect.height * window.devicePixelRatio;
+  canvas.style.width = rect.width + 'px';
+  canvas.style.height = rect.height + 'px';
+  
+  const ctx = canvas.getContext('2d');
+  ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+  
+  // Re-run layout to fit new container
+  renderGraphPanel();
+}
 
 // ==================== PLAN + BUILD MODE ====================
 
@@ -6209,6 +7583,20 @@ Rules:
             document.getElementById('paneDiffReview').classList.add('active');
             renderDiffReviewPanel();
           }
+          if (paneName === 'graph') {
+            document.getElementById('paneGraph').classList.add('active');
+            initGraphPanel();
+          }
+          if (paneName === 'team') {
+            document.getElementById('paneTeam').classList.add('active');
+          }
+          
+          // Clean up graph render loop when leaving graph tab
+          if (paneName !== 'graph' && graphViewState.animationFrame) {
+            cancelAnimationFrame(graphViewState.animationFrame);
+            graphViewState.animationFrame = null;
+            window.removeEventListener('resize', handleGraphResize);
+          }
         });
       });
     }
@@ -6231,6 +7619,8 @@ Rules:
             document.querySelector('.right-tab[data-pane="agent"]').click();
           } else if (tab === 'browser') {
             document.querySelector('.right-tab[data-pane="browser"]').click();
+          } else if (tab === 'graph') {
+            document.querySelector('.right-tab[data-pane="graph"]').click();
           } else if (tab === 'history') {
             document.querySelector('.right-tab[data-pane="history"]').click();
           } else if (tab === 'diffReview') {
