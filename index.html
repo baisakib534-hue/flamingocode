@@ -6823,6 +6823,15 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
         const review = await callLLMWithAgent(messages, senior);
         appendTeamChat('review', appState.teamSeniorId, review);
 
+        // v2: feed Senior Review diff view + disagreement arbitration
+        getTeamV2().lastReviewFlags = collectReviewFlags(review);
+        recordSessionEvent('review', 'Senior review round ' + appState.teamReviewRound + ': ' + (getTeamV2().lastReviewFlags.length || 0) + ' flag(s)');
+        const disputesV2 = detectDisputes(review);
+        for (const d of disputesV2) {
+          await arbitrateDispute(d);
+          getTeamV2().lastReviewApproved = false;
+        }
+
         // Parse rework directives
         const reworkLines = review.match(/REWORK:\s*([^|]+)\s*\|\s*Issue:\s*([^|]+)\s*\|\s*Fix:\s*([^\n]+)/gi) || [];
 
@@ -7672,6 +7681,93 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
       }
     }
     // Exec mode toggle
+    // ---------- Exec mode toggle ---------- 
+    function initTeamV2Launch() {
+      // Template buttons
+      const btnRow = document.getElementById('teamTemplateButtons');
+      if (btnRow && !btnRow.dataset.v2wired) {
+        btnRow.dataset.v2wired = '1';
+        Object.entries(TEAM_V2_TEMPLATES).forEach(([key, tpl]) => {
+          const b = document.createElement('button');
+          b.className = 'btn btn-secondary';
+          b.style.cssText = 'padding:3px 8px; font-size:10px;';
+          b.textContent = tpl.label;
+          b.onclick = () => applyTeamTemplate(key);
+          btnRow.appendChild(b);
+        });
+      }
+
+      const btnAuto = document.getElementById('btnAutoTeam');
+      if (btnAuto && !btnAuto.dataset.v2wired) {
+        btnAuto.dataset.v2wired = '1';
+        btnAuto.onclick = () => {
+          const p = getTeamV2().lastPrompt || prompt('Describe the task briefly — the Auto-team picker will choose the roles (QA always included):', '');
+          autoTeamFromPrompt(p);
+        };
+      }
+
+      const btnMode = document.getElementById('btnExecMode');
+      if (btnMode && !btnMode.dataset.v2wired) {
+        btnMode.dataset.v2wired = '1';
+        btnMode.onclick = () => setTeamExecMode(getTeamV2().execMode === 'parallel' ? 'sequential' : 'parallel');
+      }
+
+      const budgetInput = document.getElementById('teamBudgetInput');
+      if (budgetInput && !budgetInput.dataset.v2wired) {
+        budgetInput.dataset.v2wired = '1';
+        budgetInput.onchange = () => {
+          const val = parseFloat(budgetInput.value);
+          getTeamV2().budgetCap = isNaN(val) || val <= 0 ? null : val;
+          updateTeamBudgetDisplay();
+          logActivity('Team budget cap set: ' + (getTeamV2().budgetCap === null ? 'none' : '$' + getTeamV2().budgetCap), 'info');
+        };
+      }
+
+      const btnDiff = document.getElementById('btnSeniorDiff');
+      if (btnDiff && !btnDiff.dataset.v2wired) {
+        btnDiff.dataset.v2wired = '1';
+        btnDiff.onclick = showSeniorDiffView;
+      }
+
+      const btnVote = document.getElementById('btnArchVote');
+      if (btnVote && !btnVote.dataset.v2wired) {
+        btnVote.dataset.v2wired = '1';
+        btnVote.onclick = runArchitectureVote;
+      }
+
+      const btnReplay = document.getElementById('btnReplaySession');
+      if (btnReplay && !btnReplay.dataset.v2wired) {
+        btnReplay.dataset.v2wired = '1';
+        btnReplay.onclick = replayTeamSession;
+      }
+
+      const btnExport = document.getElementById('btnExportTranscript');
+      if (btnExport && !btnExport.dataset.v2wired) {
+        btnExport.dataset.v2wired = '1';
+        btnExport.onclick = exportTeamTranscript;
+      }
+
+      const btnMemory = document.getElementById('btnSaveTeamMemory');
+      if (btnMemory && !btnMemory.dataset.v2wired) {
+        btnMemory.dataset.v2wired = '1';
+        btnMemory.onclick = saveTeamMemoryToBrain;
+      }
+
+      const specialistSel = document.getElementById('teamSpecialistSelect');
+      if (specialistSel && !specialistSel.dataset.v2wired) {
+        specialistSel.dataset.v2wired = '1';
+        specialistSel.onchange = () => {
+          if (specialistSel.value) {
+            addSpecialistMidTask(specialistSel.value);
+            specialistSel.value = '';
+          }
+        };
+      }
+
+      initTeamBoardDrag();
+      updateTeamBudgetDisplay();
+    }
+
     function setTeamExecMode(mode) {
       getTeamV2().execMode = mode === 'parallel' ? 'parallel' : 'sequential';
       const btn = document.getElementById('btnExecMode');
@@ -7718,6 +7814,252 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
       updateTeamBudgetDisplay();
       recordSessionEvent('specialist', `${agent.name} (${specialistKey}) added mid-task`);
       logActivity(`Specialist ${agent.name} added mid-task`, 'success');
+    }
+
+    // ---------- Senior review with DIFF VIEW: exactly what was flagged, line by line ----------
+    function collectReviewFlags(reviewText) {
+      const flags = [];
+      const lines = (reviewText || '').split('\n');
+      lines.forEach(line => {
+        const m = line.match(/REWORK:\s*([^|]+)\s*\|\s*Issue:\s*([^|]+)\s*\|\s*Fix:\s*([^\n]+)/i);
+        if (m) flags.push({ agent: m[1].trim(), issue: m[2].trim(), fix: m[3].trim(), reworked: false });
+      });
+      return flags;
+    }
+
+    function showSeniorDiffView() {
+      const v2 = getTeamV2();
+      const modal = document.createElement('div');
+      modal.className = 'modal-overlay';
+      modal.style.zIndex = '1000';
+      const rows = v2.lastReviewFlags.length
+        ? v2.lastReviewFlags.map((f, i) => `
+            <div style="border:1px solid var(--border-color); border-radius:5px; margin-bottom:10px; overflow:hidden;">
+              <div style="background:var(--bg-hover); padding:6px 10px; font-size:11px; font-weight:700;">${escapeHtml(f.agent)} · ${f.reworked ? 'REWORKED' : 'PENDING REWORK'}</div>
+              <div style="padding:8px 10px; font-family:var(--font-mono); font-size:11px; white-space:pre-wrap;">
+                <div style="color:var(--danger);">- SENIOR FLAGGED: ${escapeHtml(f.issue)}</div>
+                <div style="color:var(--success);">+ REQUIRED FIX: ${escapeHtml(f.fix)}</div>
+              </div>
+            </div>`).join('')
+        : '<div style="font-size:11px; color:var(--text-dim);">No review flags yet — run a team session to round up Senior review flags, or the last review was approved clean.</div>';
+
+      const disputeRows = v2.disputes.length
+        ? v2.disputes.map(d => `
+          <div style="border:1px solid var(--warning); border-radius:5px; margin-bottom:10px;">
+            <div style="background:rgba(245,158,11,0.15); padding:6px 10px; font-size:11px; font-weight:700;">⚖ DISPUTE: ${escapeHtml(d.topic)} · ${d.overruled ? 'OVERRULED BY USER' : 'arbitrated by Senior'}</div>
+            <div style="padding:8px 10px; font-size:11px; white-space:pre-wrap;">${escapeHtml(d.arbitration || 'no reasoning recorded')}</div>
+          </div>`).join('')
+        : '<div style="font-size:11px; color:var(--text-dim); margin-bottom:8px;">No disagreements recorded yet.</div>';
+
+      modal.innerHTML = `
+        <div class="modal-box" style="width: 640px; max-width: 95vw;">
+          <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-color); padding-bottom:8px;">
+            <h3 style="font-size: 14px; font-weight: 700;">🔍 Senior Review — Diff View</h3>
+            <button class="section-btn" onclick="this.closest('.modal-overlay').remove()">✕</button>
+          </div>
+          <div style="padding:12px; max-height:65vh; overflow-y:auto;">
+            <div style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase; margin-bottom:6px;">What the Senior flagged</div>
+            ${rows || ''}
+            <div style="display:flex; gap:8px; margin-top:10px;">
+              <button class="btn btn-secondary" style="font-size:10px; padding:4px 8px;" onclick="recheckReviewFlags()">↻ Rework slip loaded from last review round</button>
+            </div>
+            <div style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase; margin:14px 0 6px;">⚖ Disagreement arbitration</div>
+            ${disputeRows || ''}
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modal);
+    }
+
+    // Refresh any 'PENDING REWORK' rows from current task rework notes
+    function recheckReviewFlags() {
+      const v2 = getTeamV2();
+      v2.lastReviewFlags.forEach(f => {
+        const task = appState.teamTaskBoard.find(t => t.reworkNote && t.reworkNote.issue === f.issue);
+        if (task) f.reworked = task.status === 'approved' || task.status === 'idle-done';
+      });
+      document.querySelectorAll('.modal-overlay').forEach(m => m.remove());
+      showSeniorDiffView();
+    }
+
+    // ---------- Disagreement arbitration: Senior arbitrates, user may overrule ----------
+    function detectDisputes(reviewText) {
+      const disputes = [];
+      (reviewText || '').split('\n').forEach(line => {
+        const m = line.match(/DISPUTE:\s*([^|]+)\s*\|\s*(.+)$/i);
+        if (m) disputes.push({ agents: m[1].trim(), topic: m[2].trim() });
+      });
+      return disputes;
+    }
+
+    async function arbitrateDispute(dispute) {
+      const senior = appState.agents[appState.teamSeniorId];
+      if (!senior) return null;
+      appendTeamChat('system', null, `⚖ DISAGREEMENT between ${dispute.agents} about: ${dispute.topic}. SENIOR ARBITRATES.`);
+      let arbitration;
+      try {
+        arbitration = await callLLMWithAgent([
+          { role: 'system', content: senior.rolePrompt },
+          { role: 'user', content: `Two team members disagree. Agents: ${dispute.agents}. Topic: ${dispute.topic}\n\nAs Senior Developer arbitrate: state which approach the team adopts and the exact reasoning in 3-5 sentences.` }
+        ], senior);
+      } catch (err) {
+        arbitration = `Arbitration call failed (${err.message}) — Senior's default ruling: pick the option with fewer unknowns and note the tradeoff.`;
+      }
+      appendTeamChat('arbitration', senior.id, arbitration);
+      recordSessionEvent('arbitration', `${dispute.agents}: ${arbitration}`);
+      logActivity('Senior arbitrated a disagreement', 'info');
+
+      const entry = { agents: dispute.agents, topic: dispute.topic, arbitration, overruled: false, at: Date.now() };
+      getTeamV2().disputes.push(entry);
+      showUserOverruleModal(entry);
+      return entry;
+    }
+
+    // User can overrule the Senior's arbitration
+    function showUserOverruleModal(entry) {
+      const modal = document.createElement('div');
+      modal.className = 'modal-overlay';
+      modal.style.zIndex = '1000';
+      modal.innerHTML = `
+        <div class="modal-box" style="width: 560px; max-width: 95vw;">
+          <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-color); padding-bottom:8px;">
+            <h3 style="font-size: 14px; font-weight: 700;">⚖ Disagreement Arbitration</h3>
+            <button class="section-btn" onclick="this.closest('.modal-overlay').remove()">✕</button>
+          </div>
+          <div style="padding:12px;">
+            <div style="font-size:11px; color:var(--text-dim); margin-bottom:6px;">Dispute: ${escapeHtml(entry.agents)} — ${escapeHtml(entry.topic)}</div>
+            <div style="background:var(--bg-surface); border:1px solid var(--border-color); border-radius:5px; padding:10px; font-size:11px; margin-bottom:12px; max-height:240px; overflow-y:auto;">${escapeHtml(entry.arbitration)}</div>
+            <div style="font-size:11px; margin-bottom:10px;">You may <b>overrule</b> the Senior and set the direction yourself — or accept the arbitration.</div>
+            <div style="display:flex; gap:8px; justify-content:flex-end;">
+              <button class="btn btn-secondary" onclick="finalizeArbitration(false, ${getTeamV2().disputes.indexOf(entry)})">✓ Accept arbitration</button>
+              <button class="btn" onclick="overruleDispute(${getTeamV2().disputes.indexOf(entry)}); this.closest('.modal-overlay').remove()">✍ Overrule</button>
+            </div>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modal);
+    }
+
+    function overruleDispute(idx) {
+      const d = getTeamV2().disputes[idx];
+      if (!d) return;
+      const note = prompt('Your ruling (the team will follow it over the Senior):', '');
+      d.overruled = true;
+      d.userNote = note || 'User overruled the Senior — continue in the user\'s direction.';
+      appendTeamChat('decision', null, `👤 USER OVERRULES the Senior on "${d.topic}": ${d.userNote}`);
+      recordSessionEvent('overrule', `User overruled Senior on "${d.topic}": ${d.userNote}`);
+      logActivity('You overruled the Senior arbitration — team notified', 'warning');
+    }
+
+    function finalizeArbitration(overruled, idx) {
+      const d = getTeamV2().disputes[idx];
+      if (d) d.overruled = overruled;
+      document.querySelectorAll('.modal-overlay').forEach(m => m.remove());
+    }
+
+    // ---------- Session Replay: full team session from the start ----------
+    async function replayTeamSession() {
+      const events = getTeamV2().session;
+      if (!events.length) { alert('No team session recorded yet. Run a team session, then replay.'); return; }
+      const chat = document.getElementById('teamChat');
+      if (chat) chat.innerHTML = '';
+      appendTeamChat('system', null, `▶ SESSION REPLAY — ${events.length} events. (run again to watch at natural speed)`);
+      for (const ev of events) {
+        const time = new Date(ev.t).toLocaleTimeString();
+        appendTeamChat('replay', null, `[${time}] ${ev.text}`);
+        await new Promise(r => setTimeout(r, 120));
+      }
+      appendTeamChat('system', null, '▶ Replayed to the end of the recorded session.');
+    }
+
+    // ---------- Transcript export as a document ----------
+    function exportTeamTranscript() {
+      const v2 = getTeamV2();
+      let md = `# Team Session Transcript\n\nGenerated: ${new Date().toLocaleString()}\n`;
+      md += `Exec mode: ${v2.execMode} · Budget cap: ${v2.budgetCap ? '$' + v2.budgetCap : 'unlimited'} · Spend: $${teamTotalSpend().toFixed(4)}\n\n`;
+      md += `## Members\n\n`;
+      appState.teamRoster.forEach(id => {
+        const a = appState.agents[id];
+        const u = v2.usage[id];
+        if (a) md += `- ${a.emoji} **${a.name}**${id === appState.teamSeniorId ? ' (Senior/lead)' : ''} — ${u ? u.calls + ' calls, ' + Math.round(u.ms / 1000) + 's, $' + u.cost.toFixed(4) : 'no calls'}\n`;
+      });
+      if (appState.teamTaskBoard.length) {
+        md += `\n## Task Board (final)\n\n`;
+        appState.teamTaskBoard.forEach(t => {
+          const a = appState.agents[t.owner];
+          md += `- [${t.status}] ${t.title} → ${a ? a.name : 'unassigned'}${t.reworkNote ? ' (rework: ' + t.reworkNote.issue + ')' : ''}\n`;
+        });
+      }
+      if (v2.votes.length) {
+        md += `\n## Architecture Votes\n\n`;
+        v2.votes.forEach(v => { md += `- Option ${v.winner} wins (A ${v.tally.A} / B ${v.tally.B})\n`; });
+      }
+      if (v2.checkpoints.length) {
+        md += `\n## Human Checkpoints\n\n`;
+        v2.checkpoints.forEach(c => { md += `- ${new Date(c.at).toLocaleTimeString()}: ${c.reason}\n`; });
+      }
+      md += `\n## Chat Log\n\n`;
+      appState.teamChat.forEach(cm => {
+        const a = cm.agentId ? appState.agents[cm.agentId] : null;
+        const who = a ? a.name : (cm.role === 'user' ? 'USER' : 'SYSTEM');
+        md += `**${who}** [${cm.role}] (${new Date(cm.timestamp).toLocaleTimeString()}): ${cm.content}\n\n`;
+      });
+
+      const blob = new Blob([md], { type: 'text/markdown' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'team-session-' + new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-') + '.md';
+      a.click();
+      URL.revokeObjectURL(url);
+      logActivity('Team transcript exported as markdown document', 'success');
+      recordSessionEvent('export', 'Transcript exported');
+    }
+
+    // ---------- Team memory into the Project Brain (across sessions) ----------
+    function saveTeamMemoryToBrain() {
+      const v2 = getTeamV2();
+      const session = getCurrentSession();
+      if (!session) { logActivity('No active session — team memory not saved', 'warning'); return; }
+
+      const name = 'team-' + new Date().toISOString().slice(0, 10) + '-' + (v2.applyingTemplate || 'session');
+      let md = `# Team Session — ${new Date().toLocaleString()}\n\n`;
+      md += `*Summary:* atomic note — one team run. Template: ${v2.applyingTemplate || 'manual roster'} · Mode: ${v2.execMode} · Spend: $${teamTotalSpend().toFixed(4)}\n\n`;
+      md += `## Team & roles\n\n`;
+      appState.teamRoster.forEach(id => {
+        const a = appState.agents[id];
+        if (a) md += `- ${a.emoji} **${a.name}**${id === appState.teamSeniorId ? ' (Senior lead)' : ''} — skills: ${(a.skillPacks || []).join(', ')}\n`;
+      });
+      if (appState.teamTaskBoard.length) {
+        md += `\n## Final task board\n\n`;
+        appState.teamTaskBoard.forEach(t => {
+          const a = appState.agents[t.owner];
+          md += `- [${t.status}] ${t.title} → ${a ? a.name : 'unassigned'}${t.gate && t.gate.status === 'blocked' ? ' ⛔gate-blocked(' + (t.gate.missing || []).join(',') + ')' : ''}\n`;
+        });
+      }
+      if (v2.votes.length) {
+        md += `\n## Decisions: architecture votes\n\n`;
+        v2.votes.forEach(v => { md += `- Option **${v.winner}** won (A ${v.tally.A} / B ${v.tally.B}) at ${new Date(v.at).toLocaleTimeString()}\n`; });
+      }
+      if (v2.disputes.length) {
+        md += `\n## Decision: senior arbitrations & user overrules\n\n`;
+        v2.disputes.forEach(d => { md += `- ${d.agents} on "${d.topic}": ${d.overruled ? 'USER OVERRULED' : 'Senior ruled'} — ${(d.overruled ? d.userNote : d.arbitration || '').slice(0, 300)}\n`; });
+      }
+      if (v2.checkpoints.length) {
+        md += `\n## Human checkpoints (big decisions)\n\n`;
+        v2.checkpoints.forEach(c => { md += `- ${new Date(c.at).toLocaleTimeString()} — ${c.reason}\n`; });
+      }
+      const senior = appState.agents[appState.teamSeniorId];
+      md += `\n## Carry-over for the next team session\n\n`;
+      md += senior ? `Senior ${senior.name} leads again unless reassigned. Keep decisions above when the same task continues.\n` : `Roster was empty — nothing carried over.\n`;
+      md += `See also: [[Team Templates]], [[Autonomy Pre-commit Gate]]\n`;
+
+      const path = writeBrainNote(session, name, md);
+      if (path) {
+        appendTeamChat('system', null, `🧠 TEAM MEMORY saved to the Project Brain: note "${name}" — next session remembers the roster, votes, arbitrations and final board.`);
+        recordSessionEvent('memory', 'Team memory written to Project Brain: ' + name);
+        logActivity(`Team memory saved: ${name}`, 'success');
+      }
     }
 
     // ---------- Human checkpoints: ONLY on big decisions ----------
