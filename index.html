@@ -662,6 +662,11 @@
             <button class="btn btn-secondary" id="btnCancelAgent" style="margin-left: 12px; padding: 4px 12px; font-size: 12px;">Cancel</button>
           </div>
 
+          <!-- 429 Countdown Chip -->
+          <div id="rateLimitCountdown" style="display: none; padding: 8px 12px; background: var(--warning); color: var(--bg-dark); border-radius: 6px; margin: 0 12px; font-size: 12px; font-weight: 600;">
+            <span>⏳ Rate limited — retrying in <strong id="countdownSeconds">0</strong>s...</span>
+          </div>
+
           <div class="prompt-chips">
             <div class="prompt-chip" onclick="usePromptChip('Build a dark portfolio landing page with HTML, CSS, and interactive JS')">✨ Portfolio Landing</div>
             <div class="prompt-chip" onclick="usePromptChip('Create a responsive Todo App with local storage, dark theme, and filters')">📝 Todo App</div>
@@ -1455,7 +1460,8 @@
       });
 
       // 7. Watchdog: 120s request timeout + 30s stream-idle timeout
-      const controller = new AbortController();
+      currentAbortController = new AbortController();
+      const controller = currentAbortController;
       const timeoutId = setTimeout(() => controller.abort(), 120000);
 
       // 4. Empty-response retry: up to 3 attempts with backoff
@@ -1486,12 +1492,12 @@
 
               if (!res.ok) {
                 const errText = await res.text();
-                // 8. 429 handling
+                // 8. 429 handling with visible countdown
                 if (res.status === 429) {
                   const retryAfter = res.headers.get('Retry-After');
                   const waitSeconds = retryAfter ? parseInt(retryAfter, 10) : 5;
                   logActivity('Rate limited (429). Waiting ' + waitSeconds + 's...', 'warning');
-                  await new Promise(r => setTimeout(r, waitSeconds * 1000));
+                  await showRateLimitCountdown(waitSeconds);
                   continue;
                 }
                 // 10. Auth/CORS help
@@ -1606,7 +1612,7 @@
               const retryAfter = res.headers.get('Retry-After');
               const waitSeconds = retryAfter ? parseInt(retryAfter, 10) : 5;
               logActivity('Rate limited (429). Waiting ' + waitSeconds + 's...', 'warning');
-              await new Promise(r => setTimeout(r, waitSeconds * 1000));
+              await showRateLimitCountdown(waitSeconds);
               continue;
             }
             if (res.status === 401) throw new Error('Authentication failed (401): Invalid or missing API key');
@@ -1677,12 +1683,15 @@
             usage
           });
 
+          hideRateLimitCountdown();
           return fullContent;
         } catch (err) {
           if (streamIdleTimeout) clearTimeout(streamIdleTimeout);
+          hideRateLimitCountdown();
           lastError = err;
           
           if (err.name === 'AbortError') {
+            currentAbortController = null;
             throw new Error('Request timeout (120s) or stream idle (30s) exceeded');
           }
           
@@ -1702,6 +1711,8 @@
       }
       
       clearTimeout(timeoutId);
+      currentAbortController = null;
+      hideRateLimitCountdown();
       throw lastError || new Error('Max retries exceeded');
     }
 
@@ -1779,6 +1790,7 @@
     let agentWorking = false;
     let timerInterval = null;
     let startTime = 0;
+    let currentAbortController = null; // Global AbortController for Cancel button
 
     function startTimer() {
       startTime = Date.now();
@@ -1793,6 +1805,41 @@
     function stopTimer() {
       clearInterval(timerInterval);
       document.getElementById('workingIndicator').style.display = 'none';
+    }
+
+    // 8. 429 Countdown UI
+    function showRateLimitCountdown(seconds) {
+      const countdownEl = document.getElementById('rateLimitCountdown');
+      const secondsEl = document.getElementById('countdownSeconds');
+      if (!countdownEl || !secondsEl) return;
+      
+      countdownEl.style.display = 'block';
+      let remaining = seconds;
+      secondsEl.textContent = remaining;
+      
+      const interval = setInterval(() => {
+        remaining--;
+        if (remaining <= 0) {
+          clearInterval(interval);
+          countdownEl.style.display = 'none';
+        } else {
+          secondsEl.textContent = remaining;
+        }
+      }, 1000);
+      
+      return new Promise(resolve => {
+        const checkDone = setInterval(() => {
+          if (remaining <= 0) {
+            clearInterval(checkDone);
+            resolve();
+          }
+        }, 100);
+      });
+    }
+
+    function hideRateLimitCountdown() {
+      const countdownEl = document.getElementById('rateLimitCountdown');
+      if (countdownEl) countdownEl.style.display = 'none';
     }
 
     function buildSystemContext() {
@@ -2598,6 +2645,7 @@ CURRENT VIRTUAL FILES:
 
     function setupChatHandlers() {
       const btnSend = document.getElementById('btnSend');
+      const btnCancel = document.getElementById('btnCancelAgent');
       const chatInput = document.getElementById('chatInput');
 
       const handleSend = () => {
@@ -2607,7 +2655,15 @@ CURRENT VIRTUAL FILES:
         sendAgentPrompt(text);
       };
 
+      const handleCancel = () => {
+        if (currentAbortController) {
+          currentAbortController.abort();
+          logActivity('Request cancelled by user', 'warning');
+        }
+      };
+
       btnSend.onclick = handleSend;
+      btnCancel.onclick = handleCancel;
       chatInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') handleSend();
       });
