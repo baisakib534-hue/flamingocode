@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DevForge — AI Coding Studio</title>
+  <title>FlamingoCode — AI Coding Studio</title>
   <style>
     :root {
       --bg-dark: #0b0d14;
@@ -629,8 +629,8 @@
   <!-- App Header -->
   <header class="app-header">
     <div class="brand">
-      <div class="brand-icon">⚡</div>
-      <span>DevForge</span>
+      <img src="assets/logo.png" alt="FlamingoCode" class="brand-logo" style="width: 28px; height: 28px; border-radius: 6px;" />
+      <span>FlamingoCode</span>
     </div>
     <div class="header-actions">
       <select id="sessionSelect" class="session-picker" title="Switch Session"></select>
@@ -699,7 +699,7 @@
         <!-- Agent Chat Pane -->
         <div class="pane-view active" id="paneAgent">
           <div class="chat-messages" id="chatMessages">
-            <div class="msg msg-system">DevForge Agent ready. Ask me to create or modify code in your virtual FS.</div>
+            <div class="msg msg-system">FlamingoCode Agent ready. Ask me to create or modify code in your virtual FS.</div>
           </div>
           
           <div class="working-indicator" id="workingIndicator" style="display: none;">
@@ -930,7 +930,7 @@
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
           <div style="flex: 1; min-width: 0;">
             <div style="font-weight: 600; font-size: 12px; color: var(--text-main);">Uncensored Mode for this project</div>
-            <div style="font-size: 10px; color: var(--text-dim); margin-top: 2px;">Changes what DevForge asks the model. A provider's own server-side rules still apply.</div>
+            <div style="font-size: 10px; color: var(--text-dim); margin-top: 2px;">Changes what FlamingoCode asks the model. A provider's own server-side rules still apply.</div>
           </div>
           <label class="toggle-switch" style="cursor: pointer; flex-shrink: 0;">
             <input type="checkbox" id="uncensoredToggleSettings" style="display: none;" />
@@ -1399,22 +1399,22 @@
     </div>
   </div>
   <script>
-    // --- DevForge Stage 0 Core State & VFS ---
+    // --- FlamingoCode Stage 0 Core State & VFS ---
     const STORAGE_KEY = 'devforge_studio_v1';
 
     const TEMPLATES = {
       blank: {
-        'index.html': `<!DOCTYPE html>\n<html lang="en">\n<head>\n  <meta charset="UTF-8">\n  <title>My Project</title>\n  <link rel="stylesheet" href="style.css">\n</head>\n<body>\n  <h1>Hello DevForge!</h1>\n  <script src="script.js"><\/script>\n</body>\n</html>`,
+        'index.html': `<!DOCTYPE html>\n<html lang="en">\n<head>\n  <meta charset="UTF-8">\n  <title>My Project</title>\n  <link rel="stylesheet" href="style.css">\n</head>\n<body>\n  <h1>Hello FlamingoCode!</h1>\n  <script src="script.js"><\/script>\n</body>\n</html>`,
         'style.css': `body { font-family: sans-serif; background: #0f172a; color: #f8fafc; padding: 2rem; }\nh1 { color: #38bdf8; }`,
-        'script.js': `console.log("DevForge app initialized!");`
+        'script.js': `console.log("FlamingoCode app initialized!");`
       },
       landing: {
-        'index.html': `<!DOCTYPE html>\n<html lang="en">\n<head>\n  <meta charset="UTF-8">\n  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n  <title>Apex Digital Studio</title>\n  <link rel="stylesheet" href="style.css">\n</head>\n<body>\n  <nav class="nav">\n    <div class="logo">⚡ Apex</div>\n    <div class="links"><a href="#features">Features</a><a href="#about">About</a></div>\n  </nav>\n  <section class="hero">\n    <h1>Next-Gen AI Web Experiences</h1>\n    <p>Crafted instantly with DevForge studio</p>\n    <button id="ctaBtn">Explore Now</button>\n  </section>\n  <script src="script.js"><\/script>\n</body>\n</html>`,
+        'index.html': `<!DOCTYPE html>\n<html lang="en">\n<head>\n  <meta charset="UTF-8">\n  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n  <title>Apex Digital Studio</title>\n  <link rel="stylesheet" href="style.css">\n</head>\n<body>\n  <nav class="nav">\n    <div class="logo">⚡ Apex</div>\n    <div class="links"><a href="#features">Features</a><a href="#about">About</a></div>\n  </nav>\n  <section class="hero">\n    <h1>Next-Gen AI Web Experiences</h1>\n    <p>Crafted instantly with FlamingoCode studio</p>\n    <button id="ctaBtn">Explore Now</button>\n  </section>\n  <script src="script.js"><\/script>\n</body>\n</html>`,
         'style.css': `* { margin:0; padding:0; box-sizing:border-box; }\nbody { background:#090d16; color:#f1f5f9; font-family:system-ui,sans-serif; line-height:1.6; }\n.nav { display:flex; justify-space-between; padding:1.5rem 2rem; border-bottom:1px solid #1e293b; align-items:center; }\n.logo { font-size:1.25rem; font-weight:800; color:#38bdf8; }\n.links a { color:#94a3b8; margin-left:1.5rem; text-decoration:none; font-size:0.9rem; }\n.hero { text-align:center; padding:5rem 1rem; max-width:800px; margin:0 auto; }\n.hero h1 { font-size:2.75rem; background:linear-gradient(135deg, #38bdf8, #818cf8); -webkit-background-clip:text; -webkit-text-fill-color:transparent; margin-bottom:1rem; }\n.hero p { color:#94a3b8; font-size:1.1rem; margin-bottom:2rem; }\nbutton { background:#0284c7; color:white; border:none; padding:0.75rem 1.75rem; font-size:1rem; border-radius:8px; cursor:pointer; font-weight:600; }\nbutton:hover { background:#0369a1; }`,
         'script.js': `document.getElementById('ctaBtn').addEventListener('click', () => {\n  alert('Welcome to Apex Studio!');\n});`
       },
       todo: {
-        'index.html': `<!DOCTYPE html>\n<html lang="en">\n<head>\n  <meta charset="UTF-8">\n  <title>DevForge Tasks</title>\n  <link rel="stylesheet" href="style.css">\n</head>\n<body>\n  <div class="app">\n    <h2>⚡ Fast Tasks</h2>\n    <div class="input-row">\n      <input type="text" id="taskInput" placeholder="Add a new task...">\n      <button id="addBtn">Add</button>\n    </div>\n    <ul id="taskList"></ul>\n  </div>\n  <script src="script.js"><\/script>\n</body>\n</html>`,
+        'index.html': `<!DOCTYPE html>\n<html lang="en">\n<head>\n  <meta charset="UTF-8">\n  <title>FlamingoCode Tasks</title>\n  <link rel="stylesheet" href="style.css">\n</head>\n<body>\n  <div class="app">\n    <h2>⚡ Fast Tasks</h2>\n    <div class="input-row">\n      <input type="text" id="taskInput" placeholder="Add a new task...">\n      <button id="addBtn">Add</button>\n    </div>\n    <ul id="taskList"></ul>\n  </div>\n  <script src="script.js"><\/script>\n</body>\n</html>`,
         'style.css': `body { background:#0d1117; color:#c9d1d9; font-family:system-ui,sans-serif; display:flex; justify-content:center; padding:3rem 1rem; }\n.app { width:100%; max-width:400px; background:#161b22; padding:1.5rem; border-radius:12px; border:1px solid #30363d; }\nh2 { color:#58a6ff; margin-bottom:1rem; font-size:1.2rem; }\n.input-row { display:flex; gap:8px; margin-bottom:1rem; }\ninput { flex:1; background:#0d1117; border:1px solid #30363d; padding:8px 12px; border-radius:6px; color:#c9d1d9; outline:none; }\nbutton { background:#238636; color:white; border:none; padding:8px 14px; border-radius:6px; cursor:pointer; font-weight:600; }\nul { list-style:none; padding:0; }\nli { padding:8px 12px; background:#21262d; margin-bottom:6px; border-radius:6px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; }\nli.done { text-decoration:line-through; opacity:0.6; }`,
         'script.js': `const input = document.getElementById('taskInput');\nconst addBtn = document.getElementById('addBtn');\nconst list = document.getElementById('taskList');\n\nfunction addTask() {\n  if(!input.value.trim()) return;\n  const li = document.createElement('li');\n  li.textContent = input.value;\n  li.onclick = () => li.classList.toggle('done');\n  list.appendChild(li);\n  input.value = '';\n}\naddBtn.onclick = addTask;\ninput.onkeydown = (e) => { if(e.key==='Enter') addTask(); };`
       }
@@ -1766,11 +1766,11 @@ WORK STYLE:
       }
       // Initialize providers if empty
       if (!appState.providers || Object.keys(appState.providers).length === 0) {
-        // Create default 9router provider
-        const defaultProvider = JSON.parse(JSON.stringify(PROVIDER_PRESETS['9router']));
-        defaultProvider.id = 'prov_9router';
+        // Create default DuckDuckGo provider (free, no API key needed)
+        const defaultProvider = JSON.parse(JSON.stringify(PROVIDER_PRESETS['duckduckgo']));
+        defaultProvider.id = 'prov_duckduckgo';
         defaultProvider.isPreset = true;
-        defaultProvider.presetKey = '9router';
+        defaultProvider.presetKey = 'duckduckgo';
         appState.providers[defaultProvider.id] = defaultProvider;
         appState.activeProviderId = defaultProvider.id;
       }
@@ -2083,7 +2083,7 @@ WORK STYLE:
       const contextWindow = provider?.contextWindow || 128000;
       const maxContextTokens = Math.floor(contextWindow * 0.75);
       
-      let context = 'You are DevForge AI, an expert software developer in a browser IDE.\nYou edit the user\'s project by returning code blocks using this EXACT syntax:\n\nTo create or overwrite a file:\n```file:path/to/file.ext\n[full file content here]\n```\n\nTo delete a file:\n```delete:path/to/file.ext\n```\n\nTo navigate the browser pane:\n```browse:https://example.com\n```\n\nRULES:\n1. Always write COMPLETE file contents inside file: blocks. Never use comments like "// rest of code remains the same".\n2. Keep text explanation brief and concise.\n3. Use modern, clean, self-contained HTML/CSS/JavaScript.\n\nCURRENT VIRTUAL FILES:\n';
+      let context = 'You are FlamingoCode AI, an expert software developer in a browser IDE.\nYou edit the user\'s project by returning code blocks using this EXACT syntax:\n\nTo create or overwrite a file:\n```file:path/to/file.ext\n[full file content here]\n```\n\nTo delete a file:\n```delete:path/to/file.ext\n```\n\nTo navigate the browser pane:\n```browse:https://example.com\n```\n\nRULES:\n1. Always write COMPLETE file contents inside file: blocks. Never use comments like "// rest of code remains the same".\n2. Keep text explanation brief and concise.\n3. Use modern, clean, self-contained HTML/CSS/JavaScript.\n\nCURRENT VIRTUAL FILES:\n';
 
       let totalTokens = estimateTokens(context);
       const fileEntries = Object.entries(session.files);
@@ -2785,7 +2785,7 @@ WORK STYLE:
 
     function buildSystemContext() {
       const session = getCurrentSession();
-      let context = `You are DevForge AI, an expert software developer in a browser IDE.
+      let context = `You are FlamingoCode AI, an expert software developer in a browser IDE.
 You edit the user's project by returning code blocks using this EXACT syntax:
 
 To create or overwrite a file:
@@ -3010,7 +3010,7 @@ CURRENT VIRTUAL FILES:
     function renderChatHistory() {
       const chat = document.getElementById('chatMessages');
       if (!chat) return;
-      chat.innerHTML = '<div class="msg msg-system">DevForge Agent ready. Ask me to create or modify code in your virtual FS.</div>';
+      chat.innerHTML = '<div class="msg msg-system">FlamingoCode Agent ready. Ask me to create or modify code in your virtual FS.</div>';
       const session = getCurrentSession();
       if (!session || !session.chatHistory) return;
       // 9. History hygiene: strip reasoning/thinking blocks and null-content messages
@@ -3725,7 +3725,7 @@ CURRENT VIRTUAL FILES:
         openFile(Object.keys(session.files)[0] || 'index.html');
       }
       refreshPreview();
-      logActivity('DevForge Studio initialized successfully', 'success');
+      logActivity('FlamingoCode Studio initialized successfully', 'success');
     }
 
     // ==================== STAGE 3: AGENTS & TEAM MODE ====================
