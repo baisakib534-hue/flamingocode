@@ -830,6 +830,12 @@
             <span>Enable SSE streaming</span>
           </label>
         </div>
+
+        <div class="form-group">
+          <label class="form-label">Context Window (Tokens)</label>
+          <input type="number" id="providerContextWindow" class="form-input" placeholder="128000" min="4096" max="1000000" />
+          <span style="font-size:10px; color:var(--text-dim);">Model context window for context guard. Default: 128000.</span>
+        </div>
       </div>
 
       <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:8px; border-top:1px solid var(--border-color); padding-top:12px;">
@@ -1066,6 +1072,142 @@
       log.scrollTop = log.scrollHeight;
     }
 
+    // --- Stage 2: Anti-Stuck Compatibility Layer ---
+
+    // 1. Base-URL Normalizer: trim trailing slash, strip /chat/completions, collapse double /v1/v1
+    function normalizeBaseUrl(url) {
+      if (!url) return url;
+      let normalized = url.trim();
+      normalized = normalized.replace(/\/+$/, '');
+      normalized = normalized.replace(/\/chat\/completions\/?$/i, '');
+      normalized = normalized.replace(/\/v1\/v1(\/|$)/g, '/v1$1');
+      return normalized;
+    }
+
+    // 2. Tolerant SSE Parser: handles spacing variants, [DONE], keep-alive comments, delta.content as string OR array
+    function parseSSEStream(text) {
+      const chunks = [];
+      const lines = text.split('\n');
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith(':')) continue;
+        if (trimmed === '[DONE]') break;
+        if (trimmed.startsWith('data: ')) {
+          const raw = trimmed.slice(6).trim();
+          if (raw === '[DONE]') break;
+          try {
+            const parsed = JSON.parse(raw);
+            if (parsed.choices && parsed.choices[0] && parsed.choices[0].delta) {
+              const delta = parsed.choices[0].delta;
+              if (delta.content !== undefined) {
+                if (Array.isArray(delta.content)) {
+                  chunks.push(delta.content.join(''));
+                } else {
+                  chunks.push(delta.content);
+                }
+              }
+              if (delta.reasoning !== undefined) {
+                chunks.push({ type: 'reasoning', content: delta.reasoning });
+              }
+            } else if (parsed.type === 'content_block_delta' && parsed.delta && parsed.delta.text) {
+              chunks.push(parsed.delta.text);
+            } else if (parsed.message !== undefined) {
+              chunks.push(parsed.message);
+            } else if (parsed.data !== undefined) {
+              chunks.push(parsed.data);
+            }
+            if (parsed.choices && parsed.choices[0] && parsed.choices[0].finish_reason) {
+              chunks.push({ type: 'finish_reason', value: parsed.choices[0].finish_reason });
+            }
+            if (parsed.usage) {
+              chunks.push({ type: 'usage', value: parsed.usage });
+            }
+          } catch (e) {
+            if (raw && raw !== '[DONE]') {
+              chunks.push(raw);
+            }
+          }
+        }
+      }
+      return chunks;
+    }
+
+    // 9. History Hygiene: strip reasoning/thinking blocks and null-content messages
+    function sanitizeHistoryForReplay(messages) {
+      return messages.filter(msg => {
+        if (!msg.content || (Array.isArray(msg.content) && msg.content.every(c => !c.text && !c.content))) {
+          return false;
+        }
+        return true;
+      }).map(msg => {
+        if (msg.role === 'assistant' && typeof msg.content === 'string') {
+          let cleaned = msg.content.replace(/<thinking>[\s\S]*?<\/thinking>/gi, '').trim();
+          cleaned = cleaned.replace(/<reasoning>[\s\S]*?<\/reasoning>/gi, '').trim();
+          return { ...msg, content: cleaned };
+        }
+        return msg;
+      });
+    }
+
+    // 6. Context Guard: estimate tokens
+    function estimateTokens(text) {
+      if (!text) return 0;
+      return Math.ceil(text.length / 4);
+    }
+
+    function buildSystemContextWithGuard() {
+      const session = getCurrentSession();
+      const provider = appState.providers[appState.activeProviderId];
+      const contextWindow = provider?.contextWindow || 128000;
+      const maxContextTokens = Math.floor(contextWindow * 0.75);
+      
+      let context = 'You are DevForge AI, an expert software developer in a browser IDE.\nYou edit the user\'s project by returning code blocks using this EXACT syntax:\n\nTo create or overwrite a file:\n```file:path/to/file.ext\n[full file content here]\n```\n\nTo delete a file:\n```delete:path/to/file.ext\n```\n\nTo navigate the browser pane:\n```browse:https://example.com\n```\n\nRULES:\n1. Always write COMPLETE file contents inside file: blocks. Never use comments like "// rest of code remains the same".\n2. Keep text explanation brief and concise.\n3. Use modern, clean, self-contained HTML/CSS/JavaScript.\n\nCURRENT VIRTUAL FILES:\n';
+
+      let totalTokens = estimateTokens(context);
+      const fileEntries = Object.entries(session.files);
+      const recentFiles = fileEntries.slice(-3);
+      const olderFiles = fileEntries.slice(0, -3);
+      
+      for (const [path, content] of olderFiles) {
+        const signature = '--- FILE: ' + path + ' (signature) ---\n' + content.slice(0, 200) + '\n[... ' + content.length + ' chars truncated ...]\n';
+        const sigTokens = estimateTokens(signature);
+        if (totalTokens + sigTokens > maxContextTokens) {
+          context += '\n[... Remaining ' + olderFiles.length + ' files truncated due to context limit ...]';
+          break;
+        }
+        context += signature;
+        totalTokens += sigTokens;
+      }
+      
+      for (const [path, content] of recentFiles) {
+        const fileBlock = '\n--- FILE: ' + path + ' ---\n' + content + '\n';
+        const blockTokens = estimateTokens(fileBlock);
+        if (totalTokens + blockTokens > maxContextTokens) {
+          context += '\n[... File ' + path + ' truncated due to context limit ...]';
+          break;
+        }
+        context += fileBlock;
+        totalTokens += blockTokens;
+      }
+
+      return context;
+    }
+
+    // Request log entry for Activity panel (12)
+    function logRequestEntry(entry) {
+      const log = document.getElementById('activityLog');
+      const item = document.createElement('div');
+      item.className = 'log-item' + (entry.error ? ' error' : ' success');
+      const time = new Date().toLocaleTimeString();
+      let text = '[' + time + '] ' + entry.provider + ' | ' + entry.model + ' | ' + entry.status + ' | ' + entry.latency + 'ms';
+      if (entry.finish_reason) text += ' | finish: ' + entry.finish_reason;
+      if (entry.usage) text += ' | tokens: ' + (entry.usage.total_tokens || entry.usage.total || '?');
+      if (entry.error) text += ' | ERROR: ' + entry.error;
+      item.textContent = text;
+      log.appendChild(item);
+      log.scrollTop = log.scrollHeight;
+    }
+
     // --- Editor & File System UI ---
     function renderFileTree() {
       const tree = document.getElementById('fileTree');
@@ -1273,7 +1415,9 @@
         return callDuckDuckGo(messages, provider);
       }
 
-      let url = provider.baseUrl.replace(/\/+$/, '');
+      // 1. Base-URL Normalizer
+      let baseUrl = normalizeBaseUrl(provider.baseUrl);
+      let url = baseUrl;
       if (!url.endsWith('/chat/completions')) {
         url += '/chat/completions';
       }
@@ -1284,43 +1428,273 @@
       const headers = { 'Content-Type': 'application/json' };
       if (provider.apiKey && provider.authStyle !== 'none') {
         if (provider.authStyle === 'bearer') {
-          headers['Authorization'] = `Bearer ${provider.apiKey}`;
+          headers['Authorization'] = 'Bearer ' + provider.apiKey;
         } else if (provider.authStyle === 'x-api-key') {
           headers['x-api-key'] = provider.apiKey;
         }
       }
-      // Add custom headers
       Object.entries(provider.customHeaders || {}).forEach(([k, v]) => headers[k] = v);
 
-      const body = JSON.stringify({
+      // 3. Reasoning-model guard: never send max_tokens below 4096
+      const maxTokens = Math.max(provider.maxTokens || 4096, 4096);
+      
+      // 5. Param-scrub ladder: track which params to send
+      let paramSet = { temperature: 0.7, top_p: 1, max_tokens: maxTokens };
+      let body = JSON.stringify({
         model: provider.model || 'gpt-4o-mini',
         messages: messages,
-        temperature: 0.7
+        ...paramSet
       });
 
-      try {
-        const res = await fetch(url, {
-          method: 'POST',
-          headers,
-          body
-        });
+      // 7. Watchdog: 120s request timeout + 30s stream-idle timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 120000);
 
-        if (!res.ok) {
-          const errText = await res.text();
-          throw new Error(`API Error HTTP ${res.status}: ${errText.slice(0, 150)}`);
-        }
+      // 4. Empty-response retry: up to 3 attempts with backoff
+      const maxRetries = 3;
+      let lastError = null;
+      
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        const startTime = Date.now();
+        let streamIdleTimeout = null;
+        
+        try {
+          logActivity('Calling ' + provider.name + ' (' + provider.model + ') attempt ' + (attempt + 1) + '/' + (maxRetries + 1) + '...', 'info');
+          
+          // Try streaming first if enabled
+          let useStream = provider.streaming !== false;
+          
+          if (useStream) {
+            // Try streaming
+            const streamBody = JSON.stringify({ ...JSON.parse(body), stream: true });
+            
+            try {
+              const res = await fetch(url, {
+                method: 'POST',
+                headers,
+                body: streamBody,
+                signal: controller.signal
+              });
 
-        const data = await res.json();
-        if (data.choices && data.choices[0] && data.choices[0].message) {
-          return data.choices[0].message.content;
+              if (!res.ok) {
+                const errText = await res.text();
+                // 8. 429 handling
+                if (res.status === 429) {
+                  const retryAfter = res.headers.get('Retry-After');
+                  const waitSeconds = retryAfter ? parseInt(retryAfter, 10) : 5;
+                  logActivity('Rate limited (429). Waiting ' + waitSeconds + 's...', 'warning');
+                  await new Promise(r => setTimeout(r, waitSeconds * 1000));
+                  continue;
+                }
+                // 10. Auth/CORS help
+                if (res.status === 401) throw new Error('Authentication failed (401): Invalid or missing API key');
+                if (res.status === 402) throw new Error('Payment required (402): Insufficient balance');
+                if (res.status === 403) throw new Error('Forbidden (403): Access denied for this model/endpoint');
+                // 5. Param-scrub ladder on 400
+                if (res.status === 400 && attempt < maxRetries) {
+                  const paramError = errText.toLowerCase();
+                  if (paramError.includes('temperature')) delete paramSet.temperature;
+                  else if (paramError.includes('top_p')) delete paramSet.top_p;
+                  else if (paramError.includes('max_tokens')) paramSet.max_tokens = Math.min(paramSet.max_tokens || 4096, 2048);
+                  else if (paramError.includes('response_format')) delete paramSet.response_format;
+                  body = JSON.stringify({ model: provider.model || 'gpt-4o-mini', messages: messages, ...paramSet });
+                  logActivity('Param scrub: removed unsupported param, retrying...', 'warning');
+                  continue;
+                }
+                // 1. On 404, retry alternate /v1 placement once
+                if (res.status === 404 && attempt === 0) {
+                  const altUrl = baseUrl.includes('/v1') 
+                    ? baseUrl.replace('/v1', '') + '/v1/chat/completions'
+                    : baseUrl + '/v1/chat/completions';
+                  url = corsProxy ? corsProxy + encodeURIComponent(altUrl) : altUrl;
+                  logActivity('404 - trying alternate path: ' + altUrl, 'warning');
+                  continue;
+                }
+                throw new Error('API Error HTTP ' + res.status + ': ' + errText.slice(0, 150));
+              }
+
+              // Parse SSE stream
+              const reader = res.body.getReader();
+              const decoder = new TextDecoder();
+              let fullContent = '';
+              let finishReason = null;
+              let usage = null;
+              
+              while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                
+                // Reset stream idle timeout
+                if (streamIdleTimeout) clearTimeout(streamIdleTimeout);
+                streamIdleTimeout = setTimeout(() => controller.abort(), 30000);
+                
+                const chunk = decoder.decode(value, { stream: true });
+                const parsed = parseSSEStream(chunk);
+                for (const item of parsed) {
+                  if (typeof item === 'string') {
+                    fullContent += item;
+                  } else if (item && item.type === 'finish_reason') {
+                    finishReason = item.value;
+                  } else if (item && item.type === 'usage') {
+                    usage = item.value;
+                  }
+                }
+              }
+              
+              if (streamIdleTimeout) clearTimeout(streamIdleTimeout);
+              
+              // 3. Reasoning-model guard: if finish_reason=length with empty content, retry with 4x tokens
+              if (finishReason === 'length' && (!fullContent || fullContent.trim() === '')) {
+                paramSet.max_tokens = paramSet.max_tokens * 4;
+                body = JSON.stringify({ model: provider.model || 'gpt-4o-mini', messages: messages, ...paramSet });
+                logActivity('finish_reason=length with empty content, retrying with max_tokens=' + paramSet.max_tokens, 'warning');
+                continue;
+              }
+
+              // 4. Empty response retry
+              if (!fullContent || fullContent.trim() === '') {
+                if (attempt < maxRetries) {
+                  const backoff = Math.pow(2, attempt) * 1000;
+                  logActivity('Empty response, retrying in ' + backoff + 'ms...', 'warning');
+                  await new Promise(r => setTimeout(r, backoff));
+                  continue;
+                }
+                throw new Error('Empty response after all retries');
+              }
+
+              const latency = Date.now() - startTime;
+              clearTimeout(timeoutId);
+              
+              logRequestEntry({
+                provider: provider.name,
+                model: provider.model,
+                status: 'success',
+                latency,
+                finish_reason: finishReason || 'stop',
+                usage
+              });
+
+              return fullContent;
+            } catch (streamErr) {
+              if (streamIdleTimeout) clearTimeout(streamIdleTimeout);
+              // 2. Streaming auto-fallback: on error retry non-stream
+              logActivity('Stream failed: ' + streamErr.message + '. Falling back to non-stream...', 'warning');
+              useStream = false;
+            }
+          }
+          
+          // Non-streaming fallback (or primary if streaming disabled)
+          const nonStreamBody = JSON.stringify({ ...JSON.parse(body), stream: false });
+          const res = await fetch(url, {
+            method: 'POST',
+            headers,
+            body: nonStreamBody,
+            signal: controller.signal
+          });
+
+          if (!res.ok) {
+            const errText = await res.text();
+            if (res.status === 429) {
+              const retryAfter = res.headers.get('Retry-After');
+              const waitSeconds = retryAfter ? parseInt(retryAfter, 10) : 5;
+              logActivity('Rate limited (429). Waiting ' + waitSeconds + 's...', 'warning');
+              await new Promise(r => setTimeout(r, waitSeconds * 1000));
+              continue;
+            }
+            if (res.status === 401) throw new Error('Authentication failed (401): Invalid or missing API key');
+            if (res.status === 402) throw new Error('Payment required (402): Insufficient balance');
+            if (res.status === 403) throw new Error('Forbidden (403): Access denied for this model/endpoint');
+            if (res.status === 400 && attempt < maxRetries) {
+              const paramError = errText.toLowerCase();
+              if (paramError.includes('temperature')) delete paramSet.temperature;
+              else if (paramError.includes('top_p')) delete paramSet.top_p;
+              else if (paramError.includes('max_tokens')) paramSet.max_tokens = Math.min(paramSet.max_tokens || 4096, 2048);
+              else if (paramError.includes('response_format')) delete paramSet.response_format;
+              body = JSON.stringify({ model: provider.model || 'gpt-4o-mini', messages: messages, ...paramSet });
+              logActivity('Param scrub: removed unsupported param, retrying...', 'warning');
+              continue;
+            }
+            if (res.status === 404 && attempt === 0) {
+              const altUrl = baseUrl.includes('/v1') 
+                ? baseUrl.replace('/v1', '') + '/v1/chat/completions'
+                : baseUrl + '/v1/chat/completions';
+              url = corsProxy ? corsProxy + encodeURIComponent(altUrl) : altUrl;
+              logActivity('404 - trying alternate path: ' + altUrl, 'warning');
+              continue;
+            }
+            throw new Error('API Error HTTP ' + res.status + ': ' + errText.slice(0, 150));
+          }
+
+          const data = await res.json();
+          
+          // Extract content, finish_reason, usage from non-stream response
+          let fullContent = '';
+          let finishReason = null;
+          let usage = null;
+          
+          if (data.choices && data.choices[0] && data.choices[0].message) {
+            fullContent = data.choices[0].message.content || '';
+            finishReason = data.choices[0].finish_reason;
+          }
+          if (data.usage) usage = data.usage;
+
+          // 3. Reasoning-model guard
+          if (finishReason === 'length' && (!fullContent || fullContent.trim() === '')) {
+            paramSet.max_tokens = paramSet.max_tokens * 4;
+            body = JSON.stringify({ model: provider.model || 'gpt-4o-mini', messages: messages, ...paramSet });
+            logActivity('finish_reason=length with empty content, retrying with max_tokens=' + paramSet.max_tokens, 'warning');
+            continue;
+          }
+
+          // 4. Empty response retry
+          if (!fullContent || fullContent.trim() === '') {
+            if (attempt < maxRetries) {
+              const backoff = Math.pow(2, attempt) * 1000;
+              logActivity('Empty response, retrying in ' + backoff + 'ms...', 'warning');
+              await new Promise(r => setTimeout(r, backoff));
+              continue;
+            }
+            throw new Error('Empty response after all retries');
+          }
+
+          const latency = Date.now() - startTime;
+          clearTimeout(timeoutId);
+          
+          logRequestEntry({
+            provider: provider.name,
+            model: provider.model,
+            status: 'success',
+            latency,
+            finish_reason: finishReason || 'stop',
+            usage
+          });
+
+          return fullContent;
+        } catch (err) {
+          if (streamIdleTimeout) clearTimeout(streamIdleTimeout);
+          lastError = err;
+          
+          if (err.name === 'AbortError') {
+            throw new Error('Request timeout (120s) or stream idle (30s) exceeded');
+          }
+          
+          if (err instanceof TypeError) {
+            // 10. Auth/CORS help - network error
+            throw new Error('Network/CORS Error: Failed to reach provider. Try configuring a CORS Proxy in Provider Settings. (' + err.message + ')');
+          }
+          
+          if (attempt < maxRetries) {
+            const backoff = Math.pow(2, attempt) * 1000;
+            logActivity('Error: ' + err.message + '. Retrying in ' + backoff + 'ms...', 'warning');
+            await new Promise(r => setTimeout(r, backoff));
+            continue;
+          }
+          throw err;
         }
-        throw new Error('Unexpected API response structure');
-      } catch (err) {
-        if (err instanceof TypeError) {
-          throw new Error(`Network/CORS Error: Failed to reach provider. Try configuring a CORS Proxy in Provider Settings. (${err.message})`);
-        }
-        throw err;
       }
+      
+      clearTimeout(timeoutId);
+      throw lastError || new Error('Max retries exceeded');
     }
 
     // --- DuckDuckGo AI Flow ---
@@ -1554,12 +1928,14 @@ CURRENT VIRTUAL FILES:
       startTimer();
 
       try {
+        // 9. History hygiene: strip reasoning/thinking blocks and null-content messages
+        const sanitizedHistory = sanitizeHistoryForReplay(session.chatHistory);
         const messages = [
-          { role: 'system', content: buildSystemContext() },
-          ...session.chatHistory
+          { role: 'system', content: buildSystemContextWithGuard() },
+          ...sanitizedHistory
         ];
 
-        logActivity(`Calling ${appState.provider.preset} (${appState.provider.model})...`, 'info');
+        logActivity('Calling ' + appState.providers[appState.activeProviderId].name + ' (' + appState.providers[appState.activeProviderId].model + ')...', 'info');
         const reply = await callLLM(messages);
 
         session.chatHistory.push({ role: 'assistant', content: reply });
@@ -1569,15 +1945,15 @@ CURRENT VIRTUAL FILES:
 
         // Auto-continue loop up to 3 turns if files were updated and reply needs continuation
         if (fileModified && autoTurn < 3) {
-          logActivity(`Auto-continue turn ${autoTurn + 1}/3...`, 'info');
+          logActivity('Auto-continue turn ' + (autoTurn + 1) + '/3...', 'info');
           agentWorking = false;
           stopTimer();
           return sendAgentPrompt("Continue refining or complete any remaining steps if needed. If finished, reply briefly with no code blocks.", autoTurn + 1);
         }
 
       } catch (err) {
-        logActivity(`Agent Error: ${err.message}`, 'error');
-        appendChatMessage('system', `Error: ${err.message}`);
+        logActivity('Agent Error: ' + err.message, 'error');
+        appendChatMessage('system', 'Error: ' + err.message);
       } finally {
         agentWorking = false;
         stopTimer();
@@ -1629,7 +2005,9 @@ CURRENT VIRTUAL FILES:
       chat.innerHTML = '<div class="msg msg-system">DevForge Agent ready. Ask me to create or modify code in your virtual FS.</div>';
       const session = getCurrentSession();
       if (!session || !session.chatHistory) return;
-      session.chatHistory.forEach(msg => {
+      // 9. History hygiene: strip reasoning/thinking blocks and null-content messages
+      const sanitizedHistory = sanitizeHistoryForReplay(session.chatHistory);
+      sanitizedHistory.forEach(msg => {
         if (msg.role === 'user') {
           appendChatMessage('user', msg.content);
         } else if (msg.role === 'assistant') {
@@ -1775,6 +2153,7 @@ CURRENT VIRTUAL FILES:
       const customHeadersInput = document.getElementById('providerCustomHeaders');
       const corsProxyInput = document.getElementById('providerCorsProxy');
       const streamingCheckbox = document.getElementById('providerStreaming');
+      const contextWindowInput = document.getElementById('providerContextWindow');
 
       // Reset form
       presetSelect.value = '';
@@ -1787,6 +2166,7 @@ CURRENT VIRTUAL FILES:
       customHeadersInput.value = '';
       corsProxyInput.value = '';
       streamingCheckbox.checked = true;
+      contextWindowInput.value = '';
       editingProviderId = null;
 
       if (provider) {
@@ -1812,6 +2192,7 @@ CURRENT VIRTUAL FILES:
         customHeadersInput.value = provider.customHeaders ? JSON.stringify(provider.customHeaders, null, 2) : '';
         corsProxyInput.value = provider.corsProxy || '';
         streamingCheckbox.checked = provider.streaming !== false;
+        contextWindowInput.value = provider.contextWindow || '';
       } else {
         title.textContent = 'Add Provider';
       }
@@ -1845,6 +2226,7 @@ CURRENT VIRTUAL FILES:
       const customHeadersText = document.getElementById('providerCustomHeaders').value.trim();
       const corsProxy = document.getElementById('providerCorsProxy').value.trim();
       const streaming = document.getElementById('providerStreaming').checked;
+      const contextWindow = parseInt(document.getElementById('providerContextWindow').value) || 128000;
 
       if (!name || !baseUrl || !model) {
         alert('Please fill in Name, Base URL, and Model fields.');
@@ -1872,6 +2254,7 @@ CURRENT VIRTUAL FILES:
         customHeaders,
         corsProxy,
         streaming,
+        contextWindow,
         isPreset: false,
         presetKey: null
       };
