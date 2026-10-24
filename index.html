@@ -854,6 +854,7 @@
                 <div style="padding: 8px 12px; border-top: 1px solid var(--border-color); background: var(--bg-surface);">
                   <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px;">Agent Status</div>
                   <div id="agentStatusChips" style="display:flex; flex-wrap:wrap; gap:6px;"></div>
+                  <div id="teamCostStrip" style="display:flex; flex-wrap:wrap; gap:4px; margin-top:6px;"></div>
                 </div>
               </div>
             </div>
@@ -6294,6 +6295,8 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
         const isSenior = agentId === appState.teamSeniorId;
         const item = document.createElement('div');
         item.style.cssText = 'display:flex; align-items:center; gap:8px; padding:6px 8px; background:var(--bg-surface); border:1px solid var(--border-color); border-radius:4px;';
+        item.setAttribute('data-agent-id', agentId);
+        item.title = 'Task drop target — drag a task card here to reassign';
         item.innerHTML = `
           <span style="font-size:16px;">${escapeHtml(agent.emoji)}</span>
           <div style="flex:1; min-width:0;">
@@ -6395,6 +6398,9 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
 
         const item = document.createElement('div');
         item.style.cssText = 'padding:8px 10px; background:' + c.bg + '; border:1px solid ' + c.border + '; border-radius:5px; color:' + c.fg + ';';
+        item.setAttribute('data-task-id', task.id);
+        item.setAttribute('draggable', 'true');
+        item.title = 'Drag onto a roster member to reassign';
         item.innerHTML = `
           <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:4px;">
             <div style="font-weight:600; font-size:12px; flex:1;">${escapeHtml(task.title)}</div>
@@ -6554,6 +6560,11 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
       const provider = appState.providers[agent.providerId];
       if (!provider) throw new Error('Agent has no valid provider');
 
+      // v2: enforce the user's team budget cap before any billable call
+      if (appState.teamMode) assertTeamBudget();
+      const v2T0 = Date.now();
+      const v2PromptChars = messages.reduce((s, m) => s + (m.content || '').length, 0);
+
       // Build context with agent's skill packs
       let context = buildSystemContextWithGuard();
 
@@ -6574,6 +6585,7 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
 
       try {
         const response = await callLLM(fullMessages);
+        recordAgentUsage(agent, Date.now() - v2T0, v2PromptChars, (response || '').length);
         return response;
       } finally {
         appState.activeProviderId = oldProviderId;
@@ -6697,7 +6709,11 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
 
       try {
         // Send prompt and get response
+        if (appState.teamMode) assertTeamBudget();
+        const v2T0 = Date.now();
+        const v2PromptChars = messages.reduce((s, m) => s + (m.content || '').length, 0);
         const response = await callLLM(messages);
+        recordAgentUsage(agent, Date.now() - v2T0, v2PromptChars, (response || '').length);
 
         // Parse and apply any file blocks
         const { chips, fileModified, toolsUsed } = parseAndApplyBlocks(response);
@@ -7541,6 +7557,120 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
       }
       recordSessionEvent('auto-team', `Auto-team assembled: ${names}`);
       logActivity('Auto-team assembled: ' + names, 'success');
+    }
+
+    // ---------- Cost + time per agent; budget cap the user can set ----------
+    function recordAgentUsage(agent, ms, promptChars, responseChars) {
+      const v2 = getTeamV2();
+      if (!v2.usage[agent.id]) v2.usage[agent.id] = { calls: 0, tokensIn: 0, tokensOut: 0, ms: 0, cost: 0 };
+      const u = v2.usage[agent.id];
+      const preset = agent.presetKey ? TEAM_V2_ROLE_PRESETS[agent.presetKey] : null;
+      const costPerK = (preset && preset.costPerK) || 0.002;
+      const tokensIn = Math.ceil(promptChars / 4), tokensOut = Math.ceil(responseChars / 4);
+      u.calls++; u.tokensIn += tokensIn; u.tokensOut += tokensOut; u.ms += ms;
+      u.cost += ((tokensIn + tokensOut) / 1000) * costPerK;
+      updateTeamBudgetDisplay();
+    }
+
+    function teamTotalSpend() {
+      const usage = getTeamV2().usage;
+      return Object.values(usage).reduce((s, u) => s + (u.cost || 0), 0);
+    }
+
+    function teamBudgetAllowsCall() {
+      const cap = getTeamV2().budgetCap;
+      if (!cap || cap <= 0) return true;
+      return teamTotalSpend() < cap;
+    }
+
+    function assertTeamBudget() {
+      if (!teamBudgetAllowsCall()) {
+        const msg = `BUDGET CAP REACHED: total spend $${teamTotalSpend().toFixed(4)} ≥ cap $${getTeamV2().budgetCap}. Team calls paused — raise the cap to continue.`;
+        appendTeamChat('system', null, msg);
+        logActivity(msg, 'warning');
+        recordSessionEvent('budget', msg);
+        stopTeamMode();
+        throw new Error('Team budget cap reached');
+      }
+    }
+
+    function updateTeamBudgetDisplay() {
+      const el = document.getElementById('teamBudgetSpent');
+      if (el) {
+        const spend = teamTotalSpend();
+        const cap = getTeamV2().budgetCap;
+        el.textContent = `$${spend.toFixed(4)} spent${cap ? ' / $' + cap + ' cap' : ''}`;
+        el.style.color = cap && spend >= cap ? 'var(--danger)' : 'var(--text-dim)';
+      }
+      // per-agent cost chips live in the status strip (elem rendered separately)
+      const strip = document.getElementById('teamCostStrip');
+      if (strip) {
+        strip.innerHTML = appState.teamRoster.map(id => {
+          const a = appState.agents[id];
+          const u = getTeamV2().usage[id];
+          if (!a) return '';
+          const secs = u ? Math.round(u.ms / 1000) : 0;
+          return `<span style="font-size:9px; color:var(--text-dim); padding:2px 6px; border:1px solid var(--border-color); border-radius:10px;">${escapeHtml(a.emoji)} ${escapeHtml(a.name)} · ${u ? '$' + u.cost.toFixed(4) + ' / ' + secs + 's' : 'no calls yet'}</span>`;
+        }).join('');
+      }
+    }
+
+    // ---------- Drag-to-reassign task board ----------
+    let teamV2DragTaskId = null;
+
+    function reassignTask(taskId, newOwnerId) {
+      const task = appState.teamTaskBoard.find(t => t.id === taskId);
+      const agent = appState.agents[newOwnerId];
+      if (!task || !agent) return;
+      if (task.owner === newOwnerId) return;
+      if (newOwnerId === appState.teamSeniorId) {
+        appendTeamChat('system', null, 'Senior Developer leads the review — tasks are not assigned to the lead.');
+        return;
+      }
+      const oldAgent = appState.agents[task.owner];
+      task.owner = newOwnerId;
+      if (task.status === 'rework' || task.status === 'working') task.status = 'pending';
+      saveAppState();
+      renderTaskBoard();
+      updateAgentStatusChips();
+      appendTeamChat('system', newOwnerId,
+        `REASSIGNED: "${task.title}" moved ${oldAgent ? oldAgent.name : 'unassigned'} → ${agent.name}. The team re-plans around the change: define your approach in the next turn.`);
+      recordSessionEvent('reassign', `Task "${task.title}" → ${agent.name}`);
+      logActivity(`Task reassigned to ${agent.name} — team replans around the change`, 'info');
+    }
+
+    // Event delegation: task cards are draggable; roster entries are drop targets
+    function initTeamBoardDrag() {
+      const board = document.getElementById('taskBoard');
+      if (board && !board.dataset.v2drag) {
+        board.dataset.v2drag = '1';
+        board.addEventListener('dragstart', e => {
+          const card = e.target.closest('[data-task-id]');
+          if (!card) return;
+          teamV2DragTaskId = card.dataset.taskId;
+          e.dataTransfer.setData('text/plain', teamV2DragTaskId);
+        });
+      }
+      const roster = document.getElementById('teamRoster');
+      if (roster && !roster.dataset.v2drop) {
+        roster.dataset.v2drop = '1';
+        roster.addEventListener('dragover', e => { e.preventDefault(); });
+        roster.addEventListener('drop', e => {
+          e.preventDefault();
+          const id = e.dataTransfer.getData('text/plain') || teamV2DragTaskId;
+          const row = e.target.closest('[data-agent-id]');
+          if (id && row) reassignTask(id, row.dataset.agentId);
+          teamV2DragTaskId = null;
+        });
+      }
+    }
+    // Exec mode toggle
+    function setTeamExecMode(mode) {
+      getTeamV2().execMode = mode === 'parallel' ? 'parallel' : 'sequential';
+      const btn = document.getElementById('btnExecMode');
+      if (btn) btn.textContent = getTeamV2().execMode === 'parallel' ? '⇉ Parallel: ON' : '⏱ Sequential';
+      saveAppState();
+      logActivity('Team execution mode: ' + getTeamV2().execMode, 'info');
     }
 
     // ==================== AGENTDEF BLOCK PARSING ====================
