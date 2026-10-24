@@ -3127,6 +3127,290 @@ CURRENT VIRTUAL FILES:
       return Object.values(appState.agents);
     }
 
+    // --- Agent Library Modal UI ---
+    function renderAgentList() {
+      const list = document.getElementById('agentList');
+      if (!list) return;
+      list.innerHTML = '';
+
+      const agents = listAgents();
+      agents.forEach(agent => {
+        const isActive = agent.id === appState.activeAgentId;
+        const isInTeam = appState.teamRoster.includes(agent.id);
+        const isSenior = agent.id === appState.teamSeniorId;
+
+        const item = document.createElement('div');
+        item.style.cssText = 'display:flex; align-items:center; gap:8px; padding:8px 10px; background:var(--bg-surface); border:1px solid var(--border-color); border-radius:5px; cursor:pointer;' + (isActive ? ' border-color:var(--accent-blue);' : '');
+        item.onclick = () => selectAgentForEdit(agent.id);
+
+        item.innerHTML = `
+          <span style="font-size: 18px;">${escapeHtml(agent.emoji)}</span>
+          <div style="flex:1; min-width:0;">
+            <div style="font-weight:600; color:${isActive ? 'var(--accent-blue)' : 'var(--text-main)'}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(agent.name)}${agent.isPreset ? ' <span style="font-size:9px; color:var(--text-dim);">(preset)</span>' : ''}</div>
+            <div style="font-size:10px; color:var(--text-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(agent.rolePrompt.slice(0, 60))}...</div>
+          </div>
+          <div style="display:flex; gap:2px;">
+            ${isSenior ? '<span style="font-size:9px; padding:1px 4px; background:var(--warning); color:var(--bg-dark); border-radius:3px;">LEAD</span>' : ''}
+            ${isInTeam ? '<span style="font-size:9px; padding:1px 4px; background:var(--success); color:var(--bg-dark); border-radius:3px;">TEAM</span>' : ''}
+          </div>
+        `;
+        list.appendChild(item);
+      });
+    }
+
+    function selectAgentForEdit(agentId) {
+      const agent = appState.agents[agentId];
+      if (!agent) return;
+
+      const detailPanel = document.getElementById('agentDetailPanel');
+      const form = document.getElementById('agentForm');
+
+      detailPanel.querySelector('div').style.display = 'none';
+      form.style.display = 'flex';
+      form.dataset.agentId = agentId;
+
+      document.getElementById('agentName').value = agent.name;
+      document.getElementById('agentEmoji').value = agent.emoji;
+      document.getElementById('agentRolePrompt').value = agent.rolePrompt;
+
+      const providerSelect = document.getElementById('agentProvider');
+      providerSelect.innerHTML = '';
+      Object.entries(appState.providers).forEach(([id, provider]) => {
+        const opt = document.createElement('option');
+        opt.value = id;
+        opt.textContent = `${provider.name} (${provider.model})`;
+        if (id === agent.providerId) opt.selected = true;
+        providerSelect.appendChild(opt);
+      });
+
+      document.getElementById('agentModel').value = agent.model || '';
+      document.getElementById('agentTemperature').value = agent.temperature;
+      document.getElementById('agentTemperatureValue').textContent = agent.temperature.toFixed(1);
+      document.getElementById('agentSkillPacks').value = agent.skillPacks.join(', ');
+      document.getElementById('agentPluginPacks').value = agent.pluginPacks.join(', ');
+      document.getElementById('agentMcpServers').value = JSON.stringify(agent.mcpServers || [], null, 2);
+
+      document.querySelectorAll('#agentList > div').forEach(el => {
+        el.style.borderColor = 'var(--border-color)';
+      });
+      event.currentTarget.style.borderColor = 'var(--accent-blue)';
+    }
+
+    function openAgentLibrary() {
+      renderAgentList();
+      document.getElementById('agentForm').style.display = 'none';
+      document.getElementById('agentDetailPanel').querySelector('div').style.display = 'block';
+      document.getElementById('agentForm').dataset.agentId = '';
+      document.getElementById('agentLibraryModal').classList.add('active');
+    }
+
+    function closeAgentLibrary() {
+      document.getElementById('agentLibraryModal').classList.remove('active');
+    }
+
+    function setupAgentLibraryHandlers() {
+      document.getElementById('btnOpenAgentLibrary').onclick = openAgentLibrary;
+      document.getElementById('btnCloseAgentLibrary').onclick = closeAgentLibrary;
+
+      document.getElementById('btnAddAgent').onclick = () => {
+        document.getElementById('agentForm').reset();
+        document.getElementById('agentForm').dataset.agentId = '';
+        document.getElementById('agentDetailPanel').querySelector('div').style.display = 'none';
+        document.getElementById('agentForm').style.display = 'flex';
+
+        document.getElementById('agentProvider').value = appState.activeProviderId;
+        document.getElementById('agentTemperature').value = 0.7;
+        document.getElementById('agentTemperatureValue').textContent = '0.7';
+        document.getElementById('agentSkillPacks').value = 'no-ai-slop';
+
+        const providerSelect = document.getElementById('agentProvider');
+        providerSelect.innerHTML = '';
+        Object.entries(appState.providers).forEach(([id, provider]) => {
+          const opt = document.createElement('option');
+          opt.value = id;
+          opt.textContent = `${provider.name} (${provider.model})`;
+          providerSelect.appendChild(opt);
+        });
+
+        document.querySelectorAll('#agentList > div').forEach(el => el.style.borderColor = 'var(--border-color)');
+      };
+
+      document.getElementById('agentTemperature').addEventListener('input', (e) => {
+        document.getElementById('agentTemperatureValue').textContent = Number(e.target.value).toFixed(1);
+      });
+
+      document.getElementById('agentForm').onsubmit = (e) => {
+        e.preventDefault();
+        const agentId = e.target.dataset.agentId;
+        const data = {
+          name: document.getElementById('agentName').value,
+          emoji: document.getElementById('agentEmoji').value,
+          rolePrompt: document.getElementById('agentRolePrompt').value,
+          providerId: document.getElementById('agentProvider').value,
+          model: document.getElementById('agentModel').value,
+          temperature: Number(document.getElementById('agentTemperature').value),
+          skillPacks: document.getElementById('agentSkillPacks').value,
+          pluginPacks: document.getElementById('agentPluginPacks').value,
+          mcpServers: document.getElementById('agentMcpServers').value
+        };
+
+        try {
+          if (agentId) {
+            updateAgent(agentId, data);
+            logActivity(`Updated agent: ${data.name}`, 'success');
+          } else {
+            createAgent(data);
+            logActivity(`Created agent: ${data.name}`, 'success');
+          }
+          renderAgentList();
+          closeAgentLibrary();
+        } catch (err) {
+          alert('Error: ' + err.message);
+        }
+      };
+
+      document.getElementById('btnCancelAgent').onclick = () => {
+        document.getElementById('agentForm').style.display = 'none';
+        document.getElementById('agentDetailPanel').querySelector('div').style.display = 'block';
+        document.querySelectorAll('#agentList > div').forEach(el => el.style.borderColor = 'var(--border-color)');
+      };
+
+      document.getElementById('btnAutoCreateAgent').onclick = openAutoCreateAgent;
+    }
+
+    // --- Auto-Create Agent Modal ---
+    function openAutoCreateAgent() {
+      const modal = document.getElementById('autoCreateAgentModal');
+      const promptInput = document.getElementById('autoCreatePrompt');
+      const resultDiv = document.getElementById('autoCreateResult');
+
+      promptInput.value = '';
+      resultDiv.style.display = 'none';
+      resultDiv.innerHTML = '';
+      modal.classList.add('active');
+    }
+
+    function closeAutoCreateAgent() {
+      document.getElementById('autoCreateAgentModal').classList.remove('active');
+    }
+
+    async function generateAgentDefinition(userNeed) {
+      const provider = appState.providers[appState.activeProviderId];
+      if (!provider) throw new Error('No active provider');
+
+      const systemPrompt = `You are an agent architect. Generate a complete agent definition as JSON for a specialized coding agent.
+
+The user describes a need. You must output ONLY valid JSON with these exact fields:
+{
+  "name": "Agent Name",
+  "emoji": "🤖",
+  "rolePrompt": "Detailed role prompt describing responsibilities, work style, and expertise. Be specific and actionable.",
+  "temperature": 0.5,
+  "skillPacks": ["no-ai-slop", "senior-frontend"],
+  "pluginPacks": [],
+  "mcpServers": []
+}
+
+Available skill packs: no-ai-slop, senior-frontend, testing-qa, api-design, debugging-discipline, git-workflow, security-review, accessibility, performance
+Available plugin packs: console-error-sweep, auto-test-after-build, changelog-writer, format-tidy
+
+Make the role prompt detailed and specific to the user's need. No placeholder text.`;
+
+      const messages = [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userNeed }
+      ];
+
+      const response = await callLLM(messages);
+
+      let jsonStr = response.trim();
+      const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
+      if (jsonMatch) jsonStr = jsonMatch[0];
+
+      const agentDef = JSON.parse(jsonStr);
+
+      if (!agentDef.name || !agentDef.emoji || !agentDef.rolePrompt) {
+        throw new Error('Generated agent missing required fields');
+      }
+
+      return agentDef;
+    }
+
+    async function handleAutoCreateSubmit() {
+      const promptInput = document.getElementById('autoCreatePrompt');
+      const resultDiv = document.getElementById('autoCreateResult');
+      const btn = document.getElementById('btnGenerateAgent');
+
+      const userNeed = promptInput.value.trim();
+      if (!userNeed) return alert('Describe what kind of agent you need');
+
+      btn.disabled = true;
+      btn.textContent = 'Generating...';
+      resultDiv.style.display = 'none';
+
+      try {
+        const agentDef = await generateAgentDefinition(userNeed);
+
+        resultDiv.style.display = 'block';
+        resultDiv.innerHTML = `
+          <div style="font-size:11px; font-weight:600; margin-bottom:8px;">Generated Agent — Review and approve to save:</div>
+          <div style="background:var(--bg-surface); border:1px solid var(--border-color); border-radius:5px; padding:12px; margin-bottom:8px;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+              <span style="font-size:24px;">${escapeHtml(agentDef.emoji)}</span>
+              <div>
+                <div style="font-weight:600;">${escapeHtml(agentDef.name)}</div>
+                <div style="font-size:10px; color:var(--text-dim);">Temp: ${agentDef.temperature} | Skills: ${(agentDef.skillPacks || []).join(', ') || 'none'}</div>
+              </div>
+            </div>
+            <div style="font-size:11px; font-family:var(--font-mono); color:var(--text-muted); white-space:pre-wrap; max-height:200px; overflow:auto;">${escapeHtml(agentDef.rolePrompt)}</div>
+          </div>
+          <div style="display:flex; gap:8px; justify-content:flex-end;">
+            <button class="btn btn-secondary" onclick="closeAutoCreateAgent()">Cancel</button>
+            <button class="btn" onclick="saveAutoCreatedAgent('${escapeHtml(JSON.stringify(agentDef)).replace(/'/g, "\\'")}')">✓ Save Agent</button>
+          </div>
+        `;
+      } catch (err) {
+        resultDiv.style.display = 'block';
+        resultDiv.style.background = 'rgba(239, 68, 68, 0.15)';
+        resultDiv.style.border = '1px solid var(--danger)';
+        resultDiv.style.color = 'var(--danger)';
+        resultDiv.innerHTML = `❌ Generation failed: ${escapeHtml(err.message)}`;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Generate Agent';
+      }
+    }
+
+    function saveAutoCreatedAgent(agentDefJson) {
+      try {
+        const agentDef = JSON.parse(agentDefJson);
+        createAgent({
+          ...agentDef,
+          providerId: appState.activeProviderId,
+          skillPacks: (agentDef.skillPacks || []).join(', '),
+          pluginPacks: (agentDef.pluginPacks || []).join(', '),
+          mcpServers: JSON.stringify(agentDef.mcpServers || [])
+        });
+        logActivity(`Auto-created agent: ${agentDef.name}`, 'success');
+        closeAutoCreateAgent();
+        openAgentLibrary();
+      } catch (err) {
+        alert('Error saving agent: ' + err.message);
+      }
+    }
+
+    function setupAutoCreateAgentHandlers() {
+      document.getElementById('btnCloseAutoCreateAgent').onclick = closeAutoCreateAgent;
+      document.getElementById('btnCancelAutoCreate').onclick = closeAutoCreateAgent;
+      document.getElementById('btnGenerateAgent').onclick = handleAutoCreateSubmit;
+
+      document.getElementById('autoCreatePrompt').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+          handleAutoCreateSubmit();
+        }
+      });
+    }
+
     document.addEventListener('DOMContentLoaded', initApp);
   </script>
 </body>
