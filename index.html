@@ -659,6 +659,7 @@
           <div class="working-indicator" id="workingIndicator" style="display: none;">
             <div class="spinner"></div>
             <span>Agent working... <strong id="elapsedTimer">0s</strong></span>
+            <button class="btn btn-secondary" id="btnCancelAgent" style="margin-left: 12px; padding: 4px 12px; font-size: 12px;">Cancel</button>
           </div>
 
           <div class="prompt-chips">
@@ -905,7 +906,8 @@
         authStyle: 'bearer',
         customHeaders: {},
         corsProxy: '',
-        streaming: true
+        streaming: true,
+        contextWindow: 128000
       },
       'omniroute-cloud': {
         name: 'OmniRoute Cloud',
@@ -916,7 +918,8 @@
         authStyle: 'bearer',
         customHeaders: {},
         corsProxy: '',
-        streaming: true
+        streaming: true,
+        contextWindow: 128000
       },
       'omniroute-local': {
         name: 'OmniRoute Local',
@@ -927,7 +930,8 @@
         authStyle: 'none',
         customHeaders: {},
         corsProxy: '',
-        streaming: true
+        streaming: true,
+        contextWindow: 128000
       },
       'pollinations': {
         name: 'Pollinations Free',
@@ -938,7 +942,8 @@
         authStyle: 'none',
         customHeaders: {},
         corsProxy: '',
-        streaming: true
+        streaming: true,
+        contextWindow: 128000
       },
       'openrouter': {
         name: 'OpenRouter',
@@ -949,7 +954,8 @@
         authStyle: 'bearer',
         customHeaders: { 'HTTP-Referer': 'https://devforge.app', 'X-Title': 'DevForge' },
         corsProxy: '',
-        streaming: true
+        streaming: true,
+        contextWindow: 128000
       },
       'groq': {
         name: 'Groq',
@@ -960,7 +966,8 @@
         authStyle: 'bearer',
         customHeaders: {},
         corsProxy: '',
-        streaming: true
+        streaming: true,
+        contextWindow: 128000
       },
       'duckduckgo': {
         name: 'DuckDuckGo AI',
@@ -971,7 +978,8 @@
         authStyle: 'none',
         customHeaders: {},
         corsProxy: '',
-        streaming: true
+        streaming: true,
+        contextWindow: 128000
       }
     };
 
