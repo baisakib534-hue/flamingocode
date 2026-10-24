@@ -6833,6 +6833,29 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
       return matches;
     }
 
+    // Build sub-agent spawn template using AUTONOMY_CATALOG (single source of truth)
+    function buildSubAgentSpawnTemplate(parentAgentName, subAgent, task) {
+      let context = '\n\n=== AUTONOMY ENGINE: CATALOG INJECTION ===';
+      context += '\nThe following skills, plugins, and MCPs are installed and available. You MUST use them where applicable.';
+      context += '\n\n--- MANDATORY PRE-INSTALLED SKILLS (jcode pack) ---';
+      context += AUTONOMY_CATALOG.skills.map(s => '\n• ' + s.name + ': ' + s.desc).join('');
+      context += '\n\n--- MANDATORY PRE-INSTALLED MCPs ---';
+      context += AUTONOMY_CATALOG.mcps.map(m => '\n• ' + m.name + ': ' + m.desc).join('');
+      context += '\n\n--- SKILLS FOR VIBE-CODING DEVELOPMENT ---';
+      context += AUTONOMY_CATALOG.vibeSkills.map(s => '\n• ' + s.name + ': ' + s.desc).join('');
+      context += '\n\n--- MCPs (BUILD ENVIRONMENT) ---';
+      context += AUTONOMY_CATALOG.newMcps.map(m => '\n• ' + m.name + ': ' + m.desc).join('');
+      context += '\n\n--- PLUGIN PACKS (product runtime library, ships in a later stage) ---';
+      context += AUTONOMY_CATALOG.pluginPacks.map(p => '\n• ' + p.name + ': ' + p.desc).join('');
+      context += '\n\n' + buildMandatoryUseRuleText();
+      context += '\n\n' + buildPrecommitGateText();
+      context += '\n\n=== SUB-AGENT INHERITANCE ===';
+      context += '\nYou are a sub-agent spawned by ' + parentAgentName + '. You inherit the full catalog and mandatory-use rule.';
+      context += '\nYou can invoke skills, plugins, and MCP tools on your own.';
+      context += `\n\nYOUR SUB-TASK: ${task}\n\nYou are ${subAgent.name} (${subAgent.emoji}), spawned by ${parentAgentName}. Complete this sub-task and return the result. Use file: blocks for any file changes.`;
+      return context;
+    }
+
     // Execute sub-agent
     async function executeSubAgent(parentAgent, agentName, task) {
       // Find agent by name in library
@@ -6852,47 +6875,8 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
       const skillInstructions = getSkillPackInstructions(subAgent.skillPacks);
       if (skillInstructions) context += '\n\n' + skillInstructions;
 
-      // Inject full catalog and mandatory-use rule for autonomy
-      context += '\n\n=== AUTONOMY ENGINE: CATALOG INJECTION ===';
-      context += '\nThe following skills, plugins, and MCPs are installed and available. You MUST use them where applicable.';
-      context += '\n\n--- MANDATORY PRE-INSTALLED SKILLS (jcode pack) ---';
-      context += '\n• no-ai-slop: Produce work indistinguishable from a careful human developer. No generic AI filler in UI, copy, or code.';
-      context += '\n• senior-frontend: Frontend expertise: layout, interactions, preview behavior.';
-      context += '\n• testing-qa: Test like a hostile user: clicks everything, breaks inputs, reads console errors as failures.';
-      context += '\n• security-review: Security review checklist for client-side apps and API integrations.';
-      context += '\n• performance: Performance optimization and profiling.';
-      context += '\n• accessibility: Accessibility essentials for IDE-style web apps used on phones and desktops.';
-      context += '\n• api-design: Hardened client design for calling heterogeneous LLM/provider APIs.';
-      context += '\n• debugging-discipline: Systematic debugging methodology.';
-      context += '\n• git-workflow: Clean git habits for staged agent-built projects.';
-      context += '\n\n--- MANDATORY PRE-INSTALLED MCPs ---';
-      context += '\n• context7: Docs lookup — up-to-date documentation and code examples for any library.';
-      context += '\n• playwright: Browser testing — full Playwright automation for testing and scraping.';
-      context += '\n• sequential-thinking: Hard problems — step-by-step reasoning for complex tasks.';
-      context += '\n\n--- NEW SKILLS FOR VIBE-CODING DEVELOPMENT ---';
-      context += '\n• vibe-coding-orchestrator: The loop: understand → plan → scaffold → build in slices → test → fix → polish; never claim done with tests failing.';
-      context += '\n• human-dev-sense: Develop like a human dev: edge cases, empty/error/loading states, UX judgment, good naming, consistency, no over-engineering.';
-      context += '\n• test-first: Write the check before the code; red → green → refactor; happy path + edge paths.';
-      context += '\n• design-taste: Visual judgment: spacing scale, type hierarchy, colour discipline, anti-slop rules.';
-      context += '\n• backend-craft: Data modelling, API design, auth, errors, migrations, observability.';
-      context += '\n• ship-ready: Deployment discipline: env handling, build checks, CI basics, rollback, changelog.';
-      context += '\n\n--- NEW MCPs (BUILD ENVIRONMENT) ---';
-      context += '\n• github: Repo ops: issues, PRs, branches, file operations.';
-      context += '\n• memory: Persistent knowledge-graph memory across sessions.';
-      context += '\n• fetch: Fetch docs/pages the agent needs while building.';
-      context += '\n\n=== MANDATORY-USE RULE ===';
-      context += '\nOn EVERY task, you MUST list which installed skills/plugins/MCPs apply and use them.';
-      context += '\n"No tool applies" is only valid for trivial tasks with a one-line reason.';
-      context += '\n\n=== PRE-COMMIT GATE ===';
-      context += '\nNo work is marked done until mandatory checks pass:';
-      context += '\n• testing-qa: Tests pass';
-      context += '\n• security-review: No secrets, no injection holes';
-      context += '\n• domain-skill: Relevant domain skill for the change type';
-      context += '\n\n=== SUB-AGENT INHERITANCE ===';
-      context += '\nYou are a sub-agent spawned by ' + parentAgent.name + '. You inherit the full catalog and mandatory-use rule.';
-      context += '\nYou can invoke skills, plugins, and MCP tools on your own.';
-
-      context += `\n\nYOUR SUB-TASK: ${task}\n\nYou are ${subAgent.name} (${subAgent.emoji}), spawned by ${parentAgent.name}. Complete this sub-task and return the result. Use file: blocks for any file changes.`;
+      // Inject full catalog and mandatory-use rule using single-source catalog
+      context += buildSubAgentSpawnTemplate(parentAgent.name, subAgent, task);
 
       const messages = [
         { role: 'system', content: context },
