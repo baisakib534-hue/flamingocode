@@ -772,6 +772,53 @@
       color: var(--warning);
       background: rgba(245, 158, 11, 0.1);
     }
+    #btnVoiceBuild {
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: background-color 0.2s, box-shadow 0.2s, transform 0.1s;
+    }
+    #btnVoiceBuild.active {
+      background: var(--accent-blue);
+      color: white;
+      border-color: var(--accent-blue);
+      box-shadow: 0 0 8px var(--accent-blue);
+    }
+    #btnVoiceBuild.active:hover {
+      background: #0ea5e9;
+    }
+    #btnVoiceBuild.recording {
+      background: var(--accent-blue);
+      color: white;
+      border-color: var(--accent-blue);
+      animation: voiceBuildPulse 1s infinite;
+      box-shadow: 0 0 8px var(--accent-blue), 0 0 16px rgba(6, 182, 212, 0.5);
+    }
+    @keyframes voiceBuildPulse {
+      0% { box-shadow: 0 0 4px var(--accent-blue), 0 0 8px rgba(6, 182, 212, 0.3); }
+      50% { box-shadow: 0 0 16px var(--accent-blue), 0 0 24px rgba(6, 182, 212, 0.5); }
+      100% { box-shadow: 0 0 4px var(--accent-blue), 0 0 8px rgba(6, 182, 212, 0.3); }
+    }
+    .voice-build-status {
+      font-size: 10px;
+      color: var(--accent-blue);
+      padding: 2px 8px;
+      background: rgba(6, 182, 212, 0.1);
+      border: 1px solid var(--accent-blue);
+      border-radius: 4px;
+      margin-left: 4px;
+      white-space: nowrap;
+      font-weight: 600;
+    }
+    .voice-build-status.listening {
+      animation: statusPulse 1.5s infinite;
+    }
+    @keyframes statusPulse {
+      0% { opacity: 1; }
+      50% { opacity: 0.6; }
+      100% { opacity: 1; }
+    }
 
     /* Preview Pane */
     .preview-frame {
@@ -1403,6 +1450,7 @@
             <input type="file" id="imageUploadInput" accept="image/*" style="display: none;" />
             <button class="btn btn-secondary" id="btnEnhancePrompt" title="Enhance prompt into full build spec" style="padding: 8px 10px; min-width: 44px;" data-i18n="Enhance">✨</button>
             <button class="btn btn-secondary" id="btnVoiceInput" title="Voice input (Click to start)" style="padding: 8px 10px; min-width: 44px;" data-i18n-title="Voice Input">🎤</button>
+            <button class="btn btn-secondary" id="btnVoiceBuild" title="Voice build mode: speak a feature and it builds automatically" style="padding: 8px 10px; min-width: 44px;" data-i18n-title="Voice Build">🏗️</button>
             <select id="voiceLangSelect" class="voice-lang-select" title="Speech recognition language" style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-main); padding: 8px 8px; font-size: 11px; min-width: 90px;">
               <option value="en-US">English (US)</option>
               <option value="bn-BD">Bangla (বাংলা)</option>
@@ -12635,6 +12683,9 @@ Format:
 
       // ==================== VOICE INPUT ====================
       setupVoiceInput();
+
+      // ==================== F4: VOICE BUILD MODE ====================
+      setupVoiceBuild();
     }
 
     // ==================== F3: SCREENSHOT-TO-APP ====================
@@ -13224,6 +13275,261 @@ Requirements:
       logActivity('Voice input initialized', 'success');
     }
 
+    // ==================== F4: VOICE BUILD MODE ====================
+    function setupVoiceBuild() {
+      const btnVoiceBuild = document.getElementById('btnVoiceBuild');
+      const voiceLangSelect = document.getElementById('voiceLangSelect');
+      const chatInput = document.getElementById('chatInput');
+      const btnVoiceInput = document.getElementById('btnVoiceInput');
+
+      if (!btnVoiceBuild || !voiceLangSelect || !chatInput || !btnVoiceInput) return;
+
+      // Check for SpeechRecognition support
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        btnVoiceBuild.disabled = true;
+        btnVoiceBuild.title = 'Speech recognition not supported in this browser';
+        btnVoiceBuild.classList.add('error');
+        btnVoiceBuild.textContent = '⚠';
+        logActivity('Voice build: SpeechRecognition API not available', 'warning');
+        return;
+      }
+
+      const recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = voiceLangSelect.value;
+
+      let isVoiceBuildActive = false;
+      let isRecording = false;
+      let interimTranscript = '';
+      let finalTranscript = '';
+      let silenceTimer = null;
+      const SILENCE_TIMEOUT = 1500; // ms of silence before auto-send
+
+      const updateVoiceBuildButton = (state) => {
+        btnVoiceBuild.classList.remove('active', 'recording', 'error');
+        btnVoiceBuild.textContent = '🏗️';
+        switch (state) {
+          case 'active':
+            btnVoiceBuild.classList.add('active');
+            btnVoiceBuild.title = 'Voice build mode ON — Click to disable';
+            break;
+          case 'recording':
+            btnVoiceBuild.classList.add('active', 'recording');
+            btnVoiceBuild.title = 'Voice build recording — Click to stop';
+            btnVoiceBuild.textContent = '⏺';
+            break;
+          case 'error':
+            btnVoiceBuild.classList.add('error');
+            btnVoiceBuild.title = 'Voice build error — Click to retry';
+            btnVoiceBuild.textContent = '⚠';
+            break;
+          default:
+            btnVoiceBuild.title = 'Voice build mode: speak a feature and it builds automatically';
+            btnVoiceBuild.textContent = '🏗️';
+        }
+      };
+
+      const showVoiceBuildStatus = (message, type = '') => {
+        let statusEl = document.getElementById('voiceBuildStatus');
+        if (!statusEl) {
+          statusEl = document.createElement('span');
+          statusEl.id = 'voiceBuildStatus';
+          statusEl.className = 'voice-build-status';
+          btnVoiceBuild.parentNode.insertBefore(statusEl, btnVoiceBuild.nextSibling);
+        }
+        statusEl.textContent = message;
+        statusEl.className = 'voice-build-status' + (type ? ' ' + type : '');
+        if (type === 'error') {
+          setTimeout(() => {
+            if (statusEl.parentNode) statusEl.remove();
+          }, 5000);
+        } else if (!type) {
+          setTimeout(() => {
+            if (statusEl.parentNode) statusEl.remove();
+          }, 3000);
+        }
+      };
+
+      const resetSilenceTimer = () => {
+        if (silenceTimer) clearTimeout(silenceTimer);
+        silenceTimer = setTimeout(() => {
+          if (isRecording && finalTranscript.trim()) {
+            // Auto-send on silence
+            stopVoiceBuildRecording();
+            sendVoiceBuildTranscript();
+          }
+        }, SILENCE_TIMEOUT);
+      };
+
+      const stopVoiceBuildRecording = () => {
+        if (silenceTimer) clearTimeout(silenceTimer);
+        if (isRecording) {
+          recognition.stop();
+          isRecording = false;
+        }
+        updateVoiceBuildButton(isVoiceBuildActive ? 'active' : 'idle');
+        showVoiceBuildStatus('');
+      };
+
+      const sendVoiceBuildTranscript = () => {
+        const transcript = finalTranscript.trim();
+        if (!transcript) return;
+        
+        // Clear the input and send
+        chatInput.value = '';
+        finalTranscript = '';
+        interimTranscript = '';
+        
+        logActivity(`Voice build: Auto-sending transcript`, 'info');
+        sendAgentPrompt(transcript);
+      };
+
+      const startVoiceBuildRecording = () => {
+        try {
+          recognition.lang = voiceLangSelect.value;
+          interimTranscript = '';
+          finalTranscript = '';
+          chatInput.value = '';
+          recognition.start();
+          isRecording = true;
+          updateVoiceBuildButton('recording');
+          showVoiceBuildStatus('Listening — will build on silence...', 'listening');
+          logActivity('Voice build: Started listening', 'info');
+        } catch (e) {
+          updateVoiceBuildButton('error');
+          showVoiceBuildStatus('Failed to start: ' + e.message, 'error');
+          logActivity(`Voice build start failed: ${e.message}`, 'error');
+        }
+      };
+
+      recognition.onstart = () => {
+        isRecording = true;
+        interimTranscript = '';
+        finalTranscript = '';
+        updateVoiceBuildButton('recording');
+        showVoiceBuildStatus('Listening — will build on silence...', 'listening');
+        logActivity('Voice build: Started listening', 'info');
+      };
+
+      recognition.onresult = (event) => {
+        interimTranscript = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const transcript = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            finalTranscript += transcript + ' ';
+            // Reset silence timer on each final result
+            resetSilenceTimer();
+          } else {
+            interimTranscript += transcript;
+          }
+        }
+        // Show live interim transcript in the input
+        chatInput.value = finalTranscript + interimTranscript;
+      };
+
+      recognition.onerror = (event) => {
+        if (silenceTimer) clearTimeout(silenceTimer);
+        isRecording = false;
+        updateVoiceBuildButton(isVoiceBuildActive ? 'active' : 'error');
+        
+        let message = 'Voice build error';
+        switch (event.error) {
+          case 'no-speech':
+            message = 'No speech detected — try again';
+            break;
+          case 'audio-capture':
+            message = 'Microphone not accessible';
+            break;
+          case 'not-allowed':
+          case 'permission-denied':
+            message = 'Microphone permission denied — enable in browser settings';
+            break;
+          case 'network':
+            message = 'Network error — check connection';
+            break;
+          case 'service-not-allowed':
+            message = 'Speech service not allowed';
+            break;
+          default:
+            message = `Error: ${event.error}`;
+        }
+        showVoiceBuildStatus(message, 'error');
+        logActivity(`Voice build error: ${event.error}`, 'error');
+      };
+
+      recognition.onend = () => {
+        if (isRecording) {
+          // Recognition stopped but we were still recording - restart for continuous
+          try {
+            recognition.lang = voiceLangSelect.value;
+            recognition.start();
+          } catch (e) {
+            isRecording = false;
+            updateVoiceBuildButton(isVoiceBuildActive ? 'active' : 'idle');
+            showVoiceBuildStatus('Recognition stopped', 'error');
+          }
+        } else {
+          updateVoiceBuildButton(isVoiceBuildActive ? 'active' : 'idle');
+          // If we have a final transcript and silence timer didn't fire, keep it in input
+          if (finalTranscript.trim() && !silenceTimer) {
+            showVoiceBuildStatus('Ready — click mic to build', '');
+          }
+        }
+      };
+
+      voiceLangSelect.onchange = () => {
+        recognition.lang = voiceLangSelect.value;
+        if (isRecording) {
+          recognition.stop();
+          // onend will restart with new language
+        }
+        logActivity(`Voice build language changed to: ${voiceLangSelect.value}`, 'info');
+      };
+
+      // Voice Build toggle button
+      btnVoiceBuild.onclick = () => {
+        if (isVoiceBuildActive) {
+          // Disable voice build mode
+          isVoiceBuildActive = false;
+          if (isRecording) {
+            stopVoiceBuildRecording();
+          }
+          updateVoiceBuildButton('idle');
+          showVoiceBuildStatus('Voice build mode OFF', '');
+          // Ensure regular voice input button is available
+          btnVoiceInput.disabled = false;
+        } else {
+          // Enable voice build mode
+          isVoiceBuildActive = true;
+          updateVoiceBuildButton('active');
+          showVoiceBuildStatus('Voice build mode ON — click mic to start', '');
+          // Disable regular voice input while voice build is active
+          btnVoiceInput.disabled = true;
+          btnVoiceInput.classList.remove('recording');
+          btnVoiceInput.textContent = '🎤';
+        }
+        logActivity(`Voice build mode: ${isVoiceBuildActive ? 'enabled' : 'disabled'}`, 'info');
+      };
+
+      // If regular voice input is used, disable voice build mode
+      const originalVoiceInputClick = btnVoiceInput.onclick;
+      btnVoiceInput.onclick = () => {
+        if (isVoiceBuildActive) {
+          // Disable voice build mode first
+          isVoiceBuildActive = false;
+          updateVoiceBuildButton('idle');
+          showVoiceBuildStatus('Voice build mode OFF', '');
+          btnVoiceInput.disabled = false;
+        }
+        // Then call original handler
+        if (originalVoiceInputClick) originalVoiceInputClick();
+      };
+
+      logActivity('Voice build initialized', 'success');
+    }
+
     // ==================== PLAN MODE UI HANDLERS ====================
     
     function setupPlanModeHandlers() {
@@ -13403,6 +13709,7 @@ Requirements:
         { id: 'newChat', title: 'New Chat', desc: 'Start a new agent chat session', section: 'Agent & AI', icon: '💬', shortcut: '', action: () => { document.getElementById('chatInput').focus(); } },
         { id: 'codebaseChat', title: 'Ask Codebase', desc: 'Switch to codebase chat mode (query whole project)', section: 'Agent & AI', icon: '🔍', shortcut: '', action: () => { document.getElementById('modeSelector').value = 'codebase-chat'; document.getElementById('modeSelector').dispatchEvent(new Event('change')); document.getElementById('chatInput').focus(); } },
         { id: 'voiceInput', title: 'Voice Input', desc: 'Toggle voice input for chat', section: 'Agent & AI', icon: '🎤', shortcut: '', action: () => { document.getElementById('btnVoiceInput')?.click(); } },
+        { id: 'voiceBuild', title: 'Voice Build', desc: 'Toggle voice build mode (speak a feature, it builds automatically)', section: 'Agent & AI', icon: '🏗️', shortcut: '', action: () => { document.getElementById('btnVoiceBuild')?.click(); } },
         { id: 'agentLibrary', title: 'Agent Library', desc: 'Manage custom agents', section: 'Agent & AI', icon: '👥', shortcut: '', action: () => { document.getElementById('btnOpenAgentLibrary')?.click(); } },
         { id: 'promptLibrary', title: 'Prompt Library', desc: 'Save, search, and reuse prompts', section: 'Agent & AI', icon: '📝', shortcut: '', action: () => { document.getElementById('btnOpenPromptLibrary')?.click(); } },
         { id: 'toggleUncensored', title: 'Toggle Uncensored Mode', desc: 'Enable/disable uncensored mode for project', section: 'Agent & AI', icon: '⚠️', shortcut: '', action: () => { document.getElementById('uncensoredToggle')?.click(); } },
