@@ -8343,8 +8343,17 @@ Links: [[Brain Index]]
               requiresUserInput: false, 
               decision: { level: 'smart', ...smartDecision } 
             };
-          } else {
-            // Escalate to user for high/medium/critical risk
+      } else if (smartDecision.risk === 'critical') {
+        // Genuinely dangerous: auto-deny, do not escalate
+        logActivity(`DENIED (Smart - critical risk): ${actionText.slice(0, 80)}`, 'error');
+        return {
+          allowed: false,
+          reason: smartDecision.reason,
+          requiresUserInput: false,
+          decision: { level: 'smart-denied', approved: false, ...smartDecision }
+        };
+      } else {
+            // Escalate to user for high/medium risk
             const userConfirm = confirm(`🤔 Smart Mode — ${smartDecision.risk.toUpperCase()} RISK:\n\n${smartDecision.reason}\n\nAllow this action?`);
             if (userConfirm) {
               logActivity(`✅ APPROVED (Smart → User): ${actionText.slice(0, 80)}`, 'success');
