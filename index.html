@@ -315,6 +315,100 @@
       overflow: hidden;
     }
 
+    /* Inline Edit Popup (Cmd+K) */
+    .inline-edit-popup {
+      position: fixed;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.4), 0 0 0 1px rgba(59,130,246,0.15);
+      z-index: 3000;
+      min-width: 320px;
+      max-width: 520px;
+      animation: inlineEditSlide 0.12s ease-out;
+    }
+    @keyframes inlineEditSlide {
+      from { opacity: 0; transform: translateY(-8px) scale(0.98); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .inline-edit-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border-color);
+      background: var(--bg-surface);
+      border-radius: 8px 8px 0 0;
+    }
+    .inline-edit-icon {
+      width: 24px; height: 24px;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--accent-glow);
+      border-radius: 5px;
+      color: var(--accent-blue);
+      font-size: 12px;
+    }
+    .inline-edit-title {
+      font-weight: 600;
+      font-size: 13px;
+      color: var(--text-main);
+    }
+    .inline-edit-body {
+      padding: 12px;
+    }
+    .inline-edit-input {
+      width: 100%;
+      background: var(--bg-dark);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      color: var(--text-main);
+      font-size: 13px;
+      font-family: var(--font-sans);
+      padding: 10px 12px;
+      outline: none;
+      resize: vertical;
+      min-height: 60px;
+      max-height: 180px;
+      box-sizing: border-box;
+    }
+    .inline-edit-input:focus {
+      border-color: var(--accent-blue);
+      box-shadow: 0 0 0 2px var(--accent-glow);
+    }
+    .inline-edit-input::placeholder { color: var(--text-dim); }
+    .inline-edit-hint {
+      font-size: 11px;
+      color: var(--text-dim);
+      margin-top: 8px;
+      text-align: right;
+    }
+    .inline-edit-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border-color);
+      margin-top: 12px;
+    }
+    .inline-edit-btn {
+      padding: 6px 14px;
+      font-size: 12px;
+      border-radius: 5px;
+      border: 1px solid var(--border-color);
+      background: var(--bg-surface);
+      color: var(--text-main);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .inline-edit-btn:hover { background: var(--bg-hover); }
+    .inline-edit-btn.primary {
+      background: var(--accent-blue);
+      border-color: var(--accent-blue);
+      color: white;
+    }
+    .inline-edit-btn.primary:hover { background: var(--accent-hover); }
+    .inline-edit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
     /* Right Panel (Agent Chat / Preview / Browser / Activity) */
     .panel-right {
       background-color: var(--bg-panel);
@@ -2520,6 +2614,22 @@
         <span class="command-palette-hint">⌘K</span>
       </div>
       <div class="command-palette-list" id="commandPaletteList"></div>
+    </div>
+  </div>
+
+  <!-- Inline Edit Popup (Cmd+K) -->
+  <div class="inline-edit-popup" id="inlineEditPopup" role="dialog" aria-label="Inline Edit" style="display: none;">
+    <div class="inline-edit-header">
+      <div class="inline-edit-icon">✨</div>
+      <div class="inline-edit-title">Inline Edit</div>
+    </div>
+    <div class="inline-edit-body">
+      <textarea class="inline-edit-input" id="inlineEditInput" placeholder="Describe the change... (e.g., "add error handling", "rename to handleClick")" spellcheck="false" aria-label="Describe the change"></textarea>
+      <div class="inline-edit-hint">Press <kbd>Enter</kbd> to submit, <kbd>Esc</kbd> to cancel</div>
+      <div class="inline-edit-actions">
+        <button class="inline-edit-btn" id="inlineEditCancel">Cancel</button>
+        <button class="inline-edit-btn primary" id="inlineEditSubmit">Submit</button>
+      </div>
     </div>
   </div>
   <script>
@@ -10140,6 +10250,17 @@ Completion:`;
       });
 
       textarea.addEventListener('keydown', (e) => {
+        // Cmd+K / Ctrl+K: Inline edit when text is selected
+        if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+          const hasSelection = textarea.selectionStart !== textarea.selectionEnd;
+          if (hasSelection) {
+            e.preventDefault();
+            e.stopPropagation();
+            openInlineEditPopup(textarea);
+            return;
+          }
+          // If no selection, let the global handler open command palette
+        }
         // Autocomplete: Tab to accept ghost text
         if (e.key === 'Tab' && currentGhostText) {
           e.preventDefault();
@@ -10176,6 +10297,274 @@ Completion:`;
       // Update ghost position on window resize
       window.addEventListener('resize', positionGhost);
     }
+
+    // ==================== INLINE EDIT (Cmd+K) ====================
+    let inlineEditState = {
+      textarea: null,
+      selectionStart: 0,
+      selectionEnd: 0,
+      selectedText: '',
+      filePath: '',
+      originalContent: ''
+    };
+
+    function openInlineEditPopup(textarea) {
+      const selectionStart = textarea.selectionStart;
+      const selectionEnd = textarea.selectionEnd;
+      const selectedText = textarea.value.substring(selectionStart, selectionEnd);
+      
+      if (!selectedText.trim()) return;
+
+      const session = getCurrentSession();
+      if (!session || !session.activeFile) return;
+
+      // Store state
+      inlineEditState.textarea = textarea;
+      inlineEditState.selectionStart = selectionStart;
+      inlineEditState.selectionEnd = selectionEnd;
+      inlineEditState.selectedText = selectedText;
+      inlineEditState.filePath = session.activeFile;
+      inlineEditState.originalContent = session.files[session.activeFile] || '';
+
+      const popup = document.getElementById('inlineEditPopup');
+      const input = document.getElementById('inlineEditInput');
+      
+      // Position popup near the selection
+      positionInlineEditPopup(textarea, selectionStart, selectionEnd);
+      
+      popup.style.display = 'block';
+      input.value = '';
+      input.focus();
+
+      // Close on backdrop click
+      popup.onclick = (e) => {
+        if (e.target === popup) closeInlineEditPopup();
+      };
+    }
+
+    function positionInlineEditPopup(textarea, selectionStart, selectionEnd) {
+      const popup = document.getElementById('inlineEditPopup');
+      const editorWrapper = textarea.closest('.editor-wrapper');
+      if (!editorWrapper) return;
+
+      // Get cursor position using a temporary span
+      const textBeforeSelection = textarea.value.substring(0, selectionStart);
+      const lines = textBeforeSelection.split('\n');
+      const lineNumber = lines.length;
+      const charPosition = lines[lines.length - 1].length;
+
+      const lineHeight = 20; // matches CSS line-height
+      const charWidth = 7.5; // approximate monospace char width at 12.5px
+
+      const editorRect = editorWrapper.getBoundingClientRect();
+      const textareaRect = textarea.getBoundingClientRect();
+
+      // Calculate position relative to viewport
+      const top = textareaRect.top + (lineNumber - 1) * lineHeight + 10; // 10px padding
+      const left = textareaRect.left + 44 + charPosition * charWidth + 10; // 44px line numbers + 10px padding
+
+      popup.style.top = `${top}px`;
+      popup.style.left = `${left}px`;
+
+      // Ensure popup stays within viewport
+      const popupRect = popup.getBoundingClientRect();
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+
+      if (popupRect.right > vw - 10) {
+        popup.style.left = `${vw - popupRect.width - 10}px`;
+      }
+      if (popupRect.bottom > vh - 10) {
+        popup.style.top = `${vh - popupRect.height - 10}px`;
+      }
+      if (popupRect.left < 10) {
+        popup.style.left = '10px';
+      }
+      if (popupRect.top < 10) {
+        popup.style.top = '10px';
+      }
+    }
+
+    function closeInlineEditPopup() {
+      const popup = document.getElementById('inlineEditPopup');
+      popup.style.display = 'none';
+      popup.onclick = null;
+      inlineEditState = {
+        textarea: null,
+        selectionStart: 0,
+        selectionEnd: 0,
+        selectedText: '',
+        filePath: '',
+        originalContent: ''
+      };
+    }
+
+    async function submitInlineEdit() {
+      const input = document.getElementById('inlineEditInput');
+      const instruction = input.value.trim();
+      
+      if (!instruction) {
+        input.focus();
+        return;
+      }
+
+      const { textarea, selectionStart, selectionEnd, selectedText, filePath, originalContent } = inlineEditState;
+      if (!textarea || !filePath) return;
+
+      // Disable UI
+      const submitBtn = document.getElementById('inlineEditSubmit');
+      const cancelBtn = document.getElementById('inlineEditCancel');
+      submitBtn.disabled = true;
+      cancelBtn.disabled = true;
+      input.disabled = true;
+      submitBtn.textContent = '...';
+
+      try {
+        // Build prompt for the agent
+        const prompt = buildInlineEditPrompt(filePath, originalContent, selectedText, selectionStart, selectionEnd, instruction);
+        
+        // Send to agent and get response
+        const response = await callLLMForInlineEdit(prompt);
+        
+        // Parse the response for a file block
+        const newContent = extractFileBlock(response, filePath);
+        
+        if (newContent !== null && newContent !== originalContent) {
+          // Create change object for diff review
+          const change = {
+            type: 'file',
+            path: filePath,
+            oldContent: originalContent,
+            newContent: newContent,
+            action: 'modify'
+          };
+
+          // Store pending change and open diff review
+          appState.pendingChanges = {
+            responseText: response,
+            changes: [change],
+            timestamp: Date.now()
+          };
+
+          // Create checkpoint
+          createCheckpoint('Inline edit: ' + filePath);
+          
+          // Switch to diff review panel
+          document.querySelector('.right-tab[data-pane="diffReview"]').click();
+          
+          saveAppState();
+          renderDiffReviewPanel();
+        } else {
+          logActivity('No changes returned from agent', 'warning');
+        }
+      } catch (err) {
+        logActivity('Inline edit error: ' + err.message, 'error');
+      } finally {
+        closeInlineEditPopup();
+        submitBtn.disabled = false;
+        cancelBtn.disabled = false;
+        input.disabled = false;
+        submitBtn.textContent = 'Submit';
+      }
+    }
+
+    function buildInlineEditPrompt(filePath, originalContent, selectedText, selectionStart, selectionEnd, instruction) {
+      const lines = originalContent.split('\n');
+      const beforeSelection = originalContent.substring(0, selectionStart);
+      const afterSelection = originalContent.substring(selectionEnd);
+      const beforeLines = beforeSelection.split('\n');
+      const startLine = beforeLines.length;
+      const endLine = startLine + selectedText.split('\n').length - 1;
+
+      // Get context around selection (10 lines before and after)
+      const contextStart = Math.max(0, startLine - 11);
+      const contextEnd = Math.min(lines.length, endLine + 11);
+      const contextLines = lines.slice(contextStart, contextEnd);
+      const contextContent = contextLines.join('\n');
+
+      return `You are an expert code editor. The user has selected a portion of code and wants you to rewrite ONLY that selected portion based on their instruction.
+
+File: ${filePath}
+Instruction: ${instruction}
+
+Full file context (relevant section):
+\`\`\`${filePath.split('.').pop() || 'txt'}
+${contextContent}
+\`\`\`
+
+SELECTED TEXT (lines ${startLine}-${endLine}, MUST be replaced):
+\`\`\`${filePath.split('.').pop() || 'txt'}
+${selectedText}
+\`\`\`
+
+Return ONLY the complete new content for the ENTIRE FILE in a fenced block. The change should only affect the selected lines - preserve everything else exactly.
+
+Format:
+\`\`\`file:${filePath}
+// complete new file content here
+\`\`\``;
+    }
+
+    async function callLLMForInlineEdit(prompt) {
+      const provider = appState.providers[appState.activeProviderId];
+      if (!provider) throw new Error('No active provider');
+
+      const baseUrl = provider.baseUrl.replace(/\/+$/, '');
+      const url = `${baseUrl}/chat/completions`;
+      const headers = { 'Content-Type': 'application/json' };
+      
+      if (provider.apiKey) {
+        if (provider.authStyle === 'bearer') headers['Authorization'] = `Bearer ${provider.apiKey}`;
+        else if (provider.authStyle === 'x-api-key') headers['x-api-key'] = provider.apiKey;
+      }
+      if (provider.customHeaders) {
+        try { Object.assign(headers, JSON.parse(provider.customHeaders)); } catch (_) {}
+      }
+
+      const body = {
+        model: provider.model,
+        messages: [
+          { role: 'system', content: 'You are a precise code editor. Return ONLY the complete file content in a fenced block. No explanations, no markdown outside the code block.' },
+          { role: 'user', content: prompt }
+        ],
+        max_tokens: 4000,
+        temperature: 0.1,
+        stream: false,
+      };
+
+      const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(`LLM request failed: ${res.status} ${errText}`);
+      }
+      const data = await res.json();
+      return data.choices?.[0]?.message?.content || '';
+    }
+
+    function extractFileBlock(responseText, filePath) {
+      // Look for ```file:filename\ncontent``` or ```lang\ncontent``` blocks
+      const blockRegex = /```(?:file:)?[^\n]*\n([\s\S]*?)```/g;
+      let match;
+      let lastMatch = null;
+      
+      while ((match = blockRegex.exec(responseText)) !== null) {
+        lastMatch = match[1];
+      }
+      
+      return lastMatch;
+    }
+
+    // Attach event handlers for inline edit popup
+    document.getElementById('inlineEditSubmit')?.addEventListener('click', submitInlineEdit);
+    document.getElementById('inlineEditCancel')?.addEventListener('click', closeInlineEditPopup);
+    document.getElementById('inlineEditInput')?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        submitInlineEdit();
+      } else if (e.key === 'Escape') {
+        closeInlineEditPopup();
+      }
+    });
 
     function populateModelDropdown(preset, selectedModel) {
       const select = document.getElementById('cfgModelSelect');
@@ -11341,6 +11730,11 @@ Completion:`;
       // Keyboard: Ctrl+K / ⌘+K to open
       document.addEventListener('keydown', (e) => {
         if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+          // Check if editor has text selection - if so, inline edit handles it
+          const textarea = document.getElementById('editorTextarea');
+          if (textarea && textarea.selectionStart !== textarea.selectionEnd) {
+            return; // Let editor's keydown handler open inline edit
+          }
           e.preventDefault();
           if (palette.classList.contains('active')) {
             closePalette();
