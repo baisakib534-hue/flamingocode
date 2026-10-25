@@ -1126,6 +1126,7 @@
 
           <div class="chat-input-wrapper">
             <input type="text" id="chatInput" class="chat-input" placeholder="Ask agent to build, edit, or fix..." />
+            <button class="btn btn-secondary" id="btnEnhancePrompt" title="Enhance prompt into full build spec" style="padding: 8px 10px; min-width: 44px;">✨</button>
             <button class="btn btn-secondary" id="btnVoiceInput" title="Voice input (Click to start)" style="padding: 8px 10px; min-width: 44px;">🎤</button>
             <select id="voiceLangSelect" class="voice-lang-select" title="Speech recognition language" style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-main); padding: 8px 8px; font-size: 11px; min-width: 90px;">
               <option value="en-US">English (US)</option>
@@ -1684,6 +1685,19 @@
             <span class="toggle-slider"></span>
           </label>
         </div>
+        <hr style="border: none; border-top: 1px solid var(--border-color); margin: 12px 0;">
+        <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">Prompt Enhancer</div>
+        <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 8px;">When ON, short prompts are automatically expanded into full build specs before sending. When OFF, use the ✨ button manually.</div>
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+          <div style="flex: 1; min-width: 0;">
+            <div style="font-weight: 600; font-size: 12px; color: var(--text-main);">Auto-enhance short prompts</div>
+            <div style="font-size: 10px; color: var(--text-dim); margin-top: 2px;">Automatically expand one-line prompts into detailed specs (goal, scope, files, acceptance checks).</div>
+          </div>
+          <label class="toggle-switch" style="cursor: pointer; flex-shrink: 0;">
+            <input type="checkbox" id="autoEnhanceToggleSettings" style="display: none;" />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
       </div>
     </div>
     <div style="border-top: 1px solid var(--border-color); padding-top: 12px;">
@@ -1812,6 +1826,39 @@
     <div style="border-top: 1px solid var(--border-color); padding-top: 12px;">
       <div style="display:flex; justify-content:flex-end; gap:8px;">
         <button class="btn btn-secondary" id="btnCancelSettings">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Enhanced Spec Preview Modal -->
+  <div class="modal-overlay" id="enhancedSpecModal">
+    <div class="modal-box" style="width: 700px; max-width: 95vw; max-height: 85vh;">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-color); padding-bottom:8px;">
+        <h3 style="font-size: 14px; font-weight: 700;">Enhanced Build Spec</h3>
+        <button class="section-btn" id="btnCloseEnhancedSpec">✕</button>
+      </div>
+      <div style="max-height: 60vh; overflow-y: auto; padding: 8px 0;">
+        <div style="font-size: 11px; color: var(--text-dim); margin-bottom: 8px;">Review and edit the enhanced spec before sending to the agent.</div>
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label class="form-label">Goal</label>
+          <textarea id="enhancedSpecGoal" class="form-input" placeholder="What should be built?" style="min-height: 60px; font-family: var(--font-mono); font-size: 11px;"></textarea>
+        </div>
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label class="form-label">Scope</label>
+          <textarea id="enhancedSpecScope" class="form-input" placeholder="What files/components are involved? What's in/out of scope?" style="min-height: 60px; font-family: var(--font-mono); font-size: 11px;"></textarea>
+        </div>
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label class="form-label">Files Involved</label>
+          <textarea id="enhancedSpecFiles" class="form-input" placeholder="List of files to create/modify (one per line)" style="min-height: 60px; font-family: var(--font-mono); font-size: 11px;"></textarea>
+        </div>
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label class="form-label">Acceptance Checks</label>
+          <textarea id="enhancedSpecChecks" class="form-input" placeholder="How will we verify this works? (one per line)" style="min-height: 80px; font-family: var(--font-mono); font-size: 11px;"></textarea>
+        </div>
+      </div>
+      <div style="border-top: 1px solid var(--border-color); padding-top: 12px; display:flex; justify-content:flex-end; gap:8px;">
+        <button class="btn btn-secondary" id="btnCancelEnhancedSpec">Cancel</button>
+        <button class="btn" id="btnConfirmEnhancedSpec">Send to Agent</button>
       </div>
     </div>
   </div>
@@ -2824,6 +2871,9 @@ WORK STYLE:
       pendingChanges: null,     // { responseText, changes: [{type, path, oldContent, newContent, action}] }
       // Preview Health / self-healing loop state
       previewAutoFix: false,    // Auto-fix preview errors via the agent (cap 5 cycles)
+      // Prompt Enhancer state
+      autoEnhance: false,       // Auto-enhance short prompts before sending
+      lastEnhancedSpec: null,   // Store last enhanced spec for review
       // Legacy single provider fields for backward compatibility
       provider: {
         preset: '9router',
@@ -5670,6 +5720,17 @@ Links: [[Brain Index]]
           logActivity(e.target.checked ? 'Diff review enabled' : 'Diff review disabled (auto-apply)', 'info');
         };
       }
+
+      // Auto-Enhance toggle
+      const autoEnhanceToggle = document.getElementById('autoEnhanceToggleSettings');
+      if (autoEnhanceToggle) {
+        autoEnhanceToggle.checked = appState.autoEnhance === true;
+        autoEnhanceToggle.onchange = (e) => {
+          appState.autoEnhance = e.target.checked;
+          saveAppState();
+          logActivity(e.target.checked ? 'Prompt auto-enhance enabled' : 'Prompt auto-enhance disabled', 'info');
+        };
+      }
     }
 
     // Update Plan + Build settings inputs
@@ -8250,6 +8311,160 @@ async function sendAgentPrompt(userPrompt, autoTurn = 0) {
       }
     }
 
+    // ==================== PROMPT ENHANCER ====================
+    // Expands short prompts into full build specs (goal, scope, files, acceptance checks)
+    
+    async function enhancePrompt(userPrompt) {
+      // Check if prompt is already detailed enough (more than 100 chars or contains multiple sentences)
+      if (userPrompt.length > 100 || userPrompt.split(/[.!?]/).filter(s => s.trim()).length > 2) {
+        logActivity('Prompt already detailed, sending directly', 'info');
+        sendAgentPrompt(userPrompt);
+        return;
+      }
+
+      logActivity('Enhancing prompt...', 'info');
+      
+      const session = getCurrentSession();
+      const provider = appState.providers[appState.activeProviderId];
+      
+      const enhanceSystemPrompt = `You are a build spec enhancer. Expand the user's short prompt into a detailed build specification.
+Return ONLY a JSON object with these fields:
+- goal: one sentence, what to build
+- scope: 2-3 sentences, what files/components are involved, what's in/out of scope
+- files: array of file paths to create/modify
+- checks: array of acceptance criteria (how to verify it works)
+
+Keep it concise and practical. No markdown, no extra text.`;
+
+      try {
+        const messages = [
+          { role: 'system', content: enhanceSystemPrompt },
+          { role: 'user', content: userPrompt }
+        ];
+
+        // Use the existing callLLM function but with a simpler prompt
+        const reply = await callLLM(messages);
+        
+        let spec;
+        try {
+          // Try to parse JSON from the reply
+          const jsonMatch = reply.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            spec = JSON.parse(jsonMatch[0]);
+          } else {
+            throw new Error('No JSON found in reply');
+          }
+        } catch (e) {
+          // Fallback: create a basic spec from the reply
+          logActivity('Failed to parse enhanced spec, using fallback', 'warning');
+          spec = {
+            goal: userPrompt,
+            scope: 'Create the requested feature with appropriate files and structure.',
+            files: ['index.html', 'style.css', 'script.js'],
+            checks: ['Feature works as described', 'No console errors', 'Responsive design']
+          };
+        }
+
+        // Store the enhanced spec
+        appState.lastEnhancedSpec = {
+          originalPrompt: userPrompt,
+          spec: spec,
+          timestamp: Date.now()
+        };
+        saveAppState();
+
+        // Show the enhanced spec modal for review
+        showEnhancedSpecModal(spec, userPrompt);
+
+      } catch (err) {
+        logActivity('Enhancement failed: ' + err.message, 'error');
+        // Fall through to send original prompt
+        sendAgentPrompt(userPrompt);
+      }
+    }
+
+    function showEnhancedSpecModal(spec, originalPrompt) {
+      const modal = document.getElementById('enhancedSpecModal');
+      if (!modal) return;
+
+      // Populate fields
+      document.getElementById('enhancedSpecGoal').value = spec.goal || '';
+      document.getElementById('enhancedSpecScope').value = spec.scope || '';
+      document.getElementById('enhancedSpecFiles').value = Array.isArray(spec.files) ? spec.files.join('\n') : (spec.files || '');
+      document.getElementById('enhancedSpecChecks').value = Array.isArray(spec.checks) ? spec.checks.join('\n') : (spec.checks || '');
+
+      // Show modal
+      modal.style.display = 'flex';
+      modal.classList.add('active');
+
+      // Focus first field
+      setTimeout(() => {
+        const goalField = document.getElementById('enhancedSpecGoal');
+        if (goalField) goalField.focus();
+      }, 50);
+    }
+
+    function hideEnhancedSpecModal() {
+      const modal = document.getElementById('enhancedSpecModal');
+      if (!modal) return;
+      modal.style.display = 'none';
+      modal.classList.remove('active');
+    }
+
+    function confirmEnhancedSpec() {
+      const goal = document.getElementById('enhancedSpecGoal').value.trim();
+      const scope = document.getElementById('enhancedSpecScope').value.trim();
+      const files = document.getElementById('enhancedSpecFiles').value.trim().split('\n').map(f => f.trim()).filter(f => f);
+      const checks = document.getElementById('enhancedSpecChecks').value.trim().split('\n').map(c => c.trim()).filter(c => c);
+
+      if (!goal) {
+        logActivity('Goal is required', 'warning');
+        return;
+      }
+
+      // Build the full prompt from the enhanced spec
+      const fullPrompt = `Goal: ${goal}
+
+Scope: ${scope}
+
+Files to create/modify:
+${files.map(f => '- ' + f).join('\n')}
+
+Acceptance checks:
+${checks.map(c => '- ' + c).join('\n')}
+
+Original request: ${appState.lastEnhancedSpec?.originalPrompt || ''}`;
+
+      hideEnhancedSpecModal();
+      sendAgentPrompt(fullPrompt);
+      logActivity('Enhanced spec confirmed, sending to agent', 'success');
+    }
+
+    function setupEnhancedSpecModal() {
+      const modal = document.getElementById('enhancedSpecModal');
+      if (!modal) return;
+
+      const closeBtn = document.getElementById('btnCloseEnhancedSpec');
+      const cancelBtn = document.getElementById('btnCancelEnhancedSpec');
+      const confirmBtn = document.getElementById('btnConfirmEnhancedSpec');
+
+      if (closeBtn) closeBtn.onclick = hideEnhancedSpecModal;
+      if (cancelBtn) cancelBtn.onclick = hideEnhancedSpecModal;
+      if (confirmBtn) confirmBtn.onclick = confirmEnhancedSpec;
+
+      // Close on overlay click
+      modal.onclick = (e) => {
+        if (e.target === modal) hideEnhancedSpecModal();
+      };
+
+      // Escape key to close
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modal.style.display === 'flex') {
+          hideEnhancedSpecModal();
+        }
+      });
+    }
+
     // ==================== B3: SELF-HEALING PREVIEW LOOP (START) ====================
     // Preview errors -> shown in the Preview Health panel -> sent to the agent ->
     // agent fixes -> preview re-renders -> repeat up to PREVIEW_FIX_MAX_CYCLES,
@@ -9578,13 +9793,20 @@ Rules:
     function setupChatHandlers() {
       const btnSend = document.getElementById('btnSend');
       const btnCancel = document.getElementById('btnCancelAgent');
+      const btnEnhance = document.getElementById('btnEnhancePrompt');
       const chatInput = document.getElementById('chatInput');
 
       const handleSend = () => {
         const text = chatInput.value.trim();
         if (!text) return;
         chatInput.value = '';
-        sendAgentPrompt(text);
+        
+        // Auto-enhance short prompts if enabled
+        if (appState.autoEnhance && text.length <= 100 && text.split(/[.!?]/).filter(s => s.trim()).length <= 2) {
+          enhancePrompt(text);
+        } else {
+          sendAgentPrompt(text);
+        }
       };
 
       const handleCancel = () => {
@@ -9594,8 +9816,18 @@ Rules:
         }
       };
 
+      const handleEnhance = () => {
+        const text = chatInput.value.trim();
+        if (!text) {
+          logActivity('Enter a prompt first to enhance', 'warning');
+          return;
+        }
+        enhancePrompt(text);
+      };
+
       btnSend.onclick = handleSend;
       btnCancel.onclick = handleCancel;
+      if (btnEnhance) btnEnhance.onclick = handleEnhance;
       chatInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') handleSend();
       });
@@ -10294,6 +10526,7 @@ Rules:
       setupMobileNav();
       setupChatHandlers();
       setupPreviewHealth();
+      setupEnhancedSpecModal();
       setupAgentLibraryHandlers();
       setupAutoCreateAgentHandlers();
       setupPromptLibraryHandlers();
