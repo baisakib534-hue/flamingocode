@@ -1531,6 +1531,7 @@
         <button class="settings-tab" data-settings-tab="usage" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">Usage & Quota</button>
         <button class="settings-tab" data-settings-tab="behavior" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">Behavior</button>
         <button class="settings-tab" data-settings-tab="autonomy" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">Autonomy</button>
+        <button class="settings-tab" data-settings-tab="rules" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">Rules</button>
         <button class="settings-tab" data-settings-tab="backup" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">Backup</button>
         <button class="settings-tab" data-settings-tab="language" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">Language</button>
       </div>
@@ -1807,6 +1808,30 @@
     <div style="border-top: 1px solid var(--border-color); padding-top: 12px;">
       <div style="display:flex; justify-content:flex-end; gap:8px;">
         <button class="btn btn-secondary" id="btnCancelSettings">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Rules Tab -->
+  <div class="settings-pane" id="settingsPaneRules" style="display: none; flex-direction: column;">
+    <div style="max-height: 40vh; overflow-y: auto; margin-bottom: 12px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
+        <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;" data-i18n="Project Rules">Project Rules</span>
+      </div>
+      <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; padding: 16px;">
+        <div style="font-size: 11px; color: var(--text-dim); margin-bottom: 12px;" data-i18n="Rules guide the agent on every task: coding style, naming conventions, do/don't rules, preferred libraries. Stored as .devforge/rules.md in your project.">Rules guide the agent on every task: coding style, naming conventions, do/don't rules, preferred libraries. Stored as .devforge/rules.md in your project.</div>
+        <textarea id="rulesEditor" class="form-input" style="width: 100%; min-height: 250px; font-family: var(--font-mono); font-size: 12px; line-height: 1.5; padding: 10px; background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-main); resize: vertical;" placeholder="Add your project rules here...&#10;&#10;Example:&#10;- Use 2-space indentation&#10;- Prefer const over let&#10;- No console.log in production code&#10;- Use TypeScript strict mode&#10;- Preferred library: date-fns for dates&#10;- Component naming: PascalCase for React components"></textarea>
+        <div style="display: flex; gap: 8px; margin-top: 12px;">
+          <button class="btn" id="btnSaveRules" style="padding: 6px 14px; font-size: 11px;" data-i18n="Save Rules">💾 Save Rules</button>
+          <button class="btn btn-secondary" id="btnLoadDefaultRules" style="padding: 6px 14px; font-size: 11px;" data-i18n="Load Defaults">📋 Load Defaults</button>
+          <button class="btn btn-secondary" id="btnClearRules" style="padding: 6px 14px; font-size: 11px;" data-i18n="Clear Rules">🗑️ Clear</button>
+        </div>
+        <div id="rulesStatus" style="margin-top: 8px; font-size: 10px; color: var(--text-dim);"></div>
+      </div>
+    </div>
+    <div style="border-top: 1px solid var(--border-color); padding-top: 12px;">
+      <div style="display:flex; justify-content:flex-end; gap:8px;">
+        <button class="btn btn-secondary" id="btnCancelSettings" data-i18n="Close">Close</button>
       </div>
     </div>
   </div>
@@ -3189,6 +3214,14 @@ WORK STYLE:
         'Args': 'আর্গস',
         'Env': 'এনভি',
 
+        // Project Rules
+        'Project Rules': 'প্রজেক্ট নিয়ম',
+        'Rules guide the agent on every task: coding style, naming conventions, do/don\'t rules, preferred libraries. Stored as .devforge/rules.md in your project.': 'নিয়মগুলো প্রতিটি টাস্কে এজেন্টকে গাইড করে: কোডিং স্টাইল, নামকরণ কনভেনশন, করব/করবেন না নিয়ম, পছন্দের লাইব্রেরি। আপনার প্রজেক্টে .devforge/rules.md হিসেবে সংরক্ষিত।',
+        'Save Rules': 'নিয়ম সংরক্ষণ',
+        'Load Defaults': 'ডিফল্ট লোড',
+        'Clear Rules': 'নিয়ম মুছুন',
+        'Close': 'বন্ধ করুন',
+
         // Welcome / Empty states
         'No files yet. Create one to get started.': 'এখনো কোনো ফাইল নেই। শুরু করতে একটি তৈরি করুন।',
         'No checkpoints yet. Checkpoints are created automatically before agent changes.': 'এখনো কোনো চেকপয়েন্ট নেই। এজেন্ট পরিবর্তনের আগে চেকপয়েন্ট স্বয়ংক্রিয়ভাবে তৈরি হয়।',
@@ -3685,7 +3718,40 @@ project-root/
 
 ---
 
-*Free-form notes area.*`
+*Free-form notes area.*`,
+      'rules.md': `# Project Rules
+
+## Coding Style
+- Indentation: 2 spaces
+- Semicolons: always
+- Quotes: single quotes for strings
+- Trailing commas: yes (ES5 compatible)
+
+## Naming Conventions
+- Variables/functions: camelCase
+- Classes/Types: PascalCase
+- Constants: UPPER_SNAKE_CASE
+- Files: kebab-case (e.g., user-service.ts)
+
+## Do / Don't Rules
+- ✅ Do: Use const by default, let when reassignment needed
+- ✅ Do: Use TypeScript strict mode
+- ✅ Do: Write self-documenting code with clear names
+- ❌ Don't: Use console.log in production code
+- ❌ Don't: Use any type unless absolutely necessary
+- ❌ Don't: Mutate function arguments
+- ❌ Don't: Use eval() or Function constructor
+
+## Preferred Libraries
+- Date/time: date-fns
+- HTTP client: fetch (native) or axios
+- State management: Zustand or React Context
+- Validation: Zod
+- Testing: Vitest + React Testing Library
+
+## Project-Specific Rules
+<!-- Add your project-specific rules below -->
+`
     };
 
     // Add code graph summary to brain digest (inside 1500-token cap)
@@ -6426,6 +6492,76 @@ Links: [[Brain Index]]
       }
     }
 
+    // Render Project Rules tab
+    function renderRulesTab() {
+      const session = getCurrentSession();
+      if (!session) return;
+
+      const editor = document.getElementById('rulesEditor');
+      const saveBtn = document.getElementById('btnSaveRules');
+      const loadDefaultBtn = document.getElementById('btnLoadDefaultRules');
+      const clearBtn = document.getElementById('btnClearRules');
+      const statusEl = document.getElementById('rulesStatus');
+
+      // Load current rules from session files
+      const rulesPath = '.devforge/rules.md';
+      const currentRules = session.files[rulesPath] || '';
+      if (editor) {
+        editor.value = currentRules;
+      }
+      if (statusEl) {
+        statusEl.textContent = currentRules ? 'Rules loaded from project' : 'No rules set yet';
+        statusEl.style.color = currentRules ? 'var(--success)' : 'var(--text-dim)';
+      }
+
+      // Save rules
+      if (saveBtn) {
+        saveBtn.onclick = () => {
+          const newRules = editor ? editor.value : '';
+          session.files[rulesPath] = newRules;
+          saveAppState();
+          if (statusEl) {
+            statusEl.textContent = 'Rules saved ✓';
+            statusEl.style.color = 'var(--success)';
+          }
+          logActivity('Project rules updated', 'success');
+        };
+      }
+
+      // Load defaults
+      if (loadDefaultBtn) {
+        loadDefaultBtn.onclick = () => {
+          const defaultRules = BRAIN_TEMPLATES['rules.md'] || '';
+          if (editor) {
+            editor.value = defaultRules;
+          }
+          session.files[rulesPath] = defaultRules;
+          saveAppState();
+          if (statusEl) {
+            statusEl.textContent = 'Default rules loaded ✓';
+            statusEl.style.color = 'var(--success)';
+          }
+          logActivity('Default project rules loaded', 'info');
+        };
+      }
+
+      // Clear rules
+      if (clearBtn) {
+        clearBtn.onclick = () => {
+          if (editor) {
+            editor.value = '';
+          }
+          session.files[rulesPath] = '';
+          saveAppState();
+          if (statusEl) {
+            statusEl.textContent = 'Rules cleared';
+            statusEl.style.color = 'var(--warning)';
+          }
+          logActivity('Project rules cleared', 'warning');
+        };
+      }
+    }
+
     // ==================== BACKUP TAB ====================
     function renderBackupTab() {
       const exportBtn = document.getElementById('btnExportBackup');
@@ -6915,7 +7051,54 @@ Links: [[Brain Index]]
       // Always injected, never opt-in — spec part 1 (catalog injection at session start).
       context += '\n\n' + buildAutonomyCatalogText() + '\n\n' + buildMandatoryUseRuleText() + '\n\n' + buildPrecommitGateText() + '\n';
 
+      // Project Rules: inject compact digest of .devforge/rules.md
+      const rulesDigest = buildRulesDigest(session);
+      if (rulesDigest) {
+        context += '\n\n' + rulesDigest + '\n';
+      }
+
       return context;
+    }
+
+    // Build compact digest of project rules (.devforge/rules.md) for context injection
+    // Returns a short summary, never the full file dump (max ~200 tokens)
+    function buildRulesDigest(session) {
+      const rulesPath = '.devforge/rules.md';
+      const rulesContent = session?.files?.[rulesPath];
+      if (!rulesContent || !rulesContent.trim()) return '';
+
+      // Extract key sections as a compact digest
+      const lines = rulesContent.split('\n');
+      const digestLines = ['--- PROJECT RULES (compact digest) ---'];
+      let inSection = '';
+      let bulletCount = 0;
+      const maxBullets = 30; // cap to keep digest small
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+
+        // Detect section headers
+        if (trimmed.startsWith('## ')) {
+          inSection = trimmed.slice(3).trim();
+          digestLines.push('\n[' + inSection + ']');
+          continue;
+        }
+
+        // Capture bullet points (rules)
+        if ((trimmed.startsWith('- ') || trimmed.startsWith('* ') || trimmed.startsWith('✅') || trimmed.startsWith('❌')) && bulletCount < maxBullets) {
+          const bullet = trimmed.replace(/^[-*✅❌]\s*/, '').trim();
+          if (bullet) {
+            digestLines.push('- ' + bullet);
+            bulletCount++;
+          }
+        }
+      }
+
+      if (bulletCount === 0) return ''; // no actionable rules found
+
+      digestLines.push('\n[Total rules captured: ' + bulletCount + ']');
+      return digestLines.join('\n');
     }
 
     // Request log entry for Activity panel (12)
@@ -10286,6 +10469,7 @@ Rules:
           if (tabName === 'mcp') renderMcpServerSummary();
           if (tabName === 'behavior') renderUncensoredBehaviorTab();
           if (tabName === 'autonomy') renderAutonomyTab();
+          if (tabName === 'rules') renderRulesTab();
           if (tabName === 'backup') renderBackupTab();
           if (tabName === 'usage') renderUsageDashboard();
           if (tabName === 'language') renderLanguageTab();
