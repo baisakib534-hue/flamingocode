@@ -990,6 +990,7 @@
               <div style="display:flex; align-items:center; gap:6px;">
                 <button class="btn btn-secondary" id="btnAutoFixToggle" style="padding: 4px 10px; font-size: 10px;" title="Toggle auto-fix on preview error">🔄 Auto-fix: OFF</button>
                 <button class="btn btn-secondary" id="btnRunHealthCheck" style="padding: 4px 10px; font-size: 10px;" title="Run health check now">▶ Check Now</button>
+                <button class="btn btn-secondary" id="btnSendPreviewErrors" style="padding: 4px 10px; font-size: 10px;" title="Send current preview errors to the agent to fix">📤 Send Errors to Agent</button>
                 <button class="btn btn-secondary" id="btnClearHealthLog" style="padding: 4px 10px; font-size: 10px;" title="Clear health log">🗑 Clear</button>
               </div>
             </div>
@@ -2296,6 +2297,8 @@ WORK STYLE:
       // Diff Review state
       diffReviewEnabled: true,  // Default ON
       pendingChanges: null,     // { responseText, changes: [{type, path, oldContent, newContent, action}] }
+      // Preview Health / self-healing loop state
+      previewAutoFix: false,    // Auto-fix preview errors via the agent (cap 5 cycles)
       // Legacy single provider fields for backward compatibility
       provider: {
         preset: '9router',
@@ -7287,6 +7290,7 @@ async function sendAgentPrompt(userPrompt, autoTurn = 0) {
       row.style.color = what === 'fixed' ? 'var(--success)' : (what === 'still failing' ? 'var(--warning)' : 'var(--text-muted)');
       box.appendChild(row);
       box.scrollTop = box.scrollHeight;
+      logActivity('Preview fix cycle ' + cycle + ' ' + what + (detail ? ' — ' + detail : ''), what === 'fixed' ? 'success' : 'info');
       previewHealth.lastFixLog = previewHealth.lastFixLog || [];
       previewHealth.lastFixLog.push(row.textContent);
       if (previewHealth.lastFixLog.length > 50) previewHealth.lastFixLog.shift();
@@ -7314,6 +7318,166 @@ async function sendAgentPrompt(userPrompt, autoTurn = 0) {
       if (display) display.textContent = String(PREVIEW_FIX_MAX_CYCLES);
       if (box) box.style.display = on ? 'block' : 'none';
       if (on) previewHealthSetStatus('Needs your help', 'bad');
+    }
+
+    // Ask the live iframe for its buffered error list (supports Check Now + post-fix re-check)
+    function previewHealthProbe() {
+      return new Promise((resolve) => {
+        let settled = false;
+        const done = (errs) => {
+          if (settled) return;
+          settled = true;
+          previewHealthProbeResolve = null;
+          resolve(errs || []);
+        };
+        previewHealthProbeResolve = done;
+        try {
+          const iframe = document.getElementById('previewIframe');
+          if (iframe && iframe.contentWindow) iframe.contentWindow.postMessage({ type: 'DEVFORGE_HEALTH_CHECK' }, '*');
+        } catch (e) { /* cross-origin edge: fall through to timeout */ }
+        setTimeout(() => done([]), 1200);
+      });
+    }
+
+    // Full health check: captured + buffered preview errors + blank-render detection
+    async function previewHealthCheck() {
+      const errors = [];
+      const seen = new Set();
+      const push = (err) => {
+        const key = (err.message || '') + '|' + (err.lineno || '');
+        if (seen.has(key)) return;
+        seen.add(key);
+        errors.push(err);
+      };
+      previewHealth.errors.forEach(push);
+      const buffered = await previewHealthProbe();
+      buffered.forEach(push);
+      try {
+        const iframe = document.getElementById('previewIframe');
+        const doc = iframe && iframe.contentWindow && iframe.contentWindow.document;
+        if (doc && doc.body) {
+          const blank = doc.body.children.length === 0 && (doc.body.textContent || '').trim() === '';
+          if (blank) push({ kind: 'render', message: 'Preview rendered blank (no visible content)', file: 'index.html', lineno: 0, time: Date.now() });
+        }
+      } catch (e) { /* cross-origin srcdoc edge */ }
+      previewHealth.errors = errors;
+      previewHealthRenderErrors();
+      previewHealthSetStatus(errors.length ? errors.length + ' preview error(s)' : 'Preview healthy', errors.length ? 'bad' : 'ok');
+      return { ok: errors.length === 0, errors };
+    }
+
+    // Build the "fix this" prompt sent to the agent (text + failing file/line)
+    function buildPreviewFixPrompt(errors) {
+      const list = (errors || []).slice(0, 5);
+      const lines = [
+        'The live preview is failing. Fix the errors below, then reply briefly with no code blocks.',
+        '',
+        'PREVIEW ERRORS (' + list.length + (errors.length > list.length ? ' of ' + errors.length : '') + '):'
+      ];
+      list.forEach((err, i) => {
+        const where = err.file ? err.file + (err.lineno ? ':' + err.lineno : '') : (err.filename || 'inline') + (err.lineno ? ':' + err.lineno : '');
+        lines.push((i + 1) + '. ' + err.message + '  [at ' + where + (err.kind ? ', ' + err.kind : '') + ']');
+        if (err.stack) lines.push('   stack: ' + String(err.stack).split('\n').slice(0, 4).join(' | '));
+      });
+      lines.push('', 'Fix the root cause by rewriting the affected file(s) using file:<path> fenced blocks. Keep the change minimal and focused on the error. Do not restructure unrelated code.');
+      return lines.join('\n');
+    }
+
+    function previewSnapshotFiles() {
+      const session = getCurrentSession();
+      const snap = {};
+      if (session && session.files) {
+        for (const [p, c] of Object.entries(session.files)) snap[p] = String(c).length + ':' + String(c).slice(0, 64);
+      }
+      return snap;
+    }
+
+    function previewDiffSnapshot(before, after) {
+      const changed = [];
+      for (const p of Object.keys(after)) if (before[p] !== after[p]) changed.push(p);
+      return changed;
+    }
+
+    // Wait for the iframe to re-render and the error trap to report
+    function settlePreview() {
+      return new Promise((resolve) => {
+        let done = false;
+        const finish = () => { if (!done) { done = true; resolve(); } };
+        try {
+          const iframe = document.getElementById('previewIframe');
+          if (iframe) iframe.addEventListener('load', finish, { once: true });
+        } catch (e) { /* ignore */ }
+        setTimeout(finish, 2600);
+      }).then(() => new Promise(r => setTimeout(r, 500)));
+    }
+
+    // THE self-healing loop: capture -> agent fix -> re-check -> repeat, hard cap
+    async function runPreviewFixCycle() {
+      if (previewHealth.fixing) return { started: false, reason: 'already running' };
+      if (agentWorking) return { started: false, reason: 'agent busy' };
+      previewHealth.fixing = true;
+      try {
+        while (previewHealth.attempts < PREVIEW_FIX_MAX_CYCLES) {
+          const check = await previewHealthCheck();
+          if (check.ok) {
+            previewHealthSetStatus('Preview healthy', 'ok');
+            previewHealthLog(previewHealth.attempts, 'healthy', 'no errors remain');
+            return { started: true, fixed: true, attempts: previewHealth.attempts };
+          }
+          previewHealth.attempts++;
+          previewHealthShowBanner(previewHealth.attempts);
+          previewHealthLog(previewHealth.attempts, 'started', check.errors.map(e => e.message.slice(0, 60)).join('; '));
+          const before = previewSnapshotFiles();
+          await sendAgentPrompt(buildPreviewFixPrompt(check.errors));
+          const changed = previewDiffSnapshot(before, previewSnapshotFiles());
+          previewHealthLog(previewHealth.attempts, 'agent replied', changed.length ? 'changed ' + changed.join(', ') : 'no files changed');
+          await settlePreview();
+          const recheck = await previewHealthCheck();
+          if (recheck.ok) {
+            previewHealthLog(previewHealth.attempts, 'fixed', changed.length ? changed.join(', ') : '');
+            previewHealthSetStatus('Fixed — preview healthy', 'ok');
+            return { started: true, fixed: true, attempts: previewHealth.attempts };
+          }
+          previewHealthLog(previewHealth.attempts, 'still failing', recheck.errors.map(e => e.message.slice(0, 60)).join('; '));
+        }
+        previewHealthSetNeedsHelp(true);
+        previewHealthLog(previewHealth.attempts, 'cap reached', 'stopping — needs user help');
+        logActivity('Self-healing preview loop stopped after ' + PREVIEW_FIX_MAX_CYCLES + ' attempts — needs help', 'warning');
+        return { started: true, fixed: false, attempts: previewHealth.attempts };
+      } finally {
+        previewHealth.fixing = false;
+        previewHealthHideBanner();
+        saveAppState();
+      }
+    }
+
+    // One-click manual send of current errors to the agent (no auto loop)
+    async function sendPreviewErrorsToAgent() {
+      if (agentWorking) {
+        appendChatMessage('system', 'Agent is busy — the fix will be sent when the current task finishes.');
+        return { started: false, reason: 'agent busy' };
+      }
+      const check = await previewHealthCheck();
+      if (check.ok) {
+        previewHealthSetStatus('Preview healthy', 'ok');
+        appendChatMessage('system', 'Preview is healthy — no errors to send.');
+        return { started: false, reason: 'no errors' };
+      }
+      await sendAgentPrompt(buildPreviewFixPrompt(check.errors));
+      return { started: true };
+    }
+
+    // Auto-fix: when a NEW error lands and nothing else is running, kick the loop
+    function maybeAutoFixOnPreviewError() {
+      if (!appState.previewAutoFix || previewHealth.fixing || agentWorking) return;
+      if (previewAutoFixDebounce) clearTimeout(previewAutoFixDebounce);
+      previewAutoFixDebounce = setTimeout(() => {
+        previewAutoFixDebounce = null;
+        if (appState.previewAutoFix && !previewHealth.fixing && !agentWorking) {
+          logActivity('Auto-fix: preview error detected — starting fix cycle', 'warning');
+          runPreviewFixCycle();
+        }
+      }, 1500);
     }
 
     // ==================== PLAN MODE LOGIC ====================
@@ -8369,6 +8533,83 @@ Rules:
       setupVoiceInput();
     }
 
+    // ==================== B3: PREVIEW HEALTH WIRING ====================
+    function setupPreviewHealth() {
+      const btnAutoFix = document.getElementById('btnAutoFixToggle');
+      const updateAutoFixBtn = () => {
+        if (!btnAutoFix) return;
+        const on = !!appState.previewAutoFix;
+        btnAutoFix.textContent = on ? '🔄 Auto-fix: ON' : '🔄 Auto-fix: OFF';
+        btnAutoFix.title = on
+          ? 'Auto-fix ON: new preview errors are sent to the agent automatically (up to 5 fix cycles)'
+          : 'Auto-fix OFF: fix preview errors manually via "Send Errors to Agent"';
+        btnAutoFix.style.color = on ? 'var(--success)' : '';
+      };
+      if (btnAutoFix) {
+        btnAutoFix.onclick = () => {
+          appState.previewAutoFix = !appState.previewAutoFix;
+          saveAppState();
+          updateAutoFixBtn();
+          logActivity('Preview auto-fix ' + (appState.previewAutoFix ? 'enabled' : 'disabled'), appState.previewAutoFix ? 'warning' : 'info');
+          if (appState.previewAutoFix) runPreviewFixCycle(); // immediate check when turning on
+        };
+      }
+      updateAutoFixBtn();
+
+      const btnCheck = document.getElementById('btnRunHealthCheck');
+      if (btnCheck) {
+        btnCheck.onclick = async () => {
+          btnCheck.disabled = true;
+          btnCheck.textContent = '… Checking';
+          const result = await previewHealthCheck();
+          btnCheck.disabled = false;
+          btnCheck.textContent = '▶ Check Now';
+          logActivity(result.ok ? 'Preview health check: passed' : 'Preview health check: ' + result.errors.length + ' error(s) found', result.ok ? 'success' : 'warning');
+        };
+      }
+
+      const btnSend = document.getElementById('btnSendPreviewErrors');
+      if (btnSend) btnSend.onclick = () => sendPreviewErrorsToAgent();
+
+      const btnClear = document.getElementById('btnClearHealthLog');
+      if (btnClear) {
+        btnClear.onclick = () => {
+          previewHealth.errors = [];
+          previewHealth.attempts = 0;
+          previewHealthSetNeedsHelp(false);
+          const logList = document.getElementById('previewFixLogList');
+          if (logList) logList.innerHTML = '';
+          const logWrap = document.getElementById('previewFixLog');
+          if (logWrap) logWrap.style.display = 'none';
+          previewHealthRenderErrors();
+          previewHealthSetStatus('No errors tracked', 'idle');
+          logActivity('Preview health log cleared', 'info');
+        };
+      }
+
+      const btnRetry = document.getElementById('btnPreviewNeedsHelpRetry');
+      if (btnRetry) {
+        btnRetry.onclick = () => {
+          previewHealth.attempts = 0;
+          previewHealthSetNeedsHelp(false);
+          runPreviewFixCycle();
+        };
+      }
+      const btnHelpSend = document.getElementById('btnPreviewNeedsHelpSendToAgent');
+      if (btnHelpSend) {
+        btnHelpSend.onclick = () => {
+          previewHealth.attempts = 0;
+          previewHealthSetNeedsHelp(false);
+          sendPreviewErrorsToAgent();
+        };
+      }
+
+      const display = document.getElementById('previewMaxAttemptsDisplay');
+      if (display) display.textContent = String(PREVIEW_FIX_MAX_CYCLES);
+      previewHealthSetStatus('No errors tracked', 'idle');
+    }
+    // ==================== B3: SELF-HEALING PREVIEW LOOP (END) ====================
+
     // ==================== VOICE INPUT ====================
     function setupVoiceInput() {
       const btnVoiceInput = document.getElementById('btnVoiceInput');
@@ -8698,6 +8939,7 @@ Rules:
       setupPaneTabs();
       setupMobileNav();
       setupChatHandlers();
+      setupPreviewHealth();
       setupAgentLibraryHandlers();
       setupAutoCreateAgentHandlers();
       setupTeamModeHandlers();
