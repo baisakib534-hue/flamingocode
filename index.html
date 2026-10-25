@@ -7320,6 +7320,20 @@ async function sendAgentPrompt(userPrompt, autoTurn = 0) {
       if (on) previewHealthSetStatus('Needs your help', 'bad');
     }
 
+    // Full reset to the pristine state: errors, cap attempts, fix-cycle log, banner, needs-help
+    function previewHealthReset() {
+      previewHealth.errors = [];
+      previewHealth.attempts = 0;
+      previewHealthSetNeedsHelp(false);
+      previewHealthHideBanner();
+      const logList = document.getElementById('previewFixLogList');
+      if (logList) logList.innerHTML = '';
+      const logWrap = document.getElementById('previewFixLog');
+      if (logWrap) logWrap.style.display = 'none';
+      previewHealthRenderErrors();
+      previewHealthSetStatus('No errors tracked', 'idle');
+    }
+
     // Ask the live iframe for its buffered error list (supports Check Now + post-fix re-check)
     function previewHealthProbe() {
       return new Promise((resolve) => {
@@ -7767,6 +7781,7 @@ Rules:
       renderChatHistory();
       updateUncensoredUI();
       updateHeaderUsageMeter();
+      previewHealthReset(); // session switch clears Preview Health state for the new project
       const session = getCurrentSession();
       if (session.activeFile && session.files[session.activeFile] !== undefined) {
         document.getElementById('editorTextarea').value = session.files[session.activeFile];
@@ -8574,15 +8589,7 @@ Rules:
       const btnClear = document.getElementById('btnClearHealthLog');
       if (btnClear) {
         btnClear.onclick = () => {
-          previewHealth.errors = [];
-          previewHealth.attempts = 0;
-          previewHealthSetNeedsHelp(false);
-          const logList = document.getElementById('previewFixLogList');
-          if (logList) logList.innerHTML = '';
-          const logWrap = document.getElementById('previewFixLog');
-          if (logWrap) logWrap.style.display = 'none';
-          previewHealthRenderErrors();
-          previewHealthSetStatus('No errors tracked', 'idle');
+          previewHealthReset();
           logActivity('Preview health log cleared', 'info');
         };
       }
