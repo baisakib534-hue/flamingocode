@@ -1920,6 +1920,7 @@
         <button class="settings-tab" data-settings-tab="rules" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">Rules</button>
         <button class="settings-tab" data-settings-tab="backup" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">Backup</button>
         <button class="settings-tab" data-settings-tab="language" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">Language</button>
+        <button class="settings-tab" data-settings-tab="skillLibrarian" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">Skill Librarian</button>
       </div>
 
       <!-- Providers Tab -->
@@ -2413,9 +2414,53 @@ sudo *"></textarea>
           <button class="btn btn-secondary" id="btnCancelSettings" data-i18n="Close">Close</button>
         </div>
       </div>
-    </div>
+        </div>
 
-  <!-- Enhanced Spec Preview Modal -->
+        <!-- Skill Librarian Tab -->
+        <div class="settings-pane" id="settingsPaneSkillLibrarian" style="display: none; flex-direction: column;">
+          <div style="max-height: 40vh; overflow-y: auto; margin-bottom: 12px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
+              <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Skill Librarian</span>
+              <button class="btn btn-secondary" id="btnRunLibrarianDryRun" style="padding: 4px 10px; font-size: 11px;">🔍 Dry Run</button>
+            </div>
+            <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 12px;">Background maintenance for agent-created skills: tracks usage, archives stale skills, proposes merges. Never auto-deletes.</div>
+      
+            <!-- Skill List with Status -->
+            <div style="margin-bottom: 16px;">
+              <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">All Skills</div>
+              <div id="skillLibrarianList" style="display: flex; flex-direction: column; gap: 4px; max-height: 300px; overflow-y: auto;"></div>
+            </div>
+
+            <!-- Proposed Merges (Duplicates) -->
+            <div style="margin-bottom: 16px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
+                <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Proposed Merges</span>
+                <button class="btn btn-secondary" id="btnScanDuplicates" style="padding: 4px 10px; font-size: 11px;">Scan for Duplicates</button>
+              </div>
+              <div id="skillMergeProposals" style="display: flex; flex-direction: column; gap: 4px; max-height: 200px; overflow-y: auto;">
+                <div style="font-size: 10px; color: var(--text-dim); text-align: center; padding: 16px;">Click "Scan for Duplicates" to find overlapping skills</div>
+              </div>
+            </div>
+
+            <!-- Audit Ledger -->
+            <div>
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
+                <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Change Log (Audit Ledger)</span>
+                <button class="btn btn-secondary" id="btnClearAuditLog" style="padding: 4px 10px; font-size: 11px;">Clear Log</button>
+              </div>
+              <div id="skillAuditLog" style="display: flex; flex-direction: column; gap: 2px; max-height: 200px; overflow-y: auto; font-family: var(--font-mono); font-size: 10px;">
+                <div style="color: var(--text-dim); text-align: center; padding: 16px;">No librarian actions yet</div>
+              </div>
+            </div>
+          </div>
+          <div style="border-top: 1px solid var(--border-color); padding-top: 12px;">
+            <div style="display:flex; justify-content:flex-end; gap:8px;">
+              <button class="btn btn-secondary" id="btnCancelSettings" data-i18n="Close">Close</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Enhanced Spec Preview Modal -->
   <div class="modal-overlay" id="enhancedSpecModal">
     <div class="modal-box" style="width: 700px; max-width: 95vw; max-height: 85vh;">
       <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-color); padding-bottom:8px;">
@@ -3979,6 +4024,9 @@ WORK STYLE:
       autocompleteEnabled: true,  // Ghost-text code completions
       // Language state
       language: 'en',           // 'en' | 'bn'
+      // Skill Librarian state
+      skillUsage: {},           // { [skillId]: { count, lastUsed, pinned, status: 'active'|'stale'|'archived' } }
+      skillAuditLog: [],        // Append-only log of librarian actions
       // Legacy single provider fields for backward compatibility
       provider: {
         preset: '9router',
@@ -9130,6 +9178,356 @@ Links: [[Brain Index]]
           };
         }
       });
+    }
+
+    // ==================== SKILL LIBRARIAN TAB ====================
+    function renderSkillLibrarian() {
+      const listEl = document.getElementById('skillLibrarianList');
+      const mergeEl = document.getElementById('skillMergeProposals');
+      const auditEl = document.getElementById('skillAuditLog');
+      if (!listEl || !mergeEl || !auditEl) return;
+
+      // Ensure skillUsage is initialized
+      if (!appState.skillUsage) appState.skillUsage = {};
+      if (!appState.skillAuditLog) appState.skillAuditLog = [];
+
+      // Gather all skills (builtin + custom)
+      const allSkills = getAllSkillsForLibrarian();
+      const now = Date.now();
+      const STALE_THRESHOLD = 14 * 24 * 60 * 60 * 1000; // 14 days
+      const ARCHIVE_THRESHOLD = 30 * 24 * 60 * 60 * 1000; // 30 days
+
+      // Update skill statuses based on usage
+      allSkills.forEach(skill => {
+        const usage = appState.skillUsage[skill.id] || { count: 0, lastUsed: null, pinned: false, status: 'active' };
+        // Don't change status of pinned skills
+        if (!usage.pinned) {
+          if (usage.lastUsed) {
+            const daysSinceUse = (now - usage.lastUsed) / (24 * 60 * 60 * 1000);
+            if (daysSinceUse >= 30) usage.status = 'archived';
+            else if (daysSinceUse >= 14) usage.status = 'stale';
+            else usage.status = 'active';
+          } else if (usage.count === 0) {
+            // Never used - check creation time if available
+            usage.status = 'stale';
+          }
+        }
+        appState.skillUsage[skill.id] = usage;
+      });
+
+      // Render skill list
+      listEl.innerHTML = allSkills.map(skill => {
+        const usage = appState.skillUsage[skill.id] || { count: 0, lastUsed: null, pinned: false, status: 'active' };
+        const statusClass = usage.status === 'archived' ? 'status-archived' : (usage.status === 'stale' ? 'status-stale' : 'status-active');
+        const statusLabel = usage.pinned ? '📌 Pinned' : (usage.status === 'archived' ? '📦 Archived' : (usage.status === 'stale' ? '⚠️ Stale' : '✅ Active'));
+        const lastUsed = usage.lastUsed ? new Date(usage.lastUsed).toLocaleDateString() : 'Never';
+        const isCustom = skill.isCustom || false;
+
+        return `
+          <div class="skill-librarian-item" data-skill-id="${escapeHtml(skill.id)}" style="display:flex; align-items:center; gap:8px; padding:8px 10px; background:var(--bg-dark); border:1px solid var(--border-color); border-radius:6px; flex-wrap:wrap;">
+            <div style="flex:1; min-width:150px;">
+              <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                <span style="font-weight:600; color:var(--text); font-family:var(--font-mono); font-size:11px;">${escapeHtml(skill.name)}</span>
+                <span style="font-size:9px; padding:1px 5px; border-radius:3px; background:var(--bg-surface); color:var(--text-muted);">${escapeHtml(skill.id)}</span>
+                ${isCustom ? '<span style="font-size:9px; padding:1px 5px; border-radius:3px; background:var(--accent-purple); color:white;">Custom</span>' : ''}
+              </div>
+              <div style="font-size:10px; color:var(--text-dim); margin-top:2px;">${escapeHtml(skill.desc || 'No description')}</div>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+              <div style="font-family:var(--font-mono); font-size:10px; color:var(--text-muted);">Used: <strong>${usage.count}</strong></div>
+              <div style="font-family:var(--font-mono); font-size:10px; color:var(--text-dim);">Last: ${lastUsed}</div>
+              <span class="${statusClass}" style="font-size:10px; padding:2px 6px; border-radius:3px; ${usage.status === 'archived' ? 'background:var(--warning);color:var(--bg);' : (usage.status === 'stale' ? 'background:var(--error);color:white;' : 'background:var(--success);color:white;')}">${statusLabel}</span>
+              <button class="btn btn-ghost" onclick="toggleSkillPin('${escapeHtml(skill.id)}')" style="padding:2px 8px; font-size:10px;" title="${usage.pinned ? 'Unpin' : 'Pin'}">${usage.pinned ? '📌' : '📍'}</button>
+              ${usage.status === 'archived' ? `<button class="btn btn-primary" onclick="restoreSkillFromArchive('${escapeHtml(skill.id)}')" style="padding:2px 8px; font-size:10px;">Restore</button>` : ''}
+              ${isCustom && usage.status !== 'archived' ? `<button class="btn btn-danger" onclick="archiveSkill('${escapeHtml(skill.id)}')" style="padding:2px 8px; font-size:10px;">Archive</button>` : ''}
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      // Render merge proposals (empty initially, populated by scan)
+      renderMergeProposals(mergeEl);
+
+      // Render audit log
+      renderAuditLog(auditEl);
+
+      // Attach button handlers
+      const dryRunBtn = document.getElementById('btnRunLibrarianDryRun');
+      const scanBtn = document.getElementById('btnScanDuplicates');
+      const clearBtn = document.getElementById('btnClearAuditLog');
+      
+      if (dryRunBtn) dryRunBtn.onclick = () => runLibrarianDryRun();
+      if (scanBtn) scanBtn.onclick = () => scanForDuplicateSkills();
+      if (clearBtn) clearBtn.onclick = () => clearAuditLog();
+    }
+
+    // Get all skills (builtin + custom) for librarian
+    function getAllSkillsForLibrarian() {
+      const skills = [];
+      // Built-in skills from AUTONOMY_CATALOG
+      if (window.AUTONOMY_CATALOG?.skills) {
+        window.AUTONOMY_CATALOG.skills.forEach(s => {
+          skills.push({ id: s.name, name: s.name, desc: s.desc, isCustom: false, source: 'builtin' });
+        });
+      }
+      if (window.AUTONOMY_CATALOG?.vibeSkills) {
+        window.AUTONOMY_CATALOG.vibeSkills.forEach(s => {
+          skills.push({ id: s.name, name: s.name, desc: s.desc, isCustom: false, source: 'builtin' });
+        });
+      }
+      // Custom skills from skillPacks
+      if (appState.skillPacks) {
+        appState.skillPacks.forEach(pack => {
+          if (pack.skills) {
+            pack.skills.forEach(s => {
+              skills.push({ id: s.name || s.id, name: s.name || s.id, desc: s.description || s.desc || '', isCustom: true, source: 'custom', packId: pack.id });
+            });
+          }
+        });
+      }
+      return skills;
+    }
+
+    // Toggle skill pin status
+    function toggleSkillPin(skillId) {
+      if (!appState.skillUsage[skillId]) appState.skillUsage[skillId] = { count: 0, lastUsed: null, pinned: false, status: 'active' };
+      appState.skillUsage[skillId].pinned = !appState.skillUsage[skillId].pinned;
+      const action = appState.skillUsage[skillId].pinned ? 'pinned' : 'unpinned';
+      addAuditLogEntry('pin', skillId, `Skill ${action}`);
+      renderSkillLibrarian();
+    }
+
+    // Archive a skill (move to archived status)
+    function archiveSkill(skillId) {
+      if (!appState.skillUsage[skillId]) appState.skillUsage[skillId] = { count: 0, lastUsed: null, pinned: false, status: 'active' };
+      if (appState.skillUsage[skillId].pinned) {
+        alert('Cannot archive a pinned skill. Unpin first.');
+        return;
+      }
+      appState.skillUsage[skillId].status = 'archived';
+      addAuditLogEntry('archive', skillId, 'Skill manually archived');
+      renderSkillLibrarian();
+    }
+
+    // Restore skill from archive
+    function restoreSkillFromArchive(skillId) {
+      if (!appState.skillUsage[skillId]) appState.skillUsage[skillId] = { count: 0, lastUsed: null, pinned: false, status: 'active' };
+      appState.skillUsage[skillId].status = 'active';
+      addAuditLogEntry('restore', skillId, 'Skill restored from archive');
+      renderSkillLibrarian();
+    }
+
+    // Add entry to audit log
+    function addAuditLogEntry(action, skillId, details) {
+      const entry = {
+        timestamp: Date.now(),
+        action,
+        skillId,
+        details
+      };
+      appState.skillAuditLog.unshift(entry);
+      // Keep last 100 entries
+      if (appState.skillAuditLog.length > 100) appState.skillAuditLog = appState.skillAuditLog.slice(0, 100);
+      saveAppState();
+    }
+
+    // Render audit log
+    function renderAuditLog(container) {
+      if (appState.skillAuditLog.length === 0) {
+        container.innerHTML = '<div style="color: var(--text-dim); text-align: center; padding: 16px;">No librarian actions yet</div>';
+        return;
+      }
+      container.innerHTML = appState.skillAuditLog.map(entry => {
+        const time = new Date(entry.timestamp).toLocaleString();
+        const actionIcon = entry.action === 'archive' ? '📦' : (entry.action === 'restore' ? '♻️' : (entry.action === 'pin' ? '📌' : (entry.action === 'merge' ? '🔀' : '🔧')));
+        return `<div style="display:flex; align-items:center; gap:8px; padding:4px 8px; background:var(--bg-dark); border:1px solid var(--border-color); border-radius:4px; font-family:var(--font-mono); font-size:10px;">
+          <span style="color:var(--text-dim);">${time}</span>
+          <span>${actionIcon}</span>
+          <span style="color:var(--accent-blue);">${escapeHtml(entry.skillId)}</span>
+          <span style="color:var(--text-muted);">${escapeHtml(entry.details)}</span>
+          ${entry.rollbackData ? `<button class="btn btn-ghost" onclick="rollbackAuditEntry(${entry.timestamp})" style="padding:1px 6px; font-size:9px;">↩️ Undo</button>` : ''}
+        </div>`;
+      }).join('');
+    }
+
+    // Rollback a single audit entry
+    function rollbackAuditEntry(timestamp) {
+      const entry = appState.skillAuditLog.find(e => e.timestamp === timestamp);
+      if (!entry || !entry.rollbackData) {
+        alert('No rollback data available for this entry');
+        return;
+      }
+      if (!confirm(`Rollback: ${entry.action} on ${entry.skillId}? This will restore the previous state.`)) return;
+      
+      // Apply rollback
+      Object.assign(appState.skillUsage[entry.skillId], entry.rollbackData);
+      addAuditLogEntry('rollback', entry.skillId, `Rolled back ${entry.action}`);
+      renderSkillLibrarian();
+    }
+
+    // Clear audit log
+    function clearAuditLog() {
+      if (!confirm('Clear all audit log entries? This cannot be undone.')) return;
+      appState.skillAuditLog = [];
+      saveAppState();
+      renderSkillLibrarian();
+    }
+
+    // Scan for duplicate/overlapping skills
+    function scanForDuplicateSkills() {
+      const mergeEl = document.getElementById('skillMergeProposals');
+      if (!mergeEl) return;
+      mergeEl.innerHTML = '<div style="color: var(--text-dim); text-align: center; padding: 16px;">Scanning for duplicates...</div>';
+      
+      const allSkills = getAllSkillsForLibrarian();
+      const proposals = [];
+      
+      // Simple duplicate detection: same name or very similar descriptions
+      for (let i = 0; i < allSkills.length; i++) {
+        for (let j = i + 1; j < allSkills.length; j++) {
+          const a = allSkills[i];
+          const b = allSkills[j];
+          
+          // Skip if both are builtin (can't merge builtin)
+          if (!a.isCustom && !b.isCustom) continue;
+          
+          const nameSim = similarity(a.name.toLowerCase(), b.name.toLowerCase());
+          const descSim = (a.desc && b.desc) ? similarity(a.desc.toLowerCase(), b.desc.toLowerCase()) : 0;
+          
+          // Consider duplicate if names are identical or descriptions very similar
+          if (a.name.toLowerCase() === b.name.toLowerCase() || (descSim > 0.7 && nameSim > 0.5)) {
+            proposals.push({ skillA: a, skillB: b, nameSim, descSim, reason: a.name.toLowerCase() === b.name.toLowerCase() ? 'Identical names' : 'Similar descriptions' });
+          }
+        }
+      }
+      
+      renderMergeProposals(mergeEl, proposals);
+    }
+
+    // Simple string similarity (Jaccard on words)
+    function similarity(a, b) {
+      const wordsA = new Set(a.split(/\s+/).filter(w => w.length > 2));
+      const wordsB = new Set(b.split(/\s+/).filter(w => w.length > 2));
+      if (wordsA.size === 0 && wordsB.size === 0) return 1;
+      if (wordsA.size === 0 || wordsB.size === 0) return 0;
+      const intersection = new Set([...wordsA].filter(x => wordsB.has(x)));
+      const union = new Set([...wordsA, ...wordsB]);
+      return intersection.size / union.size;
+    }
+
+    // Render merge proposals
+    function renderMergeProposals(container, proposals = []) {
+      if (proposals.length === 0) {
+        container.innerHTML = '<div style="color: var(--text-dim); text-align: center; padding: 16px;">No duplicate skills found. Click "Scan for Duplicates" to search.</div>';
+        return;
+      }
+      container.innerHTML = proposals.map((p, idx) => `
+        <div style="display:flex; flex-direction:column; gap:8px; padding:10px; background:var(--bg-dark); border:1px solid var(--warning); border-radius:6px;">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span style="font-weight:600; font-size:11px; color:var(--warning);">Proposed Merge #${idx + 1}</span>
+            <span style="font-size:10px; color:var(--text-dim);">${p.reason} (name: ${(p.nameSim*100).toFixed(0)}%, desc: ${(p.descSim*100).toFixed(0)}%)</span>
+          </div>
+          <div style="display:flex; gap:12px;">
+            <div style="flex:1; padding:8px; background:var(--bg-surface); border:1px solid var(--border-color); border-radius:4px;">
+              <div style="font-weight:600; font-size:11px; color:var(--accent-blue);">${escapeHtml(p.skillA.name)}</div>
+              <div style="font-size:10px; color:var(--text-muted);">${escapeHtml(p.skillA.desc || 'No description')}</div>
+              <div style="font-size:9px; color:var(--text-dim); margin-top:4px;">Source: ${p.skillA.source}${p.skillA.packId ? ' (pack: ' + p.skillA.packId + ')' : ''}</div>
+            </div>
+            <div style="flex:1; padding:8px; background:var(--bg-surface); border:1px solid var(--border-color); border-radius:4px;">
+              <div style="font-weight:600; font-size:11px; color:var(--accent-purple);">${escapeHtml(p.skillB.name)}</div>
+              <div style="font-size:10px; color:var(--text-muted);">${escapeHtml(p.skillB.desc || 'No description')}</div>
+              <div style="font-size:9px; color:var(--text-dim); margin-top:4px;">Source: ${p.skillB.source}${p.skillB.packId ? ' (pack: ' + p.skillB.packId + ')' : ''}</div>
+            </div>
+          </div>
+          <div style="display:flex; gap:8px; justify-content:flex-end;">
+            <button class="btn btn-secondary" onclick="mergeSkills('${escapeHtml(p.skillA.id)}', '${escapeHtml(p.skillB.id)}', ${idx})" style="padding:4px 10px; font-size:10px;">Merge (keep A)</button>
+            <button class="btn btn-secondary" onclick="mergeSkills('${escapeHtml(p.skillB.id)}', '${escapeHtml(p.skillA.id)}', ${idx})" style="padding:4px 10px; font-size:10px;">Merge (keep B)</button>
+            <button class="btn btn-ghost" onclick="dismissMergeProposal(${idx})" style="padding:4px 10px; font-size:10px;">Dismiss</button>
+          </div>
+        </div>
+      `).join('');
+      
+      // Store proposals for merge actions
+      window._skillMergeProposals = proposals;
+    }
+
+    // Merge two skills (keep one, archive the other)
+    function mergeSkills(keepId, archiveId, proposalIdx) {
+      const proposals = window._skillMergeProposals || [];
+      const proposal = proposals[proposalIdx];
+      if (!proposal) return;
+      
+      const keepSkill = proposal.skillA.id === keepId ? proposal.skillA : proposal.skillB;
+      const archiveSkill = proposal.skillA.id === archiveId ? proposal.skillA : proposal.skillB;
+      
+      if (!confirm(`Merge "${archiveSkill.name}" into "${keepSkill.name}"? The archived skill will be moved to archive (recoverable).`)) return;
+      
+      // Store rollback data
+      const rollbackData = {
+        keepUsage: { ...appState.skillUsage[keepId] },
+        archiveUsage: { ...appState.skillUsage[archiveId] }
+      };
+      
+      // Archive the duplicate skill
+      if (!appState.skillUsage[archiveId]) appState.skillUsage[archiveId] = { count: 0, lastUsed: null, pinned: false, status: 'active' };
+      appState.skillUsage[archiveId].status = 'archived';
+      
+      // Add audit entry with rollback data
+      const entry = {
+        timestamp: Date.now(),
+        action: 'merge',
+        skillId: archiveId,
+        details: `Merged into ${keepId}`,
+        rollbackData
+      };
+      appState.skillAuditLog.unshift(entry);
+      if (appState.skillAuditLog.length > 100) appState.skillAuditLog = appState.skillAuditLog.slice(0, 100);
+      
+      // Remove from proposals
+      proposals.splice(proposalIdx, 1);
+      window._skillMergeProposals = proposals;
+      
+      saveAppState();
+      renderSkillLibrarian();
+    }
+
+    // Dismiss a merge proposal
+    function dismissMergeProposal(proposalIdx) {
+      const proposals = window._skillMergeProposals || [];
+      proposals.splice(proposalIdx, 1);
+      window._skillMergeProposals = proposals;
+      renderSkillLibrarian();
+    }
+
+    // Dry run - show what the librarian would do automatically
+    function runLibrarianDryRun() {
+      const allSkills = getAllSkillsForLibrarian();
+      const now = Date.now();
+      const STALE_THRESHOLD = 14 * 24 * 60 * 60 * 1000;
+      const ARCHIVE_THRESHOLD = 30 * 24 * 60 * 60 * 1000;
+      
+      let wouldArchive = 0;
+      let wouldMarkStale = 0;
+      
+      allSkills.forEach(skill => {
+        const usage = appState.skillUsage[skill.id] || { count: 0, lastUsed: null, pinned: false, status: 'active' };
+        if (usage.pinned) return;
+        
+        if (usage.lastUsed) {
+          const daysSinceUse = (now - usage.lastUsed) / (24 * 60 * 60 * 1000);
+          if (daysSinceUse >= 30 && usage.status !== 'archived') wouldArchive++;
+          else if (daysSinceUse >= 14 && usage.status === 'active') wouldMarkStale++;
+        } else if (usage.count === 0 && usage.status === 'active') {
+          wouldMarkStale++;
+        }
+      });
+      
+      const msg = `Dry Run Results:\n\n` +
+        `📦 Would archive: ${wouldArchive} skills (unused 30+ days)\n` +
+        `⚠️ Would mark stale: ${wouldMarkStale} skills (unused 14+ days)\n\n` +
+        `Pinned skills are never affected.\n` +
+        `No changes made - this is a preview only.`;
+      alert(msg);
     }
 
     // Show full catalog modal
@@ -14701,6 +15099,7 @@ Format:
           if (tabName === 'backup') renderBackupTab();
           if (tabName === 'usage') renderUsageDashboard();
           if (tabName === 'language') renderLanguageTab();
+          if (tabName === 'skillLibrarian') renderSkillLibrarian();
         });
       });
 
@@ -18484,6 +18883,17 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
 
       // Also include custom skill packs
       const customPacks = appState.customSkillPacks || {};
+
+      // Track skill usage for Librarian
+      const now = Date.now();
+      skillPacks.forEach(p => {
+        if (!appState.skillUsage) appState.skillUsage = {};
+        if (!appState.skillUsage[p]) {
+          appState.skillUsage[p] = { count: 0, lastUsed: null, pinned: false, status: 'active' };
+        }
+        appState.skillUsage[p].count = (appState.skillUsage[p].count || 0) + 1;
+        appState.skillUsage[p].lastUsed = now;
+      });
 
       return skillPacks.map(p => {
         if (packDefs[p]) return packDefs[p];
