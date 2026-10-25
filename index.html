@@ -807,6 +807,7 @@
         <button class="right-tab active" data-pane="agent">Agent</button>
         <button class="right-tab" data-pane="team">Team</button>
         <button class="right-tab" data-pane="preview">Preview</button>
+        <button class="right-tab" data-pane="previewHealth">Health</button>
         <button class="right-tab" data-pane="browser">Browser</button>
         <button class="right-tab" data-pane="graph">Graph</button>
         <button class="right-tab" data-pane="activity">Activity</button>
@@ -975,6 +976,52 @@
         <!-- Preview Pane -->
         <div class="pane-view" id="panePreview">
           <iframe id="previewIframe" class="preview-frame" sandbox="allow-scripts allow-modals allow-same-origin"></iframe>
+        </div>
+
+        <!-- Preview Health Pane -->
+        <div class="pane-view" id="panePreviewHealth">
+          <div style="flex:1; display:flex; flex-direction:column; overflow:hidden; background:var(--bg-dark);">
+            <!-- Header with status and controls -->
+            <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:var(--bg-panel); border-bottom:1px solid var(--border-color); flex-wrap:wrap; gap:8px;">
+              <div style="display:flex; align-items:center; gap:8px;">
+                <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Preview Health</span>
+                <span id="previewHealthStatus" style="font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 10px; background: var(--bg-hover); color: var(--text-dim);">No preview loaded</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:6px;">
+                <button class="btn btn-secondary" id="btnAutoFixToggle" style="padding: 4px 10px; font-size: 10px;" title="Toggle auto-fix on preview error">🔄 Auto-fix: OFF</button>
+                <button class="btn btn-secondary" id="btnRunHealthCheck" style="padding: 4px 10px; font-size: 10px;" title="Run health check now">▶ Check Now</button>
+                <button class="btn btn-secondary" id="btnClearHealthLog" style="padding: 4px 10px; font-size: 10px;" title="Clear health log">🗑 Clear</button>
+              </div>
+            </div>
+
+            <!-- Fix cycle indicator -->
+            <div id="previewFixCycleBanner" style="display:none; padding:8px 12px; background:rgba(59,130,246,0.15); border-bottom:1px solid var(--accent-blue); font-size:11px; color:var(--accent-blue); align-items:center; gap:8px;">
+              <div class="spinner" style="width:14px; height:14px;"></div>
+              <span id="previewFixCycleText">Fix cycle running...</span>
+              <span id="previewFixCycleCount" style="font-family:var(--font-mono); font-size:10px; color:var(--text-dim);"></span>
+            </div>
+
+            <!-- Error list -->
+            <div style="flex:1; overflow-y:auto; padding:8px 12px;">
+              <div id="previewErrorList" style="display:flex; flex-direction:column; gap:8px;">
+                <div style="font-size: 11px; color: var(--text-dim); text-align: center; padding: 20px;">No errors detected. Load a preview and click "Check Now" or enable auto-fix.</div>
+              </div>
+            </div>
+
+            <!-- Fix cycle log -->
+            <div id="previewFixLog" style="display:none; border-top:1px solid var(--border-color); padding-top:8px; margin-top:8px;">
+              <div style="font-size: 10px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px;">Fix Cycle Log</div>
+              <div id="previewFixLogList" style="display:flex; flex-direction:column; gap:4px; max-height:150px; overflow-y:auto; font-family:var(--font-mono); font-size:10px;"></div>
+            </div>
+
+            <!-- Needs help state -->
+            <div id="previewNeedsHelp" style="display:none; padding:16px; background:rgba(239,68,68,0.1); border:1px solid var(--danger); border-radius:6px; margin:8px 12px; text-align:center;">
+              <div style="font-size:14px; font-weight:700; color:var(--danger); margin-bottom:8px;">🛑 Preview still broken after max fix attempts</div>
+              <div style="font-size:11px; color:var(--text-muted); margin-bottom:12px;">The auto-fix loop has run <strong id="previewMaxAttemptsDisplay">5</strong> times but errors persist.</div>
+              <button class="btn" id="btnPreviewNeedsHelpRetry" style="margin-right:8px;">🔄 Retry Fix Cycle</button>
+              <button class="btn btn-secondary" id="btnPreviewNeedsHelpSendToAgent">📤 Send to Agent with Context</button>
+            </div>
+          </div>
         </div>
 
         <!-- Browser Pane -->
@@ -5688,12 +5735,48 @@ Links: [[Brain Index]]
         return match;
       });
 
-      // Inject error handler script for activity logging
+      // Inject error handler script for activity logging + preview health capture
       const errorTrap = `
         <script>
-          window.addEventListener('error', function(e) {
-            window.parent.postMessage({ type: 'PREVIEW_ERROR', message: e.message, filename: e.filename, lineno: e.lineno }, '*');
-          });
+          window.__devforgeErrors = [];
+          (function () {
+            function report(kind, message, extra) {
+              var entry = {
+                kind: kind, message: String(message || 'unknown error'),
+                stack: (extra && extra.stack) || '',
+                filename: (extra && extra.filename) || '',
+                lineno: (extra && extra.lineno) || 0,
+                time: Date.now()
+              };
+              window.__devforgeErrors.push(entry);
+              try {
+                window.parent.postMessage({
+                  type: 'PREVIEW_ERROR', kind: entry.kind, message: entry.message,
+                  stack: entry.stack, filename: entry.filename, lineno: entry.lineno
+                }, '*');
+              } catch (e) { /* parent gone */ }
+            }
+            // capture=true so failed resource loads (script/img/link 404) are caught too
+            window.addEventListener('error', function (e) {
+              if (e.target && e.target !== window && e.target.tagName) {
+                report('resource', 'Failed to load ' + e.target.tagName.toLowerCase() + ': ' + (e.target.src || e.target.href || e.target.getAttribute && e.target.getAttribute('href') || ''));
+                return;
+              }
+              report('error', e.message, e);
+            }, true);
+            window.addEventListener('unhandledrejection', function (e) {
+              var r = e.reason;
+              report('promise', (r && r.message) || String(r || 'unhandled rejection'), r);
+            });
+            // Health panel probe: reply with the full buffered error list
+            window.addEventListener('message', function (ev) {
+              if (ev.data && ev.data.type === 'DEVFORGE_HEALTH_CHECK') {
+                try {
+                  ev.source.postMessage({ type: 'DEVFORGE_HEALTH_RESULT', errors: window.__devforgeErrors }, '*');
+                } catch (e) { /* source gone */ }
+              }
+            });
+          })();
         <\/script>
       `;
       if (html.includes('<head>')) {
@@ -5702,12 +5785,52 @@ Links: [[Brain Index]]
         html = errorTrap + html;
       }
 
+      // Line -> virtual file map: inlined blocks carry a /* path */ marker
+      iframe.__devforgeLineMap = previewBuildLineMap(html);
+
       iframe.srcdoc = html;
     }
 
+    // Map a line number in the generated preview document back to a virtual FS file
+    function previewBuildLineMap(htmlDoc) {
+      const map = [];
+      const re = /\/\*\s*([\w.\-\/]+\.(?:css|js))\s*\*\//g;
+      let m;
+      while ((m = re.exec(htmlDoc)) !== null) {
+        map.push({ file: m[1], line: htmlDoc.slice(0, m.index).split('\n').length });
+      }
+      return map;
+    }
+
+    // Best-effort: which virtual file does a reported preview error come from?
+    function previewMapLineToFile(lineno) {
+      const iframe = document.getElementById('previewIframe');
+      const map = iframe && iframe.__devforgeLineMap;
+      if (!lineno || !map || map.length === 0) return null;
+      let best = null;
+      for (const entry of map) {
+        if (entry.line <= lineno && (!best || entry.line >= best.line)) best = entry;
+      }
+      return best ? best.file : null;
+    }
+
     window.addEventListener('message', (e) => {
-      if (e.data && e.data.type === 'PREVIEW_ERROR') {
-        logActivity(`Preview JS Error: ${e.data.message} (Line ${e.data.lineno})`, 'error');
+      const data = e.data || {};
+      if (data.type === 'PREVIEW_ERROR') {
+        const file = previewMapLineToFile(data.lineno);
+        previewHealthRememberError({
+          kind: data.kind, message: data.message, stack: data.stack,
+          filename: data.filename, lineno: data.lineno, file: file
+        });
+        logActivity(`Preview JS Error: ${data.message} (Line ${data.lineno}${file ? ', ' + file : ''})`, 'error');
+        maybeAutoFixOnPreviewError();
+      }
+      if (data.type === 'DEVFORGE_HEALTH_RESULT') {
+        if (previewHealthProbeResolve) {
+          const resolve = previewHealthProbeResolve;
+          previewHealthProbeResolve = null;
+          resolve(data.errors || []);
+        }
       }
     });
 
@@ -7093,6 +7216,104 @@ async function sendAgentPrompt(userPrompt, autoTurn = 0) {
         stopTimer();
         saveAppState();
       }
+    }
+
+    // ==================== B3: SELF-HEALING PREVIEW LOOP (START) ====================
+    // Preview errors -> shown in the Preview Health panel -> sent to the agent ->
+    // agent fixes -> preview re-renders -> repeat up to PREVIEW_FIX_MAX_CYCLES,
+    // then a visible "needs your help" state. THE one auto-fix mechanism.
+    const PREVIEW_FIX_MAX_CYCLES = 5;
+    let previewHealth = { errors: [], attempts: 0, fixing: false, needsHelp: false };
+    let previewHealthProbeResolve = null;
+    let previewAutoFixDebounce = null;
+
+    function previewHealthSetStatus(text, tone) {
+      const el = document.getElementById('previewHealthStatus');
+      if (!el) return;
+      el.textContent = text;
+      const colors = {
+        ok: ['rgba(16,185,129,0.18)', 'var(--success)'],
+        bad: ['rgba(239,68,68,0.18)', 'var(--danger)'],
+        warn: ['rgba(245,158,11,0.18)', 'var(--warning)'],
+        busy: ['rgba(59,130,246,0.18)', 'var(--accent-blue)'],
+        idle: ['var(--bg-hover)', 'var(--text-dim)']
+      };
+      const [bg, fg] = colors[tone] || colors.idle;
+      el.style.background = bg;
+      el.style.color = fg;
+    }
+
+    function previewHealthRenderErrors() {
+      const list = document.getElementById('previewErrorList');
+      if (!list) return;
+      if (previewHealth.errors.length === 0) {
+        list.innerHTML = '<div style="font-size:11px;color:var(--text-dim);text-align:center;padding:20px;">No errors detected. Load a preview and click "Check Now" or enable auto-fix.</div>';
+        return;
+      }
+      list.innerHTML = previewHealth.errors.map((err) => {
+        const where = err.file ? err.file + (err.lineno ? ':' + err.lineno : '') : (err.filename || 'inline') + (err.lineno ? ':' + err.lineno : '');
+        const stack = err.stack ? String(err.stack).split('\n').slice(0, 3).map(l => '    ' + l).join('\n') : '';
+        return `<div style="border:1px solid var(--border-color);border-radius:6px;padding:8px 10px;background:var(--bg-surface);">
+          <div style="display:flex;justify-content:space-between;gap:8px;font-size:11px;">
+            <span style="color:var(--danger);font-weight:600;">${escapeHtml(err.message)}</span>
+            <span style="color:var(--text-dim);font-family:var(--font-mono);font-size:10px;white-space:nowrap;">${escapeHtml(where)}</span>
+          </div>
+          <div style="font-size:9px;color:var(--text-dim);margin-top:2px;">${escapeHtml(err.kind || 'error')}</div>
+          ${stack ? `<div style="font-family:var(--font-mono);font-size:9px;color:var(--text-muted);white-space:pre-wrap;margin-top:4px;">${escapeHtml(stack)}</div>` : ''}
+        </div>`;
+      }).join('');
+    }
+
+    // Capture one preview error (deduped); called from the PREVIEW_ERROR listener
+    function previewHealthRememberError(err) {
+      const key = (err.message || '') + '|' + (err.lineno || '') + '|' + (err.file || err.filename || '');
+      if (previewHealth.errors.some(e => e.key === key)) return;
+      err.key = key;
+      err.time = err.time || Date.now();
+      previewHealth.errors.push(err);
+      previewHealthRenderErrors();
+      previewHealthSetStatus(previewHealth.errors.length + ' preview error' + (previewHealth.errors.length > 1 ? 's' : ''), 'bad');
+    }
+
+    // Per-cycle progress log in the panel (what was sent, what changed, verdict)
+    function previewHealthLog(cycle, what, detail) {
+      const box = document.getElementById('previewFixLogList');
+      const wrap = document.getElementById('previewFixLog');
+      if (wrap) wrap.style.display = 'block';
+      if (!box) return;
+      const time = new Date().toLocaleTimeString();
+      const row = document.createElement('div');
+      row.textContent = `[${time}] cycle ${cycle}/${PREVIEW_FIX_MAX_CYCLES} — ${what}${detail ? ': ' + detail : ''}`;
+      row.style.color = what === 'fixed' ? 'var(--success)' : (what === 'still failing' ? 'var(--warning)' : 'var(--text-muted)');
+      box.appendChild(row);
+      box.scrollTop = box.scrollHeight;
+      previewHealth.lastFixLog = previewHealth.lastFixLog || [];
+      previewHealth.lastFixLog.push(row.textContent);
+      if (previewHealth.lastFixLog.length > 50) previewHealth.lastFixLog.shift();
+    }
+
+    function previewHealthShowBanner(cycle) {
+      const banner = document.getElementById('previewFixCycleBanner');
+      const text = document.getElementById('previewFixCycleText');
+      const count = document.getElementById('previewFixCycleCount');
+      if (banner) banner.style.display = 'flex';
+      if (text) text.textContent = 'Fix cycle running...';
+      if (count) count.textContent = `(attempt ${cycle}/${PREVIEW_FIX_MAX_CYCLES})`;
+    }
+
+    function previewHealthHideBanner() {
+      const banner = document.getElementById('previewFixCycleBanner');
+      if (banner) banner.style.display = 'none';
+    }
+
+    // Cap reached and still broken: visible "needs your help", never spin silently
+    function previewHealthSetNeedsHelp(on) {
+      previewHealth.needsHelp = on;
+      const box = document.getElementById('previewNeedsHelp');
+      const display = document.getElementById('previewMaxAttemptsDisplay');
+      if (display) display.textContent = String(PREVIEW_FIX_MAX_CYCLES);
+      if (box) box.style.display = on ? 'block' : 'none';
+      if (on) previewHealthSetStatus('Needs your help', 'bad');
     }
 
     // ==================== PLAN MODE LOGIC ====================
