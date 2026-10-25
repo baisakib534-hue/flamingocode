@@ -621,6 +621,35 @@
     }
     .btn-secondary:hover { background: var(--bg-hover); }
 
+    /* Key Pool Health Badges */
+    .key-health-badge {
+      font-size: 9px;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .health-healthy {
+      background: rgba(16, 185, 129, 0.15);
+      color: var(--success);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+    .health-cooling {
+      background: rgba(245, 158, 11, 0.15);
+      color: var(--warning);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+    .health-benched {
+      background: rgba(139, 92, 246, 0.15);
+      color: #8b5cf6;
+      border: 1px solid rgba(139, 92, 246, 0.3);
+    }
+    .health-dead {
+      background: rgba(239, 68, 68, 0.15);
+      color: var(--danger);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+
     /* Voice Input */
     .chat-input-wrapper .voice-lang-select {
       flex-shrink: 0;
@@ -2514,8 +2543,26 @@
         </div>
 
         <div class="form-group" id="groupApiKey">
-          <label class="form-label">API Key (Optional)</label>
-          <input type="password" id="providerApiKey" class="form-input" placeholder="Bearer token or API Key" />
+          <label class="form-label">API Key Pool</label>
+          <div id="keyPoolContainer" style="display: flex; flex-direction: column; gap: 6px;">
+            <div style="display: flex; gap: 6px; align-items: center;">
+              <input type="password" id="providerApiKey" class="form-input" placeholder="Bearer token or API Key" style="flex: 1;" />
+              <button type="button" class="btn" id="btnAddKeyToPool" style="padding: 6px 10px; font-size: 11px;">Add Key</button>
+            </div>
+            <div id="keyPoolList" style="display: flex; flex-direction: column; gap: 4px; min-height: 40px;"></div>
+            <div style="font-size: 10px; color: var(--text-dim);">Add multiple keys for automatic rotation. Empty pool = no auth.</div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Rotation Strategy</label>
+          <select id="providerRotationStrategy" class="form-select">
+            <option value="fill_first">Fill First (use first key until exhausted)</option>
+            <option value="round_robin">Round Robin (cycle through keys)</option>
+            <option value="least_used">Least Used (prefer key with fewest requests)</option>
+            <option value="random">Random</option>
+          </select>
+          <span style="font-size: 10px; color: var(--text-dim);">How to select from the key pool when making requests.</span>
         </div>
 
         <div class="form-group">
@@ -8437,81 +8484,94 @@ Links: [[Brain Index]]
       saveAppState();
     }
 
-    function trackUsage(providerId, modelName, usage, sessionId) {
-      if (!usage) return;
-      
-      const promptTokens = usage.prompt_tokens || usage.input_tokens || 0;
-      const completionTokens = usage.completion_tokens || usage.output_tokens || 0;
-      const totalTokens = usage.total_tokens || (promptTokens + completionTokens);
-      
-      const cost = estimateCost(promptTokens, completionTokens, modelName);
-      const provider = appState.providers[providerId];
-      
-      // Update provider totals
-      if (!appState.usage.byProvider[providerId]) {
-        appState.usage.byProvider[providerId] = {
-          requests: 0,
-          promptTokens: 0,
-          completionTokens: 0,
-          totalTokens: 0,
-          cost: 0,
-          models: {}
-        };
-      }
-      const prov = appState.usage.byProvider[providerId];
-      prov.requests += 1;
-      prov.promptTokens += promptTokens;
-      prov.completionTokens += completionTokens;
-      prov.totalTokens += totalTokens;
-      prov.cost += cost;
-      if (!prov.models[modelName]) {
-        prov.models[modelName] = { requests: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0, cost: 0 };
-      }
-      prov.models[modelName].requests += 1;
-      prov.models[modelName].promptTokens += promptTokens;
-      prov.models[modelName].completionTokens += completionTokens;
-      prov.models[modelName].totalTokens += totalTokens;
-      prov.models[modelName].cost += cost;
-      
-      // Update project totals
-      const projectId = sessionId || appState.activeSessionId;
-      if (projectId) {
-        if (!appState.usage.byProject[projectId]) {
-          appState.usage.byProject[projectId] = {
-            requests: 0,
-            promptTokens: 0,
-            completionTokens: 0,
-            totalTokens: 0,
-            cost: 0,
-            models: {}
-          };
+    function trackUsage(providerId, modelName, usage, sessionId, keyId) {
+          if (!usage) return;
+
+          const promptTokens = usage.prompt_tokens || usage.input_tokens || 0;
+          const completionTokens = usage.completion_tokens || usage.output_tokens || 0;
+          const totalTokens = usage.total_tokens || (promptTokens + completionTokens);
+
+          const cost = estimateCost(promptTokens, completionTokens, modelName);
+          const provider = appState.providers[providerId];
+
+          // Update provider totals
+          if (!appState.usage.byProvider[providerId]) {
+            appState.usage.byProvider[providerId] = {
+              requests: 0,
+              promptTokens: 0,
+              completionTokens: 0,
+              totalTokens: 0,
+              cost: 0,
+              models: {},
+              keys: {} // New: per-key usage tracking
+            };
+          }
+          const prov = appState.usage.byProvider[providerId];
+          prov.requests += 1;
+          prov.promptTokens += promptTokens;
+          prov.completionTokens += completionTokens;
+          prov.totalTokens += totalTokens;
+          prov.cost += cost;
+          if (!prov.models[modelName]) {
+            prov.models[modelName] = { requests: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0, cost: 0 };
+          }
+          prov.models[modelName].requests += 1;
+          prov.models[modelName].promptTokens += promptTokens;
+          prov.models[modelName].completionTokens += completionTokens;
+          prov.models[modelName].totalTokens += totalTokens;
+          prov.models[modelName].cost += cost;
+
+          // Per-key tracking
+          if (keyId) {
+            if (!prov.keys[keyId]) {
+              prov.keys[keyId] = { requests: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0, cost: 0 };
+            }
+            prov.keys[keyId].requests += 1;
+            prov.keys[keyId].promptTokens += promptTokens;
+            prov.keys[keyId].completionTokens += completionTokens;
+            prov.keys[keyId].totalTokens += totalTokens;
+            prov.keys[keyId].cost += cost;
+          }
+
+          // Update project totals
+          const projectId = sessionId || appState.activeSessionId;
+          if (projectId) {
+            if (!appState.usage.byProject[projectId]) {
+              appState.usage.byProject[projectId] = {
+                requests: 0,
+                promptTokens: 0,
+                completionTokens: 0,
+                totalTokens: 0,
+                cost: 0,
+                models: {}
+              };
+            }
+            const proj = appState.usage.byProject[projectId];
+            proj.requests += 1;
+            proj.promptTokens += promptTokens;
+            proj.completionTokens += completionTokens;
+            proj.totalTokens += totalTokens;
+            proj.cost += cost;
+            if (!proj.models[modelName]) {
+              proj.models[modelName] = { requests: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0, cost: 0 };
+            }
+            proj.models[modelName].requests += 1;
+            proj.models[modelName].promptTokens += promptTokens;
+            proj.models[modelName].completionTokens += completionTokens;
+            proj.models[modelName].totalTokens += totalTokens;
+            proj.models[modelName].cost += cost;
+          }
+
+          // Update current session (for header meter)
+          appState.usage.currentSession.requests += 1;
+          appState.usage.currentSession.promptTokens += promptTokens;
+          appState.usage.currentSession.completionTokens += completionTokens;
+          appState.usage.currentSession.totalTokens += totalTokens;
+          appState.usage.currentSession.cost += cost;
+
+          saveAppState();
+          updateHeaderUsageMeter();
         }
-        const proj = appState.usage.byProject[projectId];
-        proj.requests += 1;
-        proj.promptTokens += promptTokens;
-        proj.completionTokens += completionTokens;
-        proj.totalTokens += totalTokens;
-        proj.cost += cost;
-        if (!proj.models[modelName]) {
-          proj.models[modelName] = { requests: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0, cost: 0 };
-        }
-        proj.models[modelName].requests += 1;
-        proj.models[modelName].promptTokens += promptTokens;
-        proj.models[modelName].completionTokens += completionTokens;
-        proj.models[modelName].totalTokens += totalTokens;
-        proj.models[modelName].cost += cost;
-      }
-      
-      // Update current session (for header meter)
-      appState.usage.currentSession.requests += 1;
-      appState.usage.currentSession.promptTokens += promptTokens;
-      appState.usage.currentSession.completionTokens += completionTokens;
-      appState.usage.currentSession.totalTokens += totalTokens;
-      appState.usage.currentSession.cost += cost;
-      
-      saveAppState();
-      updateHeaderUsageMeter();
-    }
 
     function updateHeaderUsageMeter() {
       const meter = document.getElementById('headerUsageMeter');
@@ -8567,6 +8627,19 @@ Links: [[Brain Index]]
                       <div style="background:var(--bg-dark); border:1px solid var(--border-color); border-radius:3px; padding:4px 6px;">
                         <div style="font-weight:600; color:var(--text-main);">${escapeHtml(model)}</div>
                         <div style="color:var(--text-dim);">${mdata.requests} req · ${mdata.totalTokens.toLocaleString()} tok · $${mdata.cost.toFixed(4)}</div>
+                      </div>
+                    `).join('')}
+                  </div>
+                </details>
+              ` : ''}
+              ${data.keys && Object.keys(data.keys).length > 0 ? `
+                <details style="margin-top: 8px;">
+                  <summary style="font-size: 10px; color: var(--text-muted); cursor: pointer;">Key Pool (${Object.keys(data.keys).length} keys)</summary>
+                  <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 4px; margin-top: 6px; font-size: 10px;">
+                    ${Object.entries(data.keys).map(([keyId, kdata]) => `
+                      <div style="background:var(--bg-dark); border:1px solid var(--border-color); border-radius:3px; padding:4px 6px;">
+                        <div style="font-weight:600; color:var(--text-main); font-family:var(--font-mono);">${escapeHtml(keyId.slice(0, 12))}...</div>
+                        <div style="color:var(--text-dim);">${kdata.requests} req · ${kdata.totalTokens.toLocaleString()} tok · $${kdata.cost.toFixed(4)}</div>
                       </div>
                     `).join('')}
                   </div>
@@ -8936,319 +9009,383 @@ Links: [[Brain Index]]
     }
 
     async function callLLM(messages, providerId = null) {
-      const activeProviderId = providerId || appState.activeProviderId;
-      const provider = appState.providers[activeProviderId];
-      if (!provider) {
-        throw new Error('No active provider configured');
-      }
-      const corsProxy = provider.corsProxy || '';
+          const activeProviderId = providerId || appState.activeProviderId;
+          const provider = appState.providers[activeProviderId];
+          if (!provider) {
+            throw new Error('No active provider configured');
+          }
+          const corsProxy = provider.corsProxy || '';
 
-      if (provider.type === 'duckduckgo') {
-        return callDuckDuckGo(messages, provider);
-      }
+          if (provider.type === 'duckduckgo') {
+            return callDuckDuckGo(messages, provider);
+          }
 
-      // Uncensored Mode: prepend system prompt if effective mode is ON
-      let finalMessages = messages;
-      if (effectiveUncensoredMode(provider.id, provider.model)) {
-        finalMessages = [
-          { role: 'system', content: UNCENSORED_SYSTEM_PROMPT },
-          ...messages
-        ];
-      }
+          // Uncensored Mode: prepend system prompt if effective mode is ON
+          let finalMessages = messages;
+          if (effectiveUncensoredMode(provider.id, provider.model)) {
+            finalMessages = [
+              { role: 'system', content: UNCENSORED_SYSTEM_PROMPT },
+              ...messages
+            ];
+          }
 
-      // 1. Base-URL Normalizer
-      let baseUrl = normalizeBaseUrl(provider.baseUrl);
-      let url = baseUrl;
-      if (!url.endsWith('/chat/completions')) {
-        url += '/chat/completions';
-      }
-      if (corsProxy) {
-        url = corsProxy + encodeURIComponent(url);
-      }
+          // 1. Base-URL Normalizer
+          let baseUrl = normalizeBaseUrl(provider.baseUrl);
+          let url = baseUrl;
+          if (!url.endsWith('/chat/completions')) {
+            url += '/chat/completions';
+          }
+          if (corsProxy) {
+            url = corsProxy + encodeURIComponent(url);
+          }
 
-      const headers = { 'Content-Type': 'application/json' };
-      if (provider.apiKey && provider.authStyle !== 'none') {
-        if (provider.authStyle === 'bearer') {
-          headers['Authorization'] = 'Bearer ' + provider.apiKey;
-        } else if (provider.authStyle === 'x-api-key') {
-          headers['x-api-key'] = provider.apiKey;
-        }
-      }
-      Object.entries(provider.customHeaders || {}).forEach(([k, v]) => headers[k] = v);
+          // Key pool loop: try keys from this provider's pool first
+          let lastError = null;
+          const maxRetries = 3;
+          const keyPoolMaxAttempts = (provider.keyPool || []).length || 1;
 
-      // 3. Reasoning-model guard: never send max_tokens below 4096
-      const maxTokens = Math.max(provider.maxTokens || 4096, 4096);
-      
-      // 5. Param-scrub ladder: track which params to send
-      let paramSet = { temperature: 0.7, top_p: 1, max_tokens: maxTokens };
-      let body = JSON.stringify({
-        model: provider.model || 'gpt-4o-mini',
-        messages: finalMessages,
-        ...paramSet
-      });
+          // Try each key in the pool up to maxRetries per key
+          for (let keyAttempt = 0; keyAttempt < keyPoolMaxAttempts; keyAttempt++) {
+            const keyEntry = getNextKeyFromPool(provider);
+            if (!keyEntry) {
+              logActivity('No available keys in pool for ' + provider.name + '. Exhausted all keys.', 'warning');
+              break; // No more keys in this provider's pool, let fallback chain handle it
+            }
 
-      // 7. Watchdog: 120s request timeout + 30s stream-idle timeout
-      currentAbortController = new AbortController();
-      const controller = currentAbortController;
-      const timeoutId = setTimeout(() => controller.abort(), 120000);
-
-      // 4. Empty-response retry: up to 3 attempts with backoff
-      const maxRetries = 3;
-      let lastError = null;
-      
-      for (let attempt = 0; attempt <= maxRetries; attempt++) {
-        const startTime = Date.now();
-        let streamIdleTimeout = null;
-        
-        try {
-          logActivity('Calling ' + provider.name + ' (' + provider.model + ') attempt ' + (attempt + 1) + '/' + (maxRetries + 1) + '...', 'info');
-          
-          // Try streaming first if enabled
-          let useStream = provider.streaming !== false;
-          
-          if (useStream) {
-            // Try streaming
-            const streamBody = JSON.stringify({ ...JSON.parse(body), stream: true });
-            
-            try {
-              const res = await fetch(url, {
-                method: 'POST',
-                headers,
-                body: streamBody,
-                signal: controller.signal
-              });
-
-              if (!res.ok) {
-                const errText = await res.text();
-                // 8. 429 handling with visible countdown
-                if (res.status === 429) {
-                  const retryAfter = res.headers.get('Retry-After');
-                  const waitSeconds = retryAfter ? parseInt(retryAfter, 10) : 5;
-                  logActivity('Rate limited (429). Waiting ' + waitSeconds + 's...', 'warning');
-                  await showRateLimitCountdown(waitSeconds);
-                  continue;
-                }
-                // 10. Auth/CORS help
-                if (res.status === 401) throw new Error('Authentication failed (401): Invalid or missing API key');
-                if (res.status === 402) throw new Error('Payment required (402): Insufficient balance');
-                if (res.status === 403) throw new Error('Forbidden (403): Access denied for this model/endpoint');
-                // 5. Param-scrub ladder on 400
-                if (res.status === 400 && attempt < maxRetries) {
-                  const paramError = errText.toLowerCase();
-                  if (paramError.includes('temperature')) delete paramSet.temperature;
-                  else if (paramError.includes('top_p')) delete paramSet.top_p;
-                  else if (paramError.includes('max_tokens')) paramSet.max_tokens = Math.min(paramSet.max_tokens || 4096, 2048);
-                  else if (paramError.includes('response_format')) delete paramSet.response_format;
-                  body = JSON.stringify({ model: provider.model || 'gpt-4o-mini', messages: finalMessages, ...paramSet });
-                  logActivity('Param scrub: removed unsupported param, retrying...', 'warning');
-                  continue;
-                }
-                // 1. On 404, retry alternate /v1 placement once
-                if (res.status === 404 && attempt === 0) {
-                  const altUrl = baseUrl.includes('/v1') 
-                    ? baseUrl.replace('/v1', '') + '/v1/chat/completions'
-                    : baseUrl + '/v1/chat/completions';
-                  url = corsProxy ? corsProxy + encodeURIComponent(altUrl) : altUrl;
-                  logActivity('404 - trying alternate path: ' + altUrl, 'warning');
-                  continue;
-                }
-                throw new Error('API Error HTTP ' + res.status + ': ' + errText.slice(0, 150));
+            // Build headers with this key
+            const headers = { 'Content-Type': 'application/json' };
+            if (keyEntry.key && provider.authStyle !== 'none') {
+              if (provider.authStyle === 'bearer') {
+                headers['Authorization'] = 'Bearer ' + keyEntry.key;
+              } else if (provider.authStyle === 'x-api-key') {
+                headers['x-api-key'] = keyEntry.key;
               }
+            }
+            Object.entries(provider.customHeaders || {}).forEach(([k, v]) => headers[k] = v);
 
-              // Parse SSE stream
-              const reader = res.body.getReader();
-              const decoder = new TextDecoder();
-              let fullContent = '';
-              let finishReason = null;
-              let usage = null;
-              
-              while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                
-                // Reset stream idle timeout
-                if (streamIdleTimeout) clearTimeout(streamIdleTimeout);
-                streamIdleTimeout = setTimeout(() => controller.abort(), 30000);
-                
-                const chunk = decoder.decode(value, { stream: true });
-                const parsed = parseSSEStream(chunk);
-                for (const item of parsed) {
-                  if (typeof item === 'string') {
-                    fullContent += item;
-                  } else if (item && item.type === 'finish_reason') {
-                    finishReason = item.value;
-                  } else if (item && item.type === 'usage') {
-                    usage = item.value;
+            // 3. Reasoning-model guard: never send max_tokens below 4096
+            const maxTokens = Math.max(provider.maxTokens || 4096, 4096);
+        
+            // 5. Param-scrub ladder: track which params to send
+            let paramSet = { temperature: 0.7, top_p: 1, max_tokens: maxTokens };
+            let body = JSON.stringify({
+              model: provider.model || 'gpt-4o-mini',
+              messages: finalMessages,
+              ...paramSet
+            });
+
+            // 7. Watchdog: 120s request timeout + 30s stream-idle timeout
+            currentAbortController = new AbortController();
+            const controller = currentAbortController;
+            const timeoutId = setTimeout(() => controller.abort(), 120000);
+
+            // Retry attempts for this specific key
+            for (let attempt = 0; attempt <= maxRetries; attempt++) {
+              const startTime = Date.now();
+              let streamIdleTimeout = null;
+
+              try {
+                logActivity('Calling ' + provider.name + ' with key ' + keyEntry.id.slice(0, 8) + ' (' + provider.model + ') attempt ' + (attempt + 1) + '/' + (maxRetries + 1) + '...', 'info');
+
+                // Try streaming first if enabled
+                let useStream = provider.streaming !== false;
+
+                if (useStream) {
+                  // Try streaming
+                  const streamBody = JSON.stringify({ ...JSON.parse(body), stream: true });
+
+                  try {
+                    const res = await fetch(url, {
+                      method: 'POST',
+                      headers,
+                      body: streamBody,
+                      signal: controller.signal
+                    });
+
+                    if (!res.ok) {
+                      const errText = await res.text();
+                      // Per-error recovery for key pool
+                      if (res.status === 429) {
+                        // 429: retry once then rotate (1h cooldown)
+                        const retryAfter = res.headers.get('Retry-After');
+                        const waitSeconds = retryAfter ? parseInt(retryAfter, 10) : 5;
+                        logActivity('Key ' + keyEntry.id.slice(0, 8) + ' rate limited (429). Waiting ' + waitSeconds + 's...', 'warning');
+                        await showRateLimitCountdown(waitSeconds);
+                        // Mark key as cooling for 1 hour
+                        markKeyHealth(provider, keyEntry.id, 'cooling');
+                        // Don't retry this key, rotate to next
+                        break; // Break out of attempt loop, continue to next key
+                      }
+                      // 402: Payment required - rotate immediately
+                      if (res.status === 402) {
+                        logActivity('Key ' + keyEntry.id.slice(0, 8) + ' payment required (402). Rotating...', 'warning');
+                        markKeyHealth(provider, keyEntry.id, 'dead');
+                        break; // Rotate to next key
+                      }
+                      // 401: Auth failed - try to refresh token first, rotate if refresh fails
+                      if (res.status === 401) {
+                        logActivity('Key ' + keyEntry.id.slice(0, 8) + ' auth failed (401). Marking dead.', 'warning');
+                        markKeyHealth(provider, keyEntry.id, 'dead');
+                        break; // Rotate to next key
+                      }
+                      // 403: Forbidden - could be model access, try next key
+                      if (res.status === 403) {
+                        logActivity('Key ' + keyEntry.id.slice(0, 8) + ' forbidden (403). Rotating...', 'warning');
+                        markKeyHealth(provider, keyEntry.id, 'benched', provider.model);
+                        break; // Rotate to next key
+                      }
+                      // 400: Param error or model entitlement
+                      if (res.status === 400 && attempt < maxRetries) {
+                        const paramError = errText.toLowerCase();
+                        if (paramError.includes('temperature')) delete paramSet.temperature;
+                        else if (paramError.includes('top_p')) delete paramSet.top_p;
+                        else if (paramError.includes('max_tokens')) paramSet.max_tokens = Math.min(paramSet.max_tokens || 4096, 2048);
+                        else if (paramError.includes('response_format')) delete paramSet.response_format;
+                        else if (paramError.includes('model') && (paramError.includes('not found') || paramError.includes('entitlement') || paramError.includes('access') || paramError.includes('permission'))) {
+                          // Model entitlement error - bench this key for this model
+                          logActivity('Key ' + keyEntry.id.slice(0, 8) + ' model entitlement error (400). Benching for ' + provider.model, 'warning');
+                          markKeyHealth(provider, keyEntry.id, 'benched', provider.model);
+                          break; // Rotate to next key
+                        }
+                        body = JSON.stringify({ model: provider.model || 'gpt-4o-mini', messages: finalMessages, ...paramSet });
+                        logActivity('Param scrub: removed unsupported param, retrying...', 'warning');
+                        continue;
+                      }
+                      // 1. On 404, retry alternate /v1 placement once
+                      if (res.status === 404 && attempt === 0) {
+                        const altUrl = baseUrl.includes('/v1') 
+                          ? baseUrl.replace('/v1', '') + '/v1/chat/completions'
+                          : baseUrl + '/v1/chat/completions';
+                        url = corsProxy ? corsProxy + encodeURIComponent(altUrl) : altUrl;
+                        logActivity('404 - trying alternate path: ' + altUrl, 'warning');
+                        continue;
+                      }
+                      throw new Error('API Error HTTP ' + res.status + ': ' + errText.slice(0, 150));
+                    }
+
+                    // Parse SSE stream
+                    const reader = res.body.getReader();
+                    const decoder = new TextDecoder();
+                    let fullContent = '';
+                    let finishReason = null;
+                    let usage = null;
+
+                    while (true) {
+                      const { done, value } = await reader.read();
+                      if (done) break;
+
+                      // Reset stream idle timeout
+                      if (streamIdleTimeout) clearTimeout(streamIdleTimeout);
+                      streamIdleTimeout = setTimeout(() => controller.abort(), 30000);
+
+                      const chunk = decoder.decode(value, { stream: true });
+                      const parsed = parseSSEStream(chunk);
+                      for (const item of parsed) {
+                        if (typeof item === 'string') {
+                          fullContent += item;
+                        } else if (item && item.type === 'finish_reason') {
+                          finishReason = item.value;
+                        } else if (item && item.type === 'usage') {
+                          usage = item.value;
+                        }
+                      }
+                    }
+
+                    if (streamIdleTimeout) clearTimeout(streamIdleTimeout);
+
+                    // 3. Reasoning-model guard: if finish_reason=length with empty content, retry with 4x tokens
+                    if (finishReason === 'length' && (!fullContent || fullContent.trim() === '')) {
+                      paramSet.max_tokens = paramSet.max_tokens * 4;
+                      body = JSON.stringify({ model: provider.model || 'gpt-4o-mini', messages: finalMessages, ...paramSet });
+                      logActivity('finish_reason=length with empty content, retrying with max_tokens=' + paramSet.max_tokens, 'warning');
+                      continue;
+                    }
+
+                    // 4. Empty response retry
+                    if (!fullContent || fullContent.trim() === '') {
+                      if (attempt < maxRetries) {
+                        const backoff = Math.pow(2, attempt) * 1000;
+                        logActivity('Empty response, retrying in ' + backoff + 'ms...', 'warning');
+                        await new Promise(r => setTimeout(r, backoff));
+                        continue;
+                      }
+                      throw new Error('Empty response after all retries');
+                    }
+
+                    const latency = Date.now() - startTime;
+                    clearTimeout(timeoutId);
+
+                    // Record successful usage
+                    recordKeyUsage(provider, keyEntry.id);
+                    markKeyHealth(provider, keyEntry.id, 'healthy', provider.model);
+
+                    logRequestEntry({
+                      provider: provider.name,
+                      model: provider.model,
+                      status: 'success',
+                      latency,
+                      finish_reason: finishReason || 'stop',
+                      usage
+                    });
+
+                    // Track usage for dashboard
+                    trackUsage(provider.id, provider.model, usage, null, keyEntry.id);
+
+                    return fullContent;
+                  } catch (streamErr) {
+                    if (streamIdleTimeout) clearTimeout(streamIdleTimeout);
+                    // 2. Streaming auto-fallback: on error retry non-stream
+                    logActivity('Stream failed: ' + streamErr.message + '. Falling back to non-stream...', 'warning');
+                    useStream = false;
                   }
                 }
-              }
-              
-              if (streamIdleTimeout) clearTimeout(streamIdleTimeout);
-              
-              // 3. Reasoning-model guard: if finish_reason=length with empty content, retry with 4x tokens
-              if (finishReason === 'length' && (!fullContent || fullContent.trim() === '')) {
-                paramSet.max_tokens = paramSet.max_tokens * 4;
-                body = JSON.stringify({ model: provider.model || 'gpt-4o-mini', messages: finalMessages, ...paramSet });
-                logActivity('finish_reason=length with empty content, retrying with max_tokens=' + paramSet.max_tokens, 'warning');
-                continue;
-              }
 
-              // 4. Empty response retry
-              if (!fullContent || fullContent.trim() === '') {
+                // Non-streaming fallback (or primary if streaming disabled)
+                const nonStreamBody = JSON.stringify({ ...JSON.parse(body), stream: false });
+                const res = await fetch(url, {
+                  method: 'POST',
+                  headers,
+                  body: nonStreamBody,
+                  signal: controller.signal
+                });
+
+                if (!res.ok) {
+                  const errText = await res.text();
+                  if (res.status === 429) {
+                    const retryAfter = res.headers.get('Retry-After');
+                    const waitSeconds = retryAfter ? parseInt(retryAfter, 10) : 5;
+                    logActivity('Key ' + keyEntry.id.slice(0, 8) + ' rate limited (429). Waiting ' + waitSeconds + 's...', 'warning');
+                    await showRateLimitCountdown(waitSeconds);
+                    markKeyHealth(provider, keyEntry.id, 'cooling');
+                    break; // Rotate to next key
+                  }
+                  if (res.status === 401) {
+                    logActivity('Key ' + keyEntry.id.slice(0, 8) + ' auth failed (401). Marking dead.', 'warning');
+                    markKeyHealth(provider, keyEntry.id, 'dead');
+                    break; // Rotate to next key
+                  }
+                  if (res.status === 402) {
+                    logActivity('Key ' + keyEntry.id.slice(0, 8) + ' payment required (402). Rotating...', 'warning');
+                    markKeyHealth(provider, keyEntry.id, 'dead');
+                    break; // Rotate to next key
+                  }
+                  if (res.status === 403) {
+                    logActivity('Key ' + keyEntry.id.slice(0, 8) + ' forbidden (403). Rotating...', 'warning');
+                    markKeyHealth(provider, keyEntry.id, 'benched', provider.model);
+                    break; // Rotate to next key
+                  }
+                  if (res.status === 400 && attempt < maxRetries) {
+                    const paramError = errText.toLowerCase();
+                    if (paramError.includes('temperature')) delete paramSet.temperature;
+                    else if (paramError.includes('top_p')) delete paramSet.top_p;
+                    else if (paramError.includes('max_tokens')) paramSet.max_tokens = Math.min(paramSet.max_tokens || 4096, 2048);
+                    else if (paramError.includes('response_format')) delete paramSet.response_format;
+                    else if (paramError.includes('model') && (paramError.includes('not found') || paramError.includes('entitlement') || paramError.includes('access') || paramError.includes('permission'))) {
+                      logActivity('Key ' + keyEntry.id.slice(0, 8) + ' model entitlement error (400). Benching for ' + provider.model, 'warning');
+                      markKeyHealth(provider, keyEntry.id, 'benched', provider.model);
+                      break; // Rotate to next key
+                    }
+                    body = JSON.stringify({ model: provider.model || 'gpt-4o-mini', messages: finalMessages, ...paramSet });
+                    logActivity('Param scrub: removed unsupported param, retrying...', 'warning');
+                    continue;
+                  }
+                  if (res.status === 404 && attempt === 0) {
+                    const altUrl = baseUrl.includes('/v1') 
+                      ? baseUrl.replace('/v1', '') + '/v1/chat/completions'
+                      : baseUrl + '/v1/chat/completions';
+                    url = corsProxy ? corsProxy + encodeURIComponent(altUrl) : altUrl;
+                    logActivity('404 - trying alternate path: ' + altUrl, 'warning');
+                    continue;
+                  }
+                  throw new Error('API Error HTTP ' + res.status + ': ' + errText.slice(0, 150));
+                }
+
+                const data = await res.json();
+
+                // Extract content, finish_reason, usage from non-stream response
+                let fullContent = '';
+                let finishReason = null;
+                let usage = null;
+
+                if (data.choices && data.choices[0] && data.choices[0].message) {
+                  fullContent = data.choices[0].message.content || '';
+                  finishReason = data.choices[0].finish_reason;
+                }
+                if (data.usage) usage = data.usage;
+
+                // 3. Reasoning-model guard
+                if (finishReason === 'length' && (!fullContent || fullContent.trim() === '')) {
+                  paramSet.max_tokens = paramSet.max_tokens * 4;
+                  body = JSON.stringify({ model: provider.model || 'gpt-4o-mini', messages: finalMessages, ...paramSet });
+                  logActivity('finish_reason=length with empty content, retrying with max_tokens=' + paramSet.max_tokens, 'warning');
+                  continue;
+                }
+
+                // 4. Empty response retry
+                if (!fullContent || fullContent.trim() === '') {
+                  if (attempt < maxRetries) {
+                    const backoff = Math.pow(2, attempt) * 1000;
+                    logActivity('Empty response, retrying in ' + backoff + 'ms...', 'warning');
+                    await new Promise(r => setTimeout(r, backoff));
+                    continue;
+                  }
+                  throw new Error('Empty response after all retries');
+                }
+
+                const latency = Date.now() - startTime;
+                clearTimeout(timeoutId);
+
+                // Record successful usage
+                recordKeyUsage(provider, keyEntry.id);
+                markKeyHealth(provider, keyEntry.id, 'healthy', provider.model);
+
+                logRequestEntry({
+                  provider: provider.name,
+                  model: provider.model,
+                  status: 'success',
+                  latency,
+                  finish_reason: finishReason || 'stop',
+                  usage
+                });
+
+                // Track usage for dashboard
+                trackUsage(provider.id, provider.model, usage, null, keyEntry.id);
+
+                hideRateLimitCountdown();
+                return fullContent;
+              } catch (err) {
+                if (streamIdleTimeout) clearTimeout(streamIdleTimeout);
+                hideRateLimitCountdown();
+                lastError = err;
+
+                if (err.name === 'AbortError') {
+                  currentAbortController = null;
+                  throw new Error('Request timeout (120s) or stream idle (30s) exceeded');
+                }
+
+                if (err instanceof TypeError) {
+                  // 10. Auth/CORS help - network error
+                  throw new Error('Network/CORS Error: Failed to reach provider. Try configuring a CORS Proxy in Provider Settings. (' + err.message + ')');
+                }
+
                 if (attempt < maxRetries) {
                   const backoff = Math.pow(2, attempt) * 1000;
-                  logActivity('Empty response, retrying in ' + backoff + 'ms...', 'warning');
+                  logActivity('Error: ' + err.message + '. Retrying in ' + backoff + 'ms...', 'warning');
                   await new Promise(r => setTimeout(r, backoff));
                   continue;
                 }
-                throw new Error('Empty response after all retries');
+                throw err;
               }
-
-              const latency = Date.now() - startTime;
-              clearTimeout(timeoutId);
-              
-              logRequestEntry({
-                provider: provider.name,
-                model: provider.model,
-                status: 'success',
-                latency,
-                finish_reason: finishReason || 'stop',
-                usage
-              });
-              
-              // Track usage for dashboard
-              trackUsage(provider.id, provider.model, usage);
-              
-              return fullContent;
-            } catch (streamErr) {
-              if (streamIdleTimeout) clearTimeout(streamIdleTimeout);
-              // 2. Streaming auto-fallback: on error retry non-stream
-              logActivity('Stream failed: ' + streamErr.message + '. Falling back to non-stream...', 'warning');
-              useStream = false;
             }
           }
-          
-          // Non-streaming fallback (or primary if streaming disabled)
-          const nonStreamBody = JSON.stringify({ ...JSON.parse(body), stream: false });
-          const res = await fetch(url, {
-            method: 'POST',
-            headers,
-            body: nonStreamBody,
-            signal: controller.signal
-          });
 
-          if (!res.ok) {
-            const errText = await res.text();
-            if (res.status === 429) {
-              const retryAfter = res.headers.get('Retry-After');
-              const waitSeconds = retryAfter ? parseInt(retryAfter, 10) : 5;
-              logActivity('Rate limited (429). Waiting ' + waitSeconds + 's...', 'warning');
-              await showRateLimitCountdown(waitSeconds);
-              continue;
-            }
-            if (res.status === 401) throw new Error('Authentication failed (401): Invalid or missing API key');
-            if (res.status === 402) throw new Error('Payment required (402): Insufficient balance');
-            if (res.status === 403) throw new Error('Forbidden (403): Access denied for this model/endpoint');
-            if (res.status === 400 && attempt < maxRetries) {
-              const paramError = errText.toLowerCase();
-              if (paramError.includes('temperature')) delete paramSet.temperature;
-              else if (paramError.includes('top_p')) delete paramSet.top_p;
-              else if (paramError.includes('max_tokens')) paramSet.max_tokens = Math.min(paramSet.max_tokens || 4096, 2048);
-              else if (paramError.includes('response_format')) delete paramSet.response_format;
-              body = JSON.stringify({ model: provider.model || 'gpt-4o-mini', messages: messages, ...paramSet });
-              logActivity('Param scrub: removed unsupported param, retrying...', 'warning');
-              continue;
-            }
-            if (res.status === 404 && attempt === 0) {
-              const altUrl = baseUrl.includes('/v1') 
-                ? baseUrl.replace('/v1', '') + '/v1/chat/completions'
-                : baseUrl + '/v1/chat/completions';
-              url = corsProxy ? corsProxy + encodeURIComponent(altUrl) : altUrl;
-              logActivity('404 - trying alternate path: ' + altUrl, 'warning');
-              continue;
-            }
-            throw new Error('API Error HTTP ' + res.status + ': ' + errText.slice(0, 150));
-          }
-
-          const data = await res.json();
-          
-          // Extract content, finish_reason, usage from non-stream response
-          let fullContent = '';
-          let finishReason = null;
-          let usage = null;
-          
-          if (data.choices && data.choices[0] && data.choices[0].message) {
-            fullContent = data.choices[0].message.content || '';
-            finishReason = data.choices[0].finish_reason;
-          }
-          if (data.usage) usage = data.usage;
-
-          // 3. Reasoning-model guard
-          if (finishReason === 'length' && (!fullContent || fullContent.trim() === '')) {
-            paramSet.max_tokens = paramSet.max_tokens * 4;
-            body = JSON.stringify({ model: provider.model || 'gpt-4o-mini', messages: messages, ...paramSet });
-            logActivity('finish_reason=length with empty content, retrying with max_tokens=' + paramSet.max_tokens, 'warning');
-            continue;
-          }
-
-          // 4. Empty response retry
-          if (!fullContent || fullContent.trim() === '') {
-            if (attempt < maxRetries) {
-              const backoff = Math.pow(2, attempt) * 1000;
-              logActivity('Empty response, retrying in ' + backoff + 'ms...', 'warning');
-              await new Promise(r => setTimeout(r, backoff));
-              continue;
-            }
-            throw new Error('Empty response after all retries');
-          }
-
-          const latency = Date.now() - startTime;
           clearTimeout(timeoutId);
-          
-          logRequestEntry({
-            provider: provider.name,
-            model: provider.model,
-            status: 'success',
-            latency,
-            finish_reason: finishReason || 'stop',
-            usage
-          });
-          
-          // Track usage for dashboard
-          trackUsage(provider.id, provider.model, usage);
-          
+          currentAbortController = null;
           hideRateLimitCountdown();
-          return fullContent;
-        } catch (err) {
-          if (streamIdleTimeout) clearTimeout(streamIdleTimeout);
-          hideRateLimitCountdown();
-          lastError = err;
-          
-          if (err.name === 'AbortError') {
-            currentAbortController = null;
-            throw new Error('Request timeout (120s) or stream idle (30s) exceeded');
-          }
-          
-          if (err instanceof TypeError) {
-            // 10. Auth/CORS help - network error
-            throw new Error('Network/CORS Error: Failed to reach provider. Try configuring a CORS Proxy in Provider Settings. (' + err.message + ')');
-          }
-          
-          if (attempt < maxRetries) {
-            const backoff = Math.pow(2, attempt) * 1000;
-            logActivity('Error: ' + err.message + '. Retrying in ' + backoff + 'ms...', 'warning');
-            await new Promise(r => setTimeout(r, backoff));
-            continue;
-          }
-          throw err;
-        }
-      }
       
-      clearTimeout(timeoutId);
-      currentAbortController = null;
-      hideRateLimitCountdown();
-      throw lastError || new Error('Max retries exceeded');
-    }
+          // All keys in this provider's pool exhausted, throw to let fallback chain handle it
+          throw lastError || new Error('All keys in pool exhausted for ' + provider.name);
+        }
 
     // --- Provider Fallback Chain (Never-stuck routing) ---
     async function callLLMWithFallback(messages) {
@@ -12336,64 +12473,277 @@ Format:
     }
 
     function openProviderModal(provider = null) {
-      const modal = document.getElementById('providerModal');
-      const title = document.getElementById('providerModalTitle');
-      const presetSelect = document.getElementById('providerPresetSelect');
-      const nameInput = document.getElementById('providerName');
-      const typeSelect = document.getElementById('providerType');
-      const baseUrlInput = document.getElementById('providerBaseUrl');
-      const modelInput = document.getElementById('providerModel');
-      const apiKeyInput = document.getElementById('providerApiKey');
-      const authStyleSelect = document.getElementById('providerAuthStyle');
-      const customHeadersInput = document.getElementById('providerCustomHeaders');
-      const corsProxyInput = document.getElementById('providerCorsProxy');
-      const streamingCheckbox = document.getElementById('providerStreaming');
-      const contextWindowInput = document.getElementById('providerContextWindow');
+          const modal = document.getElementById('providerModal');
+          const title = document.getElementById('providerModalTitle');
+          const presetSelect = document.getElementById('providerPresetSelect');
+          const nameInput = document.getElementById('providerName');
+          const typeSelect = document.getElementById('providerType');
+          const baseUrlInput = document.getElementById('providerBaseUrl');
+          const modelInput = document.getElementById('providerModel');
+          const apiKeyInput = document.getElementById('providerApiKey');
+          const authStyleSelect = document.getElementById('providerAuthStyle');
+          const customHeadersInput = document.getElementById('providerCustomHeaders');
+          const corsProxyInput = document.getElementById('providerCorsProxy');
+          const streamingCheckbox = document.getElementById('providerStreaming');
+          const contextWindowInput = document.getElementById('providerContextWindow');
+          const rotationStrategySelect = document.getElementById('providerRotationStrategy');
+          const keyPoolList = document.getElementById('keyPoolList');
 
-      // Reset form
-      presetSelect.value = '';
-      nameInput.value = '';
-      typeSelect.value = 'openai-compatible';
-      baseUrlInput.value = '';
-      modelInput.value = '';
-      apiKeyInput.value = '';
-      authStyleSelect.value = 'bearer';
-      customHeadersInput.value = '';
-      corsProxyInput.value = '';
-      streamingCheckbox.checked = true;
-      contextWindowInput.value = '';
-      editingProviderId = null;
+          // Reset form
+          presetSelect.value = '';
+          nameInput.value = '';
+          typeSelect.value = 'openai-compatible';
+          baseUrlInput.value = '';
+          modelInput.value = '';
+          apiKeyInput.value = '';
+          authStyleSelect.value = 'bearer';
+          customHeadersInput.value = '';
+          corsProxyInput.value = '';
+          streamingCheckbox.checked = true;
+          contextWindowInput.value = '';
+          rotationStrategySelect.value = 'fill_first';
+          keyPoolList.innerHTML = '';
+          editingProviderId = null;
 
-      if (provider) {
-        title.textContent = 'Edit Provider';
-        editingProviderId = provider.id;
+          if (provider) {
+            title.textContent = 'Edit Provider';
+            editingProviderId = provider.id;
+
+            // Try to match preset
+            let matchedPreset = '';
+            for (const [key, preset] of Object.entries(PROVIDER_PRESETS)) {
+              if (preset.baseUrl === provider.baseUrl && preset.model === provider.model && preset.type === provider.type) {
+                matchedPreset = key;
+                break;
+              }
+            }
+            presetSelect.value = matchedPreset;
+
+            nameInput.value = provider.name || '';
+            typeSelect.value = provider.type || 'openai-compatible';
+            baseUrlInput.value = provider.baseUrl || '';
+            modelInput.value = provider.model || '';
         
-        // Try to match preset
-        let matchedPreset = '';
-        for (const [key, preset] of Object.entries(PROVIDER_PRESETS)) {
-          if (preset.baseUrl === provider.baseUrl && preset.model === provider.model && preset.type === provider.type) {
-            matchedPreset = key;
-            break;
+            // Load key pool
+            const keyPool = provider.keyPool || [];
+            if (provider.apiKey && keyPool.length === 0) {
+              // Migrate legacy single apiKey to keyPool
+              keyPool.push({
+                id: 'key_' + Date.now(),
+                key: provider.apiKey,
+                health: 'healthy',
+                lastUsed: 0,
+                usageCount: 0,
+                benchedModels: [],
+                cooldownUntil: 0
+              });
+            }
+            renderKeyPoolList(keyPool);
+            rotationStrategySelect.value = provider.rotationStrategy || 'fill_first';
+        
+            authStyleSelect.value = provider.authStyle || 'bearer';
+            customHeadersInput.value = provider.customHeaders ? JSON.stringify(provider.customHeaders, null, 2) : '';
+            corsProxyInput.value = provider.corsProxy || '';
+            streamingCheckbox.checked = provider.streaming !== false;
+            contextWindowInput.value = provider.contextWindow || '';
+          } else {
+            title.textContent = 'Add Provider';
           }
-        }
-        presetSelect.value = matchedPreset;
-        
-        nameInput.value = provider.name || '';
-        typeSelect.value = provider.type || 'openai-compatible';
-        baseUrlInput.value = provider.baseUrl || '';
-        modelInput.value = provider.model || '';
-        apiKeyInput.value = provider.apiKey || '';
-        authStyleSelect.value = provider.authStyle || 'bearer';
-        customHeadersInput.value = provider.customHeaders ? JSON.stringify(provider.customHeaders, null, 2) : '';
-        corsProxyInput.value = provider.corsProxy || '';
-        streamingCheckbox.checked = provider.streaming !== false;
-        contextWindowInput.value = provider.contextWindow || '';
-      } else {
-        title.textContent = 'Add Provider';
-      }
 
-      modal.classList.add('active');
-      nameInput.focus();
+          modal.classList.add('active');
+          nameInput.focus();
+        }
+
+    // Key pool helper functions (module-level)
+    function renderKeyPoolList(keyPool) {
+      const keyPoolList = document.getElementById('keyPoolList');
+      if (!keyPoolList) return;
+      keyPoolList.innerHTML = '';
+      
+      keyPool.forEach((keyEntry, index) => {
+        const item = document.createElement('div');
+        item.style.cssText = 'display: flex; align-items: center; gap: 6px; padding: 6px 8px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 4px;';
+        
+        const healthClass = getKeyHealthClass(keyEntry.health);
+        const healthLabel = getKeyHealthLabel(keyEntry);
+        const maskedKey = maskKey(keyEntry.key);
+        
+        item.innerHTML = `
+          <span style="font-size: 10px; color: var(--text-muted); min-width: 20px;">${index + 1}.</span>
+          <input type="password" value="${maskedKey}" readonly style="flex: 1; background: var(--bg-dark); border: none; padding: 4px 6px; border-radius: 3px; font-family: var(--font-mono); font-size: 11px; color: var(--text-main);" />
+          <span class="key-health-badge ${healthClass}" style="font-size: 9px; padding: 2px 6px; border-radius: 3px; font-weight: 600;">${healthLabel}</span>
+          <button type="button" class="btn btn-secondary" onclick="removeKeyFromPool(${index})" style="padding: 2px 6px; font-size: 10px; color: var(--danger); border-color: var(--danger);">Remove</button>
+        `;
+        
+        // Store actual key data in data attributes for retrieval on save
+        const input = item.querySelector('input[type="password"]');
+        if (input) {
+          input.dataset.actualKey = keyEntry.key;
+          input.dataset.keyId = keyEntry.id;
+          input.dataset.health = keyEntry.health;
+          input.dataset.lastUsed = keyEntry.lastUsed;
+          input.dataset.usageCount = keyEntry.usageCount;
+          input.dataset.benchedModels = JSON.stringify(keyEntry.benchedModels || []);
+          input.dataset.cooldownUntil = keyEntry.cooldownUntil;
+        }
+        
+        keyPoolList.appendChild(item);
+      });
+    }
+
+    function getKeyHealthClass(health) {
+      switch (health) {
+        case 'healthy': return 'health-healthy';
+        case 'cooling': return 'health-cooling';
+        case 'benched': return 'health-benched';
+        case 'dead': return 'health-dead';
+        default: return 'health-healthy';
+      }
+    }
+
+    function getKeyHealthLabel(keyEntry) {
+      switch (keyEntry.health) {
+        case 'healthy': return 'Healthy';
+        case 'cooling': {
+          const until = keyEntry.cooldownUntil ? new Date(keyEntry.cooldownUntil).toLocaleTimeString() : '?';
+          return `Cooling until ${until}`;
+        }
+        case 'benched': {
+          const models = keyEntry.benchedModels?.join(', ') || 'model';
+          return `Benched for ${models}`;
+        }
+        case 'dead': return 'Dead';
+        default: return 'Healthy';
+      }
+    }
+
+    function maskKey(key) {
+      if (!key) return '';
+      if (key.length <= 8) return '•'.repeat(key.length);
+      return key.slice(0, 4) + '•'.repeat(key.length - 8) + key.slice(-4);
+    }
+
+    function removeKeyFromPool(index) {
+      const keyPoolList = document.getElementById('keyPoolList');
+      const items = keyPoolList.querySelectorAll('div[style*="background: var(--bg-surface)"]');
+      if (items[index]) {
+        items[index].remove();
+      }
+      // Renumber remaining
+      const remainingItems = keyPoolList.querySelectorAll('div[style*="background: var(--bg-surface)"]');
+      remainingItems.forEach((item, i) => {
+        const numSpan = item.querySelector('span');
+        if (numSpan) numSpan.textContent = (i + 1) + '.';
+      });
+    }
+
+    // Key pool selection logic
+    function getNextKeyFromPool(provider) {
+      const keyPool = provider.keyPool || [];
+      if (keyPool.length === 0) return null;
+      
+      const healthyKeys = keyPool.filter(k => k.health === 'healthy');
+      const coolingKeys = keyPool.filter(k => k.health === 'cooling' && k.cooldownUntil <= Date.now());
+      const availableKeys = [...healthyKeys, ...coolingKeys];
+      
+      // Restore keys whose cooldown has expired
+      coolingKeys.forEach(k => {
+        k.health = 'healthy';
+        k.cooldownUntil = 0;
+      });
+      
+      if (availableKeys.length === 0) return null;
+      
+      const strategy = provider.rotationStrategy || 'fill_first';
+      
+      switch (strategy) {
+        case 'fill_first':
+          // Use first available key until it fails
+          return availableKeys[0];
+          
+        case 'round_robin':
+          // Find the key with oldest lastUsed
+          return availableKeys.reduce((oldest, key) => 
+            key.lastUsed < oldest.lastUsed ? key : oldest
+          );
+          
+        case 'least_used':
+          // Use key with lowest usageCount
+          return availableKeys.reduce((least, key) => 
+            key.usageCount < least.usageCount ? key : least
+          );
+          
+        case 'random':
+          // Random selection from available keys
+          return availableKeys[Math.floor(Math.random() * availableKeys.length)];
+          
+        default:
+          return availableKeys[0];
+      }
+    }
+
+    function markKeyHealth(provider, keyId, health, model = null) {
+      const keyPool = provider.keyPool || [];
+      const key = keyPool.find(k => k.id === keyId);
+      if (!key) return;
+      
+      const now = Date.now();
+      
+      switch (health) {
+        case 'cooling':
+          key.health = 'cooling';
+          key.cooldownUntil = now + 60 * 60 * 1000; // 1 hour cooldown
+          break;
+          
+        case 'benched':
+          key.health = 'benched';
+          if (model) {
+            key.benchedModels = key.benchedModels || [];
+            if (!key.benchedModels.includes(model)) {
+              key.benchedModels.push(model);
+            }
+          }
+          break;
+          
+        case 'dead':
+          key.health = 'dead';
+          break;
+          
+        case 'healthy':
+          key.health = 'healthy';
+          key.cooldownUntil = 0;
+          if (model) {
+            key.benchedModels = key.benchedModels.filter(m => m !== model);
+            if (key.benchedModels.length === 0) {
+              key.health = 'healthy';
+            }
+          }
+          break;
+      }
+      
+      saveAppState();
+    }
+
+    function recordKeyUsage(provider, keyId) {
+      const keyPool = provider.keyPool || [];
+      const key = keyPool.find(k => k.id === keyId);
+      if (!key) return;
+      
+      key.lastUsed = Date.now();
+      key.usageCount = (key.usageCount || 0) + 1;
+      saveAppState();
+    }
+
+    function hasAvailableKeysInPool(provider) {
+      const keyPool = provider.keyPool || [];
+      const now = Date.now();
+      
+      return keyPool.some(k => {
+        if (k.health === 'healthy') return true;
+        if (k.health === 'cooling' && k.cooldownUntil <= now) return true;
+        if (k.health === 'benched' && (!k.benchedModels || k.benchedModels.length === 0)) return true;
+        return false;
+      });
     }
 
     function applyPresetToForm(presetKey) {
@@ -12412,72 +12762,126 @@ Format:
     }
 
     function saveProvider() {
-      const name = document.getElementById('providerName').value.trim();
-      const type = document.getElementById('providerType').value;
-      const baseUrl = document.getElementById('providerBaseUrl').value.trim();
-      const model = document.getElementById('providerModel').value.trim();
-      const apiKey = document.getElementById('providerApiKey').value.trim();
-      const authStyle = document.getElementById('providerAuthStyle').value;
-      const customHeadersText = document.getElementById('providerCustomHeaders').value.trim();
-      const corsProxy = document.getElementById('providerCorsProxy').value.trim();
-      const streaming = document.getElementById('providerStreaming').checked;
-      const contextWindow = parseInt(document.getElementById('providerContextWindow').value) || 128000;
+          const name = document.getElementById('providerName').value.trim();
+          const type = document.getElementById('providerType').value;
+          const baseUrl = document.getElementById('providerBaseUrl').value.trim();
+          const model = document.getElementById('providerModel').value.trim();
+          const apiKeyInput = document.getElementById('providerApiKey').value.trim();
+          const authStyle = document.getElementById('providerAuthStyle').value;
+          const customHeadersText = document.getElementById('providerCustomHeaders').value.trim();
+          const corsProxy = document.getElementById('providerCorsProxy').value.trim();
+          const streaming = document.getElementById('providerStreaming').checked;
+          const contextWindow = parseInt(document.getElementById('providerContextWindow').value) || 128000;
+          const rotationStrategy = document.getElementById('providerRotationStrategy').value;
 
-      if (!name || !baseUrl || !model) {
-        alert('Please fill in Name, Base URL, and Model fields.');
-        return;
-      }
+          if (!name || !baseUrl || !model) {
+            alert('Please fill in Name, Base URL, and Model fields.');
+            return;
+          }
 
-      let customHeaders = {};
-      if (customHeadersText) {
-        try {
-          customHeaders = JSON.parse(customHeadersText);
-        } catch (e) {
-          alert('Invalid JSON in Custom Headers: ' + e.message);
-          return;
+          let customHeaders = {};
+          if (customHeadersText) {
+            try {
+              customHeaders = JSON.parse(customHeadersText);
+            } catch (e) {
+              alert('Invalid JSON in Custom Headers: ' + e.message);
+              return;
+            }
+          }
+
+          // Build key pool from UI
+          const keyPool = [];
+          const keyPoolItems = document.getElementById('keyPoolList').querySelectorAll('div[style*="background: var(--bg-surface)"]');
+          keyPoolItems.forEach((item) => {
+            const input = item.querySelector('input[type="password"]');
+            if (input && input.value) {
+              // We need to get the actual key value, not the masked version
+              // The actual keys are stored in a data attribute or we can track them separately
+              // For now, we'll use a hidden data attribute approach
+              const actualKey = input.dataset.actualKey || input.value;
+              keyPool.push({
+                id: input.dataset.keyId || 'key_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+                key: actualKey,
+                health: input.dataset.health || 'healthy',
+                lastUsed: parseInt(input.dataset.lastUsed) || 0,
+                usageCount: parseInt(input.dataset.usageCount) || 0,
+                benchedModels: input.dataset.benchedModels ? JSON.parse(input.dataset.benchedModels) : [],
+                cooldownUntil: parseInt(input.dataset.cooldownUntil) || 0
+              });
+            }
+          });
+
+          // If there's a new key in the input field, add it to the pool
+          if (apiKeyInput) {
+            keyPool.push({
+              id: 'key_' + Date.now(),
+              key: apiKeyInput,
+              health: 'healthy',
+              lastUsed: 0,
+              usageCount: 0,
+              benchedModels: [],
+              cooldownUntil: 0
+            });
+          }
+
+          // If editing existing provider, preserve existing key pool entries not shown in UI
+          let existingKeyPool = [];
+          if (editingProviderId && appState.providers[editingProviderId]) {
+            existingKeyPool = appState.providers[editingProviderId].keyPool || [];
+            // Merge: keep existing entries that have usage data, add new ones from UI
+            const uiKeys = new Set(keyPool.map(k => k.key));
+            existingKeyPool.forEach(existingKey => {
+              if (!uiKeys.has(existingKey.key) && (existingKey.usageCount > 0 || existingKey.health !== 'healthy')) {
+                keyPool.push(existingKey);
+              }
+            });
+          }
+
+          // Legacy apiKey for backward compatibility (first key in pool)
+          const legacyApiKey = keyPool.length > 0 ? keyPool[0].key : '';
+
+          const provider = {
+            id: editingProviderId || 'prov_' + Date.now(),
+            name,
+            type,
+            baseUrl,
+            model,
+            apiKey: legacyApiKey, // Legacy field
+            keyPool, // New: array of keys with health metadata
+            rotationStrategy, // New: fill_first, round_robin, least_used, random
+            authStyle,
+            customHeaders,
+            corsProxy,
+            streaming,
+            contextWindow,
+            isPreset: false,
+            presetKey: null
+          };
+
+          // If editing a preset-based provider, keep preset info
+          if (editingProviderId && appState.providers[editingProviderId]) {
+            const existing = appState.providers[editingProviderId];
+            if (existing.isPreset && existing.presetKey) {
+              provider.isPreset = true;
+              provider.presetKey = existing.presetKey;
+            }
+          }
+
+          appState.providers[provider.id] = provider;
+
+          // If this is the first provider or we're editing the active one, set as active
+          if (!appState.activeProviderId || editingProviderId === appState.activeProviderId) {
+            appState.activeProviderId = provider.id;
+          }
+
+          saveAppState();
+          syncLegacyProvider();
+          buildProviderFallbackChain();
+          renderProviderList();
+          renderProviderFallbackChain();
+          document.getElementById('providerModal').classList.remove('active');
+          logActivity(`Provider "${name}" ${editingProviderId ? 'updated' : 'added'}`, 'success');
         }
-      }
-
-      const provider = {
-        id: editingProviderId || 'prov_' + Date.now(),
-        name,
-        type,
-        baseUrl,
-        model,
-        apiKey,
-        authStyle,
-        customHeaders,
-        corsProxy,
-        streaming,
-        contextWindow,
-        isPreset: false,
-        presetKey: null
-      };
-
-      // If editing a preset-based provider, keep preset info
-      if (editingProviderId && appState.providers[editingProviderId]) {
-        const existing = appState.providers[editingProviderId];
-        if (existing.isPreset && existing.presetKey) {
-          provider.isPreset = true;
-          provider.presetKey = existing.presetKey;
-        }
-      }
-
-      appState.providers[provider.id] = provider;
-      
-      // If this is the first provider or we're editing the active one, set as active
-      if (!appState.activeProviderId || editingProviderId === appState.activeProviderId) {
-        appState.activeProviderId = provider.id;
-      }
-
-      saveAppState();
-      syncLegacyProvider();
-      buildProviderFallbackChain();
-      renderProviderList();
-      renderProviderFallbackChain();
-      document.getElementById('providerModal').classList.remove('active');
-      logActivity(`Provider "${name}" ${editingProviderId ? 'updated' : 'added'}`, 'success');
-    }
 
     function editProvider(id) {
       const provider = appState.providers[id];
@@ -12742,6 +13146,37 @@ Format:
       document.getElementById('btnCloseProviderModal').onclick = () => providerModal.classList.remove('active');
       document.getElementById('btnCancelProvider').onclick = () => providerModal.classList.remove('active');
       document.getElementById('btnSaveProvider').onclick = saveProvider;
+      document.getElementById('btnAddKeyToPool').onclick = () => {
+        const apiKeyInput = document.getElementById('providerApiKey');
+        const key = apiKeyInput.value.trim();
+        if (!key) {
+          alert('Please enter an API key first.');
+          return;
+        }
+        const keyPoolList = document.getElementById('keyPoolList');
+        const index = keyPoolList.querySelectorAll('div[style*="background: var(--bg-surface)"]').length;
+        const item = document.createElement('div');
+        item.style.cssText = 'display: flex; align-items: center; gap: 6px; padding: 6px 8px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 4px;';
+        const maskedKey = maskKey(key);
+        item.innerHTML = `
+          <span style="font-size: 10px; color: var(--text-muted); min-width: 20px;">${index + 1}.</span>
+          <input type="password" value="${maskedKey}" readonly style="flex: 1; background: var(--bg-dark); border: none; padding: 4px 6px; border-radius: 3px; font-family: var(--font-mono); font-size: 11px; color: var(--text-main);" />
+          <span class="key-health-badge health-healthy" style="font-size: 9px; padding: 2px 6px; border-radius: 3px; font-weight: 600;">Healthy</span>
+          <button type="button" class="btn btn-secondary" onclick="removeKeyFromPool(${index})" style="padding: 2px 6px; font-size: 10px; color: var(--danger); border-color: var(--danger);">Remove</button>
+        `;
+        const input = item.querySelector('input[type="password"]');
+        if (input) {
+          input.dataset.actualKey = key;
+          input.dataset.keyId = 'key_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+          input.dataset.health = 'healthy';
+          input.dataset.lastUsed = '0';
+          input.dataset.usageCount = '0';
+          input.dataset.benchedModels = '[]';
+          input.dataset.cooldownUntil = '0';
+        }
+        keyPoolList.appendChild(item);
+        apiKeyInput.value = '';
+      };
 
       document.getElementById('providerPresetSelect').onchange = (e) => {
         if (e.target.value) applyPresetToForm(e.target.value);
