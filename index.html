@@ -2421,7 +2421,10 @@ sudo *"></textarea>
           <div style="max-height: 40vh; overflow-y: auto; margin-bottom: 12px;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
               <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Skill Librarian</span>
-              <button class="btn btn-secondary" id="btnRunLibrarianDryRun" style="padding: 4px 10px; font-size: 11px;">🔍 Dry Run</button>
+              <div style="display:flex; gap:6px;">
+                <button class="btn btn-secondary" id="btnRunLibrarianDryRun" style="padding: 4px 10px; font-size: 11px;">🔍 Dry Run</button>
+                <button class="btn btn-primary" id="btnRunMaintenanceNow" style="padding: 4px 10px; font-size: 11px;">⚙️ Run Maintenance</button>
+              </div>
             </div>
             <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 12px;">Background maintenance for agent-created skills: tracks usage, archives stale skills, proposes merges. Never auto-deletes.</div>
       
@@ -2435,7 +2438,9 @@ sudo *"></textarea>
             <div style="margin-bottom: 16px;">
               <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
                 <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Proposed Merges</span>
+                <div style="display:flex; gap:6px;">
                 <button class="btn btn-secondary" id="btnScanDuplicates" style="padding: 4px 10px; font-size: 11px;">Scan for Duplicates</button>
+                <button class="btn btn-primary" id="btnRunLLMConsolidation" style="padding: 4px 10px; font-size: 11px;">🤖 LLM Consolidation</button>
               </div>
               <div id="skillMergeProposals" style="display: flex; flex-direction: column; gap: 4px; max-height: 200px; overflow-y: auto;">
                 <div style="font-size: 10px; color: var(--text-dim); text-align: center; padding: 16px;">Click "Scan for Duplicates" to find overlapping skills</div>
@@ -9255,10 +9260,14 @@ Links: [[Brain Index]]
       const dryRunBtn = document.getElementById('btnRunLibrarianDryRun');
       const scanBtn = document.getElementById('btnScanDuplicates');
       const clearBtn = document.getElementById('btnClearAuditLog');
+      const runMaintenanceBtn = document.getElementById('btnRunMaintenanceNow');
+      const llmConsolidationBtn = document.getElementById('btnRunLLMConsolidation');
       
       if (dryRunBtn) dryRunBtn.onclick = () => runLibrarianDryRun();
       if (scanBtn) scanBtn.onclick = () => scanForDuplicateSkills();
       if (clearBtn) clearBtn.onclick = () => clearAuditLog();
+      if (runMaintenanceBtn) runMaintenanceBtn.onclick = () => runLibrarianMaintenanceNow();
+      if (llmConsolidationBtn) llmConsolidationBtn.onclick = () => runLLMConsolidationPass();
     }
 
     // Get all skills (builtin + custom) for librarian
@@ -9318,13 +9327,14 @@ Links: [[Brain Index]]
     }
 
     // Add entry to audit log
-    function addAuditLogEntry(action, skillId, details) {
+    function addAuditLogEntry(action, skillId, details, rollbackData = null) {
       const entry = {
         timestamp: Date.now(),
         action,
         skillId,
         details
       };
+      if (rollbackData) entry.rollbackData = rollbackData;
       appState.skillAuditLog.unshift(entry);
       // Keep last 100 entries
       if (appState.skillAuditLog.length > 100) appState.skillAuditLog = appState.skillAuditLog.slice(0, 100);
@@ -9421,12 +9431,30 @@ Links: [[Brain Index]]
         container.innerHTML = '<div style="color: var(--text-dim); text-align: center; padding: 16px;">No duplicate skills found. Click "Scan for Duplicates" to search.</div>';
         return;
       }
-      container.innerHTML = proposals.map((p, idx) => `
-        <div style="display:flex; flex-direction:column; gap:8px; padding:10px; background:var(--bg-dark); border:1px solid var(--warning); border-radius:6px;">
-          <div style="display:flex; justify-content:space-between; align-items:center;">
-            <span style="font-weight:600; font-size:11px; color:var(--warning);">Proposed Merge #${idx + 1}</span>
-            <span style="font-size:10px; color:var(--text-dim);">${p.reason} (name: ${(p.nameSim*100).toFixed(0)}%, desc: ${(p.descSim*100).toFixed(0)}%)</span>
+      container.innerHTML = proposals.map((p, idx) => {
+        const isLLM = p.isLLMProposal;
+        const extraSkillsHtml = (p.extraSkills && p.extraSkills.length > 0) ? `
+          <div style="margin-top:8px; padding:8px; background:var(--bg-surface); border:1px solid var(--border-color); border-radius:4px;">
+            <div style="font-size:10px; font-weight:600; color:var(--text-muted); margin-bottom:4px;">Additional skills in this umbrella:</div>
+            ${p.extraSkills.map(s => `
+              <div style="font-size:10px; color:var(--accent-purple); padding:2px 0;">
+                ${escapeHtml(s.name)} - ${escapeHtml(s.desc || 'No description')}
+              </div>
+            `).join('')}
           </div>
+        ` : '';
+        
+        const headerLabel = isLLM ? 'Proposed Umbrella Merge' : 'Proposed Merge';
+        const headerColor = isLLM ? 'var(--accent-purple)' : 'var(--warning)';
+        const borderColor = isLLM ? 'var(--accent-purple)' : 'var(--warning)';
+        
+        return `
+        <div style="display:flex; flex-direction:column; gap:8px; padding:10px; background:var(--bg-dark); border:1px solid ${borderColor}; border-radius:6px;">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span style="font-weight:600; font-size:11px; color:${headerColor};">${headerLabel} #${idx + 1}</span>
+            <span style="font-size:10px; color:var(--text-dim);">${p.reason}${isLLM && p.umbrellaName ? ' - Umbrella: ' + escapeHtml(p.umbrellaName) : ''}</span>
+          </div>
+          ${isLLM && p.umbrellaDesc ? `<div style="font-size:10px; color:var(--text-muted); padding:6px; background:var(--bg-surface); border-radius:4px;">${escapeHtml(p.umbrellaDesc)}</div>` : ''}
           <div style="display:flex; gap:12px;">
             <div style="flex:1; padding:8px; background:var(--bg-surface); border:1px solid var(--border-color); border-radius:4px;">
               <div style="font-weight:600; font-size:11px; color:var(--accent-blue);">${escapeHtml(p.skillA.name)}</div>
@@ -9439,20 +9467,22 @@ Links: [[Brain Index]]
               <div style="font-size:9px; color:var(--text-dim); margin-top:4px;">Source: ${p.skillB.source}${p.skillB.packId ? ' (pack: ' + p.skillB.packId + ')' : ''}</div>
             </div>
           </div>
+          ${extraSkillsHtml}
           <div style="display:flex; gap:8px; justify-content:flex-end;">
             <button class="btn btn-secondary" onclick="mergeSkills('${escapeHtml(p.skillA.id)}', '${escapeHtml(p.skillB.id)}', ${idx})" style="padding:4px 10px; font-size:10px;">Merge (keep A)</button>
             <button class="btn btn-secondary" onclick="mergeSkills('${escapeHtml(p.skillB.id)}', '${escapeHtml(p.skillA.id)}', ${idx})" style="padding:4px 10px; font-size:10px;">Merge (keep B)</button>
             <button class="btn btn-ghost" onclick="dismissMergeProposal(${idx})" style="padding:4px 10px; font-size:10px;">Dismiss</button>
           </div>
         </div>
-      `).join('');
+      `;
+      }).join('');
       
       // Store proposals for merge actions
       window._skillMergeProposals = proposals;
     }
-
     // Merge two skills (keep one, archive the other)
     function mergeSkills(keepId, archiveId, proposalIdx) {
+
       const proposals = window._skillMergeProposals || [];
       const proposal = proposals[proposalIdx];
       if (!proposal) return;
@@ -9530,6 +9560,199 @@ Links: [[Brain Index]]
       alert(msg);
     }
 
+
+    // ==================== BACKGROUND MAINTENANCE PASS ====================
+    // Run the librarian maintenance pass (can be called periodically or on-demand)
+    function runLibrarianMaintenancePass(options = {}) {
+      const { dryRun = false, autoArchive = false, consolidateDuplicates = false } = options;
+      const allSkills = getAllSkillsForLibrarian();
+      const now = Date.now();
+      const STALE_THRESHOLD = 14 * 24 * 60 * 60 * 1000;
+      const ARCHIVE_THRESHOLD = 30 * 24 * 60 * 60 * 1000;
+      
+      const results = {
+        archived: [],
+        markedStale: [],
+        errors: []
+      };
+      
+      // Take snapshot before any changes (for rollback)
+      const snapshot = JSON.parse(JSON.stringify(appState.skillUsage));
+      
+      allSkills.forEach(skill => {
+        const usage = appState.skillUsage[skill.id] || { count: 0, lastUsed: null, pinned: false, status: 'active' };
+        if (usage.pinned) return;
+        
+        if (usage.lastUsed) {
+          const daysSinceUse = (now - usage.lastUsed) / (24 * 60 * 60 * 1000);
+          if (daysSinceUse >= 30 && usage.status !== 'archived') {
+            if (!dryRun) {
+              // Store rollback data
+              const rollbackData = { ...usage };
+              usage.status = 'archived';
+              addAuditLogEntry('auto-archive', skill.id, 'Auto-archived after 30+ days unused', rollbackData);
+              results.archived.push(skill.id);
+            } else {
+              results.archived.push(skill.id);
+            }
+          } else if (daysSinceUse >= 14 && usage.status === 'active') {
+            if (!dryRun) {
+              const rollbackData = { ...usage };
+              usage.status = 'stale';
+              addAuditLogEntry('auto-stale', skill.id, 'Auto-marked stale after 14+ days unused', rollbackData);
+              results.markedStale.push(skill.id);
+            } else {
+              results.markedStale.push(skill.id);
+            }
+          }
+        } else if (usage.count === 0 && usage.status === 'active') {
+          if (!dryRun) {
+            const rollbackData = { ...usage };
+            usage.status = 'stale';
+            addAuditLogEntry('auto-stale', skill.id, 'Auto-marked stale (never used)', rollbackData);
+            results.markedStale.push(skill.id);
+          } else {
+            results.markedStale.push(skill.id);
+          }
+        }
+      });
+      
+      if (!dryRun && (results.archived.length > 0 || results.markedStale.length > 0)) {
+        saveAppState();
+      }
+      
+      // Opt-in LLM consolidation pass for duplicates
+      if (consolidateDuplicates && !dryRun) {
+        runLLMConsolidationPass();
+      }
+      return { results, snapshot };
+    }
+
+
+    // Opt-in LLM consolidation pass - proposes merging overlapping skills into umbrellas
+    async function runLLMConsolidationPass() {
+      const mergeEl = document.getElementById('skillMergeProposals');
+      if (!mergeEl) return;
+      
+      const allSkills = getAllSkillsForLibrarian().filter(s => s.isCustom); // Only custom skills can be merged
+      if (allSkills.length < 2) {
+        mergeEl.innerHTML = '<div style="color: var(--text-dim); text-align: center; padding: 16px;">Need at least 2 custom skills for LLM consolidation</div>';
+        return;
+      }
+      
+      mergeEl.innerHTML = '<div style="color: var(--text-dim); text-align: center; padding: 16px;">🤖 Analyzing skills with LLM for umbrella consolidation...</div>';
+      
+      try {
+        // Build skill summaries for LLM
+        const skillSummaries = allSkills.map(s => ({
+          id: s.id,
+          name: s.name,
+          desc: s.desc || 'No description',
+          source: s.source
+        }));
+        
+        const prompt = `You are a skill librarian. Analyze these agent skills and identify groups that should be consolidated into umbrella skills.
+        
+Skills:
+${skillSummaries.map(s => `- ${s.id}: "${s.name}" - ${s.desc}`).join('\n')}
+
+Return JSON only with this structure:
+{
+  "proposals": [
+    {
+      "umbrellaName": "Proposed Umbrella Skill Name",
+      "umbrellaDesc": "Description of the consolidated skill",
+      "skillIds": ["skill-id-1", "skill-id-2", ...],
+      "reason": "Why these skills should be merged"
+    }
+  ]
+}
+
+Only propose merges for skills that are genuinely overlapping or complementary. Each skill should appear in at most one proposal. Prefer 2-4 skills per umbrella.`;
+
+        const response = await callLLM([
+          { role: 'system', content: 'You are a skill librarian that identifies overlapping skills for consolidation. Return only valid JSON.' },
+          { role: 'user', content: prompt }
+        ]);
+        
+        let result;
+        try {
+          // Extract JSON from response
+          const jsonMatch = response.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            result = JSON.parse(jsonMatch[0]);
+          } else {
+            throw new Error('No JSON found in response');
+          }
+        } catch (e) {
+          console.warn('[Librarian] LLM response parse failed:', e, 'Response:', response);
+          mergeEl.innerHTML = '<div style="color: var(--warning); text-align: center; padding: 16px;">LLM response parse failed. Use "Scan for Duplicates" for text-based detection.</div>';
+          return;
+        }
+        
+        if (!result.proposals || !Array.isArray(result.proposals) || result.proposals.length === 0) {
+          mergeEl.innerHTML = '<div style="color: var(--text-dim); text-align: center; padding: 16px;">LLM found no consolidation opportunities</div>';
+          return;
+        }
+        
+        // Convert LLM proposals to merge proposal format
+        const proposals = result.proposals.map(p => {
+          const skills = p.skillIds.map(id => allSkills.find(s => s.id === id)).filter(Boolean);
+          return {
+            skillA: skills[0],
+            skillB: skills[1],
+            extraSkills: skills.slice(2),
+            nameSim: 1.0, // LLM-determined
+            descSim: 1.0,
+            reason: p.reason || 'LLM-proposed umbrella: ' + p.umbrellaName,
+            umbrellaName: p.umbrellaName,
+            umbrellaDesc: p.umbrellaDesc,
+            isLLMProposal: true
+          };
+        }).filter(p => p.skillA && p.skillB);
+        
+        if (proposals.length === 0) {
+          mergeEl.innerHTML = '<div style="color: var(--text-dim); text-align: center; padding: 16px;">LLM proposals could not be matched to skills</div>';
+          return;
+        }
+        
+        // Take snapshot before adding proposals
+        const snapshot = JSON.parse(JSON.stringify(appState.skillUsage));
+        addAuditLogEntry('llm-consolidation-proposals', 'multiple', 
+          `LLM proposed ${proposals.length} umbrella consolidations`, { snapshot });
+        
+        renderMergeProposals(mergeEl, proposals);
+        
+      } catch (err) {
+        console.error('[Librarian] LLM consolidation failed:', err);
+        mergeEl.innerHTML = '<div style="color: var(--error); text-align: center; padding: 16px;">LLM consolidation failed: ' + escapeHtml(err.message) + '</div>';
+      }
+    }
+
+    // Run maintenance pass now (manual trigger from UI)
+    async function runLibrarianMaintenanceNow() {
+      const result = runLibrarianMaintenancePass({ dryRun: false, autoArchive: true });
+      const { results } = result;
+      let msg = 'Maintenance pass completed:\n\n';
+      if (results.archived.length > 0) msg += `📦 Archived: ${results.archived.length} skills\n`;
+      if (results.markedStale.length > 0) msg += `⚠️ Marked stale: ${results.markedStale.length} skills\n`;
+      if (results.archived.length === 0 && results.markedStale.length === 0) msg += 'No changes needed - all skills are up to date.';
+      alert(msg);
+      renderSkillLibrarian();
+    }
+
+    // Run maintenance pass automatically (e.g., on app start or daily)
+    function scheduleLibrarianMaintenance() {
+      // Run once on startup
+      setTimeout(() => {
+        runLibrarianMaintenancePass({ dryRun: false, autoArchive: true });
+      }, 5000);
+      
+      // Run daily
+      setInterval(() => {
+        runLibrarianMaintenancePass({ dryRun: false, autoArchive: true });
+      }, 24 * 60 * 60 * 1000);
+    }
     // Show full catalog modal
     function showFullCatalogModal() {
       const modal = document.createElement('div');
@@ -17212,6 +17435,9 @@ Requirements:
       }
       refreshPreview();
       logActivity('FlamingoCode Studio initialized successfully', 'success');
+      
+      // Start Skill Librarian background maintenance
+      scheduleLibrarianMaintenance();
     }
 
     // ==================== STAGE 3: AGENTS & TEAM MODE ====================
