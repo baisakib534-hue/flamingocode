@@ -5293,7 +5293,10 @@ function renderProjectDoctorPanel() {
   
   const severityOrder = ['critical', 'high', 'medium', 'low'];
   let html = '';
-  
+
+  // Scan results heading
+  html += `<div style="font-size:11px; font-weight:600; color:var(--text-muted); text-transform:uppercase; margin-bottom:8px; padding:0 4px;">${t('Scan results') || 'Scan results'}</div>`;
+
   for (const severity of severityOrder) {
     const sevIssues = bySeverity[severity];
     if (!sevIssues || sevIssues.length === 0) continue;
@@ -5324,6 +5327,7 @@ function renderProjectDoctorPanel() {
         </div>
         <div style="font-size:12px; color:var(--text-main); line-height:1.5;">${escapeHtml(issue.message)}</div>
         ${issue.meta.snippet ? `<div style="font-family:var(--font-mono); font-size:10px; color:var(--text-dim); background:var(--bg-dark); padding:6px 8px; border-radius:3px; overflow-x:auto;">${escapeHtml(issue.meta.snippet)}</div>` : ''}
+        ${canFix && appState.teachMode ? (() => { const ch = { type: 'file', path: issue.filePath, action: 'modify' }; return generateBanglaExplanation([ch]); })() : ''}
         <div style="display:flex; gap:8px; align-items:center;">
           ${canFix ? `<button class="btn" onclick="fixDoctorIssue('${issue.id}')" style="padding:4px 10px; font-size:10px;" data-i18n="Fix">${t('Fix') || '🔧 Fix'}</button>` : ''}
           <button class="btn btn-secondary" onclick="openFileAtLine('${issue.filePath}', ${issue.line || 1})" style="padding:4px 10px; font-size:10px;">${t('View') || '👁 View'}</button>
@@ -9640,9 +9644,13 @@ CURRENT VIRTUAL FILES:
       const changes = appState.pendingChanges.changes;
       if (countEl) countEl.textContent = `${changes.length} file${changes.length !== 1 ? 's' : ''}`;
       if (actionsEl) actionsEl.style.display = 'flex';
-      
-      container.innerHTML = changes.map(renderFileDiff).join('');
-      
+
+      // Fix plan heading
+      const hasDoctorFix = changes.some(c => c.doctorIssueId);
+      let html = hasDoctorFix ? `<div style="font-size:11px; font-weight:600; color:var(--text-muted); text-transform:uppercase; margin-bottom:8px; padding:0 4px;">${t('Fix plan') || 'Fix plan'}</div>` : '';
+      html += changes.map(renderFileDiff).join('');
+      container.innerHTML = html;
+
       // Attach event handlers
       container.querySelectorAll('.btn-accept-file').forEach(btn => {
         btn.onclick = () => acceptFileChange(btn.getAttribute('data-path'));
