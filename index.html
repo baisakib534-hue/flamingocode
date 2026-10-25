@@ -1902,6 +1902,23 @@
             <!-- Provider items rendered here -->
           </div>
         </div>
+        <!-- Provider Fallback Chain (Never-stuck routing) -->
+        <div style="border-top: 1px solid var(--border-color); padding-top: 12px; margin-bottom: 12px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
+            <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;" data-i18n="Provider Fallback Chain">Provider Fallback Chain</span>
+            <label class="toggle-switch" style="cursor: pointer;">
+              <input type="checkbox" id="providerFallbackEnabledToggle" checked />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 8px;" data-i18n="When a free provider fails (429, 5xx, timeout, empty), automatically try the next free provider in the chain. DuckDuckGo is always first.">When a free provider fails (429, 5xx, timeout, empty), automatically try the next free provider in the chain. DuckDuckGo is always first.</div>
+          <div id="providerFallbackChainList" style="display: flex; flex-direction: column; gap: 4px; max-height: 200px; overflow-y: auto;">
+            <!-- Chain entries rendered here -->
+          </div>
+          <div style="display:flex; justify-content:flex-end; gap:8px; margin-top: 8px;">
+            <button class="btn btn-secondary" id="btnRefreshFallbackChain" style="padding: 4px 10px; font-size: 10px;" data-i18n="Refresh Chain">↻ Refresh Chain</button>
+          </div>
+        </div>
       </div>
 
       <!-- Skill Packs Tab -->
@@ -3803,6 +3820,16 @@ WORK STYLE:
         byProject: {},
         // Current session totals (for header meter)
         currentSession: { requests: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0, cost: 0 }
+      },
+      // Provider Fallback Chain (F5: Never-stuck routing)
+      providerFallbackChain: {
+        enabled: true,
+        // Ordered list of free provider IDs (DuckDuckGo first, then user's other free providers)
+        chain: [],
+        // Per-provider cooldown tracking: { [providerId]: timestampUntil }
+        cooldowns: {},
+        // Cooldown duration in ms (default 60s)
+        cooldownMs: 60000
       }
     };
 
@@ -3826,6 +3853,17 @@ WORK STYLE:
       if (!appState.activeProviderId || !appState.providers[appState.activeProviderId]) {
         appState.activeProviderId = Object.keys(appState.providers)[0];
       }
+      // Initialize provider fallback chain
+      if (!appState.providerFallbackChain) {
+        appState.providerFallbackChain = {
+          enabled: true,
+          chain: [],
+          cooldowns: {},
+          cooldownMs: 60000
+        };
+      }
+      // Build initial fallback chain from free providers (DuckDuckGo first)
+      buildProviderFallbackChain();
       // Initialize agents if empty
       if (!appState.agents || Object.keys(appState.agents).length === 0) {
         // Create built-in Dev Team agents
@@ -8370,6 +8408,35 @@ Links: [[Brain Index]]
       return quotas[presetKey] || quotas[type] || null;
     }
 
+    // Provider Fallback Chain: build ordered list of free providers (DuckDuckGo first)
+    function buildProviderFallbackChain() {
+      const freeProviders = [];
+      Object.entries(appState.providers).forEach(([id, provider]) => {
+        // Consider a provider "free" if it has no API key requirement or is DuckDuckGo type
+        const isFree = provider.type === 'duckduckgo' || 
+                       provider.authStyle === 'none' || 
+                       !provider.apiKey ||
+                       provider.presetKey === 'pollinations' ||
+                       provider.presetKey === '9router' ||
+                       provider.presetKey === 'omniroute-cloud';
+        if (isFree) {
+          freeProviders.push({ id, name: provider.name, type: provider.type, presetKey: provider.presetKey });
+        }
+      });
+      // Sort: DuckDuckGo first, then by preset order, then custom
+      freeProviders.sort((a, b) => {
+        if (a.type === 'duckduckgo' && b.type !== 'duckduckgo') return -1;
+        if (b.type === 'duckduckgo' && a.type !== 'duckduckgo') return 1;
+        // Preset order
+        const presetOrder = { 'pollinations': 1, '9router': 2, 'omniroute-cloud': 3, 'custom': 99 };
+        const aOrder = presetOrder[a.presetKey] || 99;
+        const bOrder = presetOrder[b.presetKey] || 99;
+        return aOrder - bOrder;
+      });
+      appState.providerFallbackChain.chain = freeProviders.map(p => p.id);
+      saveAppState();
+    }
+
     function trackUsage(providerId, modelName, usage, sessionId) {
       if (!usage) return;
       
@@ -8868,8 +8935,9 @@ Links: [[Brain Index]]
       return false;
     }
 
-    async function callLLM(messages) {
-      const provider = appState.providers[appState.activeProviderId];
+    async function callLLM(messages, providerId = null) {
+      const activeProviderId = providerId || appState.activeProviderId;
+      const provider = appState.providers[activeProviderId];
       if (!provider) {
         throw new Error('No active provider configured');
       }
@@ -9180,6 +9248,91 @@ Links: [[Brain Index]]
       currentAbortController = null;
       hideRateLimitCountdown();
       throw lastError || new Error('Max retries exceeded');
+    }
+
+    // --- Provider Fallback Chain (Never-stuck routing) ---
+    async function callLLMWithFallback(messages) {
+      // Check if fallback chain is enabled
+      if (!appState.providerFallbackChain?.enabled) {
+        return callLLM(messages);
+      }
+      
+      const chain = appState.providerFallbackChain?.chain || [];
+      const cooldowns = appState.providerFallbackChain?.cooldowns || {};
+      const cooldownMs = appState.providerFallbackChain?.cooldownMs || 60000;
+      const now = Date.now();
+      
+      // Filter out providers on cooldown
+      const availableChain = chain.filter(id => {
+        const cooldownUntil = cooldowns[id];
+        return !cooldownUntil || cooldownUntil <= now;
+      });
+      
+      if (availableChain.length === 0) {
+        // All providers on cooldown, try the primary active provider
+        logActivity('All fallback providers on cooldown, trying primary...', 'warning');
+        return callLLM(messages);
+      }
+      
+      let lastError = null;
+      
+      for (let i = 0; i < availableChain.length; i++) {
+        const providerId = availableChain[i];
+        const provider = appState.providers[providerId];
+        
+        if (!provider) continue;
+        
+        try {
+          logActivity(`Trying provider: ${provider.name} (${i + 1}/${availableChain.length})`, 'info');
+          const result = await callLLM(messages, providerId);
+          
+          // Success - if we used a fallback provider, log it
+          if (i > 0) {
+            logActivity(`Fallback succeeded with ${provider.name}`, 'success');
+          }
+          return result;
+        } catch (err) {
+          lastError = err;
+          const errorMsg = err.message || String(err);
+          
+          // Determine if this error should trigger fallback to next provider
+          const shouldFallback = 
+            errorMsg.includes('429') ||                    // Rate limited
+            errorMsg.includes('500') ||                    // Server error
+            errorMsg.includes('502') ||                    // Bad gateway
+            errorMsg.includes('503') ||                    // Service unavailable
+            errorMsg.includes('504') ||                    // Gateway timeout
+            errorMsg.includes('timeout') ||                // Timeout
+            errorMsg.includes('Empty response') ||         // Empty response
+            errorMsg.includes('Network/CORS Error') ||     // Network/CORS
+            errorMsg.includes('Request timeout') ||        // Request timeout
+            errorMsg.includes('stream idle');              // Stream idle timeout
+          
+          if (shouldFallback && i < availableChain.length - 1) {
+            // Put this provider on cooldown
+            cooldowns[providerId] = now + cooldownMs;
+            appState.providerFallbackChain.cooldowns = cooldowns;
+            saveAppState();
+            
+            const nextProvider = appState.providers[availableChain[i + 1]];
+            const nextName = nextProvider ? nextProvider.name : 'next provider';
+            logActivity(`Provider ${provider.name} failed (${errorMsg.slice(0, 50)}) — trying ${nextName}…`, 'warning');
+            
+            // Update UI if settings modal is open
+            if (document.getElementById('providerFallbackChainList')) {
+              renderProviderFallbackChain();
+            }
+            
+            continue; // Try next provider
+          }
+          
+          // Don't fallback - rethrow
+          throw err;
+        }
+      }
+      
+      // All providers in chain failed
+      throw lastError || new Error('All providers in fallback chain failed');
     }
 
     // --- DuckDuckGo AI Flow ---
@@ -10386,7 +10539,7 @@ async function sendAgentPrompt(userPrompt, autoTurn = 0) {
         messages = enforceRequestBudget(messages, session);
 
         logActivity('Calling ' + appState.providers[appState.activeProviderId].name + ' (' + appState.providers[appState.activeProviderId].model + ')...', 'info');
-        const reply = await callLLM(messages);
+        const reply = await callLLMWithFallback(messages);
 
         session.chatHistory.push({ role: 'assistant', content: reply });
 
@@ -10471,7 +10624,7 @@ Rules:
         ];
 
         logActivity('Calling LLM for codebase chat...', 'info');
-        const reply = await callLLM(messages);
+        const reply = await callLLMWithFallback(messages);
 
         session.chatHistory.push({ role: 'assistant', content: reply });
         
@@ -10607,7 +10760,7 @@ Keep it concise and practical. No markdown, no extra text.`;
         ];
 
         // Use the existing callLLM function but with a simpler prompt
-        const reply = await callLLM(messages);
+        const reply = await callLLMWithFallback(messages);
         
         let spec;
         try {
@@ -11180,7 +11333,7 @@ CURRENT VIRTUAL FILES (outlines):
         messages = enforceRequestBudget(messages, session);
 
         logActivity('Generating plan with ' + appState.providers[appState.activeProviderId].name + '...', 'info');
-        const reply = await callLLM(messages);
+        const reply = await callLLMWithFallback(messages);
 
         session.chatHistory.push({ role: 'assistant', content: reply });
         appendChatMessage('agent', reply, []);
@@ -11306,7 +11459,7 @@ Rules:
         messages = enforceRequestBudget(messages, session);
 
         logActivity(`Executing step ${stepIndex + 1}: ${step.text}`, 'info');
-        const reply = await callLLM(messages);
+        const reply = await callLLMWithFallback(messages);
 
         session.chatHistory.push({ role: 'assistant', content: reply });
         
@@ -12077,6 +12230,111 @@ Format:
       });
     }
 
+    // Render Provider Fallback Chain UI
+    function renderProviderFallbackChain() {
+      const list = document.getElementById('providerFallbackChainList');
+      const toggle = document.getElementById('providerFallbackEnabledToggle');
+      if (!list) return;
+      
+      if (toggle) {
+        toggle.checked = appState.providerFallbackChain?.enabled ?? true;
+      }
+      
+      list.innerHTML = '';
+      const chain = appState.providerFallbackChain?.chain || [];
+      const cooldowns = appState.providerFallbackChain?.cooldowns || {};
+      const now = Date.now();
+      
+      if (chain.length === 0) {
+        list.innerHTML = '<div style="font-size: 11px; color: var(--text-dim); padding: 8px; text-align: center;">No free providers configured. Add free providers (DuckDuckGo, Pollinations, etc.) to enable fallback.</div>';
+        return;
+      }
+      
+      chain.forEach((providerId, index) => {
+        const provider = appState.providers[providerId];
+        if (!provider) return;
+        
+        const isOnCooldown = cooldowns[providerId] && cooldowns[providerId] > now;
+        const cooldownRemaining = isOnCooldown ? Math.ceil((cooldowns[providerId] - now) / 1000) : 0;
+        
+        const item = document.createElement('div');
+        item.style.cssText = 'display:flex; align-items:center; gap:8px; padding:6px 8px; background:var(--bg-surface); border:1px solid var(--border-color); border-radius:4px;';
+        item.innerHTML = `
+          <span style="font-size:10px; color:var(--text-muted); min-width:20px; text-align:center;">${index + 1}.</span>
+          <div style="display:flex; align-items:center; gap:6px; flex:1; min-width:0;">
+            <span style="font-weight:600; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(provider.name)}</span>
+            <span style="font-size:9px; color:var(--text-dim);">(${escapeHtml(provider.type)})</span>
+            ${isOnCooldown ? `<span style="font-size:9px; background:var(--warning); color:var(--bg-dark); padding:1px 4px; border-radius:3px;">Cooldown ${cooldownRemaining}s</span>` : ''}
+            ${index === 0 ? '<span style="font-size:9px; background:var(--accent-glow); color:var(--accent-blue); padding:1px 4px; border-radius:3px;">Primary</span>' : ''}
+          </div>
+          <div style="display:flex; gap:4px;">
+            ${index > 0 ? `<button class="btn btn-secondary" onclick="moveFallbackChainItem('${providerId}', 'up')" style="padding:2px 6px; font-size:9px;">↑</button>` : '<span style="width:24px;"></span>'}
+            ${index < chain.length - 1 ? `<button class="btn btn-secondary" onclick="moveFallbackChainItem('${providerId}', 'down')" style="padding:2px 6px; font-size:9px;">↓</button>` : '<span style="width:24px;"></span>'}
+            <button class="btn btn-secondary" onclick="toggleFallbackChainItem('${providerId}')" style="padding:2px 6px; font-size:9px; color:${chain.includes(providerId) ? 'var(--text-main)' : 'var(--text-dim)'};" title="Enable/Disable in chain">${chain.includes(providerId) ? '✓' : '✗'}</button>
+            ${!provider.isPreset ? `<button class="btn btn-secondary" onclick="removeFromFallbackChain('${providerId}')" style="padding:2px 6px; font-size:9px; color:var(--danger); border-color:var(--danger);" title="Remove from chain">✕</button>` : ''}
+          </div>
+        `;
+        list.appendChild(item);
+      });
+    }
+
+    function moveFallbackChainItem(providerId, direction) {
+      const chain = appState.providerFallbackChain?.chain || [];
+      const index = chain.indexOf(providerId);
+      if (index === -1) return;
+      
+      if (direction === 'up' && index > 0) {
+        // Don't move DuckDuckGo from position 0
+        const provider = appState.providers[providerId];
+        if (provider && provider.type === 'duckduckgo' && index === 1) return;
+        [chain[index], chain[index - 1]] = [chain[index - 1], chain[index]];
+      } else if (direction === 'down' && index < chain.length - 1) {
+        // Don't move provider above DuckDuckGo
+        const nextProvider = appState.providers[chain[index + 1]];
+        if (nextProvider && nextProvider.type === 'duckduckgo') return;
+        [chain[index], chain[index + 1]] = [chain[index + 1], chain[index]];
+      }
+      
+      saveAppState();
+      renderProviderFallbackChain();
+    }
+
+    function toggleFallbackChainItem(providerId) {
+      const chain = appState.providerFallbackChain?.chain || [];
+      const index = chain.indexOf(providerId);
+      if (index === -1) {
+        // Add to end (but before any non-free providers)
+        chain.push(providerId);
+      } else {
+        // Don't remove DuckDuckGo from chain
+        const provider = appState.providers[providerId];
+        if (provider && provider.type === 'duckduckgo') {
+          logActivity('DuckDuckGo cannot be removed from fallback chain', 'warning');
+          return;
+        }
+        chain.splice(index, 1);
+      }
+      saveAppState();
+      renderProviderFallbackChain();
+    }
+
+    function removeFromFallbackChain(providerId) {
+      const chain = appState.providerFallbackChain?.chain || [];
+      const index = chain.indexOf(providerId);
+      if (index === -1) return;
+      
+      // Don't remove DuckDuckGo from chain
+      const provider = appState.providers[providerId];
+      if (provider && provider.type === 'duckduckgo') {
+        logActivity('DuckDuckGo cannot be removed from fallback chain', 'warning');
+        return;
+      }
+      
+      chain.splice(index, 1);
+      saveAppState();
+      renderProviderFallbackChain();
+    }
+
     function openProviderModal(provider = null) {
       const modal = document.getElementById('providerModal');
       const title = document.getElementById('providerModalTitle');
@@ -12214,7 +12472,9 @@ Format:
 
       saveAppState();
       syncLegacyProvider();
+      buildProviderFallbackChain();
       renderProviderList();
+      renderProviderFallbackChain();
       document.getElementById('providerModal').classList.remove('active');
       logActivity(`Provider "${name}" ${editingProviderId ? 'updated' : 'added'}`, 'success');
     }
@@ -12244,7 +12504,9 @@ Format:
       
       saveAppState();
       syncLegacyProvider();
+      buildProviderFallbackChain();
       renderProviderList();
+      renderProviderFallbackChain();
       logActivity(`Provider "${provider.name}" deleted`, 'warning');
     }
 
@@ -12462,6 +12724,21 @@ Format:
 
       document.getElementById('btnAddProvider').onclick = () => openProviderModal();
 
+      // Provider Fallback Chain handlers
+      document.getElementById('providerFallbackEnabledToggle')?.addEventListener('change', (e) => {
+        if (appState.providerFallbackChain) {
+          appState.providerFallbackChain.enabled = e.target.checked;
+          saveAppState();
+          logActivity(`Provider fallback chain ${e.target.checked ? 'enabled' : 'disabled'}`, 'info');
+        }
+      });
+      
+      document.getElementById('btnRefreshFallbackChain')?.onclick = () => {
+        buildProviderFallbackChain();
+        renderProviderFallbackChain();
+        logActivity('Provider fallback chain refreshed', 'success');
+      };
+
       document.getElementById('btnCloseProviderModal').onclick = () => providerModal.classList.remove('active');
       document.getElementById('btnCancelProvider').onclick = () => providerModal.classList.remove('active');
       document.getElementById('btnSaveProvider').onclick = saveProvider;
@@ -12492,6 +12769,10 @@ Format:
           document.getElementById('settingsPane' + tabName.charAt(0).toUpperCase() + tabName.slice(1)).classList.add('active');
 
           // Render content when tab is opened
+          if (tabName === 'providers') {
+            renderProviderList();
+            renderProviderFallbackChain();
+          }
           if (tabName === 'skills') renderBuiltinSkillPacks();
           if (tabName === 'plugins') renderBuiltinPluginPacks();
           if (tabName === 'mcp') renderMcpServerSummary();
@@ -12993,7 +13274,7 @@ Requirements:
           }
         ];
 
-        const reply = await callLLM(messages);
+        const reply = await callLLMWithFallback(messages);
 
         // Parse and apply the generated files
         const { chips, fileModified, toolsUsed } = parseAndApplyBlocks(reply);
@@ -14367,7 +14648,7 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
         { role: 'user', content: userNeed }
       ];
 
-      const response = await callLLM(messages);
+      const response = await callLLMWithFallback(messages);
 
       let jsonStr = response.trim();
       const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
@@ -15672,7 +15953,7 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
       if (agent.model) appState.providers[agent.providerId].model = agent.model;
 
       try {
-        const response = await callLLM(fullMessages);
+        const response = await callLLMWithFallback(fullMessages);
         recordAgentUsage(agent, Date.now() - v2T0, v2PromptChars, (response || '').length);
         return response;
       } finally {
@@ -15866,7 +16147,7 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
         if (appState.teamMode) assertTeamBudget();
         const v2T0 = Date.now();
         const v2PromptChars = messages.reduce((s, m) => s + (m.content || '').length, 0);
-        const response = await callLLM(messages);
+        const response = await callLLMWithFallback(messages);
         recordAgentUsage(agent, Date.now() - v2T0, v2PromptChars, (response || '').length);
 
         // Parse and apply any file blocks
@@ -16406,7 +16687,7 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
       if (subAgent.model) appState.providers[subAgent.providerId].model = subAgent.model;
 
       try {
-        const response = await callLLM(messages);
+        const response = await callLLMWithFallback(messages);
         const { chips, fileModified, toolsUsed } = parseAndApplyBlocks(response);
         const summary = response.replace(/```(file|delete|browse|spawn):[\s\S]*?```/g, '').trim();
         return { summary: summary || 'Sub-task completed (see file changes)', toolsUsed };
