@@ -759,6 +759,7 @@
       <div id="headerUsageMeter" style="display: flex; align-items: center; gap: 8px; margin-left: 12px; padding-left: 12px; border-left: 1px solid var(--border-color); font-size: 11px; color: var(--text-muted); min-width: 200px;">
         <span style="font-family:var(--font-mono); font-size:11px; color:var(--accent-blue);">0 req</span> · <span style="font-family:var(--font-mono); font-size:11px; color:var(--text-main);">0 tok</span> · <span style="font-family:var(--font-mono); font-size:11px; color:var(--success);">$0.0000</span>
       </div>
+      <button class="btn btn-secondary" id="btnOpenPromptLibrary" style="padding: 4px 8px; font-size: 11px;" title="Prompt Library — save, search, and reuse prompts">📝 Prompts</button>
       <button class="btn btn-secondary" id="btnSettings" style="padding: 4px 8px; font-size: 11px;">⚙️ Provider</button>
     </div>
   </header>
@@ -1777,6 +1778,81 @@
     </div>
   </div>
 
+  <!-- Prompt Library Modal -->
+  <div class="modal-overlay" id="promptLibraryModal">
+    <div class="modal-box" style="width: 760px; max-width: 95vw;">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-color); padding-bottom:8px;">
+        <h3 style="font-size: 14px; font-weight: 700;">📝 Prompt Library</h3>
+        <button class="section-btn" id="btnClosePromptLibrary">✕</button>
+      </div>
+
+      <div style="display:flex; gap:12px; height: 60vh;">
+        <!-- Prompt List -->
+        <div style="flex: 1; max-width: 360px; display:flex; flex-direction:column; min-width: 0;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px; gap:6px;">
+            <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Prompts</span>
+            <div style="display:flex; gap:4px;">
+              <button class="btn" id="btnSaveCurrentInput" style="padding: 4px 10px; font-size: 11px;" title="Save the current chat input as a prompt">+ Save Current Input</button>
+            </div>
+          </div>
+
+          <!-- Search & Filters -->
+          <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:8px;">
+            <input type="text" id="promptSearchInput" class="form-input" placeholder="Search name, text, tags..." style="font-size: 11px; padding: 5px 8px;" />
+            <div style="display:flex; gap:6px;">
+              <select id="promptTagFilter" class="form-select" style="flex:1; font-size: 11px; padding: 4px 6px;">
+                <option value="">All tags</option>
+              </select>
+              <select id="promptCategoryFilter" class="form-select" style="flex:1; font-size: 11px; padding: 4px 6px;">
+                <option value="">All categories</option>
+              </select>
+            </div>
+            <div style="display:flex; gap:6px; align-items:center;">
+              <button class="btn btn-secondary" id="btnExportPrompts" style="padding: 3px 8px; font-size: 10px;" title="Download the whole library as JSON">⬇ Export</button>
+              <button class="btn btn-secondary" id="btnImportPrompts" style="padding: 3px 8px; font-size: 10px;" title="Add prompts from a JSON file (skips exact duplicates)">⬆ Import</button>
+              <input type="file" id="promptImportFile" accept=".json" style="display:none;" />
+              <span id="promptLibStatus" style="font-size:10px; color:var(--text-dim); flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></span>
+            </div>
+          </div>
+
+          <div id="promptList" style="flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:4px;">
+            <!-- Prompt items rendered here -->
+          </div>
+        </div>
+
+        <!-- Prompt Detail / Edit Form -->
+        <div style="flex: 1; min-width: 0; display:flex; flex-direction:column;" id="promptDetailPanel">
+          <div id="promptEmptyState" style="font-size: 11px; color: var(--text-dim); padding: 8px; background: var(--bg-surface); border-radius: 5px; margin-bottom: 12px;">Select a prompt to insert or edit it, or click "+ Save Current Input" to keep the text you already typed in chat.</div>
+          <form id="promptForm" style="flex:1; overflow-y:auto; display:none; flex-direction:column; gap:12px;">
+            <div class="form-group">
+              <label class="form-label">Name</label>
+              <input type="text" id="promptName" class="form-input" placeholder="e.g., Explain code in Bangla" required />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Tags (comma-separated, optional)</label>
+              <input type="text" id="promptTags" class="form-input" placeholder="bangla, explain" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Category (optional)</label>
+              <input type="text" id="promptCategory" class="form-input" placeholder="General" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Prompt Text</label>
+              <textarea id="promptText" class="form-input" placeholder="The exact text that will be inserted into the chat input..." style="min-height: 180px; font-family: var(--font-mono); font-size: 11px;" required></textarea>
+            </div>
+            <div style="display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px; margin-top:8px; border-top:1px solid var(--border-color); padding-top:12px;">
+              <button type="button" class="btn btn-secondary" id="btnDeletePrompt" style="color: var(--danger);">Delete</button>
+              <button type="button" class="btn btn-secondary" id="btnDuplicatePrompt">Duplicate</button>
+              <button type="button" class="btn btn-secondary" id="btnCancelPrompt">Cancel</button>
+              <button type="submit" class="btn" id="btnSavePrompt">Save</button>
+              <button type="button" class="btn" id="btnInsertPrompt" style="background: var(--success);" title="Insert this prompt into the chat input">↧ Insert into Chat</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Plugin Pack Library Modal -->
   <div class="modal-overlay" id="pluginPackLibraryModal">
     <div class="modal-box" style="width: 700px; max-width: 95vw;">
@@ -2251,7 +2327,76 @@ WORK STYLE:
       }
     };
 
+    // Built-in starter prompts (read-only, ship with the app).
+    // Custom prompts live in appState.prompts; these merge with them in the library.
+    const BUILTIN_PROMPTS = [
+      {
+        id: 'prompt_builtin_bangla_explain',
+        name: 'Explain this code in simple Bangla',
+        text: `Explain the code in the active file in simple Bangla (বাংলা). Go function by function: what it does, what goes in, what comes out, and anything tricky. Keep the language plain — assume the reader is new to programming. Put the original English terms in parentheses the first time they appear.`,
+        tags: ['bangla', 'explain'],
+        category: 'Explanation',
+        isBuiltin: true,
+        createdAt: 1735689600000
+      },
+      {
+        id: 'prompt_builtin_find_bugs',
+        name: 'Find bugs in the selected code',
+        text: `Read the active file carefully and hunt for real bugs: logic errors, off-by-one mistakes, wrong comparisons, unhandled null/undefined, race conditions in async code, and edge cases the author missed. For each bug, cite the line, explain why it is wrong, and show the exact fix. If you find nothing, say so plainly instead of inventing issues.`,
+        tags: ['bugs', 'review'],
+        category: 'Debugging',
+        isBuiltin: true,
+        createdAt: 1735689600001
+      },
+      {
+        id: 'prompt_builtin_write_tests',
+        name: 'Write tests for this function',
+        text: `Write unit tests for the main function in the active file. Cover the normal path, boundary values, empty input, and realistic failure cases. Use the same language and style as the file. Include the full runnable test code and state how to run it.`,
+        tags: ['tests', 'quality'],
+        category: 'Testing',
+        isBuiltin: true,
+        createdAt: 1735689600002
+      },
+      {
+        id: 'prompt_builtin_refactor_readability',
+        name: 'Refactor for readability',
+        text: `Refactor the active file for readability without changing behavior: better names for variables and functions, smaller functions with one job each, early returns instead of deep nesting, and no dead code. Show the full refactored file, then list what you changed and why.`,
+        tags: ['refactor', 'readability'],
+        category: 'Refactoring',
+        isBuiltin: true,
+        createdAt: 1735689600003
+      },
+      {
+        id: 'prompt_builtin_error_handling',
+        name: 'Add error handling',
+        text: `Add proper error handling to the active file: validate inputs at the boundaries, wrap risky operations (parsing, network, file access) with meaningful error messages, and never swallow errors silently. Keep the happy path readable. Show the full updated file and summarize each handling change.`,
+        tags: ['errors', 'reliability'],
+        category: 'Reliability',
+        isBuiltin: true,
+        createdAt: 1735689600004
+      },
+      {
+        id: 'prompt_builtin_security_review',
+        name: 'Review this file for security issues',
+        text: `Review the active file for security issues: injection (SQL, command, HTML/XSS), unsafe eval or innerHTML with untrusted data, missing authorization checks, hardcoded secrets, and insecure defaults. For each finding, cite the line, rate the severity, and show the concrete fix.`,
+        tags: ['security', 'review'],
+        category: 'Security',
+        isBuiltin: true,
+        createdAt: 1735689600005
+      },
+      {
+        id: 'prompt_builtin_commit_message',
+        name: 'Write a commit message for these changes',
+        text: `Look at the current changes in the project and write a clear conventional-commit message: a short imperative subject line under 72 characters, then a body explaining what changed and why. No filler, no invented details.`,
+        tags: ['git', 'commit'],
+        category: 'Git',
+        isBuiltin: true,
+        createdAt: 1735689600006
+      }
+    ];
+
     let appState = {
+      prompts: [],  // Custom saved prompts (built-in starters live in BUILTIN_PROMPTS)
       customSkillPacks: {},  // User-created skill packs
       customPluginPacks: {},  // User-created plugin packs
       mcpServers: {},  // MCP server registry
@@ -2358,6 +2503,10 @@ WORK STYLE:
       // Initialize checkpoints if not present (migration)
       if (!appState.checkpoints) {
         appState.checkpoints = [];
+      }
+      // Initialize prompt library if not present (migration)
+      if (!appState.prompts) {
+        appState.prompts = [];
       }
       if (!appState.checkpointCap) {
         appState.checkpointCap = 30;
@@ -4930,6 +5079,7 @@ Links: [[Brain Index]]
             customSkillPacks: appState.customSkillPacks || {},
             customPluginPacks: appState.customPluginPacks || {},
             mcpServers: appState.mcpServers || {},
+            prompts: appState.prompts || [],
             provider: appState.provider || {}
           }
         };
@@ -5043,6 +5193,7 @@ Links: [[Brain Index]]
           appState.customSkillPacks = data.customSkillPacks || {};
           appState.customPluginPacks = data.customPluginPacks || {};
           appState.mcpServers = data.mcpServers || {};
+          appState.prompts = data.prompts || [];
           appState.provider = data.provider || { preset: '9router', baseUrl: 'https://ninerouter-zltx.onrender.com/v1', model: '9router', apiKey: '', corsProxy: '' };
 
           // Ensure required structures exist
@@ -8949,6 +9100,7 @@ Rules:
       setupPreviewHealth();
       setupAgentLibraryHandlers();
       setupAutoCreateAgentHandlers();
+      setupPromptLibraryHandlers();
       setupTeamModeHandlers();
       setupPlanModeHandlers();
       initTeamModeUI();
@@ -9636,6 +9788,429 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
       };
       document.getElementById('pluginPackLibraryModal').addEventListener('click', (e) => {
         if (e.target === e.currentTarget) e.currentTarget.classList.remove('active');
+      });
+    }
+
+    // ==================== PROMPT LIBRARY ====================
+    // Built-in starters ship in code (BUILTIN_PROMPTS, read-only); custom prompts
+    // live in appState.prompts. The library view merges both, newest first.
+
+    const promptLibFilter = { q: '', tag: '', category: '' };
+
+    function allPrompts() {
+      const customs = (appState.prompts || []).map(p => ({ ...p, isBuiltin: false }));
+      return [...BUILTIN_PROMPTS, ...customs].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    }
+
+    function generatePromptId() {
+      return 'prompt_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+    }
+
+    function normalizePromptTags(raw) {
+      if (Array.isArray(raw)) return raw.map(t => String(t).trim()).filter(Boolean);
+      return String(raw || '').split(',').map(t => t.trim()).filter(Boolean);
+    }
+
+    function sanitizePrompt(input) {
+      return {
+        id: input.id || generatePromptId(),
+        name: String(input.name || '').trim(),
+        text: String(input.text || '').trim(),
+        tags: normalizePromptTags(input.tags),
+        category: String(input.category || '').trim() || 'General',
+        isBuiltin: false,
+        createdAt: input.createdAt || Date.now(),
+        updatedAt: Date.now()
+      };
+    }
+
+    function findPrompt(promptId) {
+      const builtin = BUILTIN_PROMPTS.find(p => p.id === promptId);
+      if (builtin) return builtin;
+      return (appState.prompts || []).find(p => p.id === promptId) || null;
+    }
+
+    function promptMatchesFilters(p) {
+      const q = promptLibFilter.q.trim().toLowerCase();
+      if (q) {
+        const haystack = [p.name, p.text, (p.tags || []).join(' '), p.category || 'General'].join(' ').toLowerCase();
+        if (!haystack.includes(q)) return false;
+      }
+      if (promptLibFilter.tag && !(p.tags || []).includes(promptLibFilter.tag)) return false;
+      if (promptLibFilter.category && (p.category || 'General') !== promptLibFilter.category) return false;
+      return true;
+    }
+
+    function populatePromptFilters() {
+      const tagSel = document.getElementById('promptTagFilter');
+      const catSel = document.getElementById('promptCategoryFilter');
+      if (!tagSel || !catSel) return;
+      const prompts = allPrompts();
+      const tags = [...new Set(prompts.flatMap(p => p.tags || []))].sort((a, b) => a.localeCompare(b));
+      const cats = [...new Set(prompts.map(p => p.category || 'General'))].sort((a, b) => a.localeCompare(b));
+      tagSel.innerHTML = '<option value="">All tags</option>' + tags.map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
+      catSel.innerHTML = '<option value="">All categories</option>' + cats.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+      tagSel.value = tags.includes(promptLibFilter.tag) ? promptLibFilter.tag : '';
+      catSel.value = cats.includes(promptLibFilter.category) ? promptLibFilter.category : '';
+      promptLibFilter.tag = tagSel.value;
+      promptLibFilter.category = catSel.value;
+    }
+
+    function renderPromptList() {
+      const container = document.getElementById('promptList');
+      if (!container) return;
+      container.innerHTML = '';
+      populatePromptFilters();
+
+      const prompts = allPrompts().filter(promptMatchesFilters);
+      if (prompts.length === 0) {
+        container.innerHTML = '<div style="font-size: 11px; color: var(--text-dim); text-align: center; padding: 20px;">No prompts match. Clear the search or pick a different filter.</div>';
+        return;
+      }
+
+      prompts.forEach(p => {
+        const item = document.createElement('div');
+        item.style.cssText = 'padding:8px 10px; background:var(--bg-surface); border:1px solid var(--border-color); border-radius:5px; cursor:pointer;';
+        item.dataset.promptId = p.id;
+        item.onclick = (e) => {
+          if (e.target.closest('button')) return;
+          selectPromptForEdit(p.id, item);
+        };
+        const tagsHtml = (p.tags || []).map(t =>
+          `<span style="font-size:9px; padding:1px 5px; background:var(--bg-hover); color:var(--text-muted); border-radius:3px;">${escapeHtml(t)}</span>`
+        ).join(' ');
+        item.innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:6px;">
+            <div style="flex:1; min-width:0;">
+              <div style="font-weight:600; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(p.name)}${p.isBuiltin ? ' <span style="font-size:9px; padding:1px 4px; background:var(--success); color:var(--bg-dark); border-radius:3px;">BUILT-IN</span>' : ''}</div>
+              <div style="font-size:10px; color:var(--text-dim); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(p.category || 'General')}</div>
+              <div style="font-size:10px; color:var(--text-muted); margin-top:3px; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; word-break:break-word;">${escapeHtml(p.text)}</div>
+              <div style="display:flex; gap:4px; flex-wrap:wrap; margin-top:4px;">${tagsHtml}</div>
+            </div>
+            <button class="btn" data-insert-prompt="${escapeHtml(p.id)}" title="Insert into chat input" style="padding:3px 8px; font-size:11px; background:var(--success); flex-shrink:0;">↧</button>
+          </div>
+        `;
+        container.appendChild(item);
+      });
+    }
+
+    function insertPromptIntoChat(promptId) {
+      const p = findPrompt(promptId);
+      if (!p) return;
+      const input = document.getElementById('chatInput');
+      if (!input) return;
+      if (!input.value) {
+        input.value = p.text;
+      } else {
+        const start = input.selectionStart ?? input.value.length;
+        const end = input.selectionEnd ?? start;
+        const before = input.value.slice(0, start);
+        const after = input.value.slice(end);
+        const sepBefore = before && !/\s$/.test(before) ? ' ' : '';
+        const sepAfter = after && !/^\s/.test(after) ? ' ' : '';
+        input.value = before + sepBefore + p.text + sepAfter + after;
+        const caret = (before + sepBefore + p.text).length;
+        input.selectionStart = input.selectionEnd = caret;
+      }
+      input.focus();
+      closePromptLibrary();
+      logActivity(`Inserted prompt "${p.name}" into chat input`, 'success');
+    }
+
+    function openPromptLibrary() {
+      renderPromptList();
+      resetPromptForm();
+      document.getElementById('promptLibraryModal').classList.add('active');
+    }
+
+    function closePromptLibrary() {
+      document.getElementById('promptLibraryModal').classList.remove('active');
+    }
+
+    function setPromptStatus(msg, color = 'var(--text-dim)') {
+      const status = document.getElementById('promptLibStatus');
+      if (status) {
+        status.textContent = msg;
+        status.style.color = color;
+      }
+    }
+
+    function highlightPromptItem(promptId) {
+      document.querySelectorAll('#promptList > div').forEach(el => {
+        el.style.borderColor = 'var(--border-color)';
+      });
+      const active = document.querySelector(`#promptList > div[data-prompt-id="${CSS.escape(promptId)}"]`);
+      if (active) active.style.borderColor = 'var(--accent-blue)';
+    }
+
+    function showPromptForm(prompt) {
+      const form = document.getElementById('promptForm');
+      const emptyState = document.getElementById('promptEmptyState');
+      emptyState.style.display = 'none';
+      form.style.display = 'flex';
+
+      document.getElementById('promptName').value = prompt.name || '';
+      document.getElementById('promptTags').value = (prompt.tags || []).join(', ');
+      document.getElementById('promptCategory').value = prompt.category || 'General';
+      document.getElementById('promptText').value = prompt.text || '';
+
+      const deleteBtn = document.getElementById('btnDeletePrompt');
+      if (prompt.isBuiltin) {
+        deleteBtn.disabled = true;
+        deleteBtn.style.opacity = '0.4';
+        deleteBtn.title = 'Built-in prompts cannot be deleted';
+        setPromptStatus('Built-in prompt — saving stores an editable copy.', 'var(--warning)');
+      } else {
+        deleteBtn.disabled = false;
+        deleteBtn.style.opacity = '1';
+        deleteBtn.title = 'Delete this prompt';
+        setPromptStatus('');
+      }
+    }
+
+    function selectPromptForEdit(promptId, sourceEl) {
+      const p = findPrompt(promptId);
+      if (!p) return;
+      const form = document.getElementById('promptForm');
+      form.dataset.promptId = p.id;
+      form.dataset.isBuiltin = p.isBuiltin ? 'true' : 'false';
+      showPromptForm(p);
+      if (sourceEl) {
+        document.querySelectorAll('#promptList > div').forEach(el => el.style.borderColor = 'var(--border-color)');
+        sourceEl.style.borderColor = 'var(--accent-blue)';
+      } else {
+        highlightPromptItem(p.id);
+      }
+    }
+
+    function resetPromptForm() {
+      const form = document.getElementById('promptForm');
+      form.dataset.promptId = '';
+      form.dataset.isBuiltin = 'false';
+      form.style.display = 'none';
+      document.getElementById('promptEmptyState').style.display = 'block';
+      document.getElementById('btnDeletePrompt').disabled = false;
+      document.getElementById('btnDeletePrompt').style.opacity = '1';
+      setPromptStatus('');
+      highlightPromptItem(null);
+    }
+
+    function savePromptFromChatInput() {
+      const chatInput = document.getElementById('chatInput');
+      const current = chatInput ? chatInput.value.trim() : '';
+      if (!current) {
+        setPromptStatus('Chat input is empty — type something to save first.', 'var(--warning)');
+        return;
+      }
+      const form = document.getElementById('promptForm');
+      form.dataset.promptId = '';
+      form.dataset.isBuiltin = 'false';
+      showPromptForm({
+        name: current.length > 48 ? current.slice(0, 48).trim() + '…' : current,
+        text: current,
+        tags: [],
+        category: 'General',
+        isBuiltin: false
+      });
+      document.getElementById('promptName').focus();
+      document.getElementById('promptName').select();
+      setPromptStatus('Name it, then Save to keep this prompt.', 'var(--accent-blue)');
+    }
+
+    function savePrompt() {
+      const form = document.getElementById('promptForm');
+      const promptId = form.dataset.promptId;
+      const isBuiltinEdit = form.dataset.isBuiltin === 'true';
+
+      const name = document.getElementById('promptName').value.trim();
+      const text = document.getElementById('promptText').value.trim();
+
+      if (!name) {
+        alert('Prompt name is required.');
+        return;
+      }
+      if (!text) {
+        alert('Prompt text is required.');
+        return;
+      }
+
+      const existing = promptId ? findPrompt(promptId) : null;
+      const cleaned = sanitizePrompt({
+        id: isBuiltinEdit ? null : (existing && !existing.isBuiltin ? existing.id : null),
+        name,
+        text,
+        tags: document.getElementById('promptTags').value,
+        category: document.getElementById('promptCategory').value,
+        createdAt: existing && !existing.isBuiltin ? existing.createdAt : null
+      });
+
+      appState.prompts = appState.prompts || [];
+      appState.prompts = appState.prompts.filter(p => p.id !== cleaned.id);
+      appState.prompts.push(cleaned);
+      saveAppState();
+
+      renderPromptList();
+      selectPromptForEdit(cleaned.id);
+      logActivity(`Prompt "${cleaned.name}" saved`, 'success');
+    }
+
+    function duplicatePrompt(promptId) {
+      const p = findPrompt(promptId);
+      if (!p) return;
+      const copy = sanitizePrompt({
+        name: p.name + ' (copy)',
+        text: p.text,
+        tags: p.tags,
+        category: p.category
+      });
+      appState.prompts = appState.prompts || [];
+      appState.prompts.push(copy);
+      saveAppState();
+      renderPromptList();
+      selectPromptForEdit(copy.id);
+      logActivity(`Prompt duplicated as "${copy.name}"`, 'success');
+    }
+
+    function deletePrompt(promptId) {
+      const p = findPrompt(promptId);
+      if (!p) return;
+      if (p.isBuiltin) {
+        alert('Built-in prompts cannot be deleted.');
+        return;
+      }
+      if (!confirm(`Delete prompt "${p.name}"?`)) return;
+      appState.prompts = (appState.prompts || []).filter(x => x.id !== promptId);
+      saveAppState();
+      renderPromptList();
+      resetPromptForm();
+      logActivity(`Prompt "${p.name}" deleted`, 'warning');
+    }
+
+    function exportPromptLibrary() {
+      try {
+        const payload = {
+          appName: 'FlamingoCode',
+          type: 'prompt-library',
+          version: 1,
+          exportedAt: new Date().toISOString(),
+          prompts: allPrompts()
+        };
+        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'flamingocode-prompt-library-' + new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-') + '.json';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        setPromptStatus(`Exported ${payload.prompts.length} prompts.`, 'var(--success)');
+        logActivity(`Prompt library exported (${payload.prompts.length} prompts)`, 'success');
+      } catch (err) {
+        setPromptStatus('Export failed: ' + err.message, 'var(--danger)');
+        logActivity('Prompt library export failed: ' + err.message, 'error');
+      }
+    }
+
+    function importPromptLibrary(file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const parsed = JSON.parse(e.target.result);
+          const list = Array.isArray(parsed) ? parsed
+            : (parsed && typeof parsed === 'object' && Array.isArray(parsed.prompts) ? parsed.prompts : null);
+          if (!list) throw new Error('Not a prompt library file (expected { "prompts": [...] })');
+
+          const keyOf = (p) => String(p.name || '').trim().toLowerCase() + '::' + String(p.text || '').trim();
+          const seen = new Set(allPrompts().map(keyOf));
+          let added = 0, skipped = 0;
+          appState.prompts = appState.prompts || [];
+
+          list.forEach(raw => {
+            if (!raw || typeof raw !== 'object' || !String(raw.name || '').trim() || !String(raw.text || '').trim()) {
+              skipped++;
+              return;
+            }
+            const key = keyOf(raw);
+            if (seen.has(key)) {
+              skipped++;
+              return;
+            }
+            seen.add(key);
+            appState.prompts.push(sanitizePrompt({ ...raw, id: null }));
+            added++;
+          });
+
+          saveAppState();
+          renderPromptList();
+          const msg = `Import complete: ${added} added, ${skipped} skipped (duplicates or invalid).`;
+          setPromptStatus(msg, 'var(--success)');
+          logActivity(msg, 'success');
+        } catch (err) {
+          setPromptStatus('Import failed: ' + err.message, 'var(--danger)');
+          logActivity('Prompt library import failed: ' + err.message, 'error');
+        }
+      };
+      reader.onerror = () => setPromptStatus('Failed to read file.', 'var(--danger)');
+      reader.readAsText(file);
+    }
+
+    function setupPromptLibraryHandlers() {
+      document.getElementById('btnOpenPromptLibrary').onclick = openPromptLibrary;
+      document.getElementById('btnClosePromptLibrary').onclick = closePromptLibrary;
+      document.getElementById('promptLibraryModal').addEventListener('click', (e) => {
+        if (e.target === e.currentTarget) closePromptLibrary();
+      });
+
+      document.getElementById('btnSaveCurrentInput').onclick = savePromptFromChatInput;
+      document.getElementById('btnCancelPrompt').onclick = resetPromptForm;
+      document.getElementById('promptForm').onsubmit = (e) => {
+        e.preventDefault();
+        savePrompt();
+      };
+      document.getElementById('btnInsertPrompt').onclick = () => {
+        const form = document.getElementById('promptForm');
+        if (form.dataset.promptId) {
+          insertPromptIntoChat(form.dataset.promptId);
+        } else {
+          savePrompt();
+          if (form.dataset.promptId) insertPromptIntoChat(form.dataset.promptId);
+        }
+      };
+      document.getElementById('btnDuplicatePrompt').onclick = () => {
+        const promptId = document.getElementById('promptForm').dataset.promptId;
+        if (promptId) duplicatePrompt(promptId);
+      };
+      document.getElementById('btnDeletePrompt').onclick = () => {
+        const promptId = document.getElementById('promptForm').dataset.promptId;
+        if (promptId) deletePrompt(promptId);
+      };
+
+      // One-click insert straight from a list card
+      document.getElementById('promptList').addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-insert-prompt]');
+        if (btn) insertPromptIntoChat(btn.dataset.insertPrompt);
+      });
+
+      document.getElementById('promptSearchInput').addEventListener('input', (e) => {
+        promptLibFilter.q = e.target.value;
+        renderPromptList();
+      });
+      document.getElementById('promptTagFilter').addEventListener('change', (e) => {
+        promptLibFilter.tag = e.target.value;
+        renderPromptList();
+      });
+      document.getElementById('promptCategoryFilter').addEventListener('change', (e) => {
+        promptLibFilter.category = e.target.value;
+        renderPromptList();
+      });
+
+      document.getElementById('btnExportPrompts').onclick = exportPromptLibrary;
+      document.getElementById('btnImportPrompts').onclick = () => document.getElementById('promptImportFile').click();
+      document.getElementById('promptImportFile').addEventListener('change', (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (file) importPromptLibrary(file);
+        e.target.value = '';
       });
     }
 
