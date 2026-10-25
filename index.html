@@ -3924,6 +3924,18 @@ WORK STYLE:
           enabled: true,
           chain: [],
           cooldowns: {},
+          cooldownMs: 60000,
+          primaryProviderId: null,          // The preferred/primary provider (first in chain)
+          primaryCooldownUntil: null,       // When primary is expected to recover
+          turnScopedEnabled: true           // Try primary on each new user turn
+        };
+      }
+      // Initialize auxiliary task fallback chain (for summarization, titling, compression)
+      if (!appState.auxProviderFallbackChain) {
+        appState.auxProviderFallbackChain = {
+          enabled: true,
+          chain: [],
+          cooldowns: {},
           cooldownMs: 60000
         };
       }
@@ -8499,6 +8511,13 @@ Links: [[Brain Index]]
         return aOrder - bOrder;
       });
       appState.providerFallbackChain.chain = freeProviders.map(p => p.id);
+      // Set primary provider (first in chain)
+      if (freeProviders.length > 0) {
+        appState.providerFallbackChain.primaryProviderId = freeProviders[0].id;
+      }
+      // Build auxiliary chain: prefer cheapest/free providers, exclude the primary if it's paid
+      const auxProviders = freeProviders.filter(p => p.id !== appState.providerFallbackChain.primaryProviderId);
+      appState.auxProviderFallbackChain.chain = auxProviders.map(p => p.id);
       saveAppState();
     }
 
@@ -9413,16 +9432,97 @@ Links: [[Brain Index]]
         }
 
     // --- Provider Fallback Chain (Never-stuck routing) ---
-    async function callLLMWithFallback(messages) {
+    async function callLLMWithFallback(messages, options = {}) {
+      const { isAuxiliary = false, forcePrimary = false } = options;
+      
+      // Select the appropriate chain
+      const chainState = isAuxiliary 
+        ? appState.auxProviderFallbackChain 
+        : appState.providerFallbackChain;
+      
       // Check if fallback chain is enabled
-      if (!appState.providerFallbackChain?.enabled) {
+      if (!chainState?.enabled) {
         return callLLM(messages);
       }
       
-      const chain = appState.providerFallbackChain?.chain || [];
-      const cooldowns = appState.providerFallbackChain?.cooldowns || {};
-      const cooldownMs = appState.providerFallbackChain?.cooldownMs || 60000;
+      const chain = chainState?.chain || [];
+      const cooldowns = chainState?.cooldowns || {};
+      const cooldownMs = chainState?.cooldownMs || 60000;
       const now = Date.now();
+      
+      // For main chain: turn-scoped fallback - try primary on each new user turn
+      let primaryProviderId = null;
+      let primaryCooldownUntil = null;
+      if (!isAuxiliary) {
+        primaryProviderId = chainState.primaryProviderId;
+        primaryCooldownUntil = chainState.primaryCooldownUntil;
+        
+        // If turn-scoped enabled and primary exists, check if we should try it first
+        const turnScopedEnabled = chainState.turnScopedEnabled !== false;
+        const primaryAvailable = primaryProviderId && chain.includes(primaryProviderId);
+        const primaryRecovered = primaryCooldownUntil === null || primaryCooldownUntil <= now;
+        
+        if (turnScopedEnabled && primaryAvailable && (primaryRecovered || forcePrimary)) {
+          // Try primary provider first on this turn
+          const primaryProvider = appState.providers[primaryProviderId];
+          if (primaryProvider) {
+            try {
+              logActivity(`Turn-scoped: trying primary provider ${primaryProvider.name}`, 'info');
+              const result = await callLLM(messages, primaryProviderId);
+              
+              // Primary succeeded - clear its cooldown
+              if (primaryCooldownUntil && primaryCooldownUntil > now) {
+                chainState.primaryCooldownUntil = null;
+                delete cooldowns[primaryProviderId];
+                chainState.cooldowns = cooldowns;
+                saveAppState();
+                if (document.getElementById('providerFallbackChainList')) {
+                  renderProviderFallbackChain();
+                }
+                logActivity(`Primary provider ${primaryProvider.name} recovered`, 'success');
+              }
+              return result;
+            } catch (err) {
+              // Primary failed - put on cooldown and continue to fallback chain
+              const errorMsg = err.message || String(err);
+              const shouldFallback = 
+                errorMsg.includes('429') || 
+                errorMsg.includes('500') || 
+                errorMsg.includes('502') || 
+                errorMsg.includes('503') || 
+                errorMsg.includes('504') || 
+                errorMsg.includes('timeout') || 
+                errorMsg.includes('Empty response') || 
+                errorMsg.includes('Network/CORS Error') || 
+                errorMsg.includes('Request timeout') || 
+                errorMsg.includes('stream idle');
+              
+              if (shouldFallback) {
+                chainState.primaryCooldownUntil = now + cooldownMs;
+                cooldowns[primaryProviderId] = now + cooldownMs;
+                chainState.cooldowns = cooldowns;
+                saveAppState();
+                if (document.getElementById('providerFallbackChainList')) {
+                  renderProviderFallbackChain();
+                }
+                logActivity(`Primary ${primaryProvider.name} failed (${errorMsg.slice(0, 50)}) — trying fallback chain…`, 'warning');
+              } else {
+                throw err;
+              }
+            }
+          }
+        }
+        
+        // If primary is on cooldown, show when it's expected back
+        if (primaryCooldownUntil && primaryCooldownUntil > now) {
+          const remainingMs = primaryCooldownUntil - now;
+          const remainingSec = Math.ceil(remainingMs / 1000);
+          const mins = Math.floor(remainingSec / 60);
+          const secs = remainingSec % 60;
+          const timeStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+          logActivity(`Primary on cooldown — back in ${timeStr}`, 'info');
+        }
+      }
       
       // Filter out providers on cooldown
       const availableChain = chain.filter(id => {
@@ -9445,12 +9545,12 @@ Links: [[Brain Index]]
         if (!provider) continue;
         
         try {
-          logActivity(`Trying provider: ${provider.name} (${i + 1}/${availableChain.length})`, 'info');
+          logActivity(`Trying provider: ${provider.name} (${i + 1}/${availableChain.length})${isAuxiliary ? ' [aux]' : ''}`, 'info');
           const result = await callLLM(messages, providerId);
           
           // Success - if we used a fallback provider, log it
           if (i > 0) {
-            logActivity(`Fallback succeeded with ${provider.name}`, 'success');
+            logActivity(`Fallback succeeded with ${provider.name}${isAuxiliary ? ' (aux)' : ''}`, 'success');
           }
           return result;
         } catch (err) {
@@ -9473,7 +9573,7 @@ Links: [[Brain Index]]
           if (shouldFallback && i < availableChain.length - 1) {
             // Put this provider on cooldown
             cooldowns[providerId] = now + cooldownMs;
-            appState.providerFallbackChain.cooldowns = cooldowns;
+            chainState.cooldowns = cooldowns;
             saveAppState();
             
             const nextProvider = appState.providers[availableChain[i + 1]];
@@ -10416,83 +10516,98 @@ CURRENT VIRTUAL FILES:
     }
 
     // Compress conversation history when it exceeds 60% of context window
-    // Summarizes older turns into notes.md, keeps digest + summary + last 8 turns
-    function maybeCompressHistory(session) {
-      const provider = appState.providers[appState.activeProviderId];
-      const contextWindow = provider?.contextWindow || 128000;
-      const compressionThreshold = Math.floor(contextWindow * 0.60); // 60% threshold
-      
-      // Build current context to estimate tokens
-      const testContext = buildSystemContextWithGuard();
-      const contextTokens = estimateTokens(testContext);
-      
-      // Estimate history tokens
-      const sanitizedHistory = sanitizeHistoryForReplay(session.chatHistory);
-      const historyText = JSON.stringify(sanitizedHistory);
-      const historyTokens = estimateTokens(historyText);
-      
-      const totalEstimatedTokens = contextTokens + historyTokens;
-      
-      if (totalEstimatedTokens > compressionThreshold && sanitizedHistory.length > 10) {
-        // Need to compress - summarize older turns (keep last 8)
-        const keepTurns = 8;
-        const olderTurns = sanitizedHistory.slice(0, -keepTurns);
-        const recentTurns = sanitizedHistory.slice(-keepTurns);
-        
-        if (olderTurns.length === 0) return; // Nothing to compress
-        
-        // Create summary of older turns
-        const summaryPrompt = `Summarize the following conversation history into a concise paragraph. Focus on: key decisions made, files created/modified, problems solved, and current project state. Be specific but brief.
+        // Summarizes older turns into notes.md, keeps digest + summary + last 8 turns
+        async function maybeCompressHistory(session) {
+          const provider = appState.providers[appState.activeProviderId];
+          const contextWindow = provider?.contextWindow || 128000;
+          const compressionThreshold = Math.floor(contextWindow * 0.60); // 60% threshold
 
-${JSON.stringify(olderTurns, null, 2)}`;
-        
-        // For now, create a simple text summary (in production would call LLM)
-        let summary = `## Conversation Summary (${new Date().toISOString().split('T')[0]})\n\n`;
-        summary += `Compressed ${olderTurns.length} older turns. Key points:\n`;
-        
-        // Extract key info from older turns
-        const userTurns = olderTurns.filter(m => m.role === 'user');
-        const agentTurns = olderTurns.filter(m => m.role === 'assistant');
-        
-        summary += `- ${userTurns.length} user requests, ${agentTurns.length} agent responses\n`;
-        
-        // Note files modified
-        const fileBlocks = olderTurns.flatMap(m => {
-          const matches = m.content?.match(/```file:([^\n]+)/g) || [];
-          return matches.map(match => match.replace('```file:', ''));
-        });
-        if (fileBlocks.length > 0) {
-          summary += `- Files touched: ${[...new Set(fileBlocks)].join(', ')}\n`;
+          // Build current context to estimate tokens
+          const testContext = buildSystemContextWithGuard();
+          const contextTokens = estimateTokens(testContext);
+
+          // Estimate history tokens
+          const sanitizedHistory = sanitizeHistoryForReplay(session.chatHistory);
+          const historyText = JSON.stringify(sanitizedHistory);
+          const historyTokens = estimateTokens(historyText);
+
+          const totalEstimatedTokens = contextTokens + historyTokens;
+
+          if (totalEstimatedTokens > compressionThreshold && sanitizedHistory.length > 10) {
+            // Need to compress - summarize older turns (keep last 8)
+            const keepTurns = 8;
+            const olderTurns = sanitizedHistory.slice(0, -keepTurns);
+            const recentTurns = sanitizedHistory.slice(-keepTurns);
+
+            if (olderTurns.length === 0) return; // Nothing to compress
+
+            // Create summary of older turns using auxiliary fallback chain
+            const summaryPrompt = `Summarize the following conversation history into a concise paragraph. Focus on: key decisions made, files created/modified, problems solved, and current project state. Be specific but brief.
+
+    ${JSON.stringify(olderTurns, null, 2)}`;
+
+            let summary = '';
+            try {
+              // Use auxiliary fallback chain for summarization (cheap/free model for side work)
+              const result = await callLLMWithFallback([
+                { role: 'system', content: 'You are a concise summarizer. Output only the summary paragraph, no extra commentary.' },
+                { role: 'user', content: summaryPrompt }
+              ], { isAuxiliary: true, maxTokens: 500, temperature: 0.3 });
+              summary = result.content || '';
+            } catch (e) {
+              logActivity(`Auxiliary summarization failed, using fallback summary: ${e.message}`, 'warning');
+              // Fallback to simple text summary
+              summary = `Compressed ${olderTurns.length} older turns. Key points:\n`;
+              const userTurns = olderTurns.filter(m => m.role === 'user');
+              const agentTurns = olderTurns.filter(m => m.role === 'assistant');
+              summary += `- ${userTurns.length} user requests, ${agentTurns.length} agent responses\n`;
+            }
+
+            if (!summary) {
+              // Ultimate fallback if LLM returned empty
+              const userTurns = olderTurns.filter(m => m.role === 'user');
+              const agentTurns = olderTurns.filter(m => m.role === 'assistant');
+              summary = `Compressed ${olderTurns.length} older turns. Key points:\n`;
+              summary += `- ${userTurns.length} user requests, ${agentTurns.length} agent responses\n`;
+            }
+
+            // Extract files touched
+            const fileBlocks = olderTurns.flatMap(m => {
+              const matches = m.content?.match(/```file:([^\n]+)/g) || [];
+              return matches.map(match => match.replace('```file:', ''));
+            });
+            if (fileBlocks.length > 0) {
+              summary += `- Files touched: ${[...new Set(fileBlocks)].join(', ')}\n`;
+            }
+
+            const fullSummary = `## Conversation Summary (${new Date().toISOString().split('T')[0]})\n\n${summary}\n\n---\n`;
+
+            // Append to notes.md
+            const notesPath = '.devforge/notes.md';
+            const existingNotes = session.files[notesPath] || '';
+            // Find the "## Conversation Summaries" section and insert after it
+            const insertMarker = '## Conversation Summaries';
+            let newNotes = existingNotes;
+
+            if (existingNotes.includes(insertMarker)) {
+              const idx = existingNotes.indexOf(insertMarker) + insertMarker.length;
+              newNotes = existingNotes.slice(0, idx) + '\n\n' + fullSummary + existingNotes.slice(idx);
+            } else {
+              newNotes = existingNotes + '\n\n' + fullSummary;
+            }
+
+            session.files[notesPath] = newNotes;
+
+            // Replace chat history with compressed version
+            session.chatHistory = [
+              { role: 'system', content: `[COMPRESSED HISTORY] ${fullSummary}` },
+              ...recentTurns
+            ];
+
+            logActivity(`Compressed ${olderTurns.length} chat turns into notes.md (saved ~${historyTokens - estimateTokens(JSON.stringify(session.chatHistory))} tokens)`, 'success');
+            saveAppState();
+          }
         }
-        
-        summary += `\n---\n`;
-        
-        // Append to notes.md
-        const notesPath = '.devforge/notes.md';
-        const existingNotes = session.files[notesPath] || '';
-        // Find the "## Conversation Summaries" section and insert after it
-        const insertMarker = '## Conversation Summaries';
-        let newNotes = existingNotes;
-        
-        if (existingNotes.includes(insertMarker)) {
-          const idx = existingNotes.indexOf(insertMarker) + insertMarker.length;
-          newNotes = existingNotes.slice(0, idx) + '\n\n' + summary + existingNotes.slice(idx);
-        } else {
-          newNotes = existingNotes + '\n\n' + summary;
-        }
-        
-        session.files[notesPath] = newNotes;
-        
-        // Replace chat history with compressed version
-        session.chatHistory = [
-          { role: 'system', content: `[COMPRESSED HISTORY] ${summary}` },
-          ...recentTurns
-        ];
-        
-        logActivity(`Compressed ${olderTurns.length} chat turns into notes.md (saved ~${historyTokens - estimateTokens(JSON.stringify(session.chatHistory))} tokens)`, 'success');
-        saveAppState();
-      }
-    }
 
     // Small-request discipline: enforce per-request token budget (~8K default)
 // Trims in priority: brain digest > current step > current file > outlines > recent turns
@@ -10590,6 +10705,25 @@ async function sendAgentPrompt(userPrompt, autoTurn = 0) {
       if (autoTurn === 0) {
         appendChatMessage('user', userPrompt);
         session.chatHistory.push({ role: 'user', content: userPrompt });
+
+        // Auto-title session from first user message if using default name
+        if (session.name.startsWith('Session ')) {
+          try {
+            const titlePrompt = `Generate a short, descriptive title (max 5 words) for a coding session based on this first user request:\n\n"${userPrompt}"\n\nOutput only the title, no quotes, no extra text.`;
+            const result = await callLLMWithFallback([
+              { role: 'system', content: 'You generate concise session titles. Output only the title, max 5 words.' },
+              { role: 'user', content: titlePrompt }
+            ], { isAuxiliary: true, maxTokens: 30, temperature: 0.3 });
+            const title = result.content?.trim();
+            if (title && title.length > 0 && title.length < 50) {
+              session.name = title;
+              renderSessionPicker();
+              logActivity(`Session auto-titled: "${title}" (auxiliary model)`, 'info');
+            }
+          } catch (e) {
+            logActivity(`Auto-title failed: ${e.message}`, 'warning');
+          }
+        }
       }
 
       // Handle Plan mode - generate plan only, no file changes
@@ -10701,7 +10835,7 @@ async function sendAgentPrompt(userPrompt, autoTurn = 0) {
         messages = enforceRequestBudget(messages, session);
 
         logActivity('Calling ' + appState.providers[appState.activeProviderId].name + ' (' + appState.providers[appState.activeProviderId].model + ')...', 'info');
-        const reply = await callLLMWithFallback(messages);
+        const reply = await callLLMWithFallback(messages, { forcePrimary: autoTurn === 0 });
 
         session.chatHistory.push({ role: 'assistant', content: reply });
 
@@ -12397,28 +12531,57 @@ Format:
       const list = document.getElementById('providerFallbackChainList');
       const toggle = document.getElementById('providerFallbackEnabledToggle');
       if (!list) return;
-      
+
       if (toggle) {
         toggle.checked = appState.providerFallbackChain?.enabled ?? true;
       }
-      
+
       list.innerHTML = '';
       const chain = appState.providerFallbackChain?.chain || [];
       const cooldowns = appState.providerFallbackChain?.cooldowns || {};
+      const primaryProviderId = appState.providerFallbackChain?.primaryProviderId;
+      const primaryCooldownUntil = appState.providerFallbackChain?.primaryCooldownUntil;
       const now = Date.now();
-      
+
       if (chain.length === 0) {
         list.innerHTML = '<div style="font-size: 11px; color: var(--text-dim); padding: 8px; text-align: center;">No free providers configured. Add free providers (DuckDuckGo, Pollinations, etc.) to enable fallback.</div>';
         return;
       }
-      
+
+      // Show primary recovery info at top if primary is on cooldown
+      if (primaryProviderId && primaryCooldownUntil && primaryCooldownUntil > now) {
+        const remainingMs = primaryCooldownUntil - now;
+        const remainingSec = Math.ceil(remainingMs / 1000);
+        const mins = Math.floor(remainingSec / 60);
+        const secs = remainingSec % 60;
+        const hours = Math.floor(mins / 60);
+        const displayMins = mins % 60;
+        let timeStr = '';
+        if (hours > 0) timeStr = `${hours}h ${displayMins}m`;
+        else if (mins > 0) timeStr = `${mins}m ${secs}s`;
+        else timeStr = `${secs}s`;
+
+        const primaryProvider = appState.providers[primaryProviderId];
+        const primaryName = primaryProvider ? primaryProvider.name : 'Primary';
+
+        const infoItem = document.createElement('div');
+        infoItem.style.cssText = 'display:flex; align-items:center; gap:8px; padding:6px 8px; background:var(--accent-glow); border:1px solid var(--accent-blue); border-radius:4px; margin-bottom:8px; font-size:11px;';
+        infoItem.innerHTML = `
+          <span style="color:var(--accent-blue);">⟳</span>
+          <span style="flex:1;">Primary <strong>${escapeHtml(primaryName)}</strong> on cooldown — back in <strong>${timeStr}</strong></span>
+          <span style="font-size:9px; color:var(--text-dim);">Will retry on next user message</span>
+        `;
+        list.appendChild(infoItem);
+      }
+
       chain.forEach((providerId, index) => {
         const provider = appState.providers[providerId];
         if (!provider) return;
-        
+
         const isOnCooldown = cooldowns[providerId] && cooldowns[providerId] > now;
         const cooldownRemaining = isOnCooldown ? Math.ceil((cooldowns[providerId] - now) / 1000) : 0;
-        
+        const isPrimary = providerId === primaryProviderId;
+
         const item = document.createElement('div');
         item.style.cssText = 'display:flex; align-items:center; gap:8px; padding:6px 8px; background:var(--bg-surface); border:1px solid var(--border-color); border-radius:4px;';
         item.innerHTML = `
@@ -12427,12 +12590,12 @@ Format:
             <span style="font-weight:600; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(provider.name)}</span>
             <span style="font-size:9px; color:var(--text-dim);">(${escapeHtml(provider.type)})</span>
             ${isOnCooldown ? `<span style="font-size:9px; background:var(--warning); color:var(--bg-dark); padding:1px 4px; border-radius:3px;">Cooldown ${cooldownRemaining}s</span>` : ''}
-            ${index === 0 ? '<span style="font-size:9px; background:var(--accent-glow); color:var(--accent-blue); padding:1px 4px; border-radius:3px;">Primary</span>' : ''}
+            ${isPrimary ? '<span style="font-size:9px; background:var(--accent-glow); color:var(--accent-blue); padding:1px 4px; border-radius:3px;">Primary</span>' : ''}
           </div>
           <div style="display:flex; gap:4px;">
             ${index > 0 ? `<button class="btn btn-secondary" onclick="moveFallbackChainItem('${providerId}', 'up')" style="padding:2px 6px; font-size:9px;">↑</button>` : '<span style="width:24px;"></span>'}
             ${index < chain.length - 1 ? `<button class="btn btn-secondary" onclick="moveFallbackChainItem('${providerId}', 'down')" style="padding:2px 6px; font-size:9px;">↓</button>` : '<span style="width:24px;"></span>'}
-            <button class="btn btn-secondary" onclick="toggleFallbackChainItem('${providerId}')" style="padding:2px 6px; font-size:9px; color:${chain.includes(providerId) ? 'var(--text-main)' : 'var(--text-dim)'};" title="Enable/Disable in chain">${chain.includes(providerId) ? '✓' : '✗'}</button>
+            <button class="btn btn-secondary" onclick="toggleFallbackChainItem('${providerId}')" style="padding:2px 6px; font-size:9px; color:${(chain.includes(providerId) ? 'var(--text-main)' : 'var(--text-dim)')};" title="Enable/Disable in chain">${chain.includes(providerId) ? '✓' : '✗'}</button>
             ${!provider.isPreset ? `<button class="btn btn-secondary" onclick="removeFromFallbackChain('${providerId}')" style="padding:2px 6px; font-size:9px; color:var(--danger); border-color:var(--danger);" title="Remove from chain">✕</button>` : ''}
           </div>
         `;
