@@ -511,6 +511,8 @@
     }
     .action-chip.delete { color: var(--danger); }
     .action-chip.browse { color: var(--warning); }
+    .action-chip.read { color: var(--success); }
+    .action-chip.batch { color: var(--accent-purple); background: var(--accent-purple)15; border-color: var(--accent-purple)40; }
 
     /* Citation links in codebase chat */
     .citation-link {
@@ -2111,6 +2113,19 @@
           </label>
         </div>
         <hr style="border: none; border-top: 1px solid var(--border-color); margin: 12px 0;">
+        <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;" data-i18n="Atomic Batches">Atomic Batches</div>
+        <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 8px;" data-i18n="When ON, multiple file operations in one agent reply are reported as a single summary chip (files changed, lines, problems) instead of individual chips.">When ON, multiple file operations in one agent reply are reported as a single summary chip (files changed, lines, problems) instead of individual chips.</div>
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+          <div style="flex: 1; min-width: 0;">
+            <div style="font-weight: 600; font-size: 12px; color: var(--text-main);" data-i18n="Compact summary mode">Compact summary mode</div>
+            <div style="font-size: 10px; color: var(--text-dim); margin-top: 2px;" data-i18n="Report a single batch summary instead of per-file chips.">Report a single batch summary instead of per-file chips.</div>
+          </div>
+          <label class="toggle-switch" style="cursor: pointer; flex-shrink: 0;">
+            <input type="checkbox" id="atomicBatchToggleSettings" style="display: none;" />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <hr style="border: none; border-top: 1px solid var(--border-color); margin: 12px 0;">
         <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;" data-i18n="Prompt Enhancer">Prompt Enhancer</div>
         <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 8px;" data-i18n="When ON, short prompts are automatically expanded into full build specs before sending. When OFF, use the ✨ button manually.">When ON, short prompts are automatically expanded into full build specs before sending. When OFF, use the ✨ button manually.</div>
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
@@ -3534,6 +3549,9 @@ WORK STYLE:
         'Diff Review': 'ডিফ রিভিউ',
         'Review changes before applying': 'প্রযোজনের আগে পরিবর্তন রিভিউ করুন',
         'Toggle OFF to auto-apply agent changes immediately (legacy behavior).': 'OFF টগল করলে এজেন্ট পরিবর্তন অবিলম্বে প্রযোজ্য হবে (লিগ্যাসি আচরণ)।',
+        'Atomic Batches': 'এটোমিক ব্যাচ',
+        'Compact summary mode': 'সংক্ষিপ্ত সারাংশ মোড',
+        'When ON, multiple file operations in one agent reply are reported as a single summary chip (files changed, lines, problems) instead of individual chips.': 'ON হলে, একটি এজেন্ট রিপ্লাই-এ একাধিক ফাইল অপারেশন পৃথক চিপের বদলে একক সারাংশ চিপ (ফাইল পরিবর্তন, লাইন, সমস্যা) হিসেবে দেখানো হবে।',
         'Prompt Enhancer': 'প্রম্পট এনহ্যান্সার',
         'Auto-enhance short prompts': 'সংক্ষিপ্ত প্রম্পট অটো-বর্ধন করুন',
         'When ON, short prompts are automatically expanded into full build specs before sending. When OFF, use the ✨ button manually.': 'ON হলে, সংক্ষিপ্ত প্রম্পট পাঠানোর আগে স্বয়ংক্রিয়ভাবে পূর্ণ বিল্ড স্পেসে রূপান্তরিত হয়। OFF হলে, ✨ বোতাম ম্যানুয়ালি ব্যবহার করুন।',
@@ -3948,6 +3966,8 @@ WORK STYLE:
       // Diff Review state
       diffReviewEnabled: true,  // Default ON
       pendingChanges: null,     // { responseText, changes: [{type, path, oldContent, newContent, action}] }
+      // Atomic Batches (H2.5): batch multiple file ops under one checkpoint, compact summary
+      atomicBatchMode: false,   // When ON, report single summary chip instead of per-file chips
       // Preview Health / self-healing loop state
       previewAutoFix: false,    // Auto-fix preview errors via the agent (cap 5 cycles)
       // Prompt Enhancer state
@@ -7903,6 +7923,17 @@ Links: [[Brain Index]]
         };
       }
 
+      // Atomic Batches toggle
+      const atomicBatchToggle = document.getElementById('atomicBatchToggleSettings');
+      if (atomicBatchToggle) {
+        atomicBatchToggle.checked = appState.atomicBatchMode === true;
+        atomicBatchToggle.onchange = (e) => {
+          appState.atomicBatchMode = e.target.checked;
+          saveAppState();
+          logActivity(e.target.checked ? 'Atomic batches (compact summary) enabled' : 'Atomic batches disabled', 'info');
+        };
+      }
+
       // Auto-Enhance toggle
       const autoEnhanceToggle = document.getElementById('autoEnhanceToggleSettings');
       if (autoEnhanceToggle) {
@@ -10741,8 +10772,21 @@ CURRENT VIRTUAL FILES:
         if (chips.length > 0) {
           html += '<div style="margin-top:6px;">';
           chips.forEach(c => {
-            const cls = c.type === 'delete' ? 'delete' : c.type === 'browse' ? 'browse' : '';
-            const icon = c.type === 'delete' ? '🗑️' : c.type === 'browse' ? '🌐' : '📁';
+            let cls = '';
+            let icon = '📁';
+            if (c.type === 'delete') {
+              cls = 'delete';
+              icon = '🗑️';
+            } else if (c.type === 'browse') {
+              cls = 'browse';
+              icon = '🌐';
+            } else if (c.type === 'read') {
+              cls = 'read';
+              icon = '📖';
+            } else if (c.type === 'batch') {
+              cls = 'batch';
+              icon = '📦';
+            }
             html += `<div class="action-chip ${cls}">${icon} <span>${escapeHtml(c.label)}</span></div> `;
           });
           html += '</div>';
@@ -10959,119 +11003,148 @@ CURRENT VIRTUAL FILES:
         const { chips: otherChips, toolsUsed: otherTools } = parseAndCollectChanges(responseText);
         return { chips: otherChips, fileModified: false, toolsUsed: otherTools, noteReads };
       }
-      
-      // Legacy behavior: apply immediately
-      const chips = [];
-      const toolsUsed = [];
-      let fileModified = false;
-      const noteReads = []; // v2: notes fetched on demand via brain-read blocks
+  
+            // Legacy behavior: apply immediately
+            const chips = [];
+            const toolsUsed = [];
+            let fileModified = false;
+            const noteReads = []; // v2: notes fetched on demand via brain-read blocks
 
-      // Create checkpoint before applying any agent file changes
-      const hasFileBlocks = /```(file|delete):/.test(responseText);
-      if (hasFileBlocks) {
-        createCheckpoint('Agent edit');
-      }
+            // Create checkpoint before applying any agent file changes
+            const hasFileBlocks = /```(file|delete):/.test(responseText);
+            if (hasFileBlocks) {
+              createCheckpoint('Agent edit');
+            }
 
-      // Regex for fenced blocks: ```file:filename\ncontent```
-      const blockRegex = /```(file|delete|browse|brain-read|screenshot-to-app):([^\n]*)\n([\s\S]*?)```/g;
-      let match;
+            // Regex for fenced blocks: ```file:filename\ncontent```
+            const blockRegex = /```(file|delete|browse|brain-read|screenshot-to-app):([^\n]*)\n([\s\S]*?)```/g;
+            let match;
 
-      while ((match = blockRegex.exec(responseText)) !== null) {
-        const actionType = match[1];
-        const targetPath = match[2].trim();
-        const blockContent = match[3];
+            // Collect file operations for potential atomic batch summary (legacy path)
+            const fileOps = [];
 
-        // Safe Mode v2: Run approval ladder for destructive actions BEFORE executing
-        if (actionType === 'file' || actionType === 'delete') {
-          const actionDesc = actionType === 'delete' 
-            ? `Delete file: ${targetPath}`
-            : `Write file: ${targetPath}`;
+            while ((match = blockRegex.exec(responseText)) !== null) {
+              const actionType = match[1];
+              const targetPath = match[2].trim();
+              const blockContent = match[3];
+
+              // Safe Mode v2: Run approval ladder for destructive actions BEFORE executing
+              if (actionType === 'file' || actionType === 'delete') {
+                const actionDesc = actionType === 'delete' 
+                  ? `Delete file: ${targetPath}`
+                  : `Write file: ${targetPath}`;
           
-          const approval = await runApprovalLadder(actionDesc, actionType);
-          if (!approval.allowed) {
-            const msg = `🛑 BLOCKED by Safe Mode (${approval.decision.level}): ${approval.reason}`;
-            logActivity(msg, 'error');
-            chips.push({ type: 'blocked', label: `Blocked: ${targetPath} (${approval.decision.level})` });
-            continue; // Skip this action
-          }
-          if (approval.requiresUserInput && !approval.decision.approved) {
-            const msg = `🛑 DENIED by user: ${actionDesc}`;
-            logActivity(msg, 'warning');
-            chips.push({ type: 'blocked', label: `Denied: ${targetPath}` });
-            continue; // Skip this action
-          }
-          // Log approval decision for audit trail
-          if (approval.decision.level !== 'yolo') {
-            logActivity(`✅ Safe Mode approval: ${approval.decision.level} — ${actionDesc}`, 'info');
-          }
-        }
-
-        if (actionType === 'file') {
-          if (isBrainNotePath(targetPath)) {
-            // v2: writing an atomic note auto-updates .devforge/index.md
-            writeBrainNote(session, targetPath, blockContent);
-          } else {
-            session.files[targetPath] = blockContent;
-            // Gap 4 Fix: Mark graph dirty on file changes for incremental rebuild
-            markGraphDirty();
-            // Track agent modification for keep-my-edits restore
-            if (!session.fileMeta) session.fileMeta = {};
-            session.fileMeta[targetPath] = { lastModifiedBy: 'agent', timestamp: Date.now() };
-          }
-          fileModified = true;
-          const lineCount = blockContent.split('\n').length;
-          chips.push({ type: 'file', label: `Updated ${targetPath} (${lineCount} lines)` });
-          logActivity(`Agent updated ${targetPath} (${lineCount} lines)`, 'success');
-          toolsUsed.push({ name: 'file-write', type: 'skill' });
-        } else if (actionType === 'delete') {
-          delete session.files[targetPath];
-          if (isBrainNotePath(targetPath)) rebuildBrainIndex(session); // v2: index follows note deletions
-          // Gap 4 Fix: Mark graph dirty on file deletions for incremental rebuild
-          markGraphDirty();
-          // Track agent deletion for keep-my-edits restore
-          if (!session.fileMeta) session.fileMeta = {};
-          session.fileMeta[targetPath] = { lastModifiedBy: 'agent', timestamp: Date.now(), deleted: true };
-          fileModified = true;
-          chips.push({ type: 'delete', label: `Deleted ${targetPath}` });
-          logActivity(`Agent deleted ${targetPath}`, 'warning');
-          toolsUsed.push({ name: 'file-delete', type: 'skill' });
-        } else if (actionType === 'brain-read') {
-          // v2: on-demand retrieval by name — fetches ONLY the named note
-          const noteName = targetPath || blockContent.trim();
-          const noteContent = readBrainNote(noteName);
-          noteReads.push({ name: noteName, content: noteContent });
-          chips.push({ type: 'read', label: noteContent !== null ? `Read brain note "${noteName}"` : `Note "${noteName}" not found` });
-          toolsUsed.push({ name: 'brain-read', type: 'skill' });
-        } else if (actionType === 'browse') {
-          const url = targetPath || blockContent.trim();
-          document.getElementById('browserUrlInput').value = url;
-          document.getElementById('browserIframe').src = url;
-          chips.push({ type: 'browse', label: `Browsed to ${url}` });
-          logActivity(`Agent navigated browser to ${url}`, 'info');
-          toolsUsed.push({ name: 'browser', type: 'mcp' });
-        } else if (actionType === 'screenshot-to-app') {
-          // Screenshot-to-app tool: analyze screenshot and generate app
-          const prompt = targetPath || blockContent.trim();
-            window.toolScreenshotToApp({ prompt }).then(result => {
-              if (result.success) {
-                chips.push({ type: 'tool', label: `Screenshot-to-app: ${result.message}` });
-                logActivity('Screenshot-to-app: ' + result.message, 'success');
-                if (result.filesCreated && result.filesCreated.length > 0) {
-                  result.filesCreated.forEach(f => logActivity('  Created: ' + f, 'info'));
+                const approval = await runApprovalLadder(actionDesc, actionType);
+                if (!approval.allowed) {
+                  const msg = `🛑 BLOCKED by Safe Mode (${approval.decision.level}): ${approval.reason}`;
+                  logActivity(msg, 'error');
+                  chips.push({ type: 'blocked', label: `Blocked: ${targetPath} (${approval.decision.level})` });
+                  continue; // Skip this action
                 }
-                toolsUsed.push({ name: 'screenshot-to-app', type: 'skill' });
-              } else {
-                chips.push({ type: 'tool', label: `Screenshot-to-app failed: ${result.error}` });
-                logActivity('Screenshot-to-app error: ' + result.error, 'error');
-                toolsUsed.push({ name: 'screenshot-to-app', type: 'skill' });
+                if (approval.requiresUserInput && !approval.decision.approved) {
+                  const msg = `🛑 DENIED by user: ${actionDesc}`;
+                  logActivity(msg, 'warning');
+                  chips.push({ type: 'blocked', label: `Denied: ${targetPath}` });
+                  continue; // Skip this action
+                }
+                // Log approval decision for audit trail
+                if (approval.decision.level !== 'yolo') {
+                  logActivity(`✅ Safe Mode approval: ${approval.decision.level} — ${actionDesc}`, 'info');
+                }
               }
-            }).catch(err => {
-              chips.push({ type: 'tool', label: `Screenshot-to-app error: ${err.message}` });
-              logActivity('Screenshot-to-app error: ' + err.message, 'error');
-              toolsUsed.push({ name: 'screenshot-to-app', type: 'skill' });
-            });
-        }
-      }
+
+              if (actionType === 'file') {
+                if (isBrainNotePath(targetPath)) {
+                  // v2: writing an atomic note auto-updates .devforge/index.md
+                  writeBrainNote(session, targetPath, blockContent);
+                } else {
+                  session.files[targetPath] = blockContent;
+                  // Gap 4 Fix: Mark graph dirty on file changes for incremental rebuild
+                  markGraphDirty();
+                  // Track agent modification for keep-my-edits restore
+                  if (!session.fileMeta) session.fileMeta = {};
+                  session.fileMeta[targetPath] = { lastModifiedBy: 'agent', timestamp: Date.now() };
+                }
+                fileModified = true;
+                const lineCount = blockContent.split('\n').length;
+                fileOps.push({ type: 'modify', path: targetPath, lineCount });
+                logActivity(`Agent updated ${targetPath} (${lineCount} lines)`, 'success');
+                toolsUsed.push({ name: 'file-write', type: 'skill' });
+              } else if (actionType === 'delete') {
+                delete session.files[targetPath];
+                if (isBrainNotePath(targetPath)) rebuildBrainIndex(session); // v2: index follows note deletions
+                // Gap 4 Fix: Mark graph dirty on file deletions for incremental rebuild
+                markGraphDirty();
+                // Track agent deletion for keep-my-edits restore
+                if (!session.fileMeta) session.fileMeta = {};
+                session.fileMeta[targetPath] = { lastModifiedBy: 'agent', timestamp: Date.now(), deleted: true };
+                fileModified = true;
+                fileOps.push({ type: 'delete', path: targetPath, lineCount: 0 });
+                logActivity(`Agent deleted ${targetPath}`, 'warning');
+                toolsUsed.push({ name: 'file-delete', type: 'skill' });
+              } else if (actionType === 'brain-read') {
+                // v2: on-demand retrieval by name — fetches ONLY the named note
+                const noteName = targetPath || blockContent.trim();
+                const noteContent = readBrainNote(noteName);
+                noteReads.push({ name: noteName, content: noteContent });
+                chips.push({ type: 'read', label: noteContent !== null ? `Read brain note "${noteName}"` : `Note "${noteName}" not found` });
+                toolsUsed.push({ name: 'brain-read', type: 'skill' });
+              } else if (actionType === 'browse') {
+                const url = targetPath || blockContent.trim();
+                document.getElementById('browserUrlInput').value = url;
+                document.getElementById('browserIframe').src = url;
+                chips.push({ type: 'browse', label: `Browsed to ${url}` });
+                logActivity(`Agent navigated browser to ${url}`, 'info');
+                toolsUsed.push({ name: 'browser', type: 'mcp' });
+              } else if (actionType === 'screenshot-to-app') {
+                // Screenshot-to-app tool: analyze screenshot and generate app
+                const prompt = targetPath || blockContent.trim();
+                  window.toolScreenshotToApp({ prompt }).then(result => {
+                    if (result.success) {
+                      chips.push({ type: 'tool', label: `Screenshot-to-app: ${result.message}` });
+                      logActivity('Screenshot-to-app: ' + result.message, 'success');
+                      if (result.filesCreated && result.filesCreated.length > 0) {
+                        result.filesCreated.forEach(f => logActivity('  Created: ' + f, 'info'));
+                      }
+                      toolsUsed.push({ name: 'screenshot-to-app', type: 'skill' });
+                    } else {
+                      chips.push({ type: 'tool', label: `Screenshot-to-app failed: ${result.error}` });
+                      logActivity('Screenshot-to-app error: ' + result.error, 'error');
+                      toolsUsed.push({ name: 'screenshot-to-app', type: 'skill' });
+                    }
+                  }).catch(err => {
+                    chips.push({ type: 'tool', label: `Screenshot-to-app error: ${err.message}` });
+                    logActivity('Screenshot-to-app error: ' + err.message, 'error');
+                    toolsUsed.push({ name: 'screenshot-to-app', type: 'skill' });
+                  });
+              }
+            }
+
+            // Atomic Batches (H2.5): compact summary chip instead of per-file chips
+            if (appState.atomicBatchMode && fileOps.length > 1) {
+              const fileCount = fileOps.length;
+              const totalLines = fileOps.reduce((sum, op) => sum + op.lineCount, 0);
+              const creates = fileOps.filter(op => op.type === 'create').length;
+              const modifies = fileOps.filter(op => op.type === 'modify').length;
+              const deletes = fileOps.filter(op => op.type === 'delete').length;
+        
+              let summaryLabel = `📦 Atomic batch: ${fileCount} file${fileCount > 1 ? 's' : ''} changed`;
+              if (creates > 0) summaryLabel += `, ${creates} created`;
+              if (modifies > 0) summaryLabel += `, ${modifies} modified`;
+              if (deletes > 0) summaryLabel += `, ${deletes} deleted`;
+              summaryLabel += `, ${totalLines} lines`;
+        
+              chips.push({ type: 'batch', label: summaryLabel, detail: fileOps });
+            } else {
+              // Original per-file chips
+              fileOps.forEach(op => {
+                if (op.type === 'delete') {
+                  chips.push({ type: 'delete', label: `Deleted ${op.path}` });
+                } else {
+                  chips.push({ type: 'file', label: `Updated ${op.path} (${op.lineCount} lines)` });
+                }
+              });
+            }
 
       if (fileModified) {
         if (session.activeFile && session.files[session.activeFile] !== undefined) {
@@ -11495,64 +11568,93 @@ CURRENT VIRTUAL FILES:
 
     // Parse agent response and collect changes (without applying)
     function parseAndCollectChanges(responseText) {
-      const session = getCurrentSession();
-      const changes = [];
-      const chips = [];
-      const toolsUsed = [];
-      const noteReads = [];
+          const session = getCurrentSession();
+          const changes = [];
+          const chips = [];
+          const toolsUsed = [];
+          const noteReads = [];
 
-      // Regex for fenced blocks: ```file:filename\ncontent```
-      const blockRegex = /```(file|delete|browse|brain-read):([^\n]*)\n([\s\S]*?)```/g;
-      let match;
+          // Regex for fenced blocks: ```file:filename\ncontent```
+          const blockRegex = /```(file|delete|browse|brain-read):([^\n]*)\n([\s\S]*?)```/g;
+          let match;
 
-      while ((match = blockRegex.exec(responseText)) !== null) {
-        const actionType = match[1];
-        const targetPath = match[2].trim();
-        const blockContent = match[3];
+          // Collect file operations for potential atomic batch summary
+          const fileOps = [];
 
-        if (actionType === 'file') {
-          const oldContent = session.files[targetPath];
-          const isNewFile = oldContent === undefined;
-          
-          changes.push({
-            type: 'file',
-            path: targetPath,
-            oldContent: oldContent || '',
-            newContent: blockContent,
-            action: isNewFile ? 'create' : 'modify'
-          });
-          
-          const lineCount = blockContent.split('\n').length;
-          chips.push({ type: 'file', label: `Updated ${targetPath} (${lineCount} lines)` });
-          toolsUsed.push({ name: 'file-write', type: 'skill' });
-        } else if (actionType === 'delete') {
-          const oldContent = session.files[targetPath];
-          
-          changes.push({
-            type: 'delete',
-            path: targetPath,
-            oldContent: oldContent || '',
-            newContent: '',
-            action: 'delete'
-          });
-          
-          chips.push({ type: 'delete', label: `Deleted ${targetPath}` });
-          toolsUsed.push({ name: 'file-delete', type: 'skill' });
-        } else if (actionType === 'brain-read') {
-          const noteName = targetPath || blockContent.trim();
-          const noteContent = readBrainNote(noteName);
-          noteReads.push({ name: noteName, content: noteContent });
-          chips.push({ type: 'read', label: noteContent !== null ? `Read brain note "${noteName}"` : `Note "${noteName}" not found` });
-          toolsUsed.push({ name: 'brain-read', type: 'skill' });
-        } else if (actionType === 'browse') {
-          const url = targetPath || blockContent.trim();
-          chips.push({ type: 'browse', label: `Browsed to ${url}` });
-          toolsUsed.push({ name: 'browser', type: 'mcp' });
+          while ((match = blockRegex.exec(responseText)) !== null) {
+            const actionType = match[1];
+            const targetPath = match[2].trim();
+            const blockContent = match[3];
+
+            if (actionType === 'file') {
+              const oldContent = session.files[targetPath];
+              const isNewFile = oldContent === undefined;
+
+              changes.push({
+                type: 'file',
+                path: targetPath,
+                oldContent: oldContent || '',
+                newContent: blockContent,
+                action: isNewFile ? 'create' : 'modify'
+              });
+
+              const lineCount = blockContent.split('\n').length;
+              fileOps.push({ type: isNewFile ? 'create' : 'modify', path: targetPath, lineCount });
+              toolsUsed.push({ name: 'file-write', type: 'skill' });
+            } else if (actionType === 'delete') {
+              const oldContent = session.files[targetPath];
+
+              changes.push({
+                type: 'delete',
+                path: targetPath,
+                oldContent: oldContent || '',
+                newContent: '',
+                action: 'delete'
+              });
+
+              fileOps.push({ type: 'delete', path: targetPath, lineCount: 0 });
+              toolsUsed.push({ name: 'file-delete', type: 'skill' });
+            } else if (actionType === 'brain-read') {
+              const noteName = targetPath || blockContent.trim();
+              const noteContent = readBrainNote(noteName);
+              noteReads.push({ name: noteName, content: noteContent });
+              chips.push({ type: 'read', label: noteContent !== null ? `Read brain note "${noteName}"` : `Note "${noteName}" not found` });
+              toolsUsed.push({ name: 'brain-read', type: 'skill' });
+            } else if (actionType === 'browse') {
+              const url = targetPath || blockContent.trim();
+              chips.push({ type: 'browse', label: `Browsed to ${url}` });
+              toolsUsed.push({ name: 'browser', type: 'mcp' });
+            }
+          }
+
+          // Atomic Batches (H2.5): compact summary chip instead of per-file chips
+          if (appState.atomicBatchMode && fileOps.length > 1) {
+            const fileCount = fileOps.length;
+            const totalLines = fileOps.reduce((sum, op) => sum + op.lineCount, 0);
+            const creates = fileOps.filter(op => op.type === 'create').length;
+            const modifies = fileOps.filter(op => op.type === 'modify').length;
+            const deletes = fileOps.filter(op => op.type === 'delete').length;
+        
+            let summaryLabel = `📦 Atomic batch: ${fileCount} file${fileCount > 1 ? 's' : ''} changed`;
+            if (creates > 0) summaryLabel += `, ${creates} created`;
+            if (modifies > 0) summaryLabel += `, ${modifies} modified`;
+            if (deletes > 0) summaryLabel += `, ${deletes} deleted`;
+            summaryLabel += `, ${totalLines} lines`;
+        
+            chips.push({ type: 'batch', label: summaryLabel, detail: fileOps });
+          } else {
+            // Original per-file chips
+            fileOps.forEach(op => {
+              if (op.type === 'delete') {
+                chips.push({ type: 'delete', label: `Deleted ${op.path}` });
+              } else {
+                chips.push({ type: 'file', label: `Updated ${op.path} (${op.lineCount} lines)` });
+              }
+            });
+          }
+
+          return { changes, chips, toolsUsed, noteReads };
         }
-      }
-
-      return { changes, chips, toolsUsed, noteReads };
-    }
 
     // Compress conversation history when it exceeds 60% of context window
         // Summarizes older turns into notes.md, keeps digest + summary + last 8 turns
