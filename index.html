@@ -1084,6 +1084,15 @@
               </select>
               <span id="modeStatus" style="font-size: 10px; color: var(--text-dim);"></span>
             </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <div style="display:flex; align-items:center; gap:6px;">
+                <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Teach</span>
+                <label class="toggle-switch" title="Teach Mode: explain changes in simple Bangla" style="cursor: pointer;">
+                  <input type="checkbox" id="teachModeToggle" style="display: none;" />
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+            </div>
             <div id="planControls" style="display:none; align-items:center; gap:6px;" aria-label="Plan execution controls">
               <button class="btn btn-secondary" id="btnPausePlan" style="padding:3px 8px; font-size:10px;" title="Pause plan execution">⏸ Pause</button>
               <button class="btn btn-secondary" id="btnSkipStep" style="padding:3px 8px; font-size:10px;" title="Skip current step">⏭ Skip</button>
@@ -1101,9 +1110,21 @@
               <button class="btn btn-secondary" id="btnTogglePlanPanel" style="padding:2px 8px; font-size:10px;" title="Collapse/expand plan panel">▼</button>
             </div>
             <div id="planChecklist" style="max-height:200px; overflow-y:auto; padding:8px 12px; background:var(--bg-panel);"></div>
-          </div>
-          
-          <div class="chat-messages" id="chatMessages" style="flex:1; overflow-y:auto;">
+                      </div>
+
+                      <!-- Teach Panel (collapsible, shows Bangla explanations for agent changes) -->
+                      <div id="teachPanelWrapper" style="display:none; border-bottom:1px solid var(--border-color);">
+                        <div style="display:flex; align-items:center; justify-content:space-between; padding:6px 12px; background:var(--bg-surface); border-bottom:1px solid var(--border-color);">
+                          <div style="display:flex; align-items:center; gap:8px;">
+                            <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Teach Mode</span>
+                            <span id="teachStatus" style="font-size: 10px; color: var(--success); font-weight:600;"></span>
+                          </div>
+                          <button class="btn btn-secondary" id="btnToggleTeachPanel" style="padding:2px 8px; font-size:10px;" title="Collapse/expand teach panel">▼</button>
+                        </div>
+                        <div id="teachContent" style="max-height:250px; overflow-y:auto; padding:8px 12px; background:var(--bg-panel); font-size: 12px; line-height: 1.6; color: var(--text-main);"></div>
+                      </div>
+
+                      <div class="chat-messages" id="chatMessages" style="flex:1; overflow-y:auto;">
             <div class="msg msg-system">FlamingoCode Agent ready. Ask me to create or modify code in your virtual FS.</div>
           </div>
           
@@ -1695,6 +1716,19 @@
           </div>
           <label class="toggle-switch" style="cursor: pointer; flex-shrink: 0;">
             <input type="checkbox" id="autoEnhanceToggleSettings" style="display: none;" />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <hr style="border: none; border-top: 1px solid var(--border-color); margin: 12px 0;">
+        <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">Teach Mode</div>
+        <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 8px;">When ON, agent changes are explained in simple Bangla for non-coders. When OFF, no explanations shown.</div>
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+          <div style="flex: 1; min-width: 0;">
+            <div style="font-weight: 600; font-size: 12px; color: var(--text-main);">Explain changes in Bangla</div>
+            <div style="font-size: 10px; color: var(--text-dim); margin-top: 2px;">Show a teach panel with plain-language explanations after every agent change.</div>
+          </div>
+          <label class="toggle-switch" style="cursor: pointer; flex-shrink: 0;">
+            <input type="checkbox" id="teachModeToggleSettings" style="display: none;" />
             <span class="toggle-slider"></span>
           </label>
         </div>
@@ -2874,6 +2908,8 @@ WORK STYLE:
       // Prompt Enhancer state
       autoEnhance: false,       // Auto-enhance short prompts before sending
       lastEnhancedSpec: null,   // Store last enhanced spec for review
+      // Teach Mode state
+      teachMode: false,         // Explain agent changes in simple Bangla
       // Legacy single provider fields for backward compatibility
       provider: {
         preset: '9router',
@@ -5731,6 +5767,18 @@ Links: [[Brain Index]]
           logActivity(e.target.checked ? 'Prompt auto-enhance enabled' : 'Prompt auto-enhance disabled', 'info');
         };
       }
+
+      // Teach Mode toggle (settings)
+      const teachModeToggleSettings = document.getElementById('teachModeToggleSettings');
+      if (teachModeToggleSettings) {
+        teachModeToggleSettings.checked = appState.teachMode === true;
+        teachModeToggleSettings.onchange = (e) => {
+          appState.teachMode = e.target.checked;
+          saveAppState();
+          logActivity(e.target.checked ? 'Teach Mode enabled' : 'Teach Mode disabled', 'info');
+          updateTeachModeUI();
+        };
+      }
     }
 
     // Update Plan + Build settings inputs
@@ -7542,7 +7590,46 @@ CURRENT VIRTUAL FILES:
     }
 
     function escapeHtml(str) {
-      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      // Escape HTML entities for safe rendering
+      return str.replace(/&/g, '&').replace(/</g, '<').replace(/>/g, '>');
+    }
+
+    // ==================== TEACH MODE: Bangla Explanation Generator ====================
+    // Generates simple Bangla explanations for non-coders
+    function generateBanglaExplanation(changes) {
+      if (!changes || changes.length === 0) return '';
+      
+      const explanations = [];
+      
+      changes.forEach(change => {
+        const fileName = change.path.split('/').pop() || change.path;
+        
+        if (change.type === 'file') {
+          if (change.action === 'create') {
+            explanations.push(`নতুন ফাইল "${fileName}" তৈরি করা হয়েছে। এটি প্রজেক্টে নতুন কোড যোগ করবে।`);
+          } else if (change.action === 'modify') {
+            explanations.push(`ফাইল "${fileName}" আপডেট করা হয়েছে। এতে কিছু পরিবর্তন করা হয়েছে যাতে প্রোগ্রাম ভালো কাজ করে।`);
+          }
+        } else if (change.type === 'delete') {
+          explanations.push(`ফাইল "${fileName}" মুছে দেওয়া হয়েছে। এটি আর প্রয়োজন ছিল না।`);
+        } else if (change.type === 'browse') {
+          explanations.push(`ব্রাউজারে "${change.path}" খোলা হয়েছে। এটি তথ্য দেখার জন্য করা হয়েছে।`);
+        } else if (change.type === 'brain-read') {
+          explanations.push(`নোট "${change.path}" পড়া হয়েছে। এটি প্রজেক্টের তথ্য মনে রাখতে সাহায্য করে।`);
+        }
+      });
+      
+      if (explanations.length === 0) return '';
+      
+      let html = '<div style="font-size: 13px; line-height: 1.6;">';
+      html += '<div style="font-weight: 600; margin-bottom: 8px; color: var(--accent);">🧠 Teach Mode — What changed (Bangla)</div>';
+      
+      explanations.forEach((exp, idx) => {
+        html += `<div style="margin-bottom: 6px; padding: 8px; background: var(--surface-elevated); border-radius: 4px; border-left: 3px solid var(--accent);">${idx + 1}. ${escapeHtml(exp)}</div>`;
+      });
+      
+      html += '</div>';
+      return html;
     }
 
     function parseAndApplyBlocks(responseText) {
@@ -7648,6 +7735,40 @@ CURRENT VIRTUAL FILES:
         renderTabs();
         refreshPreview();
         saveAppState();
+      }
+
+      // Teach Mode: generate Bangla explanation for applied changes
+      if (appState.teachMode && chips.length > 0) {
+        // Build changes array from chips for explanation
+        const teachChanges = [];
+        const blockRegex2 = /```(file|delete|browse|brain-read):([^\n]*)\n([\s\S]*?)```/g;
+        let match2;
+        while ((match2 = blockRegex2.exec(responseText)) !== null) {
+          const actionType = match2[1];
+          const targetPath = match2[2].trim();
+          const blockContent = match2[3];
+          if (actionType === 'file') {
+            const oldContent = session.files[targetPath];
+            const isNewFile = oldContent === undefined;
+            teachChanges.push({ type: 'file', path: targetPath, action: isNewFile ? 'create' : 'modify' });
+          } else if (actionType === 'delete') {
+            teachChanges.push({ type: 'delete', path: targetPath });
+          } else if (actionType === 'browse') {
+            teachChanges.push({ type: 'browse', path: targetPath || blockContent.trim() });
+          } else if (actionType === 'brain-read') {
+            teachChanges.push({ type: 'brain-read', path: targetPath || blockContent.trim() });
+          }
+        }
+        const explanationHtml = generateBanglaExplanation(teachChanges);
+        if (explanationHtml) {
+          setTimeout(() => {
+            const contentEl = document.getElementById('teachContent');
+            if (contentEl) {
+              contentEl.innerHTML = explanationHtml;
+              contentEl.scrollTop = 0;
+            }
+          }, 0);
+        }
       }
 
       return { chips, fileModified, toolsUsed, noteReads };
@@ -7828,6 +7949,20 @@ CURRENT VIRTUAL FILES:
         logActivity(`Accepted: Modified ${path}`, 'success');
       }
       
+      // Teach Mode: generate Bangla explanation for this change
+      if (appState.teachMode) {
+        const explanationHtml = generateBanglaExplanation([change]);
+        if (explanationHtml) {
+          setTimeout(() => {
+            const contentEl = document.getElementById('teachContent');
+            if (contentEl) {
+              contentEl.innerHTML = explanationHtml;
+              contentEl.scrollTop = 0;
+            }
+          }, 0);
+        }
+      }
+      
       // Remove from pending
       appState.pendingChanges.changes = appState.pendingChanges.changes.filter(c => c.path !== path);
       
@@ -7886,6 +8021,21 @@ CURRENT VIRTUAL FILES:
       });
       
       logActivity(`Accepted all ${appState.pendingChanges.changes.length} changes`, 'success');
+      
+      // Teach Mode: generate Bangla explanation for accepted changes
+      if (appState.teachMode && appState.pendingChanges.changes.length > 0) {
+        const explanationHtml = generateBanglaExplanation(appState.pendingChanges.changes);
+        if (explanationHtml) {
+          setTimeout(() => {
+            const contentEl = document.getElementById('teachContent');
+            if (contentEl) {
+              contentEl.innerHTML = explanationHtml;
+              contentEl.scrollTop = 0;
+            }
+          }, 0);
+        }
+      }
+      
       finalizePendingChanges();
     }
 
@@ -9048,6 +9198,21 @@ Rules:
       chip.style.display = isOn ? 'inline-block' : 'none';
     }
 
+    // Update Teach Mode UI - show/hide panel and sync toggles
+    function updateTeachModeUI() {
+      const wrapper = document.getElementById('teachPanelWrapper');
+      const statusEl = document.getElementById('teachStatus');
+      const headerToggle = document.getElementById('teachModeToggle');
+      const settingsToggle = document.getElementById('teachModeToggleSettings');
+      if (!wrapper || !statusEl) return;
+
+      const isOn = appState.teachMode === true;
+      wrapper.style.display = isOn ? 'block' : 'none';
+      statusEl.textContent = isOn ? 'ACTIVE — explaining changes in Bangla' : 'OFF';
+      if (headerToggle) headerToggle.checked = isOn;
+      if (settingsToggle) settingsToggle.checked = isOn;
+    }
+
     function renderChatHistory() {
       const chat = document.getElementById('chatMessages');
       if (!chat) return;
@@ -10111,6 +10276,19 @@ Rules:
         };
       }
 
+      // Teach panel toggle (collapse/expand)
+      const btnToggleTeachPanel = document.getElementById('btnToggleTeachPanel');
+      if (btnToggleTeachPanel) {
+        btnToggleTeachPanel.onclick = () => {
+          const content = document.getElementById('teachContent');
+          if (content) {
+            const isHidden = content.style.display === 'none';
+            content.style.display = isHidden ? 'block' : 'none';
+            btnToggleTeachPanel.textContent = isHidden ? '▼' : '▶';
+          }
+        };
+      }
+
       // Pause/Resume button
       const btnPausePlan = document.getElementById('btnPausePlan');
       if (btnPausePlan) {
@@ -10506,6 +10684,18 @@ Rules:
         logActivity(e.target.checked ? 'Uncensored Mode ON for this project' : 'Uncensored Mode OFF for this project', e.target.checked ? 'warning' : 'info');
       };
 
+      // Teach Mode toggle (header)
+      const teachModeToggle = document.getElementById('teachModeToggle');
+      if (teachModeToggle) {
+        teachModeToggle.checked = appState.teachMode === true;
+        teachModeToggle.onchange = (e) => {
+          appState.teachMode = e.target.checked;
+          saveAppState();
+          updateTeachModeUI();
+          logActivity(e.target.checked ? 'Teach Mode ON' : 'Teach Mode OFF', 'info');
+        };
+      }
+
       document.getElementById('btnNewFile').onclick = createNewFile;
       document.getElementById('templateSelect').onchange = (e) => loadTemplate(e.target.value);
 
@@ -10541,6 +10731,7 @@ Rules:
       renderTabs();
       renderChatHistory();
       updateUncensoredUI();
+      updateTeachModeUI();
       updatePlanControlsVisibility();
       
       // Load plan from brain file if exists
