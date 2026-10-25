@@ -2586,6 +2586,18 @@
           <span style="font-size:10px; color:var(--text-dim);">If browser hits direct CORS error, prefix requests with a CORS proxy.</span>
         </div>
 
+        <div class="form-group">
+          <label class="form-label">Token Refresh URL (Optional)</label>
+          <input type="text" id="providerRefreshUrl" class="form-input" placeholder="https://auth.example.com/oauth/token" />
+          <span style="font-size:10px; color:var(--text-dim);">POST endpoint to refresh access token. Sends current key as refresh_token.</span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Token URL (Optional)</label>
+          <input type="text" id="providerTokenUrl" class="form-input" placeholder="https://auth.example.com/oauth/token" />
+          <span style="font-size:10px; color:var(--text-dim);">OAuth token endpoint (client_credentials or password grant). Used if no refresh URL.</span>
+        </div>
+
         <div class="form-group" style="flex-direction: row; align-items: center; gap: 8px;">
           <label style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; min-width: 120px;">Streaming</label>
           <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 12px; color: var(--text-main);">
@@ -2994,94 +3006,94 @@
     // Provider presets - all built-in configurations
     const PROVIDER_PRESETS = {
       '9router': {
-        name: '9router',
-        type: 'openai-compatible',
-        baseUrl: 'https://ninerouter-zltx.onrender.com/v1',
-        model: '9router',
-        apiKey: '',
-        authStyle: 'bearer',
-        customHeaders: {},
-        corsProxy: '',
-        streaming: true,
-        contextWindow: 128000
-      },
-      'omniroute-cloud': {
-        name: 'OmniRoute Cloud',
-        type: 'openai-compatible',
-        baseUrl: 'https://omniroute-main-9nt1.onrender.com/api/v1',
-        model: 'qoder',
-        apiKey: '',
-        authStyle: 'bearer',
-        customHeaders: {},
-        corsProxy: '',
-        streaming: true,
-        contextWindow: 128000
-      },
-      'omniroute-local': {
-        name: 'OmniRoute Local',
-        type: 'openai-compatible',
-        baseUrl: 'http://localhost:20128/v1',
-        model: 'qoder',
-        apiKey: '',
-        authStyle: 'none',
-        customHeaders: {},
-        corsProxy: '',
-        streaming: true,
-        contextWindow: 128000
-      },
-      'pollinations': {
-        name: 'Pollinations Free',
-        type: 'openai-compatible',
-        baseUrl: 'https://text.pollinations.ai/openai',
-        model: 'openai',
-        apiKey: '',
-        authStyle: 'none',
-        customHeaders: {},
-        corsProxy: '',
-        streaming: true,
-        contextWindow: 128000
-      },
-      'openrouter': {
-              name: 'OpenRouter',
-              type: 'openai-compatible',
-              baseUrl: 'https://openrouter.ai/api/v1',
-              model: 'openai/gpt-4o-mini',
-              apiKey: 'YOUR_OPENROUTER_KEY',
-              keyPool: [
-                { id: 'key_1', key: 'sk-or-v1-first-key...', health: 'healthy', lastUsed: 0, usageCount: 0, benchedModels: [], cooldownUntil: 0 },
-                { id: 'key_2', key: 'sk-or-v1-second-key...', health: 'healthy', lastUsed: 0, usageCount: 0, benchedModels: [], cooldownUntil: 0 }
-              ],
-              rotationStrategy: 'round_robin',
-              authStyle: 'bearer',
-              customHeaders: { 'HTTP-Referer': 'https://devforge.app', 'X-Title': 'DevForge' },
-              corsProxy: '',
-              streaming: true,
-              contextWindow: 128000
-            },
-      'groq': {
-        name: 'Groq',
-        type: 'openai-compatible',
-        baseUrl: 'https://api.groq.com/openai/v1',
-        model: 'llama-3.3-70b-versatile',
-        apiKey: '',
-        authStyle: 'bearer',
-        customHeaders: {},
-        corsProxy: '',
-        streaming: true,
-        contextWindow: 128000
-      },
-      'duckduckgo': {
-        name: 'DuckDuckGo AI',
-        type: 'duckduckgo',
-        baseUrl: 'https://duckduckgo.com/duckchat/v1',
-        model: 'gpt-4o-mini',
-        apiKey: '',
-        authStyle: 'none',
-        customHeaders: {},
-        corsProxy: '',
-        streaming: true,
-        contextWindow: 128000
-      }
+                    name: '9router',
+                    type: 'openai-compatible',
+                    baseUrl: 'https://ninerouter-zltx.onrender.com/v1',
+                    model: '9router',
+                    apiKey: '',
+                    authStyle: 'bearer',
+                    customHeaders: {},
+                    corsProxy: '',
+                    streaming: true,
+                    contextWindow: 128000
+                  },
+                  'omniroute-cloud': {
+                    name: 'OmniRoute Cloud',
+                    type: 'openai-compatible',
+                    baseUrl: 'https://omniroute-main-9nt1.onrender.com/api/v1',
+                    model: 'qoder',
+                    apiKey: '',
+                    authStyle: 'bearer',
+                    customHeaders: {},
+                    corsProxy: '',
+                    streaming: true,
+                    contextWindow: 128000
+                  },
+                  'omniroute-local': {
+                    name: 'OmniRoute Local',
+                    type: 'openai-compatible',
+                    baseUrl: 'http://localhost:20128/v1',
+                    model: 'qoder',
+                    apiKey: '',
+                    authStyle: 'none',
+                    customHeaders: {},
+                    corsProxy: '',
+                    streaming: true,
+                    contextWindow: 128000
+                  },
+                  'pollinations': {
+                    name: 'Pollinations Free',
+                    type: 'openai-compatible',
+                    baseUrl: 'https://text.pollinations.ai/openai',
+                    model: 'openai',
+                    apiKey: '',
+                    authStyle: 'none',
+                    customHeaders: {},
+                    corsProxy: '',
+                    streaming: true,
+                    contextWindow: 128000
+                  },
+                  'openrouter': {
+                          name: 'OpenRouter',
+                          type: 'openai-compatible',
+                          baseUrl: 'https://openrouter.ai/api/v1',
+                          model: 'openai/gpt-4o-mini',
+                          apiKey: 'YOUR_API_KEY',
+                          keyPool: [
+                            { id: 'key_1', key: 'sk-redacted', health: 'healthy', lastUsed: 0, usageCount: 0, benchedModels: [], cooldownUntil: 0 },
+                            { id: 'key_2', key: 'sk-redacted', health: 'healthy', lastUsed: 0, usageCount: 0, benchedModels: [], cooldownUntil: 0 }
+                          ],
+                          rotationStrategy: 'round_robin',
+                          authStyle: 'bearer',
+                          customHeaders: { 'HTTP-Referer': 'https://devforge.app', 'X-Title': 'DevForge' },
+                          corsProxy: '',
+                          streaming: true,
+                          contextWindow: 128000
+                        },
+                  'groq': {
+                    name: 'Groq',
+                    type: 'openai-compatible',
+                    baseUrl: 'https://api.groq.com/openai/v1',
+                    model: 'llama-3.3-70b-versatile',
+                    apiKey: '',
+                    authStyle: 'bearer',
+                    customHeaders: {},
+                    corsProxy: '',
+                    streaming: true,
+                    contextWindow: 128000
+                  },
+                  'duckduckgo': {
+                    name: 'DuckDuckGo AI',
+                    type: 'duckduckgo',
+                    baseUrl: 'https://duckduckgo.com/duckchat/v1',
+                    model: 'gpt-4o-mini',
+                    apiKey: '',
+                    authStyle: 'none',
+                    customHeaders: {},
+                    corsProxy: '',
+                    streaming: true,
+                    contextWindow: 128000
+                  }
     };
 
     // Uncensored Mode system prompt - prepended to requests when effective mode is ON
@@ -9130,7 +9142,14 @@ Links: [[Brain Index]]
                       }
                       // 401: Auth failed - try to refresh token first, rotate if refresh fails
                       if (res.status === 401) {
-                        logActivity('Key ' + keyEntry.id.slice(0, 8) + ' auth failed (401). Marking dead.', 'warning');
+                        logActivity('Key ' + keyEntry.id.slice(0, 8) + ' auth failed (401). Attempting token refresh...', 'warning');
+                        const refreshed = await refreshKeyToken(provider, keyEntry);
+                        if (refreshed) {
+                          logActivity('Token refreshed, retrying request with key ' + keyEntry.id.slice(0, 8), 'info');
+                          // Retry the same key once - continue the attempt loop
+                          continue;
+                        }
+                        logActivity('Token refresh failed or not configured. Marking key dead.', 'warning');
                         markKeyHealth(provider, keyEntry.id, 'dead');
                         break; // Rotate to next key
                       }
@@ -12490,6 +12509,8 @@ Format:
           const authStyleSelect = document.getElementById('providerAuthStyle');
           const customHeadersInput = document.getElementById('providerCustomHeaders');
           const corsProxyInput = document.getElementById('providerCorsProxy');
+          const refreshUrlInput = document.getElementById('providerRefreshUrl');
+          const tokenUrlInput = document.getElementById('providerTokenUrl');
           const streamingCheckbox = document.getElementById('providerStreaming');
           const contextWindowInput = document.getElementById('providerContextWindow');
           const rotationStrategySelect = document.getElementById('providerRotationStrategy');
@@ -12505,6 +12526,8 @@ Format:
           authStyleSelect.value = 'bearer';
           customHeadersInput.value = '';
           corsProxyInput.value = '';
+          refreshUrlInput.value = '';
+          tokenUrlInput.value = '';
           streamingCheckbox.checked = true;
           contextWindowInput.value = '';
           rotationStrategySelect.value = 'fill_first';
@@ -12550,6 +12573,8 @@ Format:
             authStyleSelect.value = provider.authStyle || 'bearer';
             customHeadersInput.value = provider.customHeaders ? JSON.stringify(provider.customHeaders, null, 2) : '';
             corsProxyInput.value = provider.corsProxy || '';
+            refreshUrlInput.value = provider.refreshUrl || '';
+            tokenUrlInput.value = provider.tokenUrl || '';
             streamingCheckbox.checked = provider.streaming !== false;
             contextWindowInput.value = provider.contextWindow || '';
           } else {
@@ -12758,6 +12783,73 @@ Format:
       saveAppState();
     }
 
+    // MARKER: per-key health — attempt token refresh before marking dead
+    async function refreshKeyToken(provider, keyEntry) {
+      const refreshUrl = provider.refreshUrl || provider.tokenUrl;
+      if (!refreshUrl) {
+        return false; // No refresh endpoint configured
+      }
+
+      try {
+        // Prepare refresh request body
+        // For refreshUrl: send current key as refresh_token
+        // For tokenUrl: typically client_credentials or password grant
+        const refreshBody = new URLSearchParams();
+        
+        if (provider.refreshUrl) {
+          // Refresh token flow
+          refreshBody.set('grant_type', 'refresh_token');
+          refreshBody.set('refresh_token', keyEntry.key);
+        } else if (provider.tokenUrl) {
+          // Client credentials flow (common for service accounts)
+          refreshBody.set('grant_type', 'client_credentials');
+          // Note: client_id and client_secret would need to be configured separately
+          // For now, we'll send the key as client_secret if no other config
+          refreshBody.set('client_secret', keyEntry.key);
+        }
+
+        const refreshHeaders = { 'Content-Type': 'application/x-www-form-urlencoded' };
+        // Add any custom headers from provider
+        Object.entries(provider.customHeaders || {}).forEach(([k, v]) => {
+          refreshHeaders[k] = v;
+        });
+
+        const res = await fetch(refreshUrl, {
+          method: 'POST',
+          headers: refreshHeaders,
+          body: refreshBody.toString()
+        });
+
+        if (!res.ok) {
+          const errText = await res.text();
+          logActivity('Token refresh failed for key ' + keyEntry.id.slice(0, 8) + ': HTTP ' + res.status + ' ' + errText.slice(0, 100), 'warning');
+          return false;
+        }
+
+        const data = await res.json();
+        
+        // Extract new access token - try common field names
+        const newToken = data.access_token || data.token || data.accessToken;
+        if (!newToken) {
+          logActivity('Token refresh succeeded but no access_token in response for key ' + keyEntry.id.slice(0, 8), 'warning');
+          return false;
+        }
+
+        // Update the key entry with new token
+        keyEntry.key = newToken;
+        keyEntry.health = 'healthy';
+        keyEntry.cooldownUntil = 0;
+        keyEntry.lastRefreshed = Date.now();
+        
+        saveAppState();
+        logActivity('Token refreshed successfully for key ' + keyEntry.id.slice(0, 8), 'success');
+        return true;
+      } catch (e) {
+        logActivity('Token refresh error for key ' + keyEntry.id.slice(0, 8) + ': ' + e.message, 'warning');
+        return false;
+      }
+    }
+
     function recordKeyUsage(provider, keyId) {
       const keyPool = provider.keyPool || [];
       const key = keyPool.find(k => k.id === keyId);
@@ -12812,6 +12904,8 @@ Format:
           const authStyle = document.getElementById('providerAuthStyle').value;
           const customHeadersText = document.getElementById('providerCustomHeaders').value.trim();
           const corsProxy = document.getElementById('providerCorsProxy').value.trim();
+          const refreshUrl = document.getElementById('providerRefreshUrl').value.trim();
+          const tokenUrl = document.getElementById('providerTokenUrl').value.trim();
           const streaming = document.getElementById('providerStreaming').checked;
           const contextWindow = parseInt(document.getElementById('providerContextWindow').value) || 128000;
           const rotationStrategy = document.getElementById('providerRotationStrategy').value;
@@ -12894,6 +12988,8 @@ Format:
             authStyle,
             customHeaders,
             corsProxy,
+            refreshUrl,
+            tokenUrl,
             streaming,
             contextWindow,
             isPreset: false,
