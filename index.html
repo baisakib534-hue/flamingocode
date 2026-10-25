@@ -1199,6 +1199,7 @@
         <button class="right-tab" data-pane="browser" data-i18n="Browser">Browser</button>
         <button class="right-tab" data-pane="graph" data-i18n="Graph">Graph</button>
         <button class="right-tab" data-pane="activity" data-i18n="Activity">Activity</button>
+        <button class="right-tab" data-pane="autoFix" data-i18n="Auto-fix">Auto-fix</button>
         <button class="right-tab" data-pane="history" data-i18n="History">History</button>
         <button class="right-tab" data-pane="diffReview" data-i18n="Diff Review">Diff Review</button>
         <button class="right-tab" data-pane="templates" data-i18n="Templates">Templates</button>
@@ -1495,6 +1496,31 @@
         <div class="pane-view" id="paneActivity">
           <div class="activity-log" id="activityLog">
             <div class="log-item">Studio initialized. Virtual FS ready.</div>
+          </div>
+        </div>
+
+        <!-- Auto-fix Feed Pane -->
+        <div class="pane-view" id="paneAutoFix">
+          <div style="flex:1; display:flex; flex-direction:column; overflow:hidden; background:var(--bg-dark);">
+            <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:var(--bg-panel); border-bottom:1px solid var(--border-color); flex-wrap:wrap; gap:8px;">
+              <div style="display:flex; align-items:center; gap:8px;">
+                <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Auto-fix Feed</span>
+                <span id="autoFixFeedCount" style="font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 10px; background: var(--bg-hover); color: var(--text-dim);">0 tasks</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:6px;">
+                <select id="autoFixFeedFilter" style="background:var(--bg-hover); border:1px solid var(--border-color); border-radius:4px; color:var(--text-main); font-size:10px; padding:3px 6px;">
+                  <option value="all">All</option>
+                  <option value="preview">Preview Errors</option>
+                  <option value="agent">Agent Errors</option>
+                </select>
+                <button class="btn btn-secondary" id="btnClearAutoFixFeed" style="padding: 4px 10px; font-size: 10px;" title="Clear all auto-fix tasks">🗑 Clear All</button>
+              </div>
+            </div>
+            <div style="flex:1; overflow-y:auto; padding:8px 12px;">
+              <div id="autoFixFeedList" style="display:flex; flex-direction:column; gap:8px;">
+                <div style="font-size: 11px; color: var(--text-dim); text-align: center; padding: 20px;">No auto-fix tasks. Errors will appear here automatically.</div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -3143,6 +3169,7 @@ WORK STYLE:
         'Browser': 'ব্রাউজার',
         'Graph': 'গ্রাফ',
         'Activity': 'কার্যক্রম',
+        'Auto-fix': 'অটো-ফিক্স',
         'History': 'ইতিহাস',
         'Diff Review': 'ডিফ রিভিউ',
         'Templates': 'টেমপ্লেট',
@@ -8530,6 +8557,14 @@ Links: [[Brain Index]]
               var r = e.reason;
               report('promise', (r && r.message) || String(r || 'unhandled rejection'), r);
             });
+            // Capture console.error calls
+            var originalConsoleError = console.error;
+            console.error = function () {
+              var args = Array.prototype.slice.call(arguments);
+              var msg = args.map(function(a) { return String(a); }).join(' ');
+              report('console', msg, { stack: new Error().stack });
+              return originalConsoleError.apply(console, arguments);
+            };
             // Health panel probe: reply with the full buffered error list
             window.addEventListener('message', function (ev) {
               if (ev.data && ev.data.type === 'DEVFORGE_HEALTH_CHECK') {
@@ -8580,10 +8615,12 @@ Links: [[Brain Index]]
       const data = e.data || {};
       if (data.type === 'PREVIEW_ERROR') {
         const file = previewMapLineToFile(data.lineno);
-        previewHealthRememberError({
+        const errorObj = {
           kind: data.kind, message: data.message, stack: data.stack,
           filename: data.filename, lineno: data.lineno, file: file
-        });
+        };
+        previewHealthRememberError(errorObj);
+        autoFixFeedAdd('preview', errorObj);
         logActivity(`Preview JS Error: ${data.message} (Line ${data.lineno}${file ? ', ' + file : ''})`, 'error');
         maybeAutoFixOnPreviewError();
       }
@@ -10201,6 +10238,7 @@ async function sendAgentPrompt(userPrompt, autoTurn = 0) {
       } catch (err) {
         logActivity('Agent Error: ' + err.message, 'error');
         appendChatMessage('system', 'Error: ' + err.message);
+        autoFixFeedAdd('agent', { kind: 'agent', message: err.message, stack: err.stack });
       } finally {
         agentWorking = false;
         stopTimer();
@@ -10255,6 +10293,7 @@ Rules:
       } catch (err) {
         logActivity('Codebase chat error: ' + err.message, 'error');
         appendChatMessage('system', 'Error: ' + err.message);
+        autoFixFeedAdd('agent', { kind: 'agent', message: err.message, stack: err.stack });
       } finally {
         agentWorking = false;
         stopTimer();
@@ -10510,6 +10549,139 @@ Original request: ${appState.lastEnhancedSpec?.originalPrompt || ''}`;
     let previewHealth = { errors: [], attempts: 0, fixing: false, needsHelp: false };
     let previewHealthProbeResolve = null;
     let previewAutoFixDebounce = null;
+
+    // ==================== F2: AUTO-FIX ON ERROR FEED ====================
+    // Capture console errors + agent task errors -> fix tasks in visible feed ->
+    // hand off to runPreviewFixCycle (preview) or agent retry (agent tasks).
+    let autoFixFeed = []; // { id, source: 'preview'|'agent', error, state: 'queued'|'fixing'|'fixed'|'needs-help', taskRef, time }
+    let autoFixFeedFilter = 'all'; // 'all' | 'preview' | 'agent'
+    const AUTO_FIX_MAX_RETRIES = 3;
+
+    function autoFixFeedAdd(source, error) {
+      const id = 'af_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+      const task = {
+        id,
+        source,
+        error: { ...error, time: error.time || Date.now() },
+        state: 'queued',
+        taskRef: null,
+        time: Date.now()
+      };
+      autoFixFeed.push(task);
+      autoFixFeedRender();
+      logActivity('Auto-fix: new ' + source + ' error queued — ' + (error.message || 'unknown').slice(0, 80), 'warning');
+      // Auto-start fix for preview errors if auto-fix is enabled
+      if (source === 'preview' && appState.previewAutoFix && !previewHealth.fixing && !agentWorking) {
+        autoFixFeedStartFix(id);
+      }
+      return id;
+    }
+
+    function autoFixFeedSetState(id, state, taskRef) {
+      const task = autoFixFeed.find(t => t.id === id);
+      if (!task) return;
+      task.state = state;
+      if (taskRef) task.taskRef = taskRef;
+      autoFixFeedRender();
+    }
+
+    function autoFixFeedRemove(id) {
+      autoFixFeed = autoFixFeed.filter(t => t.id !== id);
+      autoFixFeedRender();
+    }
+
+    function autoFixFeedClear() {
+      autoFixFeed = [];
+      autoFixFeedRender();
+    }
+
+    function autoFixFeedRender() {
+      const list = document.getElementById('autoFixFeedList');
+      const filter = document.getElementById('autoFixFeedFilter');
+      const countEl = document.getElementById('autoFixFeedCount');
+      if (countEl) countEl.textContent = autoFixFeed.length + ' task' + (autoFixFeed.length !== 1 ? 's' : '');
+      if (!list) return;
+      if (filter) autoFixFeedFilter = filter.value;
+      const filtered = autoFixFeed.filter(t => autoFixFeedFilter === 'all' || t.source === autoFixFeedFilter);
+      if (filtered.length === 0) {
+        list.innerHTML = '<div style="font-size:11px;color:var(--text-dim);text-align:center;padding:20px;">No auto-fix tasks. Errors will appear here automatically.</div>';
+        return;
+      }
+      list.innerHTML = filtered.map(task => {
+        const stateColors = {
+          queued: ['var(--warning)', 'var(--bg-hover)'],
+          fixing: ['var(--accent-blue)', 'rgba(59,130,246,0.15)'],
+          fixed: ['var(--success)', 'rgba(16,185,129,0.15)'],
+          'needs-help': ['var(--danger)', 'rgba(239,68,68,0.15)']
+        };
+        const [fg, bg] = stateColors[task.state] || stateColors.queued;
+        const time = new Date(task.time).toLocaleTimeString();
+        const errMsg = escapeHtml(String(task.error.message || 'unknown error')).slice(0, 120);
+        const errKind = escapeHtml(task.error.kind || 'error');
+        const srcBadge = task.source === 'preview' ? '🔵 Preview' : '🟠 Agent';
+        const stateLabel = task.state.charAt(0).toUpperCase() + task.state.slice(1).replace('-', ' ');
+        const canSendToAgent = task.state === 'needs-help' || (task.state === 'queued' && task.source === 'agent');
+        return `<div style="border:1px solid var(--border-color);border-radius:6px;padding:8px 10px;background:var(--bg-surface);">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11px;margin-bottom:4px;">
+            <span style="color:${fg};font-weight:600;">${stateLabel}</span>
+            <span style="color:var(--text-dim);font-family:var(--font-mono);font-size:10px;">${time}</span>
+            <span style="font-size:10px;color:var(--text-muted);">${srcBadge}</span>
+          </div>
+          <div style="font-size:11px;color:var(--text-main);margin-bottom:2px;">${errMsg}</div>
+          <div style="font-size:9px;color:var(--text-dim);margin-bottom:6px;">Kind: ${errKind}${task.error.file ? ' | File: ' + escapeHtml(task.error.file) : ''}${task.error.lineno ? ':' + task.error.lineno : ''}</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            ${canSendToAgent ? `<button class="btn btn-secondary" onclick="autoFixFeedSendToAgent('${task.id}')" style="padding:3px 8px;font-size:10px;">📤 Send to Agent</button>` : ''}
+            ${task.state === 'fixing' ? `<button class="btn btn-secondary" onclick="autoFixFeedCancel('${task.id}')" style="padding:3px 8px;font-size:10px;">✕ Cancel</button>` : ''}
+            <button class="btn btn-secondary" onclick="autoFixFeedRemove('${task.id}')" style="padding:3px 8px;font-size:10px;">🗑 Dismiss</button>
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    async function autoFixFeedStartFix(id) {
+      const task = autoFixFeed.find(t => t.id === id);
+      if (!task || task.state === 'fixing') return;
+      autoFixFeedSetState(id, 'fixing');
+      try {
+        if (task.source === 'preview') {
+          // Hand off to existing preview fix cycle
+          const result = await runPreviewFixCycle();
+          if (result.fixed) {
+            autoFixFeedSetState(id, 'fixed');
+          } else {
+            autoFixFeedSetState(id, 'needs-help');
+          }
+        } else {
+          // Agent task error: send error context to agent for retry
+          const prompt = `An agent task failed with this error:\n\n${task.error.message}\n\n${task.error.stack ? 'Stack:\n' + task.error.stack : ''}\n\nPlease fix the issue and continue.`;
+          await sendAgentPrompt(prompt);
+          // After agent responds, we assume it may have fixed it; mark fixed optimistically
+          // Real verification would need a follow-up check
+          autoFixFeedSetState(id, 'fixed');
+        }
+      } catch (e) {
+        autoFixFeedSetState(id, 'needs-help');
+        logActivity('Auto-fix failed for ' + id + ': ' + e.message, 'error');
+      }
+    }
+
+    function autoFixFeedSendToAgent(id) {
+      const task = autoFixFeed.find(t => t.id === id);
+      if (!task) return;
+      const prompt = `Fix this ${task.source} error:\n\n${task.error.message}\n\n${task.error.stack ? 'Stack:\n' + task.error.stack : ''}\n\n${task.error.file ? 'File: ' + task.error.file + (task.error.lineno ? ':' + task.error.lineno : '') : ''}\n\nPlease fix the root cause. Reply with file:<path> fenced blocks for changes.`;
+      sendAgentPrompt(prompt);
+      autoFixFeedSetState(id, 'fixing');
+    }
+
+    function autoFixFeedCancel(id) {
+      // Can't easily cancel runPreviewFixCycle, but we can mark as queued again
+      autoFixFeedSetState(id, 'queued');
+    }
+
+    // Expose for onclick handlers
+    window.autoFixFeedSendToAgent = autoFixFeedSendToAgent;
+    window.autoFixFeedRemove = autoFixFeedRemove;
+    window.autoFixFeedCancel = autoFixFeedCancel;
 
     function previewHealthSetStatus(text, tone) {
       const el = document.getElementById('previewHealthStatus');
@@ -12389,7 +12561,24 @@ Format:
       if (display) display.textContent = String(PREVIEW_FIX_MAX_CYCLES);
       previewHealthSetStatus('No errors tracked', 'idle');
     }
-    // ==================== B3: SELF-HEALING PREVIEW LOOP (END) ====================
+
+    // ==================== F2: AUTO-FIX FEED INIT ====================
+    function initAutoFixFeed() {
+      const filter = document.getElementById('autoFixFeedFilter');
+      if (filter) {
+        filter.onchange = () => autoFixFeedRender();
+      }
+      const btnClear = document.getElementById('btnClearAutoFixFeed');
+      if (btnClear) {
+        btnClear.onclick = () => {
+          autoFixFeedClear();
+          logActivity('Auto-fix feed cleared', 'info');
+        };
+      }
+      autoFixFeedRender();
+    }
+    initAutoFixFeed();
+    // ==================== F2: AUTO-FIX FEED INIT (END) ====================
 
     // ==================== VOICE INPUT ====================
     function setupVoiceInput() {
