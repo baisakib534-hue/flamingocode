@@ -1216,9 +1216,12 @@
                 <option value="chat" data-i18n="Chat">💬 Chat</option>
                 <option value="codebase-chat" data-i18n="Ask Codebase">🔍 Ask Codebase</option>
                 <option value="plan" data-i18n="Plan">📋 Plan</option>
+                <option value="plan-readonly" data-i18n="Plan (Read-Only)">📋⛔ Plan (Read-Only)</option>
                 <option value="plan-build" data-i18n="Plan + Build">🔨 Plan + Build</option>
               </select>
               <span id="modeStatus" style="font-size: 10px; color: var(--text-dim);"></span>
+              <!-- Read-only indicator -->
+              <span id="readOnlyIndicator" style="display:none; font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 3px; background: var(--warning); color: var(--bg-dark);" data-i18n="READ-ONLY">READ-ONLY</span>
             </div>
             <div style="display:flex; align-items:center; gap:8px;">
               <div style="display:flex; align-items:center; gap:8px;">
@@ -1233,6 +1236,11 @@
                             <button class="btn btn-secondary" id="btnPausePlan" style="padding:3px 8px; font-size:10px;" title="Pause plan execution" data-i18n="Pause">⏸ Pause</button>
                             <button class="btn btn-secondary" id="btnSkipStep" style="padding:3px 8px; font-size:10px;" title="Skip current step" data-i18n="Skip">⏭ Skip</button>
                             <button class="btn btn-secondary" id="btnReplan" style="padding:3px 8px; font-size:10px;" title="Re-plan from current step" data-i18n="Re-plan">🔄 Re-plan</button>
+                          </div>
+                          <!-- Read-only plan mode: approval handoff button -->
+                          <div id="readOnlyApproval" style="display:none; align-items:center; gap:6px; margin-left:8px; padding:4px 8px; background:var(--bg-surface); border:1px solid var(--border-color); border-radius:4px;" aria-label="Read-only plan approval">
+                            <span style="font-size:10px; color:var(--text-muted);" data-i18n="Plan ready for execution">Plan ready for execution</span>
+                            <button class="btn btn-primary" id="btnApprovePlan" style="padding:3px 10px; font-size:10px;" title="Approve plan and switch to Plan+Build" data-i18n="Approve & Build">✅ Approve & Build</button>
                           </div>
                         </div>
           
@@ -3499,7 +3507,8 @@ WORK STYLE:
       teamPhase: null,  // 'discussion' | 'execution' | 'presentation' | 'testing' | 'review' | 'complete'
       teamReviewRound: 0,
       // Plan + Build mode state
-      planMode: 'chat',  // 'chat' | 'codebase-chat' | 'plan' | 'plan-build'
+      planMode: 'chat',  // 'chat' | 'codebase-chat' | 'plan' | 'plan-readonly' | 'plan-build'
+      readOnlyPlanMode: false,  // Explicit read-only flag for strict plan mode
       currentPlan: [],  // Array of plan steps: {id, text, done, current, note, revised}
       planStepIndex: 0,
       planPaused: false,
@@ -6150,50 +6159,65 @@ function updatePlanControlsVisibility() {
   const planPanelWrapper = document.getElementById('planPanelWrapper');
   const modeSelector = document.getElementById('modeSelector');
   const modeStatus = document.getElementById('modeStatus');
-  
+  const readOnlyIndicator = document.getElementById('readOnlyIndicator');
+  const readOnlyApproval = document.getElementById('readOnlyApproval');
+
   if (!planControls || !planPanelWrapper || !modeSelector) return;
-  
+
   const mode = appState.planMode;
-  
+  const hasPlan = appState.currentPlan.length > 0;
+
   // Update mode selector
   modeSelector.value = mode;
-  
+
+  // Update READ-ONLY indicator
+  if (readOnlyIndicator) {
+    const isReadOnlyMode = mode === 'plan-readonly' || appState.readOnlyPlanMode;
+    readOnlyIndicator.style.display = isReadOnlyMode ? 'inline-flex' : 'none';
+  }
+
+  // Update read-only approval button
+  if (readOnlyApproval) {
+    const isReadOnlyMode = mode === 'plan-readonly' || appState.readOnlyPlanMode;
+    readOnlyApproval.style.display = (isReadOnlyMode && hasPlan) ? 'flex' : 'none';
+  }
+
   // Update status text
   if (modeStatus) {
     if (mode === 'plan') {
-      modeStatus.textContent = '(planning only)'; 
+      modeStatus.textContent = '(planning only)';
+    } else if (mode === 'plan-readonly') {
+      modeStatus.textContent = '(read-only — approve to build)';
     } else if (mode === 'plan-build') {
-      modeStatus.textContent = appState.planPaused ? '(paused)' : '(executing)'; 
+      modeStatus.textContent = appState.planPaused ? '(paused)' : '(executing)';
     } else {
       modeStatus.textContent = '';
     }
   }
-  
+
   // Show/hide plan panel and controls
-    const hasPlan = appState.currentPlan.length > 0;
-
-    if (mode === 'chat' || mode === 'codebase-chat') {
-      planPanelWrapper.style.display = 'none';
-      planControls.style.display = 'none';
-    } else if (mode === 'plan') {
-      planPanelWrapper.style.display = hasPlan ? 'block' : 'none';
-      planControls.style.display = 'none';
-    } else if (mode === 'plan-build') {
-      planPanelWrapper.style.display = hasPlan ? 'block' : 'none';
-      planControls.style.display = hasPlan ? 'flex' : 'none';
-    }
-
-    // Update pause button text
-    const pauseBtn = document.getElementById('btnPausePlan');
-    if (pauseBtn) {
-      pauseBtn.textContent = appState.planPaused ? '▶ Resume' : '⏸ Pause';
-    }
-
-    // Update mode status for codebase-chat
-    if (modeStatus && mode === 'codebase-chat') {
-      modeStatus.textContent = '(ask about codebase)';
-    }
+  if (mode === 'chat' || mode === 'codebase-chat') {
+    planPanelWrapper.style.display = 'none';
+    planControls.style.display = 'none';
+  } else if (mode === 'plan' || mode === 'plan-readonly') {
+    planPanelWrapper.style.display = hasPlan ? 'block' : 'none';
+    planControls.style.display = 'none';
+  } else if (mode === 'plan-build') {
+    planPanelWrapper.style.display = hasPlan ? 'block' : 'none';
+    planControls.style.display = hasPlan ? 'flex' : 'none';
   }
+
+  // Update pause button text
+  const pauseBtn = document.getElementById('btnPausePlan');
+  if (pauseBtn) {
+    pauseBtn.textContent = appState.planPaused ? '▶ Resume' : '⏸ Pause';
+  }
+
+  // Update mode status for codebase-chat
+  if (modeStatus && mode === 'codebase-chat') {
+    modeStatus.textContent = '(ask about codebase)';
+  }
+}
 
 // Add a new step to the plan
 function addPlanStep(text, index = -1) {
@@ -8540,9 +8564,45 @@ CURRENT VIRTUAL FILES:
     }
 
     function parseAndApplyBlocks(responseText) {
-      const session = getCurrentSession();
-      
-      // Check if diff review is enabled
+          const session = getCurrentSession();
+
+          // READ-ONLY PLAN MODE GUARD: Block all file/VFS mutations in strict read-only plan mode
+          if (appState.readOnlyPlanMode || appState.planMode === 'plan-readonly') {
+            // Check if response contains file operations
+            const hasFileOps = /```(file|delete):/.test(responseText);
+            if (hasFileOps) {
+              logActivity('Write blocked: Read-only plan mode active. Approve plan to execute.', 'warning');
+              appendChatMessage('system', '⚠️ Write blocked: Read-only plan mode is active. File changes are not allowed. Use "Approve & Build" to switch to Plan+Build mode and execute the plan.');
+              // Still process browse and brain-read (read-only operations)
+              const blockRegex = /```(browse|brain-read):([^\n]*)\n([\s\S]*?)```/g;
+              let match;
+              const chips = [];
+              const toolsUsed = [];
+              const noteReads = [];
+              while ((match = blockRegex.exec(responseText)) !== null) {
+                const actionType = match[1];
+                const targetPath = match[2].trim();
+                const blockContent = match[3];
+                if (actionType === 'browse') {
+                  const url = targetPath || blockContent.trim();
+                  document.getElementById('browserUrlInput').value = url;
+                  document.getElementById('browserIframe').src = url;
+                  chips.push({ type: 'browse', label: `Browsed to ${url}` });
+                  logActivity(`Agent navigated browser to ${url}`, 'info');
+                  toolsUsed.push({ name: 'browser', type: 'mcp' });
+                } else if (actionType === 'brain-read') {
+                  const noteName = targetPath || blockContent.trim();
+                  const noteContent = readBrainNote(noteName);
+                  noteReads.push({ name: noteName, content: noteContent });
+                  chips.push({ type: 'read', label: noteContent !== null ? `Read brain note "${noteName}"` : `Note "${noteName}" not found` });
+                  toolsUsed.push({ name: 'brain-read', type: 'skill' });
+                }
+              }
+              return { chips, fileModified: false, toolsUsed, noteReads, blocked: true };
+            }
+          }
+
+          // Check if diff review is enabled
       if (appState.diffReviewEnabled) {
         // Collect changes for review instead of applying immediately
         const { changes, chips, toolsUsed, noteReads } = parseAndCollectChanges(responseText);
@@ -11725,12 +11785,15 @@ Format:
       const modeSelector = document.getElementById('modeSelector');
       if (modeSelector) {
         modeSelector.onchange = (e) => {
-          appState.planMode = e.target.value;
+          const newMode = e.target.value;
+          appState.planMode = newMode;
+          // Set read-only flag for strict read-only mode
+          appState.readOnlyPlanMode = (newMode === 'plan-readonly');
           saveAppState();
           updatePlanControlsVisibility();
           
           // Load existing plan from brain file if switching to plan mode (not chat or codebase-chat)
-          if (e.target.value !== 'chat' && e.target.value !== 'codebase-chat') {
+          if (newMode !== 'chat' && newMode !== 'codebase-chat') {
             const loadedPlan = loadPlanFromBrainFile();
             if (loadedPlan) {
               appState.currentPlan = loadedPlan;
@@ -11738,7 +11801,7 @@ Format:
             }
           }
           
-          logActivity(`Mode changed to: ${e.target.value}`, 'info');
+          logActivity(`Mode changed to: ${newMode}`, 'info');
         };
       }
 
@@ -11827,7 +11890,7 @@ Format:
           
           logActivity(`Re-planning (revision ${appState.planRevisionCount}/${appState.planMaxRevisions})...`, 'info');
           
-          if (appState.planMode === 'plan') {
+          if (appState.planMode === 'plan' || appState.planMode === 'plan-readonly') {
             await sendPlanPrompt(newPrompt);
           } else if (appState.planMode === 'plan-build') {
             await sendPlanPrompt(newPrompt, true);
@@ -11835,6 +11898,25 @@ Format:
         };
       }
     }
+
+    // Approve & Build button (read-only plan mode handoff)
+          const btnApprovePlan = document.getElementById('btnApprovePlan');
+          if (btnApprovePlan) {
+            btnApprovePlan.onclick = () => {
+              if (appState.currentPlan.length === 0) {
+                logActivity('No plan to approve', 'warning');
+                return;
+              }
+              // Switch to plan-build mode and start execution
+              appState.planMode = 'plan-build';
+              appState.readOnlyPlanMode = false;
+              saveAppState();
+              updatePlanControlsVisibility();
+              logActivity('Plan approved — switching to Plan+Build mode', 'success');
+              appendChatMessage('system', '✅ Plan approved! Switching to Plan+Build mode and executing...');
+              executeNextPlanStep();
+            };
+          }
 
     // ==================== COMMAND PALETTE ====================
     function setupCommandPalette() {
