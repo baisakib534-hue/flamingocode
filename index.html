@@ -635,6 +635,134 @@
       outline: none;
     }
 
+    /* Command Palette */
+    .command-palette {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: none;
+      align-items: flex-start;
+      justify-content: center;
+      padding-top: 12vh;
+      z-index: 2000;
+    }
+    .command-palette.active { display: flex; }
+    .command-palette-box {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      width: 640px;
+      max-width: 92vw;
+      max-height: 70vh;
+      overflow: hidden;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(59,130,246,0.1);
+      animation: paletteSlide 0.15s ease-out;
+    }
+    @keyframes paletteSlide {
+      from { opacity: 0; transform: translateY(-20px) scale(0.98); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .command-palette-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-color);
+      background: var(--bg-surface);
+    }
+    .command-palette-icon {
+      width: 28px; height: 28px;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--accent-glow);
+      border-radius: 6px;
+      color: var(--accent-blue);
+      font-size: 14px;
+    }
+    .command-palette-input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: var(--text-main);
+      font-size: 16px;
+      outline: none;
+      font-family: var(--font-sans);
+    }
+    .command-palette-input::placeholder { color: var(--text-dim); }
+    .command-palette-hint {
+      font-size: 11px;
+      color: var(--text-dim);
+      font-family: var(--font-mono);
+      padding: 0 8px;
+    }
+    .command-palette-list {
+      max-height: 60vh;
+      overflow-y: auto;
+      padding: 8px;
+    }
+    .command-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+    .command-item:hover,
+    .command-item.selected {
+      background: var(--bg-hover);
+    }
+    .command-item-icon {
+      width: 28px; height: 28px;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      font-size: 13px;
+      flex-shrink: 0;
+    }
+    .command-item-content { flex: 1; min-width: 0; }
+    .command-item-title {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-main);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .command-item-desc {
+      font-size: 11px;
+      color: var(--text-dim);
+      margin-top: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .command-item-shortcut {
+      font-size: 10px;
+      color: var(--text-dim);
+      font-family: var(--font-mono);
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 3px;
+      padding: 2px 6px;
+      flex-shrink: 0;
+    }
+    .command-section {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-dim);
+      padding: 8px 12px 4px;
+      font-weight: 600;
+    }
+    .command-empty {
+      padding: 24px;
+      text-align: center;
+      color: var(--text-dim);
+      font-size: 13px;
+    }
+
     /* Mobile Navigation Bar */
     .mobile-nav {
       display: none;
@@ -882,6 +1010,7 @@
       <div id="headerUsageMeter" style="display: flex; align-items: center; gap: 8px; margin-left: 12px; padding-left: 12px; border-left: 1px solid var(--border-color); font-size: 11px; color: var(--text-muted); min-width: 200px;">
         <span style="font-family:var(--font-mono); font-size:11px; color:var(--accent-blue);">0 req</span> · <span style="font-family:var(--font-mono); font-size:11px; color:var(--text-main);">0 tok</span> · <span style="font-family:var(--font-mono); font-size:11px; color:var(--success);">$0.0000</span>
       </div>
+      <button class="btn btn-secondary" id="btnOpenCommandPalette" style="padding: 4px 8px; font-size: 11px;" title="Command Palette (⌘K)">⌘K</button>
       <button class="btn btn-secondary" id="btnOpenPromptLibrary" style="padding: 4px 8px; font-size: 11px;" title="Prompt Library — save, search, and reuse prompts">📝 Prompts</button>
       <button class="btn btn-secondary" id="btnSettings" style="padding: 4px 8px; font-size: 11px;">⚙️ Provider</button>
     </div>
@@ -2206,6 +2335,18 @@
         <button class="btn btn-secondary" id="btnCancelMcpServer">Cancel</button>
         <button class="btn" id="btnSaveMcpServer">Save Server</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Command Palette -->
+  <div class="command-palette" id="commandPalette">
+    <div class="command-palette-box" role="dialog" aria-label="Command Palette">
+      <div class="command-palette-header">
+        <div class="command-palette-icon">⌘</div>
+        <input type="text" class="command-palette-input" id="commandPaletteInput" placeholder="Type a command..." autocomplete="off" spellcheck="false" />
+        <span class="command-palette-hint">⌘K</span>
+      </div>
+      <div class="command-palette-list" id="commandPaletteList"></div>
     </div>
   </div>
   <script>
@@ -9806,6 +9947,297 @@ Rules:
       }
     }
 
+    // ==================== COMMAND PALETTE ====================
+    function setupCommandPalette() {
+      const palette = document.getElementById('commandPalette');
+      const input = document.getElementById('commandPaletteInput');
+      const list = document.getElementById('commandPaletteList');
+      const btnOpen = document.getElementById('btnOpenCommandPalette');
+
+      // Action registry — every app action searchable from the keyboard
+      const actionRegistry = [
+        // File & Project
+        { id: 'newProject', title: 'New Project', desc: 'Create a new empty project', section: 'File & Project', icon: '📄', shortcut: '', action: () => { const name = prompt('Enter new project name:'); if (name) { const newId = createNewSession(name); switchSession(newId); } } },
+        { id: 'openProject', title: 'Open Project', desc: 'Switch to another project session', section: 'File & Project', icon: '📁', shortcut: '', action: () => { document.getElementById('sessionSelect').focus(); } },
+        { id: 'saveProject', title: 'Save Project', desc: 'Save current project state', section: 'File & Project', icon: '💾', shortcut: '⌘S', action: () => { saveAppState(); logActivity('Project saved', 'success'); } },
+        { id: 'newFile', title: 'New File', desc: 'Create a new file in current project', section: 'File & Project', icon: '➕', shortcut: '⌘N', action: createNewFile },
+        { id: 'loadTemplate', title: 'Load Template', desc: 'Load a starter template into project', section: 'File & Project', icon: '🎨', shortcut: '', action: () => { document.getElementById('templateSelect').focus(); } },
+        { id: 'exportBackup', title: 'Export Backup', desc: 'Export project as backup JSON', section: 'File & Project', icon: '📦', shortcut: '', action: exportBackup },
+        { id: 'importBackup', title: 'Import Backup', desc: 'Import project from backup JSON', section: 'File & Project', icon: '📥', shortcut: '', action: importBackup },
+        { id: 'downloadZip', title: 'Download as ZIP', desc: 'Export whole project as ZIP file', section: 'File & Project', icon: '🗜️', shortcut: '', action: () => { document.getElementById('btnDownloadZip')?.click(); } },
+
+        // Checkpoints & History
+        { id: 'restoreCheckpoint', title: 'Restore Checkpoint', desc: 'Restore a previous checkpoint', section: 'Checkpoints & History', icon: '⏪', shortcut: '', action: () => { switchPane('history'); } },
+        { id: 'diffReview', title: 'Diff Review', desc: 'Open diff review panel', section: 'Checkpoints & History', icon: '🔍', shortcut: '', action: () => { switchPane('diffReview'); } },
+        { id: 'createCheckpoint', title: 'Create Checkpoint', desc: 'Manually create a checkpoint', section: 'Checkpoints & History', icon: '📌', shortcut: '', action: () => { createCheckpoint('manual'); logActivity('Manual checkpoint created', 'success'); } },
+        { id: 'clearCheckpoints', title: 'Clear Checkpoints', desc: 'Clear all checkpoints for current session', section: 'Checkpoints & History', icon: '🗑️', shortcut: '', action: () => { if (confirm('Clear all checkpoints?')) { clearCheckpoints(); logActivity('Checkpoints cleared', 'warning'); } } },
+
+        // Editor
+        { id: 'findInFile', title: 'Find in File', desc: 'Search within current file', section: 'Editor', icon: '🔎', shortcut: '⌘F', action: () => { const editor = document.getElementById('editorTextarea'); editor.focus(); if (window.find) window.find(); } },
+        { id: 'formatCode', title: 'Format Code', desc: 'Format current file (basic)', section: 'Editor', icon: '✨', shortcut: '⌘⇧F', action: formatCurrentFile },
+        { id: 'toggleLineNumbers', title: 'Toggle Line Numbers', desc: 'Show/hide line numbers', section: 'Editor', icon: '🔢', shortcut: '', action: toggleLineNumbers },
+
+        // Preview & Deploy
+        { id: 'refreshPreview', title: 'Refresh Preview', desc: 'Reload the preview iframe', section: 'Preview & Deploy', icon: '🔄', shortcut: '⌘R', action: refreshPreview },
+        { id: 'openPreview', title: 'Open Preview Panel', desc: 'Show the preview panel', section: 'Preview & Deploy', icon: '👁️', shortcut: '', action: () => { switchPane('preview'); } },
+        { id: 'publish', title: 'Publish Panel', desc: 'Open publish panel (ZIP, GitHub Pages, Netlify, Vercel)', section: 'Preview & Deploy', icon: '🚀', shortcut: '', action: () => { switchPane('publish'); } },
+
+        // Agent & AI
+        { id: 'newChat', title: 'New Chat', desc: 'Start a new agent chat session', section: 'Agent & AI', icon: '💬', shortcut: '', action: () => { document.getElementById('chatInput').focus(); } },
+        { id: 'voiceInput', title: 'Voice Input', desc: 'Toggle voice input for chat', section: 'Agent & AI', icon: '🎤', shortcut: '', action: () => { document.getElementById('btnVoiceInput')?.click(); } },
+        { id: 'agentLibrary', title: 'Agent Library', desc: 'Manage custom agents', section: 'Agent & AI', icon: '👥', shortcut: '', action: () => { document.getElementById('btnOpenAgentLibrary')?.click(); } },
+        { id: 'promptLibrary', title: 'Prompt Library', desc: 'Save, search, and reuse prompts', section: 'Agent & AI', icon: '📝', shortcut: '', action: () => { document.getElementById('btnOpenPromptLibrary')?.click(); } },
+        { id: 'toggleUncensored', title: 'Toggle Uncensored Mode', desc: 'Enable/disable uncensored mode for project', section: 'Agent & AI', icon: '⚠️', shortcut: '', action: () => { document.getElementById('uncensoredToggle')?.click(); } },
+        { id: 'providerSettings', title: 'Provider Settings', desc: 'Configure LLM providers and API keys', section: 'Agent & AI', icon: '⚙️', shortcut: '', action: () => { document.getElementById('btnSettings')?.click(); } },
+
+        // Team Room
+        { id: 'teamRoom', title: 'Team Room', desc: 'Open team room panel', section: 'Team Room', icon: '🏠', shortcut: '', action: () => { switchPane('team'); } },
+        { id: 'startTeam', title: 'Start Team Run', desc: 'Start a multi-agent team session', section: 'Team Room', icon: '▶️', shortcut: '', action: () => { document.getElementById('btnStartTeam')?.click(); } },
+        { id: 'stopTeam', title: 'Stop Team Run', desc: 'Stop the current team session', section: 'Team Room', icon: '⏹️', shortcut: '', action: () => { document.getElementById('btnStopTeam')?.click(); } },
+        { id: 'teamMemory', title: 'Save Team Memory', desc: 'Save team session to project brain', section: 'Team Room', icon: '🧠', shortcut: '', action: () => { document.getElementById('btnSaveTeamMemory')?.click(); } },
+        { id: 'architectureVote', title: 'Architecture Vote', desc: 'Run an architecture vote', section: 'Team Room', icon: '🗳️', shortcut: '', action: () => { document.getElementById('btnArchVote')?.click(); } },
+        { id: 'seniorReview', title: 'Senior Diff Review', desc: 'Open senior review diff view', section: 'Team Room', icon: '🔍', shortcut: '', action: () => { document.getElementById('btnSeniorDiff')?.click(); } },
+        { id: 'sessionReplay', title: 'Session Replay', desc: 'Replay a previous team session', section: 'Team Room', icon: '▶️', shortcut: '', action: () => { document.getElementById('btnReplaySession')?.click(); } },
+        { id: 'exportTranscript', title: 'Export Transcript', desc: 'Export team chat transcript', section: 'Team Room', icon: '📄', shortcut: '', action: () => { document.getElementById('btnExportTranscript')?.click(); } },
+
+        // Settings & UI
+        { id: 'toggleTheme', title: 'Toggle Theme', desc: 'Switch between dark/light (if supported)', section: 'Settings & UI', icon: '🌙', shortcut: '', action: toggleTheme },
+        { id: 'keyboardShortcuts', title: 'Keyboard Shortcuts', desc: 'Show keyboard shortcuts help', section: 'Settings & UI', icon: '⌨️', shortcut: '⌘/', action: showKeyboardShortcuts },
+        { id: 'about', title: 'About FlamingoCode', desc: 'Show version and credits', section: 'Settings & UI', icon: 'ℹ️', shortcut: '', action: showAbout },
+      ];
+
+      let selectedIndex = 0;
+      let filteredActions = [...actionRegistry];
+      let currentSection = '';
+
+      // Fuzzy search: simple substring match on title and desc
+      function filterActions(query) {
+        const q = query.toLowerCase().trim();
+        if (!q) {
+          filteredActions = [...actionRegistry];
+        } else {
+          filteredActions = actionRegistry.filter(a =>
+            a.title.toLowerCase().includes(q) ||
+            a.desc.toLowerCase().includes(q) ||
+            a.id.toLowerCase().includes(q)
+          );
+        }
+        selectedIndex = 0;
+        renderList();
+      }
+
+      function renderList() {
+        list.innerHTML = '';
+        if (filteredActions.length === 0) {
+          list.innerHTML = '<div class="command-empty">No commands match</div>';
+          return;
+        }
+
+        let lastSection = '';
+        filteredActions.forEach((action, index) => {
+          if (action.section !== lastSection) {
+            const sectionDiv = document.createElement('div');
+            sectionDiv.className = 'command-section';
+            sectionDiv.textContent = action.section;
+            list.appendChild(sectionDiv);
+            lastSection = action.section;
+          }
+
+          const item = document.createElement('div');
+          item.className = 'command-item' + (index === selectedIndex ? ' selected' : '');
+          item.dataset.index = index;
+          item.innerHTML = `
+            <div class="command-item-icon">${action.icon}</div>
+            <div class="command-item-content">
+              <div class="command-item-title">${escapeHtml(action.title)}</div>
+              <div class="command-item-desc">${escapeHtml(action.desc)}</div>
+            </div>
+            ${action.shortcut ? `<span class="command-item-shortcut">${escapeHtml(action.shortcut)}</span>` : ''}
+          `;
+          item.onclick = () => { selectedIndex = index; executeAction(action); };
+          list.appendChild(item);
+        });
+
+        // Scroll selected into view
+        const selected = list.querySelector('.command-item.selected');
+        if (selected) selected.scrollIntoView({ block: 'nearest' });
+      }
+
+      function executeAction(action) {
+        try {
+          action.action();
+        } catch (e) {
+          console.error('Command palette action error:', e);
+          logActivity('Command failed: ' + e.message, 'error');
+        }
+        closePalette();
+      }
+
+      function openPalette() {
+        palette.classList.add('active');
+        input.value = '';
+        filterActions('');
+        input.focus();
+        selectedIndex = 0;
+        // Close on backdrop click
+        palette.onclick = (e) => { if (e.target === palette) closePalette(); };
+      }
+
+      function closePalette() {
+        palette.classList.remove('active');
+        input.value = '';
+        palette.onclick = null;
+      }
+
+      // Button click
+      btnOpen?.addEventListener('click', openPalette);
+
+      // Keyboard: Ctrl+K / ⌘+K to open
+      document.addEventListener('keydown', (e) => {
+        if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+          e.preventDefault();
+          if (palette.classList.contains('active')) {
+            closePalette();
+          } else {
+            openPalette();
+          }
+        }
+        // Escape to close
+        if (e.key === 'Escape' && palette.classList.contains('active')) {
+          closePalette();
+        }
+        // Arrow navigation when palette is open
+        if (palette.classList.contains('active')) {
+          if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            selectedIndex = Math.min(selectedIndex + 1, filteredActions.length - 1);
+            renderList();
+          } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            selectedIndex = Math.max(selectedIndex - 1, 0);
+            renderList();
+          } else if (e.key === 'Enter') {
+            e.preventDefault();
+            if (filteredActions[selectedIndex]) {
+              executeAction(filteredActions[selectedIndex]);
+            }
+          }
+        }
+      });
+
+      // Input filtering
+      input.addEventListener('input', (e) => {
+        filterActions(e.target.value);
+      });
+
+      // Initial render
+      renderList();
+
+      // Helper functions for actions
+      function exportBackup() {
+        const session = getCurrentSession();
+        if (!session) return;
+        const data = JSON.stringify(session, null, 2);
+        const blob = new Blob([data], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `flamingocode-backup-${session.name.replace(/\s+/g, '-')}-${Date.now()}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        logActivity('Backup exported', 'success');
+      }
+
+      function importBackup() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.json';
+        input.onchange = (e) => {
+          const file = e.target.files[0];
+          if (!file) return;
+          const reader = new FileReader();
+          reader.onload = () => {
+            try {
+              const data = JSON.parse(reader.result);
+              if (data.files && data.name) {
+                const newId = createNewSession(data.name);
+                appState.sessions[newId] = data;
+                saveAppState();
+                switchSession(newId);
+                logActivity('Backup imported: ' + data.name, 'success');
+              } else {
+                alert('Invalid backup file');
+              }
+            } catch (err) {
+              alert('Failed to import: ' + err.message);
+            }
+          };
+          reader.readAsText(file);
+        };
+        input.click();
+      }
+
+      function formatCurrentFile() {
+        const editor = document.getElementById('editorTextarea');
+        const text = editor.value;
+        // Simple JS/HTML/CSS formatting - just basic indentation fix
+        let formatted = text;
+        try {
+          // Try to detect language from active tab
+          const session = getCurrentSession();
+          const activeFile = session?.activeFile || '';
+          if (activeFile.endsWith('.js')) {
+            formatted = text.split('\n').map((line, i) => line.trimStart()).join('\n');
+          } else if (activeFile.endsWith('.html') || activeFile.endsWith('.css')) {
+            formatted = text.split('\n').map((line, i) => line.trimStart()).join('\n');
+          }
+          editor.value = formatted;
+          saveCurrentFile();
+          logActivity('File formatted', 'success');
+        } catch (e) {
+          logActivity('Format failed: ' + e.message, 'error');
+        }
+      }
+
+      function toggleLineNumbers() {
+        const lineNumbers = document.getElementById('lineNumbers');
+        const editor = document.getElementById('editorTextarea');
+        if (lineNumbers.style.display === 'none') {
+          lineNumbers.style.display = 'block';
+          editor.style.paddingLeft = '50px';
+        } else {
+          lineNumbers.style.display = 'none';
+          editor.style.paddingLeft = '12px';
+        }
+      }
+
+      function toggleTheme() {
+        // Toggle a light theme class on body
+        document.body.classList.toggle('light-theme');
+        logActivity('Theme toggled', 'info');
+      }
+
+      function showKeyboardShortcuts() {
+        const shortcuts = [
+          '⌘K — Command Palette',
+          '⌘S — Save Project',
+          '⌘N — New File',
+          '⌘F — Find in File',
+          '⌘R — Refresh Preview',
+          '⌘⇧F — Format Code',
+          '⌘/ — Show Shortcuts',
+          'Esc — Close Palette/Modals',
+          '↑/↓ — Navigate Palette',
+          'Enter — Execute Action',
+        ];
+        alert('Keyboard Shortcuts:\n\n' + shortcuts.join('\n'));
+      }
+
+      function showAbout() {
+        alert('FlamingoCode — AI Coding Studio\n\nVersion: 1.0.0\nBuilt with vanilla JS, no frameworks.\n\nFeatures: Agent chat, Team mode, Templates, Publish, Brain v2, Voice input, and more.');
+      }
+    }
+
     function initApp() {
       loadAppState();
       updateHeaderUsageMeter();
@@ -9867,6 +10299,7 @@ Rules:
       setupPromptLibraryHandlers();
       setupTeamModeHandlers();
       setupPlanModeHandlers();
+      setupCommandPalette();
       initTeamModeUI();
       initTeamV2Launch();
 
