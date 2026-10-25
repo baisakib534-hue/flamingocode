@@ -512,6 +512,28 @@
     .action-chip.delete { color: var(--danger); }
     .action-chip.browse { color: var(--warning); }
 
+    /* Citation links in codebase chat */
+    .citation-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: var(--bg-hover);
+      border: 1px solid var(--border-light);
+      color: var(--accent-blue);
+      text-decoration: none;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      margin: 0 2px;
+      transition: all 0.15s ease;
+    }
+    .citation-link:hover {
+      background: var(--accent-glow);
+      border-color: var(--accent-blue);
+      color: var(--accent-hover);
+    }
+
     /* Working Indicator */
     .working-indicator {
       display: flex;
@@ -1192,6 +1214,7 @@
               <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;" data-i18n="Mode">Mode</span>
               <select id="modeSelector" class="form-select" style="padding:4px 8px; font-size:11px; min-width:140px;" title="Select agent mode">
                 <option value="chat" data-i18n="Chat">💬 Chat</option>
+                <option value="codebase-chat" data-i18n="Ask Codebase">🔍 Ask Codebase</option>
                 <option value="plan" data-i18n="Plan">📋 Plan</option>
                 <option value="plan-build" data-i18n="Plan + Build">🔨 Plan + Build</option>
               </select>
@@ -3476,7 +3499,7 @@ WORK STYLE:
       teamPhase: null,  // 'discussion' | 'execution' | 'presentation' | 'testing' | 'review' | 'complete'
       teamReviewRound: 0,
       // Plan + Build mode state
-      planMode: 'chat',  // 'chat' | 'plan' | 'plan-build'
+      planMode: 'chat',  // 'chat' | 'codebase-chat' | 'plan' | 'plan-build'
       currentPlan: [],  // Array of plan steps: {id, text, done, current, note, revised}
       planStepIndex: 0,
       planPaused: false,
@@ -6147,25 +6170,30 @@ function updatePlanControlsVisibility() {
   }
   
   // Show/hide plan panel and controls
-  const hasPlan = appState.currentPlan.length > 0;
-  
-  if (mode === 'chat') {
-    planPanelWrapper.style.display = 'none';
-    planControls.style.display = 'none';
-  } else if (mode === 'plan') {
-    planPanelWrapper.style.display = hasPlan ? 'block' : 'none';
-    planControls.style.display = 'none';
-  } else if (mode === 'plan-build') {
-    planPanelWrapper.style.display = hasPlan ? 'block' : 'none';
-    planControls.style.display = hasPlan ? 'flex' : 'none';
+    const hasPlan = appState.currentPlan.length > 0;
+
+    if (mode === 'chat' || mode === 'codebase-chat') {
+      planPanelWrapper.style.display = 'none';
+      planControls.style.display = 'none';
+    } else if (mode === 'plan') {
+      planPanelWrapper.style.display = hasPlan ? 'block' : 'none';
+      planControls.style.display = 'none';
+    } else if (mode === 'plan-build') {
+      planPanelWrapper.style.display = hasPlan ? 'block' : 'none';
+      planControls.style.display = hasPlan ? 'flex' : 'none';
+    }
+
+    // Update pause button text
+    const pauseBtn = document.getElementById('btnPausePlan');
+    if (pauseBtn) {
+      pauseBtn.textContent = appState.planPaused ? '▶ Resume' : '⏸ Pause';
+    }
+
+    // Update mode status for codebase-chat
+    if (modeStatus && mode === 'codebase-chat') {
+      modeStatus.textContent = '(ask about codebase)';
+    }
   }
-  
-  // Update pause button text
-  const pauseBtn = document.getElementById('btnPausePlan');
-  if (pauseBtn) {
-    pauseBtn.textContent = appState.planPaused ? '▶ Resume' : '⏸ Pause';
-  }
-}
 
 // Add a new step to the plan
 function addPlanStep(text, index = -1) {
@@ -8338,18 +8366,23 @@ CURRENT VIRTUAL FILES:
       return context;
     }
 
-    function appendChatMessage(role, content, chips = [], toolsUsed = []) {
-      const chat = document.getElementById('chatMessages');
-      const msg = document.createElement('div');
-      msg.className = `msg msg-${role}`;
+    function appendChatMessage(role, content, chips = [], toolsUsed = [], isCodebaseChat = false) {
+          const chat = document.getElementById('chatMessages');
+          const msg = document.createElement('div');
+          msg.className = `msg msg-${role}`;
 
-      if (role === 'user') {
-        msg.textContent = content;
-      } else if (role === 'agent') {
-        // Clean text content by removing block contents
-        let cleanText = content.replace(/```(file|delete|browse):[\s\S]*?```/g, '').trim();
-        
-        let html = cleanText ? `<p style="white-space: pre-wrap;">${escapeHtml(cleanText)}</p>` : '';
+          if (role === 'user') {
+            msg.textContent = content;
+          } else if (role === 'agent') {
+            // Clean text content by removing block contents
+            let cleanText = content.replace(/```(file|delete|browse):[\s\S]*?```/g, '').trim();
+
+            // Process citations for codebase chat mode
+            if (isCodebaseChat) {
+              cleanText = processCitations(cleanText);
+            }
+
+            let html = cleanText ? `<p style="white-space: pre-wrap;">${cleanText}</p>` : '';
 
         if (chips.length > 0) {
           html += '<div style="margin-top:6px;">';
@@ -8385,6 +8418,82 @@ CURRENT VIRTUAL FILES:
 
       chat.appendChild(msg);
       chat.scrollTop = chat.scrollHeight;
+    }
+
+    // Process citations in codebase chat responses: [file:path], [symbol:name], [note:name]
+    function processCitations(text) {
+      // First escape HTML
+      let html = escapeHtml(text);
+      
+      // Replace [file:path/to/file.ext] with clickable link
+      html = html.replace(/\[file:([^\]]+)\]/g, (match, filePath) => {
+        const escapedPath = filePath.replace(/'/g, "\\'");
+        return `<a href="#" class="citation-link" onclick="event.preventDefault(); openFile('${escapedPath}')" title="Open ${filePath}">📄 ${escapeHtml(filePath)}</a>`;
+      });
+      
+      // Replace [symbol:name] with clickable link (searches for symbol in graph)
+      html = html.replace(/\[symbol:([^\]]+)\]/g, (match, symbolName) => {
+        const escapedName = symbolName.replace(/'/g, "\\'");
+        return `<a href="#" class="citation-link" onclick="event.preventDefault(); jumpToSymbol('${escapedName}')" title="Jump to symbol ${symbolName}">⚡ ${escapeHtml(symbolName)}</a>`;
+      });
+      
+      // Replace [note:name] with clickable link (opens Brain note)
+      html = html.replace(/\[note:([^\]]+)\]/g, (match, noteName) => {
+        const escapedName = noteName.replace(/'/g, "\\'");
+        return `<a href="#" class="citation-link" onclick="event.preventDefault(); openBrainNote('${escapedName}')" title="Open Brain note ${noteName}">🧠 ${escapeHtml(noteName)}</a>`;
+      });
+      
+      return html;
+    }
+
+    function jumpToSymbol(symbolName) {
+      const session = getCurrentSession();
+      if (!session) return;
+      
+      const graph = getOrBuildCodeGraph(session);
+      if (!graph) return;
+      
+      const node = graph.nodes.find(n => 
+        n.name.toLowerCase() === symbolName.toLowerCase() ||
+        n.name.toLowerCase().includes(symbolName.toLowerCase())
+      );
+      
+      if (node && node.filePath) {
+        openFile(node.filePath);
+        logActivity(`Jumped to symbol: ${symbolName} in ${node.filePath}`, 'success');
+      } else {
+        logActivity(`Symbol not found in graph: ${symbolName}`, 'warning');
+      }
+    }
+
+    function openBrainNote(noteName) {
+      const session = getCurrentSession();
+      if (!session) return;
+      
+      const content = readBrainNote(noteName);
+      if (content) {
+        // Show in a modal or append to chat
+        showBrainNoteModal(noteName, content);
+      } else {
+        logActivity(`Brain note not found: ${noteName}`, 'warning');
+      }
+    }
+
+    function showBrainNoteModal(noteName, content) {
+      const modal = document.createElement('div');
+      modal.className = 'modal-overlay';
+      modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:1000;';
+      modal.innerHTML = `
+        <div style="background:var(--bg-panel);border:1px solid var(--border-color);border-radius:8px;padding:20px;max-width:600px;max-height:80vh;overflow:auto;width:90%;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <h3 style="margin:0;">🧠 Brain Note: ${escapeHtml(noteName)}</h3>
+            <button onclick="this.closest('.modal-overlay').remove()" style="background:none;border:none;color:var(--text-muted);font-size:18px;cursor:pointer;">&times;</button>
+          </div>
+          <pre style="white-space:pre-wrap;font-family:var(--font-sans);font-size:12px;line-height:1.6;color:var(--text-main);">${escapeHtml(content)}</pre>
+        </div>
+      `;
+      document.body.appendChild(modal);
+      modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
     }
 
     function escapeHtml(str) {
@@ -9123,6 +9232,11 @@ async function sendAgentPrompt(userPrompt, autoTurn = 0) {
         return executeNextPlanStep();
       }
 
+      // Handle Codebase Chat mode - answer questions about the whole project using code graph + Brain notes
+      if (appState.planMode === 'codebase-chat' && autoTurn === 0) {
+        return sendCodebaseChatPrompt(userPrompt);
+      }
+
       // Check if we need to compress history
       maybeCompressHistory(session);
       
@@ -9257,6 +9371,146 @@ async function sendAgentPrompt(userPrompt, autoTurn = 0) {
         stopTimer();
         saveAppState();
       }
+    }
+
+    // ==================== CODEBASE CHAT MODE ====================
+    // Answers questions about the whole project using code graph (queryGraph/pathGraph/explainGraph)
+    // and Brain notes (readBrainNote/listBrainNotes). Citations are clickable to jump to file.
+
+    async function sendCodebaseChatPrompt(userPrompt) {
+      if (agentWorking) return;
+      agentWorking = true;
+      const session = getCurrentSession();
+
+      appendChatMessage('user', userPrompt);
+      session.chatHistory.push({ role: 'user', content: userPrompt });
+
+      maybeCompressHistory(session);
+      updateTokenMeter(session);
+      startTimer();
+
+      logActivity('Codebase chat: querying code graph and Brain notes...', 'info');
+
+      try {
+        // Build comprehensive context from code graph and Brain notes
+        const graphContext = await buildCodebaseContext(userPrompt, session);
+        
+        const systemPrompt = `You are FlamingoCode's codebase expert. Answer the user's question about their ENTIRE project using ONLY the provided context from the code graph and Brain notes.
+
+Rules:
+- Answer based on the code graph (symbols, files, connections) and Brain notes (decisions, architecture, progress)
+- Cite sources inline: use [file:path/to/file.ext] for files, [symbol:name] for symbols, [note:name] for Brain notes
+- Be specific and technical - this is a developer asking about their codebase
+- If the context doesn't contain the answer, say so honestly - don't hallucinate
+- Keep answers focused and well-structured`;
+
+        const messages = [
+          { role: 'system', content: systemPrompt + graphContext },
+          ...sanitizeHistoryForReplay(session.chatHistory).slice(-10) // Last 10 messages for context
+        ];
+
+        logActivity('Calling LLM for codebase chat...', 'info');
+        const reply = await callLLM(messages);
+
+        session.chatHistory.push({ role: 'assistant', content: reply });
+        
+        // Render with clickable citations
+        appendChatMessage('agent', reply, [], [], true); // true = codebase chat mode with citations
+
+      } catch (err) {
+        logActivity('Codebase chat error: ' + err.message, 'error');
+        appendChatMessage('system', 'Error: ' + err.message);
+      } finally {
+        agentWorking = false;
+        stopTimer();
+        saveAppState();
+      }
+    }
+
+    async function buildCodebaseContext(question, session) {
+      let context = '';
+      
+      // 1. Get code graph summary (always include for overview)
+      const graphSummary = getGraphSummary();
+      context += `\n\n=== CODE GRAPH OVERVIEW ===\n${graphSummary}`;
+
+      // 2. Query graph for relevant subgraph based on question
+      const queryResult = queryGraph(question);
+      if (queryResult.nodes && queryResult.nodes.length > 0) {
+        context += `\n\n=== RELEVANT CODE GRAPH (queryGraph) ===\n${queryResult.summary}\n\nNodes:`;
+        for (const node of queryResult.nodes.slice(0, 15)) {
+          context += `\n- ${node.name} (${node.type}) in ${node.filePath}`;
+        }
+        if (queryResult.edges && queryResult.edges.length > 0) {
+          context += `\n\nEdges:`;
+          for (const edge of queryResult.edges.slice(0, 20)) {
+            const fromNode = queryResult.nodes.find(n => n.id === edge.from);
+            const toNode = queryResult.nodes.find(n => n.id === edge.to);
+            if (fromNode && toNode) {
+              context += `\n- ${fromNode.name} --${edge.type} (${edge.confidence})--> ${toNode.name}`;
+            }
+          }
+        }
+      }
+
+      // 3. Try explainGraph for concept questions
+      const conceptMatch = question.match(/(?:what is|explain|describe|tell me about|how does|where is|how to)\s+([a-zA-Z_$][\w$]*)/i);
+      if (conceptMatch) {
+        const conceptName = conceptMatch[1];
+        const explainResult = explainGraph(conceptName);
+        if (explainResult.node) {
+          context += `\n\n=== CONCEPT EXPLANATION (explainGraph: ${conceptName}) ===\n${explainResult.summary}`;
+          if (explainResult.byType) {
+            for (const [type, connections] of Object.entries(explainResult.byType)) {
+              context += `\n\n${type.toUpperCase()}:`;
+              for (const conn of connections.slice(0, 8)) {
+                context += `\n- ${conn.node.name} (${conn.node.type}, ${conn.confidence}, ${conn.direction}) in ${conn.node.filePath}`;
+              }
+            }
+          }
+        }
+      }
+
+      // 4. Try pathGraph for path/connection questions
+      const pathMatch = question.match(/(?:path|route|trace|how to get|connection between|connects?)\s+(?:between|from)\s+([a-zA-Z_$][\w$]*)\s+(?:and|to)\s+([a-zA-Z_$][\w$]*)/i);
+      if (pathMatch) {
+        const fromName = pathMatch[1];
+        const toName = pathMatch[2];
+        const pathResult = pathGraph(fromName, toName);
+        if (pathResult.path && pathResult.path.length > 0) {
+          context += `\n\n=== PATH (pathGraph: ${fromName} → ${toName}) ===\n${pathResult.summary}\nPath:`;
+          for (const node of pathResult.path) {
+            context += `\n- ${node.name} (${node.type}) in ${node.filePath}`;
+          }
+        }
+      }
+
+      // 5. Include relevant Brain notes
+      const notes = listBrainNotes(session);
+      if (notes.length > 0) {
+        // Find notes relevant to the question
+        const questionLower = question.toLowerCase();
+        const relevantNotes = notes.filter(n => {
+          const searchText = `${n.name} ${n.summary} ${n.links.join(' ')}`.toLowerCase();
+          return questionLower.split(/\s+/).some(w => w.length > 2 && searchText.includes(w));
+        }).slice(0, 5);
+
+        if (relevantNotes.length > 0) {
+          context += `\n\n=== RELEVANT BRAIN NOTES ===`;
+          for (const note of relevantNotes) {
+            const content = readBrainNote(note.name);
+            if (content) {
+              context += `\n\n--- Note: [[${note.name}]] ---\n${content.slice(0, 2000)}`;
+            }
+          }
+        } else {
+          // Include index map if no specific matches
+          context += `\n\n=== BRAIN INDEX MAP ===`;
+          context += `\n${session.files['.devforge/index.md'] || 'No Brain index found'}`;
+        }
+      }
+
+      return context;
     }
 
     // ==================== PROMPT ENHANCER ====================
@@ -11475,8 +11729,8 @@ Format:
           saveAppState();
           updatePlanControlsVisibility();
           
-          // Load existing plan from brain file if switching to plan mode
-          if (e.target.value !== 'chat') {
+          // Load existing plan from brain file if switching to plan mode (not chat or codebase-chat)
+          if (e.target.value !== 'chat' && e.target.value !== 'codebase-chat') {
             const loadedPlan = loadPlanFromBrainFile();
             if (loadedPlan) {
               appState.currentPlan = loadedPlan;
@@ -11619,6 +11873,7 @@ Format:
 
         // Agent & AI
         { id: 'newChat', title: 'New Chat', desc: 'Start a new agent chat session', section: 'Agent & AI', icon: '💬', shortcut: '', action: () => { document.getElementById('chatInput').focus(); } },
+        { id: 'codebaseChat', title: 'Ask Codebase', desc: 'Switch to codebase chat mode (query whole project)', section: 'Agent & AI', icon: '🔍', shortcut: '', action: () => { document.getElementById('modeSelector').value = 'codebase-chat'; document.getElementById('modeSelector').dispatchEvent(new Event('change')); document.getElementById('chatInput').focus(); } },
         { id: 'voiceInput', title: 'Voice Input', desc: 'Toggle voice input for chat', section: 'Agent & AI', icon: '🎤', shortcut: '', action: () => { document.getElementById('btnVoiceInput')?.click(); } },
         { id: 'agentLibrary', title: 'Agent Library', desc: 'Manage custom agents', section: 'Agent & AI', icon: '👥', shortcut: '', action: () => { document.getElementById('btnOpenAgentLibrary')?.click(); } },
         { id: 'promptLibrary', title: 'Prompt Library', desc: 'Save, search, and reuse prompts', section: 'Agent & AI', icon: '📝', shortcut: '', action: () => { document.getElementById('btnOpenPromptLibrary')?.click(); } },
