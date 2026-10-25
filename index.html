@@ -629,6 +629,105 @@
       outline: none;
       border-color: var(--accent-blue);
     }
+
+    /* Screenshot-to-App: Image Upload & Preview */
+    .chat-input-wrapper .image-upload-btn {
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .image-preview-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 8px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      font-size: 11px;
+      color: var(--text-main);
+      margin: 4px 0;
+    }
+    .image-preview-chip img {
+      width: 32px;
+      height: 32px;
+      object-fit: cover;
+      border-radius: 3px;
+    }
+    .image-preview-chip .remove-image {
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      cursor: pointer;
+      padding: 0 4px;
+      font-size: 14px;
+      line-height: 1;
+    }
+    .image-preview-chip .remove-image:hover {
+      color: var(--danger);
+    }
+
+    /* Side-by-side Preview */
+    .preview-split {
+      display: flex;
+      height: 100%;
+    }
+    .preview-split > * {
+      flex: 1;
+      min-width: 0;
+    }
+    .preview-split .preview-pane {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+    .preview-split .preview-pane-header {
+      padding: 6px 10px;
+      background: var(--bg-panel);
+      border-bottom: 1px solid var(--border-color);
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+    }
+    .preview-split .preview-pane-content {
+      flex: 1;
+      overflow: auto;
+      position: relative;
+    }
+    .preview-split .preview-pane-content iframe,
+    .preview-split .preview-pane-content img {
+      width: 100%;
+      height: 100%;
+      border: none;
+      background: white;
+    }
+    .preview-split .preview-pane-content img {
+      object-fit: contain;
+      background: var(--bg-dark);
+    }
+    .preview-split-divider {
+      width: 4px;
+      background: var(--border-color);
+      cursor: col-resize;
+      position: relative;
+    }
+    .preview-split-divider:hover {
+      background: var(--accent-blue);
+    }
+    .preview-split-divider::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 2px;
+      height: 30px;
+      background: var(--text-dim);
+      border-radius: 1px;
+    }
+
     #btnVoiceInput {
       flex-shrink: 0;
       display: inline-flex;
@@ -1291,8 +1390,17 @@
             <div class="prompt-chip" onclick="usePromptChip('Add a contact form modal with input validation to index.html')">✉️ Contact Form</div>
           </div>
 
+          <!-- Screenshot-to-App: Image preview chip -->
+          <div id="imagePreviewChip" class="image-preview-chip" style="display: none; margin: 0 12px;">
+            <img id="imagePreviewThumb" src="" alt="Screenshot preview" />
+            <span id="imagePreviewName"></span>
+            <button class="remove-image" id="btnRemoveImage" title="Remove image" aria-label="Remove image">✕</button>
+          </div>
+
           <div class="chat-input-wrapper">
             <input type="text" id="chatInput" class="chat-input" placeholder="Ask agent to build, edit, or fix..." data-i18n-placeholder="Ask agent to build, edit, or fix..." />
+            <button class="btn btn-secondary image-upload-btn" id="btnImageUpload" title="Upload screenshot or mockup (paste, drag & drop, or click)" data-i18n-title="Upload Image">🖼</button>
+            <input type="file" id="imageUploadInput" accept="image/*" style="display: none;" />
             <button class="btn btn-secondary" id="btnEnhancePrompt" title="Enhance prompt into full build spec" style="padding: 8px 10px; min-width: 44px;" data-i18n="Enhance">✨</button>
             <button class="btn btn-secondary" id="btnVoiceInput" title="Voice input (Click to start)" style="padding: 8px 10px; min-width: 44px;" data-i18n-title="Voice Input">🎤</button>
             <select id="voiceLangSelect" class="voice-lang-select" title="Speech recognition language" style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-main); padding: 8px 8px; font-size: 11px; min-width: 90px;">
@@ -1398,7 +1506,16 @@
 
         <!-- Preview Pane -->
         <div class="pane-view" id="panePreview">
-          <iframe id="previewIframe" class="preview-frame" sandbox="allow-scripts allow-modals allow-same-origin"></iframe>
+          <div style="display:flex; align-items:center; justify-content:space-between; padding:6px 10px; background:var(--bg-panel); border-bottom:1px solid var(--border-color);">
+            <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Preview</span>
+            <div style="display:flex; align-items:center; gap:6px;">
+              <button class="btn btn-secondary" id="btnToggleSplitPreview" title="Toggle side-by-side screenshot preview" style="padding: 3px 8px; font-size: 10px;">⟷ Split</button>
+              <button class="btn btn-secondary" id="btnRefreshPreview" title="Refresh preview" style="padding: 3px 8px; font-size: 10px;" onclick="refreshPreview()">⟳</button>
+            </div>
+          </div>
+          <div id="previewContainer" style="height: calc(100% - 38px);">
+            <iframe id="previewIframe" class="preview-frame" sandbox="allow-scripts allow-modals allow-same-origin"></iframe>
+          </div>
         </div>
 
         <!-- Preview Health Pane -->
@@ -9377,7 +9494,7 @@ CURRENT VIRTUAL FILES:
           // READ-ONLY PLAN MODE GUARD: Block all file/VFS mutations in strict read-only plan mode
           if (appState.readOnlyPlanMode || appState.planMode === 'plan-readonly') {
             // Check if response contains file operations
-            const hasFileOps = /```(file|delete):/.test(responseText);
+            const hasFileOps = /```(file|delete|screenshot-to-app):/.test(responseText);
             if (hasFileOps) {
               logActivity('Write blocked: Read-only plan mode active. Approve plan to execute.', 'warning');
               appendChatMessage('system', '⚠️ Write blocked: Read-only plan mode is active. File changes are not allowed. Use "Approve & Build" to switch to Plan+Build mode and execute the plan.');
@@ -9451,7 +9568,7 @@ CURRENT VIRTUAL FILES:
       }
 
       // Regex for fenced blocks: ```file:filename\ncontent```
-      const blockRegex = /```(file|delete|browse|brain-read):([^\n]*)\n([\s\S]*?)```/g;
+      const blockRegex = /```(file|delete|browse|brain-read|screenshot-to-app):([^\n]*)\n([\s\S]*?)```/g;
       let match;
 
       while ((match = blockRegex.exec(responseText)) !== null) {
@@ -9496,6 +9613,27 @@ CURRENT VIRTUAL FILES:
           chips.push({ type: 'browse', label: `Browsed to ${url}` });
           logActivity(`Agent navigated browser to ${url}`, 'info');
           toolsUsed.push({ name: 'browser', type: 'mcp' });
+        } else if (actionType === 'screenshot-to-app') {
+          // Screenshot-to-app tool: analyze screenshot and generate app
+          const prompt = targetPath || blockContent.trim();
+            window.toolScreenshotToApp({ prompt }).then(result => {
+              if (result.success) {
+                chips.push({ type: 'tool', label: `Screenshot-to-app: ${result.message}` });
+                logActivity('Screenshot-to-app: ' + result.message, 'success');
+                if (result.filesCreated && result.filesCreated.length > 0) {
+                  result.filesCreated.forEach(f => logActivity('  Created: ' + f, 'info'));
+                }
+                toolsUsed.push({ name: 'screenshot-to-app', type: 'skill' });
+              } else {
+                chips.push({ type: 'tool', label: `Screenshot-to-app failed: ${result.error}` });
+                logActivity('Screenshot-to-app error: ' + result.error, 'error');
+                toolsUsed.push({ name: 'screenshot-to-app', type: 'skill' });
+              }
+            }).catch(err => {
+              chips.push({ type: 'tool', label: `Screenshot-to-app error: ${err.message}` });
+              logActivity('Screenshot-to-app error: ' + err.message, 'error');
+              toolsUsed.push({ name: 'screenshot-to-app', type: 'skill' });
+            });
         }
       }
 
@@ -9516,7 +9654,7 @@ CURRENT VIRTUAL FILES:
       if (appState.teachMode && chips.length > 0) {
         // Build changes array from chips for explanation
         const teachChanges = [];
-        const blockRegex2 = /```(file|delete|browse|brain-read):([^\n]*)\n([\s\S]*?)```/g;
+        const blockRegex2 = /```(file|delete|browse|brain-read|screenshot-to-app):([^\n]*)\n([\s\S]*?)```/g;
         let match2;
         while ((match2 = blockRegex2.exec(responseText)) !== null) {
           const actionType = match2[1];
@@ -9532,6 +9670,8 @@ CURRENT VIRTUAL FILES:
             teachChanges.push({ type: 'browse', path: targetPath || blockContent.trim() });
           } else if (actionType === 'brain-read') {
             teachChanges.push({ type: 'brain-read', path: targetPath || blockContent.trim() });
+          } else if (actionType === 'screenshot-to-app') {
+            teachChanges.push({ type: 'tool', path: 'screenshot-to-app', action: 'generate-app' });
           }
         }
         const explanationHtml = generateBanglaExplanation(teachChanges);
@@ -12490,9 +12630,344 @@ Format:
         if (e.key === 'Enter') handleSend();
       });
 
+      // ==================== F3: SCREENSHOT-TO-APP IMAGE HANDLING ====================
+      setupScreenshotToApp();
+
       // ==================== VOICE INPUT ====================
       setupVoiceInput();
     }
+
+    // ==================== F3: SCREENSHOT-TO-APP ====================
+    let screenshotImageData = null; // base64 data URL
+    let screenshotImageName = null;
+    let splitPreviewMode = false;
+
+    function setupScreenshotToApp() {
+      const btnImageUpload = document.getElementById('btnImageUpload');
+      const imageUploadInput = document.getElementById('imageUploadInput');
+      const btnRemoveImage = document.getElementById('btnRemoveImage');
+      const chatInput = document.getElementById('chatInput');
+      const imagePreviewChip = document.getElementById('imagePreviewChip');
+      const imagePreviewThumb = document.getElementById('imagePreviewThumb');
+      const imagePreviewName = document.getElementById('imagePreviewName');
+      const btnToggleSplitPreview = document.getElementById('btnToggleSplitPreview');
+      const previewContainer = document.getElementById('previewContainer');
+      const previewIframe = document.getElementById('previewIframe');
+
+      // File input click handler
+      if (btnImageUpload && imageUploadInput) {
+        btnImageUpload.onclick = () => imageUploadInput.click();
+        imageUploadInput.onchange = (e) => {
+          const file = e.target.files?.[0];
+          if (file) handleImageFile(file);
+          imageUploadInput.value = '';
+        };
+      }
+
+      // Remove image handler
+      if (btnRemoveImage) {
+        btnRemoveImage.onclick = clearScreenshotImage;
+      }
+
+      // Paste handler on chat input
+      if (chatInput) {
+        chatInput.addEventListener('paste', (e) => {
+          const items = e.clipboardData?.items;
+          if (items) {
+            for (const item of items) {
+              if (item.type.startsWith('image/')) {
+                e.preventDefault();
+                const file = item.getAsFile();
+                if (file) handleImageFile(file);
+                break;
+              }
+            }
+          }
+        });
+
+        // Drag & drop handlers on chat input
+        chatInput.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          chatInput.style.borderColor = 'var(--accent-blue)';
+        });
+        chatInput.addEventListener('dragleave', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          chatInput.style.borderColor = '';
+        });
+        chatInput.addEventListener('drop', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          chatInput.style.borderColor = '';
+          const file = e.dataTransfer?.files?.[0];
+          if (file && file.type.startsWith('image/')) {
+            handleImageFile(file);
+          }
+        });
+      }
+
+      // Split preview toggle
+      if (btnToggleSplitPreview && previewContainer && previewIframe) {
+        btnToggleSplitPreview.onclick = () => {
+          splitPreviewMode = !splitPreviewMode;
+          btnToggleSplitPreview.textContent = splitPreviewMode ? '⟷ Merge' : '⟷ Split';
+          btnToggleSplitPreview.title = splitPreviewMode ? 'Exit side-by-side mode' : 'Enter side-by-side screenshot preview';
+          updatePreviewContainer();
+        };
+      }
+    }
+
+    function handleImageFile(file) {
+      if (!file.type.startsWith('image/')) {
+        logActivity('File is not an image', 'warning');
+        return;
+      }
+
+      const maxSize = 10 * 1024 * 1024; // 10MB
+      if (file.size > maxSize) {
+        logActivity('Image too large (max 10MB)', 'warning');
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        screenshotImageData = e.target.result;
+        screenshotImageName = file.name;
+        showImagePreview();
+        logActivity(`Screenshot loaded: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`, 'success');
+        
+        // Auto-focus chat input with hint
+        const chatInput = document.getElementById('chatInput');
+        if (chatInput) {
+          const hint = chatInput.value ? '\n\n[Screenshot attached: ' + file.name + ']' : '[Screenshot attached: ' + file.name + '] Build this design as a working app.';
+          chatInput.value += hint;
+          chatInput.focus();
+        }
+      };
+      reader.onerror = () => logActivity('Failed to read image file', 'error');
+      reader.readAsDataURL(file);
+    }
+
+    function showImagePreview() {
+      const imagePreviewChip = document.getElementById('imagePreviewChip');
+      const imagePreviewThumb = document.getElementById('imagePreviewThumb');
+      const imagePreviewName = document.getElementById('imagePreviewName');
+      if (imagePreviewChip && imagePreviewThumb && imagePreviewName && screenshotImageData) {
+        imagePreviewThumb.src = screenshotImageData;
+        imagePreviewName.textContent = screenshotImageName || 'Screenshot';
+        imagePreviewChip.style.display = 'inline-flex';
+      }
+    }
+
+    function clearScreenshotImage() {
+      screenshotImageData = null;
+      screenshotImageName = null;
+      const imagePreviewChip = document.getElementById('imagePreviewChip');
+      const imageUploadInput = document.getElementById('imageUploadInput');
+      if (imagePreviewChip) imagePreviewChip.style.display = 'none';
+      if (imageUploadInput) imageUploadInput.value = '';
+      logActivity('Screenshot cleared', 'info');
+    }
+
+    function getScreenshotImageData() {
+      return screenshotImageData;
+    }
+
+    function getScreenshotImageName() {
+      return screenshotImageName;
+    }
+
+    function updatePreviewContainer() {
+      const previewContainer = document.getElementById('previewContainer');
+      const previewIframe = document.getElementById('previewIframe');
+      const btnToggleSplitPreview = document.getElementById('btnToggleSplitPreview');
+      
+      if (!previewContainer || !previewIframe) return;
+
+      if (splitPreviewMode && screenshotImageData) {
+        // Side-by-side mode: screenshot on left, preview on right
+        previewContainer.innerHTML = `
+          <div class="preview-split">
+            <div class="preview-pane">
+              <div class="preview-pane-header">Screenshot (Reference)</div>
+              <div class="preview-pane-content">
+                <img src="${escapeHtml(screenshotImageData)}" alt="Reference screenshot" />
+              </div>
+            </div>
+            <div class="preview-split-divider" id="splitDivider"></div>
+            <div class="preview-pane">
+              <div class="preview-pane-header">Generated App Preview</div>
+              <div class="preview-pane-content"></div>
+            </div>
+          </div>
+        `;
+        // Move the iframe into the right pane
+        const rightContent = previewContainer.querySelector('.preview-pane:last-child .preview-pane-content');
+        if (rightContent) {
+          rightContent.appendChild(previewIframe);
+        }
+        // Add divider drag handling
+        setupSplitDivider();
+        if (btnToggleSplitPreview) {
+          btnToggleSplitPreview.textContent = '⟷ Merge';
+          btnToggleSplitPreview.title = 'Exit side-by-side mode';
+        }
+      } else {
+        // Normal mode: just the iframe
+        previewContainer.innerHTML = '';
+        previewContainer.appendChild(previewIframe);
+        if (btnToggleSplitPreview) {
+          btnToggleSplitPreview.textContent = '⟷ Split';
+          btnToggleSplitPreview.title = 'Enter side-by-side screenshot preview';
+        }
+        splitPreviewMode = false;
+      }
+    }
+
+    function setupSplitDivider() {
+      const divider = document.getElementById('splitDivider');
+      const previewContainer = document.getElementById('previewContainer');
+      if (!divider || !previewContainer) return;
+
+      let isDragging = false;
+      let startX = 0;
+      let leftPaneWidth = 0;
+
+      divider.addEventListener('mousedown', (e) => {
+        isDragging = true;
+        startX = e.clientX;
+        const leftPane = previewContainer.querySelector('.preview-pane:first-child');
+        if (leftPane) leftPaneWidth = leftPane.offsetWidth;
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+        e.preventDefault();
+      });
+
+      document.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        const deltaX = e.clientX - startX;
+        const containerWidth = previewContainer.offsetWidth;
+        const newLeftWidth = Math.max(200, Math.min(containerWidth - 200, leftPaneWidth + deltaX));
+        const leftPane = previewContainer.querySelector('.preview-pane:first-child');
+        if (leftPane) {
+          leftPane.style.flex = `0 0 ${newLeftWidth}px`;
+        }
+      });
+
+      document.addEventListener('mouseup', () => {
+        if (isDragging) {
+          isDragging = false;
+          document.body.style.cursor = '';
+          document.body.style.userSelect = '';
+        }
+      });
+    }
+
+    // Tool function for the agent: analyze screenshot and generate app
+    async function toolScreenshotToApp(args) {
+      const { prompt, useDesignTaste = true } = args || {};
+      
+      if (!screenshotImageData) {
+        return { success: false, error: 'No screenshot uploaded. Please paste, drag & drop, or upload an image first.' };
+      }
+
+      const session = getCurrentSession();
+      if (!session) {
+        return { success: false, error: 'No active session' };
+      }
+
+      logActivity('Analyzing screenshot and generating app...', 'info');
+
+      try {
+        // Build the analysis prompt for the LLM
+        let analysisPrompt = `You are a senior frontend engineer with expert design taste. Analyze the provided screenshot/mockup and build a faithful, clean, production-ready web app that reproduces the design.
+
+Reference screenshot: [attached as base64 image]
+
+Your task:
+1. Analyze the layout structure (header, nav, hero, sections, footer, etc.)
+2. Identify colors, typography, spacing, visual hierarchy
+3. Extract all visible text content
+4. Note interactive elements (buttons, forms, cards, navigation)
+5. Build a complete, working single-page app (index.html + style.css + script.js as needed)
+
+Requirements:
+- Semantic HTML5
+- Modern CSS (custom properties, flexbox/grid, responsive)
+- Clean, accessible, performant code
+- No external dependencies (vanilla JS/CSS only)
+- Match the visual design faithfully but cleanly (apply design-taste principles: consistent spacing scale, clear type hierarchy, disciplined color palette, no slop)
+
+`;
+
+        if (prompt) {
+          analysisPrompt += `\nAdditional user instructions: ${prompt}\n`;
+        }
+
+        if (useDesignTaste) {
+          analysisPrompt += `\nApply the design-taste skill guidance: use a consistent 4px/8px spacing scale, establish clear type hierarchy (heading scale), limit color palette to 3-5 colors with semantic roles, ensure 4.5:1 contrast minimum, avoid visual clutter.`;
+        }
+
+        analysisPrompt += `\n\nOutput the complete app as fenced code blocks:
+\`\`\`file:index.html
+<!DOCTYPE html>...full HTML...
+\`\`\`
+
+\`\`\`file:style.css
+/* full CSS */
+\`\`\`
+
+\`\`\`file:script.js
+// full JS (if needed)
+\`\`\``;
+
+        // Send to LLM with the image
+        const provider = appState.providers[appState.activeProviderId];
+        if (!provider) {
+          return { success: false, error: 'No active provider configured' };
+        }
+
+        const messages = [
+          {
+            role: 'system',
+            content: buildSystemContextWithGuard()
+          },
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: analysisPrompt },
+              { type: 'image_url', image_url: { url: screenshotImageData } }
+            ]
+          }
+        ];
+
+        const reply = await callLLM(messages);
+
+        // Parse and apply the generated files
+        const { chips, fileModified, toolsUsed } = parseAndApplyBlocks(reply);
+        
+        if (fileModified) {
+          refreshPreview();
+          // Auto-enable split preview if not already
+          if (!splitPreviewMode) {
+            const btnToggleSplitPreview = document.getElementById('btnToggleSplitPreview');
+            if (btnToggleSplitPreview) btnToggleSplitPreview.click();
+          }
+          logActivity('Screenshot-to-app: Generated app from screenshot', 'success');
+          return { success: true, message: 'App generated from screenshot!', filesCreated: chips.filter(c => c.type === 'file').map(c => c.label) };
+        } else {
+          logActivity('Screenshot-to-app: No files generated', 'warning');
+          return { success: false, error: 'LLM did not generate any files. Try refining the prompt.' };
+        }
+      } catch (err) {
+        logActivity('Screenshot-to-app error: ' + err.message, 'error');
+        return { success: false, error: err.message };
+      }
+    }
+
+    // Make tool available globally for agent to call
+    window.toolScreenshotToApp = toolScreenshotToApp;
 
     // ==================== B3: PREVIEW HEALTH WIRING ====================
     function setupPreviewHealth() {
