@@ -8044,20 +8044,59 @@ Links: [[Brain Index]]
     };
 
     // Plain-text catalog + rule, injected into agent context and spawn templates.
+    // Progressive disclosure: only names + one-line triggers injected; full content loads on demand via loadSkillContent().
     function buildAutonomyCatalogText() {
       let text = '=== AUTONOMY ENGINE: INSTALLED CATALOG ===\n';
-      text += 'These skills, plugins and MCPs are installed and available to you right now.\n\n';
+      text += 'These skills, plugins and MCPs are installed. Full content loads on demand when you declare Tools used.\n\n';
       text += '--- MANDATORY PRE-INSTALLED SKILLS (jcode pack) ---\n';
-      text += AUTONOMY_CATALOG.skills.map(s => '• ' + s.name + ': ' + s.desc).join('\n');
+      text += AUTONOMY_CATALOG.skills.map(s => '• ' + s.name + ': ' + s.desc.split('.')[0] + '. [load: skill_' + s.name + ']').join('\n');
       text += '\n\n--- MANDATORY PRE-INSTALLED MCPs ---\n';
-      text += AUTONOMY_CATALOG.mcps.map(m => '• ' + m.name + ': ' + m.desc).join('\n');
+      text += AUTONOMY_CATALOG.mcps.map(m => '• ' + m.name + ': ' + m.desc.split('.')[0] + '. [load: mcp_' + m.name + ']').join('\n');
       text += '\n\n--- SKILLS FOR VIBE-CODING DEVELOPMENT ---\n';
-      text += AUTONOMY_CATALOG.vibeSkills.map(s => '• ' + s.name + ': ' + s.desc).join('\n');
+      text += AUTONOMY_CATALOG.vibeSkills.map(s => '• ' + s.name + ': ' + s.desc.split('.')[0] + '. [load: vibe_' + s.name + ']').join('\n');
       text += '\n\n--- MCPs (BUILD ENVIRONMENT) ---\n';
-      text += AUTONOMY_CATALOG.newMcps.map(m => '• ' + m.name + ': ' + m.desc).join('\n');
-      text += '\n\n--- PLUGIN PACKS (product runtime library, ships in a later stage) ---\n';
-      text += AUTONOMY_CATALOG.pluginPacks.map(p => '• ' + p.name + ': ' + p.desc).join('\n');
+      text += AUTONOMY_CATALOG.newMcps.map(m => '• ' + m.name + ': ' + m.desc.split('.')[0] + '. [load: mcp_' + m.name + ']').join('\n');
+      text += '\n\n--- PLUGIN PACKS (product runtime library) ---\n';
+      text += AUTONOMY_CATALOG.pluginPacks.map(p => '• ' + p.name + ': ' + p.desc.split('.')[0] + '. [load: plugin_' + p.name + ']').join('\n');
+      
+      // Custom user skill packs
+      if (appState.customSkillPacks && Object.keys(appState.customSkillPacks).length > 0) {
+        text += '\n\n--- CUSTOM USER SKILL PACKS ---\n';
+        text += Object.values(appState.customSkillPacks).map(s => '• ' + s.name + ' (' + (s.category || 'general') + '): ' + (s.instructions || '').split('.')[0] + '. [load: custom_' + s.id + ']').join('\n');
+      }
       return text;
+    }
+
+    // Load full skill content on demand (called when agent declares Tools used with load: prefix)
+    function loadSkillContent(loadKey) {
+      // Built-in skills
+      if (loadKey.startsWith('skill_')) {
+        const name = loadKey.replace('skill_', '');
+        const skill = AUTONOMY_CATALOG.skills.find(s => s.name === name);
+        if (skill) return '=== SKILL: ' + skill.name.toUpperCase() + ' ===\n' + skill.desc + '\n\nWhen to use: ' + skill.desc + '\nProcedure: Apply this skill guidance to the task at hand.\nPitfalls: Avoid generic filler, placeholder UI, and unverified claims.\nVerification: Check output against the skill description criteria.';
+      }
+      if (loadKey.startsWith('vibe_')) {
+        const name = loadKey.replace('vibe_', '');
+        const skill = AUTONOMY_CATALOG.vibeSkills.find(s => s.name === name);
+        if (skill) return '=== VIBE SKILL: ' + skill.name.toUpperCase() + ' ===\n' + skill.desc + '\n\nWhen to use: ' + skill.desc + '\nProcedure: Follow the vibe-coding loop: understand → plan → scaffold → build in slices → test → fix → polish.\nPitfalls: Don\'t claim done with tests failing; don\'t over-engineer.\nVerification: All pre-commit gates pass (testing-qa, security-review, domain-skill).';
+      }
+      if (loadKey.startsWith('mcp_')) {
+        const name = loadKey.replace('mcp_', '');
+        const mcp = [...AUTONOMY_CATALOG.mcps, ...AUTONOMY_CATALOG.newMcps].find(m => m.name === name);
+        if (mcp) return '=== MCP: ' + mcp.name.toUpperCase() + ' ===\n' + mcp.desc + '\n\nWhen to use: When task requires ' + mcp.desc.toLowerCase() + '\nProcedure: Call the MCP tool with appropriate parameters.\nPitfalls: Ensure MCP server is running and accessible.\nVerification: Check MCP tool response for success.';
+      }
+      if (loadKey.startsWith('plugin_')) {
+        const name = loadKey.replace('plugin_', '');
+        const plugin = AUTONOMY_CATALOG.pluginPacks.find(p => p.name === name);
+        if (plugin) return '=== PLUGIN PACK: ' + plugin.name.toUpperCase() + ' ===\n' + plugin.desc + '\nTrigger: ' + plugin.trigger + '\nSteps: ' + plugin.steps.join(', ') + '\n\nWhen to use: ' + plugin.desc + '\nProcedure: Plugin auto-triggers on ' + plugin.trigger + '.\nPitfalls: Ensure plugin pack is enabled in agent config.\nVerification: Check plugin output in task logs.';
+      }
+      // Custom user skill packs
+      if (loadKey.startsWith('custom_')) {
+        const id = loadKey.replace('custom_', '');
+        const pack = appState.customSkillPacks?.[id];
+        if (pack) return '=== CUSTOM SKILL PACK: ' + pack.name.toUpperCase() + ' ===\n' + (pack.instructions || '') + '\n\nCategory: ' + (pack.category || 'general') + '\nWhen to use: ' + (pack.instructions || '').split('.')[0] + '\nProcedure: Follow the custom instructions above.\nPitfalls: Custom skills are user-authored; verify they apply to current task.\nVerification: Check output matches the skill\'s stated purpose.';
+      }
+      return null;
     }
 
     function buildMandatoryUseRuleText() {
@@ -14807,7 +14846,19 @@ Format:
         const text = chatInput.value.trim();
         if (!text) return;
         chatInput.value = '';
-        
+
+        // Handle /learn command
+        if (text.startsWith('/learn')) {
+          handleLearnCommand(text);
+          return;
+        }
+
+        // Handle /save-skill command (alias for save as skill)
+        if (text.startsWith('/save-skill')) {
+          handleSaveAsSkill();
+          return;
+        }
+
         // Auto-enhance short prompts if enabled
         if (appState.autoEnhance && text.length <= 100 && text.split(/[.!?]/).filter(s => s.trim()).length <= 2) {
           enhancePrompt(text);
@@ -14847,6 +14898,532 @@ Format:
 
       // ==================== F4: VOICE BUILD MODE ====================
       setupVoiceBuild();
+    }
+
+    // ==================== H1.1: LEARN COMMAND & SAVE AS SKILL ====================
+
+    // Handle /learn command - create skill from doc URL, file, or folder
+    function handleLearnCommand(text) {
+      const args = text.slice(6).trim(); // Remove '/learn'
+      if (!args) {
+        showLearnModal();
+        return;
+      }
+      
+      // Parse args: could be URL, file path, or 'folder'
+      if (args.startsWith('http://') || args.startsWith('https://')) {
+        learnFromUrl(args);
+      } else if (args.startsWith('folder:') || args.startsWith('repo:')) {
+        const folderPath = args.split(':')[1].trim();
+        learnFromFolder(folderPath);
+      } else {
+        // Treat as file path or search query
+        learnFromSource(args);
+      }
+    }
+
+    // Show modal for /learn input options
+    function showLearnModal() {
+      const modal = document.createElement('div');
+      modal.className = 'modal-overlay';
+      modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:1000;';
+      modal.innerHTML = `
+        <div style="background:var(--bg-panel);border:1px solid var(--border-color);border-radius:8px;padding:24px;max-width:500px;width:90%;max-height:80vh;overflow:auto;">
+          <h3 style="margin:0 0 16px;color:var(--text-main);">📚 /learn — Create Skill from Source</h3>
+          <p style="font-size:12px;color:var(--text-muted);margin-bottom:16px;">Paste a doc URL, upload a file, or point at a repo folder. The agent will author a skill from it.</p>
+          
+          <div style="display:flex;flex-direction:column;gap:12px;">
+            <div>
+              <label style="display:block;font-size:11px;color:var(--text-muted);margin-bottom:4px;">Doc URL</label>
+              <input type="url" id="learnUrlInput" class="form-input" placeholder="https://example.com/docs/guide.md" style="width:100%;" />
+            </div>
+            
+            <div>
+              <label style="display:block;font-size:11px;color:var(--text-muted);margin-bottom:4px;">Upload Document</label>
+              <input type="file" id="learnFileInput" class="form-input" accept=".md,.txt,.pdf,.json,.js,.ts,.py,.html,.css" style="width:100%;" />
+            </div>
+            
+            <div>
+              <label style="display:block;font-size:11px;color:var(--text-muted);margin-bottom:4px;">Repo Folder Path</label>
+              <input type="text" id="learnFolderInput" class="form-input" placeholder=".devforge/skills/my-skill" style="width:100%;" />
+            </div>
+            
+            <div style="display:flex;gap:8px;margin-top:8px;">
+              <button id="learnFromUrlBtn" class="btn-primary" style="flex:1;">Learn from URL</button>
+              <button id="learnFromFileBtn" class="btn-primary" style="flex:1;">Learn from File</button>
+              <button id="learnFromFolderBtn" class="btn-primary" style="flex:1;">Learn from Folder</button>
+            </div>
+            
+            <button id="learnCancelBtn" style="margin-top:8px;background:transparent;border:1px solid var(--border-color);color:var(--text-muted);padding:8px 16px;border-radius:4px;cursor:pointer;width:100%;">Cancel</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modal);
+      
+      document.getElementById('learnFromUrlBtn').onclick = () => {
+        const url = document.getElementById('learnUrlInput').value.trim();
+        if (url) { modal.remove(); learnFromUrl(url); }
+        else { logActivity('Enter a URL first', 'warning'); }
+      };
+      document.getElementById('learnFromFileBtn').onclick = () => {
+        const file = document.getElementById('learnFileInput').files?.[0];
+        if (file) { modal.remove(); learnFromFile(file); }
+        else { logActivity('Select a file first', 'warning'); }
+      };
+      document.getElementById('learnFromFolderBtn').onclick = () => {
+        const folder = document.getElementById('learnFolderInput').value.trim();
+        if (folder) { modal.remove(); learnFromFolder(folder); }
+        else { logActivity('Enter a folder path first', 'warning'); }
+      };
+      document.getElementById('learnCancelBtn').onclick = () => modal.remove();
+      modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+    }
+
+    // Learn from a URL
+    async function learnFromUrl(url) {
+      logActivity(`Learning from URL: ${url}`, 'info');
+      appendChatMessage('system', `📚 Learning from URL: ${url}...`);
+      
+      try {
+        // Fetch the content
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const content = await response.text();
+        
+        // Use agent to author skill from content
+        await authorSkillFromContent(content, `URL: ${url}`);
+      } catch (err) {
+        logActivity(`Learn from URL failed: ${err.message}`, 'error');
+        appendChatMessage('system', `❌ Failed to learn from URL: ${err.message}`);
+      }
+    }
+
+    // Learn from uploaded file
+    async function learnFromFile(file) {
+      logActivity(`Learning from file: ${file.name}`, 'info');
+      appendChatMessage('system', `📚 Learning from file: ${file.name}...`);
+      
+      try {
+        const content = await file.text();
+        await authorSkillFromContent(content, `File: ${file.name}`);
+      } catch (err) {
+        logActivity(`Learn from file failed: ${err.message}`, 'error');
+        appendChatMessage('system', `❌ Failed to learn from file: ${err.message}`);
+      }
+    }
+
+    // Learn from repo folder
+    async function learnFromFolder(folderPath) {
+      logActivity(`Learning from folder: ${folderPath}`, 'info');
+      appendChatMessage('system', `📚 Learning from folder: ${folderPath}...`);
+      
+      const session = getCurrentSession();
+      if (!session) return;
+      
+      try {
+        // Read all files in the folder
+        const files = Object.entries(session.files)
+          .filter(([path]) => path.startsWith(folderPath))
+          .map(([path, content]) => `--- FILE: ${path} ---\n${content}`)
+          .join('\n\n');
+        
+        if (!files) {
+          appendChatMessage('system', `❌ No files found in folder: ${folderPath}`);
+          return;
+        }
+        
+        await authorSkillFromContent(files, `Folder: ${folderPath}`);
+      } catch (err) {
+        logActivity(`Learn from folder failed: ${err.message}`, 'error');
+        appendChatMessage('system', `❌ Failed to learn from folder: ${err.message}`);
+      }
+    }
+
+    // Generic learn from source (searches session files)
+    async function learnFromSource(query) {
+      logActivity(`Learning from source query: ${query}`, 'info');
+      appendChatMessage('system', `📚 Searching for: ${query}...`);
+      
+      const session = getCurrentSession();
+      if (!session) return;
+      
+      // Search files matching query
+      const matches = Object.entries(session.files)
+        .filter(([path]) => path.toLowerCase().includes(query.toLowerCase()))
+        .map(([path, content]) => `--- FILE: ${path} ---\n${content}`)
+        .join('\n\n');
+      
+      if (!matches) {
+        appendChatMessage('system', `❌ No files match: ${query}`);
+        return;
+      }
+      
+      await authorSkillFromContent(matches, `Query: ${query}`);
+    }
+
+    // Core: Use agent to author a skill from source content
+    async function authorSkillFromContent(sourceContent, sourceLabel) {
+      const session = getCurrentSession();
+      if (!session) return;
+      
+      const provider = appState.providers[appState.activeProviderId];
+      if (!provider) {
+        appendChatMessage('system', '❌ No active provider configured');
+        return;
+      }
+      
+      logActivity('Authoring skill from source content...', 'info');
+      
+      const systemPrompt = `You are a skill author. Create a FlamingoCode skill pack from the provided source content.
+NEVER reproduce source text verbatim. Distill the key procedures, principles, and pitfalls into a concise skill.
+
+Output a JSON object with these fields:
+- name: kebab-case skill name (e.g., "react-form-handling")
+- category: one of [general, frontend, api, testing, debugging, git, security, accessibility, performance]
+- whenToUse: one-line trigger description (when this skill applies)
+- instructions: the full skill guidance (procedures, best practices, rules)
+- pitfalls: common mistakes to avoid
+- verification: how to verify the skill was applied correctly
+
+Keep it practical and actionable. No fluff.`;
+
+      try {
+        const messages = [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: `Source: ${sourceLabel}\n\nContent:\n${sourceContent.slice(0, 15000)}` }
+        ];
+        
+        const reply = await callLLMWithFallback(messages, { maxTokens: 2000, temperature: 0.3 });
+        
+        let skillSpec;
+        try {
+          const jsonMatch = reply.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            skillSpec = JSON.parse(jsonMatch[0]);
+          } else {
+            throw new Error('No JSON found in reply');
+          }
+        } catch (e) {
+          logActivity('Failed to parse skill spec, using fallback', 'warning');
+          skillSpec = {
+            name: 'learned-skill-' + Date.now(),
+            category: 'general',
+            whenToUse: 'Apply learned patterns from ' + sourceLabel,
+            instructions: reply.slice(0, 2000),
+            pitfalls: 'Verify this skill applies to your task; it was auto-generated from source.',
+            verification: 'Check output matches the skill purpose.'
+          };
+        }
+        
+        // Show confirmation modal with skill preview
+        showSkillPreviewModal(skillSpec, sourceLabel);
+        
+      } catch (err) {
+        logActivity(`Skill authoring failed: ${err.message}`, 'error');
+        appendChatMessage('system', `❌ Skill authoring failed: ${err.message}`);
+      }
+    }
+
+    // Show skill preview modal for confirmation
+    function showSkillPreviewModal(skillSpec, sourceLabel) {
+      const modal = document.createElement('div');
+      modal.className = 'modal-overlay';
+      modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:1000;';
+      modal.innerHTML = `
+        <div style="background:var(--bg-panel);border:1px solid var(--border-color);border-radius:8px;padding:24px;max-width:700px;width:90%;max-height:80vh;overflow:auto;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <h3 style="margin:0;color:var(--text-main);">📋 Skill Preview — Review & Save</h3>
+            <button onclick="this.closest('.modal-overlay').remove()" style="background:none;border:none;color:var(--text-muted);font-size:18px;cursor:pointer;">&times;</button>
+          </div>
+          <p style="font-size:11px;color:var(--text-dim);margin-bottom:12px;">Source: ${escapeHtml(sourceLabel)}</p>
+          
+          <form id="skillPreviewForm" style="display:flex;flex-direction:column;gap:12px;">
+            <input type="text" id="previewSkillName" class="form-input" value="${escapeHtml(skillSpec.name)}" placeholder="Skill name (kebab-case)" required />
+            <select id="previewSkillCategory" class="form-select">
+              <option value="general"${skillSpec.category === 'general' ? ' selected' : ''}>General</option>
+              <option value="frontend"${skillSpec.category === 'frontend' ? ' selected' : ''}>Frontend</option>
+              <option value="api"${skillSpec.category === 'api' ? ' selected' : ''}>API</option>
+              <option value="testing"${skillSpec.category === 'testing' ? ' selected' : ''}>Testing</option>
+              <option value="debugging"${skillSpec.category === 'debugging' ? ' selected' : ''}>Debugging</option>
+              <option value="git"${skillSpec.category === 'git' ? ' selected' : ''}>Git</option>
+              <option value="security"${skillSpec.category === 'security' ? ' selected' : ''}>Security</option>
+              <option value="accessibility"${skillSpec.category === 'accessibility' ? ' selected' : ''}>Accessibility</option>
+              <option value="performance"${skillSpec.category === 'performance' ? ' selected' : ''}>Performance</option>
+            </select>
+            <textarea id="previewSkillWhenToUse" class="form-input" placeholder="When to use (one-line trigger)" style="min-height: 40px; font-family: var(--font-mono); font-size: 11px;" required>${escapeHtml(skillSpec.whenToUse || '')}</textarea>
+            <textarea id="previewSkillInstructions" class="form-input" placeholder="Full skill instructions" style="min-height: 150px; font-family: var(--font-mono); font-size: 11px;" required>${escapeHtml(skillSpec.instructions || '')}</textarea>
+            <textarea id="previewSkillPitfalls" class="form-input" placeholder="Pitfalls to avoid" style="min-height: 60px; font-family: var(--font-mono); font-size: 11px;">${escapeHtml(skillSpec.pitfalls || '')}</textarea>
+            <textarea id="previewSkillVerification" class="form-input" placeholder="How to verify" style="min-height: 60px; font-family: var(--font-mono); font-size: 11px;">${escapeHtml(skillSpec.verification || '')}</textarea>
+            
+            <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px;">
+              <button type="button" id="skillPreviewCancel" style="background:transparent;border:1px solid var(--border-color);color:var(--text-muted);padding:8px 16px;border-radius:4px;cursor:pointer;">Cancel</button>
+              <button type="submit" class="btn-primary">Save as Skill Pack</button>
+            </div>
+          </form>
+        </div>
+      `;
+      document.body.appendChild(modal);
+      
+      const form = document.getElementById('skillPreviewForm');
+      form.onsubmit = (e) => {
+        e.preventDefault();
+        const skillPack = {
+          name: document.getElementById('previewSkillName').value.trim(),
+          category: document.getElementById('previewSkillCategory').value,
+          whenToUse: document.getElementById('previewSkillWhenToUse').value.trim(),
+          instructions: document.getElementById('previewSkillInstructions').value.trim(),
+          pitfalls: document.getElementById('previewSkillPitfalls').value.trim(),
+          verification: document.getElementById('previewSkillVerification').value.trim()
+        };
+        if (!skillPack.name || !skillPack.instructions) {
+          logActivity('Name and instructions are required', 'warning');
+          return;
+        }
+        saveCustomSkillPack(skillPack);
+        modal.remove();
+      };
+      document.getElementById('skillPreviewCancel').onclick = () => modal.remove();
+      modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+    }
+
+    // Save skill pack to customSkillPacks
+    function saveCustomSkillPack(skillPack) {
+      appState.customSkillPacks = appState.customSkillPacks || {};
+      const id = 'skill_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+      const pack = {
+        id,
+        name: skillPack.name,
+        category: skillPack.category,
+        instructions: skillPack.instructions + '\n\n--- When to use ---\n' + skillPack.whenToUse + '\n\n--- Pitfalls ---\n' + skillPack.pitfalls + '\n\n--- Verification ---\n' + skillPack.verification,
+        createdAt: Date.now(),
+        source: 'learned'
+      };
+      appState.customSkillPacks[id] = pack;
+      saveAppState();
+      
+      // Refresh skill pack library if open
+      if (typeof renderSkillPackList === 'function') renderSkillPackList();
+      
+      logActivity(`Custom skill pack "${skillPack.name}" saved (ID: ${id})`, 'success');
+      appendChatMessage('system', `✅ **Skill pack saved: ${skillPack.name}**\n\nCategory: ${skillPack.category}\nWhen to use: ${skillPack.whenToUse}\n\nYou can now use it in tasks. It will appear in the catalog as a custom skill pack.`);
+    }
+
+    // Handle /save-skill command - save current task as skill
+    function handleSaveAsSkill() {
+      const session = getCurrentSession();
+      if (!session) return;
+      
+      // Get recent chat history to distill into a skill
+      const recentMessages = session.chatHistory.slice(-10);
+      if (recentMessages.length === 0) {
+        logActivity('No recent task to save as skill', 'warning');
+        appendChatMessage('system', '❌ No recent task to save as skill');
+        return;
+      }
+      
+      // Build context from recent interaction
+      const context = recentMessages.map(m => `${m.role}: ${m.content}`).join('\n\n');
+      
+      // Show modal to create skill from this task
+      const modal = document.createElement('div');
+      modal.className = 'modal-overlay';
+      modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:1000;';
+      modal.innerHTML = `
+        <div style="background:var(--bg-panel);border:1px solid var(--border-color);border-radius:8px;padding:24px;max-width:600px;width:90%;max-height:80vh;overflow:auto;">
+          <h3 style="margin:0 0 16px;color:var(--text-main);">💾 Save Task as Skill</h3>
+          <p style="font-size:12px;color:var(--text-muted);margin-bottom:16px;">Distill the procedure you just used into a reusable skill pack.</p>
+          
+          <form id="saveSkillForm" style="display:flex;flex-direction:column;gap:12px;">
+            <input type="text" id="saveSkillName" class="form-input" placeholder="Skill name (kebab-case, e.g., api-error-handling)" required />
+            <select id="saveSkillCategory" class="form-select">
+              <option value="general">General</option>
+              <option value="frontend">Frontend</option>
+              <option value="api">API</option>
+              <option value="testing">Testing</option>
+              <option value="debugging">Debugging</option>
+              <option value="git">Git</option>
+              <option value="security">Security</option>
+              <option value="accessibility">Accessibility</option>
+              <option value="performance">Performance</option>
+            </select>
+            <textarea id="saveSkillWhenToUse" class="form-input" placeholder="When to use (one-line trigger)" style="min-height: 40px; font-family: var(--font-mono); font-size: 11px;" required></textarea>
+            <textarea id="saveSkillInstructions" class="form-input" placeholder="Steps / procedure (what you did)" style="min-height: 120px; font-family: var(--font-mono); font-size: 11px;" required></textarea>
+            <textarea id="saveSkillPitfalls" class="form-input" placeholder="Pitfalls to avoid" style="min-height: 60px; font-family: var(--font-mono); font-size: 11px;"></textarea>
+            <textarea id="saveSkillVerification" class="form-input" placeholder="How to verify it worked" style="min-height: 60px; font-family: var(--font-mono); font-size: 11px;"></textarea>
+            
+            <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px;">
+              <button type="button" id="saveSkillCancel" style="background:transparent;border:1px solid var(--border-color);color:var(--text-muted);padding:8px 16px;border-radius:4px;cursor:pointer;">Cancel</button>
+              <button type="button" id="saveSkillAutoFill" class="btn-secondary" style="padding:8px 16px;border-radius:4px;cursor:pointer;">🤖 Auto-fill from task</button>
+              <button type="submit" class="btn-primary">Save Skill Pack</button>
+            </div>
+          </form>
+        </div>
+      `;
+      document.body.appendChild(modal);
+      
+      // Auto-fill from recent task
+      document.getElementById('saveSkillAutoFill').onclick = async () => {
+        const btn = document.getElementById('saveSkillAutoFill');
+        btn.disabled = true;
+        btn.textContent = '🤖 Generating...';
+        
+        try {
+          const spec = await autoGenerateSkillFromTask(context);
+          document.getElementById('saveSkillName').value = spec.name || '';
+          document.getElementById('saveSkillCategory').value = spec.category || 'general';
+          document.getElementById('saveSkillWhenToUse').value = spec.whenToUse || '';
+          document.getElementById('saveSkillInstructions').value = spec.instructions || '';
+          document.getElementById('saveSkillPitfalls').value = spec.pitfalls || '';
+          document.getElementById('saveSkillVerification').value = spec.verification || '';
+        } catch (err) {
+          logActivity(`Auto-fill failed: ${err.message}`, 'error');
+        } finally {
+          btn.disabled = false;
+          btn.textContent = '🤖 Auto-fill from task';
+        }
+      };
+      
+      const form = document.getElementById('saveSkillForm');
+      form.onsubmit = (e) => {
+        e.preventDefault();
+        const skillPack = {
+          name: document.getElementById('saveSkillName').value.trim(),
+          category: document.getElementById('saveSkillCategory').value,
+          whenToUse: document.getElementById('saveSkillWhenToUse').value.trim(),
+          instructions: document.getElementById('saveSkillInstructions').value.trim(),
+          pitfalls: document.getElementById('saveSkillPitfalls').value.trim(),
+          verification: document.getElementById('saveSkillVerification').value.trim()
+        };
+        if (!skillPack.name || !skillPack.instructions) {
+          logActivity('Name and instructions are required', 'warning');
+          return;
+        }
+        saveCustomSkillPack(skillPack);
+        modal.remove();
+      };
+      document.getElementById('saveSkillCancel').onclick = () => modal.remove();
+      modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+    }
+
+    // Auto-generate skill spec from task context using agent
+    async function autoGenerateSkillFromTask(taskContext) {
+      const provider = appState.providers[appState.activeProviderId];
+      if (!provider) return {};
+      
+      const systemPrompt = `You are a skill author. Distill the recent task interaction into a reusable FlamingoCode skill pack.
+The user wants to save what they just did as a skill for future reuse.
+
+Output JSON with:
+- name: kebab-case skill name
+- category: one of [general, frontend, api, testing, debugging, git, security, accessibility, performance]
+- whenToUse: one-line trigger (when this skill applies)
+- instructions: step-by-step procedure
+- pitfalls: common mistakes
+- verification: how to verify correct application`;
+
+      try {
+        const messages = [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: `Recent task interaction:\n${taskContext.slice(0, 10000)}` }
+        ];
+        
+        const reply = await callLLMWithFallback(messages, { maxTokens: 1500, temperature: 0.3 });
+        const jsonMatch = reply.match(/\{[\s\S]*\}/);
+        if (jsonMatch) return JSON.parse(jsonMatch[0]);
+      } catch (e) {
+        logActivity(`Auto-generate skill failed: ${e.message}`, 'warning');
+      }
+      return {};
+    }
+
+    // Handle "Save as skill" from a completed task (button click in team chat)
+    function handleSaveAsSkillFromTask(taskId, taskDescription, taskOutput) {
+      const session = getCurrentSession();
+      if (!session) return;
+      
+      // Build context from task
+      const context = `Task: ${taskDescription}\nResult: ${taskOutput.summary || taskOutput}\nTools used: ${JSON.stringify(taskOutput.toolsUsed || [])}`;
+      
+      // Show modal to create skill from this task
+      const modal = document.createElement('div');
+      modal.className = 'modal-overlay';
+      modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:1000;';
+      modal.innerHTML = `
+        <div style="background:var(--bg-panel);border:1px solid var(--border-color);border-radius:8px;padding:24px;max-width:600px;width:90%;max-height:80vh;overflow:auto;">
+          <h3 style="margin:0 0 16px;color:var(--text-main);">💾 Save Task as Skill</h3>
+          <p style="font-size:12px;color:var(--text-muted);margin-bottom:16px;">Distill the procedure from this completed task into a reusable skill pack.</p>
+          <p style="font-size:11px;color:var(--text-dim);margin-bottom:16px;">Task: ${escapeHtml(taskDescription)}</p>
+          
+          <form id="saveSkillFromTaskForm" style="display:flex;flex-direction:column;gap:12px;">
+            <input type="text" id="saveSkillName" class="form-input" placeholder="Skill name (kebab-case, e.g., api-error-handling)" required />
+            <select id="saveSkillCategory" class="form-select">
+              <option value="general">General</option>
+              <option value="frontend">Frontend</option>
+              <option value="api">API</option>
+              <option value="testing">Testing</option>
+              <option value="debugging">Debugging</option>
+              <option value="git">Git</option>
+              <option value="security">Security</option>
+              <option value="accessibility">Accessibility</option>
+              <option value="performance">Performance</option>
+            </select>
+            <textarea id="saveSkillWhenToUse" class="form-input" placeholder="When to use (one-line trigger)" style="min-height: 40px; font-family: var(--font-mono); font-size: 11px;" required></textarea>
+            <textarea id="saveSkillInstructions" class="form-input" placeholder="Steps / procedure (what you did)" style="min-height: 120px; font-family: var(--font-mono); font-size: 11px;" required></textarea>
+            <textarea id="saveSkillPitfalls" class="form-input" placeholder="Pitfalls to avoid" style="min-height: 60px; font-family: var(--font-mono); font-size: 11px;"></textarea>
+            <textarea id="saveSkillVerification" class="form-input" placeholder="How to verify it worked" style="min-height: 60px; font-family: var(--font-mono); font-size: 11px;"></textarea>
+            
+            <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px;">
+              <button type="button" id="saveSkillCancel" style="background:transparent;border:1px solid var(--border-color);color:var(--text-muted);padding:8px 16px;border-radius:4px;cursor:pointer;">Cancel</button>
+              <button type="button" id="saveSkillAutoFill" class="btn-secondary" style="padding:8px 16px;border-radius:4px;cursor:pointer;">🤖 Auto-fill from task</button>
+              <button type="submit" class="btn-primary">Save Skill Pack</button>
+            </div>
+          </form>
+        </div>
+      `;
+      document.body.appendChild(modal);
+      
+      // Auto-fill from task
+      document.getElementById('saveSkillAutoFill').onclick = async () => {
+        const btn = document.getElementById('saveSkillAutoFill');
+        btn.disabled = true;
+        btn.textContent = '🤖 Generating...';
+        
+        try {
+          const spec = await autoGenerateSkillFromTask(context);
+          document.getElementById('saveSkillName').value = spec.name || '';
+          document.getElementById('saveSkillCategory').value = spec.category || 'general';
+          document.getElementById('saveSkillWhenToUse').value = spec.whenToUse || '';
+          document.getElementById('saveSkillInstructions').value = spec.instructions || '';
+          document.getElementById('saveSkillPitfalls').value = spec.pitfalls || '';
+          document.getElementById('saveSkillVerification').value = spec.verification || '';
+        } catch (err) {
+          logActivity(`Auto-fill failed: ${err.message}`, 'error');
+        } finally {
+          btn.disabled = false;
+          btn.textContent = '🤖 Auto-fill from task';
+        }
+      };
+      
+      const form = document.getElementById('saveSkillFromTaskForm');
+      form.onsubmit = (e) => {
+        e.preventDefault();
+        const skillPack = {
+          name: document.getElementById('saveSkillName').value.trim(),
+          category: document.getElementById('saveSkillCategory').value,
+          whenToUse: document.getElementById('saveSkillWhenToUse').value.trim(),
+          instructions: document.getElementById('saveSkillInstructions').value.trim(),
+          pitfalls: document.getElementById('saveSkillPitfalls').value.trim(),
+          verification: document.getElementById('saveSkillVerification').value.trim()
+        };
+        if (!skillPack.name || !skillPack.instructions) {
+          logActivity('Name and instructions are required', 'warning');
+          return;
+        }
+        saveCustomSkillPack(skillPack);
+        modal.remove();
+      };
+      document.getElementById('saveSkillCancel').onclick = () => modal.remove();
+      modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
     }
 
     // ==================== F3: SCREENSHOT-TO-APP ====================
@@ -17685,6 +18262,55 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
       saveAppState();
     }
 
+    // Append team chat message with action buttons (for task completion, etc.)
+    function appendTeamChatWithActions(role, agentId, content, actions) {
+      const chat = document.getElementById('teamChat');
+      if (!chat) return;
+
+      const agent = appState.agents[agentId];
+      const isSenior = agentId === appState.teamSeniorId;
+
+      const msg = document.createElement('div');
+      msg.style.cssText = 'display:flex; gap:8px; padding:6px 8px; background:var(--bg-surface); border:1px solid var(--border-color); border-radius:5px;';
+      
+      let actionsHtml = '';
+      if (actions && actions.length > 0) {
+        actionsHtml = '<div style="display:flex; gap:6px; margin-top:6px; flex-wrap:wrap;">' +
+          actions.map(a => `<button class="btn-action" data-action="${escapeHtml(a.action)}" data-task-id="${escapeHtml(a.taskId || '')}" data-task-desc="${escapeHtml(a.taskDescription || '')}" data-task-output="${escapeHtml(JSON.stringify(a.taskOutput || ''))}" style="font-size:10px; padding:3px 8px; border-radius:3px; border:1px solid var(--border-color); background:var(--bg-panel); color:var(--text-main); cursor:pointer;">${escapeHtml(a.label)}</button>`).join('') +
+          '</div>';
+      }
+
+      msg.innerHTML = `
+        <span style="font-size:16px; flex-shrink:0;">${agent ? escapeHtml(agent.emoji) : '🤖'}</span>
+        <div style="flex:1; min-width:0;">
+          <div style="display:flex; align-items:center; gap:6px; margin-bottom:2px;">
+            <span style="font-weight:600; font-size:11px;">${agent ? escapeHtml(agent.name) : 'Agent'}${isSenior ? ' <span style="font-size:9px; padding:1px 3px; background:var(--warning); color:var(--bg-dark); border-radius:3px;">LEAD</span>' : ''}</span>
+            <span style="font-size:9px; color:var(--text-dim);">[${role.toUpperCase()}]</span>
+          </div>
+          <div style="font-size:11px; color:var(--text-main); white-space:pre-wrap; word-break:break-word;">${escapeHtml(content)}</div>
+          ${actionsHtml}
+        </div>
+      `;
+      chat.appendChild(msg);
+      chat.scrollTop = chat.scrollHeight;
+
+      // Add click handlers for action buttons
+      msg.querySelectorAll('.btn-action').forEach(btn => {
+        btn.onclick = (e) => {
+          const action = e.currentTarget.dataset.action;
+          const taskId = e.currentTarget.dataset.taskId;
+          const taskDescription = e.currentTarget.dataset.taskDesc;
+          const taskOutput = JSON.parse(e.currentTarget.dataset.taskOutput || '{}');
+          if (action === 'save-as-skill') {
+            handleSaveAsSkillFromTask(taskId, taskDescription, taskOutput);
+          }
+        };
+      });
+
+      appState.teamChat.push({ role, agentId, content, timestamp: Date.now(), actions });
+      saveAppState();
+    }
+
     // ==================== TEAM MODE ORCHESTRATION ====================
 
     // Parse task board from Senior's discussion message
@@ -17903,7 +18529,10 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
             progress = true;
 
             if (gateOK) {
-              appendTeamChat('status', task.owner, `Completed: ${task.description}`);
+              const completedMsg = `Completed: ${task.description}`;
+              appendTeamChatWithActions('status', task.owner, completedMsg, [
+                { label: '💾 Save as skill', action: 'save-as-skill', taskId: task.id, taskDescription: task.description, taskOutput: result }
+              ]);
               logActivity(`${agent.name} completed task: ${task.title}`, 'success');
             } else {
               appendTeamChat('status', task.owner, `Work finished but GATE BLOCKED — missing: ${task.gate.missing.join(', ')}. Task held until the mandatory checks are recorded.`);
