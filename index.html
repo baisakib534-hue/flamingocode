@@ -1011,8 +1011,9 @@
         <span style="font-family:var(--font-mono); font-size:11px; color:var(--accent-blue);">0 req</span> · <span style="font-family:var(--font-mono); font-size:11px; color:var(--text-main);">0 tok</span> · <span style="font-family:var(--font-mono); font-size:11px; color:var(--success);">$0.0000</span>
       </div>
       <button class="btn btn-secondary" id="btnOpenCommandPalette" style="padding: 4px 8px; font-size: 11px;" title="Command Palette (⌘K)">⌘K</button>
-      <button class="btn btn-secondary" id="btnOpenPromptLibrary" style="padding: 4px 8px; font-size: 11px;" title="Prompt Library — save, search, and reuse prompts">📝 Prompts</button>
-      <button class="btn btn-secondary" id="btnSettings" style="padding: 4px 8px; font-size: 11px;">⚙️ Provider</button>
+      <button class="btn btn-secondary" id="btnOpenPromptLibrary" style="padding: 4px 8px; font-size: 11px;" title="Prompt Library — save, search, and reuse prompts" data-i18n="Prompts">📝 Prompts</button>
+      <button class="btn btn-secondary" id="headerLanguageToggle" style="padding: 4px 8px; font-size: 11px; min-width: 50px;" title="Switch to Bangla" onclick="toggleLanguage()" data-i18n="EN">EN</button>
+      <button class="btn btn-secondary" id="btnSettings" style="padding: 4px 8px; font-size: 11px;" data-i18n="Settings">⚙️ Settings</button>
     </div>
   </header>
 
@@ -1022,19 +1023,19 @@
     <!-- Left Panel: Sessions & Virtual File Tree -->
     <aside class="panel-left" id="panelLeft">
       <div class="panel-section-title">
-        <span>Files</span>
+        <span data-i18n="Files">Files</span>
         <div style="display:flex; gap:4px;">
-          <button class="section-btn" id="btnNewFile" title="New File">+ File</button>
+          <button class="section-btn" id="btnNewFile" title="New File" data-i18n="New File">+ File</button>
         </div>
       </div>
       
       <div style="padding: 0 12px 8px;">
-        <label class="form-label" style="font-size: 10px; margin-bottom: 4px; display: block;">Template</label>
+        <label class="form-label" style="font-size: 10px; margin-bottom: 4px; display: block;" data-i18n="Template">Template</label>
         <select id="templateSelect" class="form-select" style="width: 100%; font-size: 11px; padding: 3px 6px;">
-          <option value="">-- Load Template --</option>
-          <option value="blank">Blank Project</option>
-          <option value="landing">Landing Page</option>
-          <option value="todo">Todo App</option>
+          <option value="" data-i18n="Load Template">-- Load Template --</option>
+          <option value="blank" data-i18n="Blank Project">Blank Project</option>
+          <option value="landing" data-i18n="Landing Page">Landing Page</option>
+          <option value="todo" data-i18n="Todo App">Todo App</option>
         </select>
       </div>
 
@@ -1050,24 +1051,24 @@
       </div>
       <div class="editor-wrapper">
         <div class="line-numbers" id="lineNumbers">1</div>
-        <textarea id="editorTextarea" class="editor-textarea" spellcheck="false" placeholder="Select or create a file to start editing..."></textarea>
+        <textarea id="editorTextarea" class="editor-textarea" spellcheck="false" placeholder="Select or create a file to start editing..." data-i18n-placeholder="Select or create a file to start editing..."></textarea>
       </div>
     </section>
 
     <!-- Right Panel: Agent / Preview / Browser / Activity Log -->
     <section class="panel-right" id="panelRight">
       <div class="right-header-tabs">
-        <button class="right-tab active" data-pane="agent">Agent</button>
-        <button class="right-tab" data-pane="team">Team</button>
-        <button class="right-tab" data-pane="preview">Preview</button>
-        <button class="right-tab" data-pane="previewHealth">Health</button>
-        <button class="right-tab" data-pane="browser">Browser</button>
-        <button class="right-tab" data-pane="graph">Graph</button>
-        <button class="right-tab" data-pane="activity">Activity</button>
-        <button class="right-tab" data-pane="history">History</button>
-        <button class="right-tab" data-pane="diffReview">Diff Review</button>
-        <button class="right-tab" data-pane="templates">Templates</button>
-        <button class="right-tab" data-pane="publish">Publish</button>
+        <button class="right-tab active" data-pane="agent" data-i18n="Agent">Agent</button>
+        <button class="right-tab" data-pane="team" data-i18n="Team">Team</button>
+        <button class="right-tab" data-pane="preview" data-i18n="Preview">Preview</button>
+        <button class="right-tab" data-pane="previewHealth" data-i18n="Health">Health</button>
+        <button class="right-tab" data-pane="browser" data-i18n="Browser">Browser</button>
+        <button class="right-tab" data-pane="graph" data-i18n="Graph">Graph</button>
+        <button class="right-tab" data-pane="activity" data-i18n="Activity">Activity</button>
+        <button class="right-tab" data-pane="history" data-i18n="History">History</button>
+        <button class="right-tab" data-pane="diffReview" data-i18n="Diff Review">Diff Review</button>
+        <button class="right-tab" data-pane="templates" data-i18n="Templates">Templates</button>
+        <button class="right-tab" data-pane="publish" data-i18n="Publish">Publish</button>
       </div>
 
       <div class="right-content">
@@ -1076,63 +1077,63 @@
           <!-- Mode Selector & Plan Panel Header -->
           <div class="agent-pane-header" style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:var(--bg-surface); border-bottom:1px solid var(--border-color); gap:8px; flex-wrap:wrap;">
             <div style="display:flex; align-items:center; gap:8px;">
-              <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Mode</span>
+              <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;" data-i18n="Mode">Mode</span>
               <select id="modeSelector" class="form-select" style="padding:4px 8px; font-size:11px; min-width:140px;" title="Select agent mode">
-                <option value="chat">💬 Chat</option>
-                <option value="plan">📋 Plan</option>
-                <option value="plan-build">🔨 Plan + Build</option>
+                <option value="chat" data-i18n="Chat">💬 Chat</option>
+                <option value="plan" data-i18n="Plan">📋 Plan</option>
+                <option value="plan-build" data-i18n="Plan + Build">🔨 Plan + Build</option>
               </select>
               <span id="modeStatus" style="font-size: 10px; color: var(--text-dim);"></span>
             </div>
             <div style="display:flex; align-items:center; gap:8px;">
-              <div style="display:flex; align-items:center; gap:6px;">
-                <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Teach</span>
-                <label class="toggle-switch" title="Teach Mode: explain changes in simple Bangla" style="cursor: pointer;">
-                  <input type="checkbox" id="teachModeToggle" style="display: none;" />
-                  <span class="toggle-slider"></span>
-                </label>
-              </div>
-            </div>
-            <div id="planControls" style="display:none; align-items:center; gap:6px;" aria-label="Plan execution controls">
-              <button class="btn btn-secondary" id="btnPausePlan" style="padding:3px 8px; font-size:10px;" title="Pause plan execution">⏸ Pause</button>
-              <button class="btn btn-secondary" id="btnSkipStep" style="padding:3px 8px; font-size:10px;" title="Skip current step">⏭ Skip</button>
-              <button class="btn btn-secondary" id="btnReplan" style="padding:3px 8px; font-size:10px;" title="Re-plan from current step">🔄 Re-plan</button>
-            </div>
-          </div>
-          
-          <!-- Plan Checklist Panel (collapsible, beside chat) -->
-          <div id="planPanelWrapper" style="display:none; border-bottom:1px solid var(--border-color);">
-            <div style="display:flex; align-items:center; justify-content:space-between; padding:6px 12px; background:var(--bg-surface); border-bottom:1px solid var(--border-color);">
               <div style="display:flex; align-items:center; gap:8px;">
-                <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Plan</span>
-                <span id="planProgress" style="font-size: 10px; color: var(--accent-blue); font-weight:600;"></span>
-              </div>
-              <button class="btn btn-secondary" id="btnTogglePlanPanel" style="padding:2px 8px; font-size:10px;" title="Collapse/expand plan panel">▼</button>
-            </div>
-            <div id="planChecklist" style="max-height:200px; overflow-y:auto; padding:8px 12px; background:var(--bg-panel);"></div>
-                      </div>
-
-                      <!-- Teach Panel (collapsible, shows Bangla explanations for agent changes) -->
-                      <div id="teachPanelWrapper" style="display:none; border-bottom:1px solid var(--border-color);">
-                        <div style="display:flex; align-items:center; justify-content:space-between; padding:6px 12px; background:var(--bg-surface); border-bottom:1px solid var(--border-color);">
-                          <div style="display:flex; align-items:center; gap:8px;">
-                            <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Teach Mode</span>
-                            <span id="teachStatus" style="font-size: 10px; color: var(--success); font-weight:600;"></span>
+                              <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;" data-i18n="Teach">Teach</span>
+                              <label class="toggle-switch" title="Teach Mode: explain changes in simple Bangla" style="cursor: pointer;">
+                                <input type="checkbox" id="teachModeToggle" style="display: none;" />
+                                <span class="toggle-slider"></span>
+                              </label>
+                            </div>
                           </div>
-                          <button class="btn btn-secondary" id="btnToggleTeachPanel" style="padding:2px 8px; font-size:10px;" title="Collapse/expand teach panel">▼</button>
+                          <div id="planControls" style="display:none; align-items:center; gap:6px;" aria-label="Plan execution controls">
+                            <button class="btn btn-secondary" id="btnPausePlan" style="padding:3px 8px; font-size:10px;" title="Pause plan execution" data-i18n="Pause">⏸ Pause</button>
+                            <button class="btn btn-secondary" id="btnSkipStep" style="padding:3px 8px; font-size:10px;" title="Skip current step" data-i18n="Skip">⏭ Skip</button>
+                            <button class="btn btn-secondary" id="btnReplan" style="padding:3px 8px; font-size:10px;" title="Re-plan from current step" data-i18n="Re-plan">🔄 Re-plan</button>
+                          </div>
                         </div>
-                        <div id="teachContent" style="max-height:250px; overflow-y:auto; padding:8px 12px; background:var(--bg-panel); font-size: 12px; line-height: 1.6; color: var(--text-main);"></div>
-                      </div>
-
-                      <div class="chat-messages" id="chatMessages" style="flex:1; overflow-y:auto;">
-            <div class="msg msg-system">FlamingoCode Agent ready. Ask me to create or modify code in your virtual FS.</div>
-          </div>
           
-          <div class="working-indicator" id="workingIndicator" style="display: none;">
-            <div class="spinner"></div>
-            <span>Agent working... <strong id="elapsedTimer">0s</strong></span>
-            <button class="btn btn-secondary" id="btnCancelAgent" style="margin-left: 12px; padding: 4px 12px; font-size: 12px;">Cancel</button>
-          </div>
+                        <!-- Plan Checklist Panel (collapsible, beside chat) -->
+                        <div id="planPanelWrapper" style="display:none; border-bottom:1px solid var(--border-color);">
+                          <div style="display:flex; align-items:center; justify-content:space-between; padding:6px 12px; background:var(--bg-surface); border-bottom:1px solid var(--border-color);">
+                            <div style="display:flex; align-items:center; gap:8px;">
+                              <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;" data-i18n="Plan">Plan</span>
+                              <span id="planProgress" style="font-size: 10px; color: var(--accent-blue); font-weight:600;"></span>
+                            </div>
+                            <button class="btn btn-secondary" id="btnTogglePlanPanel" style="padding:2px 8px; font-size:10px;" title="Collapse/expand plan panel">▼</button>
+                          </div>
+                          <div id="planChecklist" style="max-height:200px; overflow-y:auto; padding:8px 12px; background:var(--bg-panel);"></div>
+                                    </div>
+
+                                    <!-- Teach Panel (collapsible, shows Bangla explanations for agent changes) -->
+                                    <div id="teachPanelWrapper" style="display:none; border-bottom:1px solid var(--border-color);">
+                                      <div style="display:flex; align-items:center; justify-content:space-between; padding:6px 12px; background:var(--bg-surface); border-bottom:1px solid var(--border-color);">
+                                        <div style="display:flex; align-items:center; gap:8px;">
+                                          <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;" data-i18n="Teach Mode">Teach Mode</span>
+                                          <span id="teachStatus" style="font-size: 10px; color: var(--success); font-weight:600;"></span>
+                                        </div>
+                                        <button class="btn btn-secondary" id="btnToggleTeachPanel" style="padding:2px 8px; font-size:10px;" title="Collapse/expand teach panel">▼</button>
+                                      </div>
+                                      <div id="teachContent" style="max-height:250px; overflow-y:auto; padding:8px 12px; background:var(--bg-panel); font-size: 12px; line-height: 1.6; color: var(--text-main);"></div>
+                                    </div>
+
+                                    <div class="chat-messages" id="chatMessages" style="flex:1; overflow-y:auto;">
+                          <div class="msg msg-system" data-i18n="FlamingoCode Agent ready. Ask me to create or modify code in your virtual FS.">FlamingoCode Agent ready. Ask me to create or modify code in your virtual FS.</div>
+                        </div>
+          
+                        <div class="working-indicator" id="workingIndicator" style="display: none;">
+                          <div class="spinner"></div>
+                          <span data-i18n="Agent working...">Agent working... <strong id="elapsedTimer">0s</strong></span>
+                          <button class="btn btn-secondary" id="btnCancelAgent" style="margin-left: 12px; padding: 4px 12px; font-size: 12px;" data-i18n="Cancel">Cancel</button>
+                        </div>
 
           <!-- 429 Countdown Chip -->
           <div id="rateLimitCountdown" style="display: none; padding: 8px 12px; background: var(--warning); color: var(--bg-dark); border-radius: 6px; margin: 0 12px; font-size: 12px; font-weight: 600;">
@@ -1146,14 +1147,14 @@
           </div>
 
           <div class="chat-input-wrapper">
-            <input type="text" id="chatInput" class="chat-input" placeholder="Ask agent to build, edit, or fix..." />
-            <button class="btn btn-secondary" id="btnEnhancePrompt" title="Enhance prompt into full build spec" style="padding: 8px 10px; min-width: 44px;">✨</button>
-            <button class="btn btn-secondary" id="btnVoiceInput" title="Voice input (Click to start)" style="padding: 8px 10px; min-width: 44px;">🎤</button>
+            <input type="text" id="chatInput" class="chat-input" placeholder="Ask agent to build, edit, or fix..." data-i18n-placeholder="Ask agent to build, edit, or fix..." />
+            <button class="btn btn-secondary" id="btnEnhancePrompt" title="Enhance prompt into full build spec" style="padding: 8px 10px; min-width: 44px;" data-i18n="Enhance">✨</button>
+            <button class="btn btn-secondary" id="btnVoiceInput" title="Voice input (Click to start)" style="padding: 8px 10px; min-width: 44px;" data-i18n-title="Voice Input">🎤</button>
             <select id="voiceLangSelect" class="voice-lang-select" title="Speech recognition language" style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-main); padding: 8px 8px; font-size: 11px; min-width: 90px;">
               <option value="en-US">English (US)</option>
               <option value="bn-BD">Bangla (বাংলা)</option>
             </select>
-            <button class="btn" id="btnSend">Send</button>
+            <button class="btn" id="btnSend" data-i18n="Send">Send</button>
           </div>
         </div>
 
@@ -1531,14 +1532,15 @@
         <button class="settings-tab" data-settings-tab="behavior" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">Behavior</button>
         <button class="settings-tab" data-settings-tab="autonomy" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">Autonomy</button>
         <button class="settings-tab" data-settings-tab="backup" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">Backup</button>
+        <button class="settings-tab" data-settings-tab="language" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">Language</button>
       </div>
 
       <!-- Providers Tab -->
       <div class="settings-pane active" id="settingsPaneProviders" style="display: flex; flex-direction: column;">
         <div style="max-height: 40vh; overflow-y: auto; margin-bottom: 12px;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
-            <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Providers</span>
-            <button class="btn" id="btnAddProvider" style="padding: 4px 10px; font-size: 11px;">+ Add Provider</button>
+            <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;" data-i18n="Providers">Providers</span>
+            <button class="btn" id="btnAddProvider" style="padding: 4px 10px; font-size: 11px;" data-i18n="Add Provider">+ Add Provider</button>
           </div>
           <div id="providerList" style="display: flex; flex-direction: column; gap: 6px;">
             <!-- Provider items rendered here -->
@@ -1550,8 +1552,8 @@
       <div class="settings-pane" id="settingsPaneSkills" style="display: none; flex-direction: column;">
         <div style="max-height: 40vh; overflow-y: auto; margin-bottom: 12px;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
-            <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Built-in Skill Packs</span>
-            <button class="btn" id="btnOpenSkillPackLibrary" style="padding: 4px 10px; font-size: 11px;">📚 Open Library</button>
+            <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;" data-i18n="Skill Packs">Skill Packs</span>
+            <button class="btn" id="btnOpenSkillPackLibrary" style="padding: 4px 10px; font-size: 11px;" data-i18n="Open Library">📚 Open Library</button>
           </div>
           <div id="builtinSkillPackList" style="display: flex; flex-direction: column; gap: 6px;">
             <!-- Built-in skill packs rendered here -->
@@ -1560,7 +1562,7 @@
         <div style="border-top: 1px solid var(--border-color); padding-top: 12px;">
           <div style="font-size: 11px; color: var(--text-dim); margin-bottom: 8px;">Built-in packs are read-only. Use the library to create custom packs.</div>
           <div style="display:flex; justify-content:flex-end; gap:8px;">
-            <button class="btn btn-secondary" id="btnCancelSettings">Close</button>
+            <button class="btn btn-secondary" id="btnCancelSettings" data-i18n="Close">Close</button>
           </div>
         </div>
       </div>
@@ -1569,8 +1571,8 @@
       <div class="settings-pane" id="settingsPanePlugins" style="display: none; flex-direction: column;">
         <div style="max-height: 40vh; overflow-y: auto; margin-bottom: 12px;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
-            <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Built-in Plugin Packs</span>
-            <button class="btn" id="btnOpenPluginPackLibrary" style="padding: 4px 10px; font-size: 11px;">📚 Open Library</button>
+            <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;" data-i18n="Plugin Packs">Plugin Packs</span>
+            <button class="btn" id="btnOpenPluginPackLibrary" style="padding: 4px 10px; font-size: 11px;" data-i18n="Open Library">📚 Open Library</button>
           </div>
           <div id="builtinPluginPackList" style="display: flex; flex-direction: column; gap: 6px;">
             <!-- Built-in plugin packs rendered here -->
@@ -1579,7 +1581,7 @@
         <div style="border-top: 1px solid var(--border-color); padding-top: 12px;">
           <div style="font-size: 11px; color: var(--text-dim); margin-bottom: 8px;">Built-in packs are read-only. Use the library to create custom packs.</div>
           <div style="display:flex; justify-content:flex-end; gap:8px;">
-            <button class="btn btn-secondary" id="btnCancelSettings">Close</button>
+            <button class="btn btn-secondary" id="btnCancelSettings" data-i18n="Close">Close</button>
           </div>
         </div>
       </div>
@@ -1588,8 +1590,8 @@
       <div class="settings-pane" id="settingsPaneMcp" style="display: none; flex-direction: column;">
         <div style="max-height: 40vh; overflow-y: auto; margin-bottom: 12px;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
-            <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">MCP Servers</span>
-            <button class="btn" id="btnOpenMcpRegistry" style="padding: 4px 10px; font-size: 11px;">📚 Open Registry</button>
+            <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;" data-i18n="MCP Registry">MCP Registry</span>
+            <button class="btn" id="btnOpenMcpRegistry" style="padding: 4px 10px; font-size: 11px;" data-i18n="Open Registry">📚 Open Registry</button>
           </div>
           <div id="mcpServerSummaryList" style="display: flex; flex-direction: column; gap: 6px;">
             <!-- MCP server summary rendered here -->
@@ -1598,7 +1600,7 @@
         <div style="border-top: 1px solid var(--border-color); padding-top: 12px;">
           <div style="font-size: 11px; color: var(--text-dim); margin-bottom: 8px;">MCP servers are global. Assign them to agents in the Agent Library.</div>
           <div style="display:flex; justify-content:flex-end; gap:8px;">
-            <button class="btn btn-secondary" id="btnCancelSettings">Close</button>
+            <button class="btn btn-secondary" id="btnCancelSettings" data-i18n="Close">Close</button>
           </div>
         </div>
       </div>
@@ -1609,24 +1611,24 @@
   <div class="settings-pane" id="settingsPaneUsage" style="display: none; flex-direction: column;">
     <div style="max-height: 40vh; overflow-y: auto; margin-bottom: 12px;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
-        <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Usage & Quota Dashboard</span>
-        <button class="btn btn-secondary" id="btnResetUsage" style="padding: 4px 10px; font-size: 11px;">Reset All</button>
+        <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;" data-i18n="Usage & Quota">Usage & Quota</span>
+        <button class="btn btn-secondary" id="btnResetUsage" style="padding: 4px 10px; font-size: 11px;" data-i18n="Reset All">Reset All</button>
       </div>
       
       <!-- Current Session Summary -->
       <div id="usageCurrentSession" style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; padding: 12px; margin-bottom: 16px;">
-        <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">Current Session</div>
+        <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;" data-i18n="Current Session">Current Session</div>
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px;">
           <div style="background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 4px; padding: 8px; text-align: center;">
-            <div style="font-size: 10px; color: var(--text-dim); text-transform: uppercase;">Requests</div>
+            <div style="font-size: 10px; color: var(--text-dim); text-transform: uppercase;" data-i18n="Requests">Requests</div>
             <div id="usageCurrRequests" style="font-size: 16px; font-weight: 700; color: var(--accent-blue); font-family: var(--font-mono);">0</div>
           </div>
           <div style="background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 4px; padding: 8px; text-align: center;">
-            <div style="font-size: 10px; color: var(--text-dim); text-transform: uppercase;">Tokens</div>
+            <div style="font-size: 10px; color: var(--text-dim); text-transform: uppercase;" data-i18n="Tokens">Tokens</div>
             <div id="usageCurrTokens" style="font-size: 16px; font-weight: 700; color: var(--text-main); font-family: var(--font-mono);">0</div>
           </div>
           <div style="background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 4px; padding: 8px; text-align: center;">
-            <div style="font-size: 10px; color: var(--text-dim); text-transform: uppercase;">Est. Cost</div>
+            <div style="font-size: 10px; color: var(--text-dim); text-transform: uppercase;" data-i18n="Est. Cost">Est. Cost</div>
             <div id="usageCurrCost" style="font-size: 16px; font-weight: 700; color: var(--success); font-family: var(--font-mono);">$0.0000</div>
           </div>
         </div>
@@ -1634,7 +1636,7 @@
 
       <!-- Per-Provider Stats -->
       <div style="margin-bottom: 16px;">
-        <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">Per Provider</div>
+        <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;" data-i18n="Per Provider">Per Provider</div>
         <div id="usageProviderList" style="display: flex; flex-direction: column; gap: 8px;">
           <!-- Provider entries rendered here -->
         </div>
@@ -1642,7 +1644,7 @@
 
       <!-- Per-Project Stats -->
       <div>
-        <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">Per Project</div>
+        <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;" data-i18n="Per Project">Per Project</div>
         <div id="usageProjectList" style="display: flex; flex-direction: column; gap: 8px;">
           <!-- Project entries rendered here -->
         </div>
@@ -1650,7 +1652,7 @@
     </div>
     <div style="border-top: 1px solid var(--border-color); padding-top: 12px;">
       <div style="display:flex; justify-content:flex-end; gap:8px;">
-        <button class="btn btn-secondary" id="btnCancelSettings">Close</button>
+        <button class="btn btn-secondary" id="btnCancelSettings" data-i18n="Close">Close</button>
       </div>
     </div>
   </div>
@@ -1659,13 +1661,13 @@
   <div class="settings-pane" id="settingsPaneBehavior" style="display: none; flex-direction: column;">
     <div style="max-height: 40vh; overflow-y: auto; margin-bottom: 12px;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
-        <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Uncensored Mode</span>
+        <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;" data-i18n="Uncensored Mode">Uncensored Mode</span>
       </div>
       <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; padding: 12px;">
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
           <div style="flex: 1; min-width: 0;">
-            <div style="font-weight: 600; font-size: 12px; color: var(--text-main);">Uncensored Mode for this project</div>
-            <div style="font-size: 10px; color: var(--text-dim); margin-top: 2px;">Changes what FlamingoCode asks the model. A provider's own server-side rules still apply.</div>
+            <div style="font-weight: 600; font-size: 12px; color: var(--text-main);" data-i18n="Uncensored Mode for this project">Uncensored Mode for this project</div>
+            <div style="font-size: 10px; color: var(--text-dim); margin-top: 2px;" data-i18n="Changes what FlamingoCode asks the model. A provider's own server-side rules still apply.">Changes what FlamingoCode asks the model. A provider's own server-side rules still apply.</div>
           </div>
           <label class="toggle-switch" style="cursor: pointer; flex-shrink: 0;">
             <input type="checkbox" id="uncensoredToggleSettings" style="display: none;" />
@@ -1673,33 +1675,33 @@
           </label>
         </div>
         <hr style="border: none; border-top: 1px solid var(--border-color); margin: 12px 0;">
-        <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">Plan + Build Limits</div>
-        <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 12px;">Configure caps for automatic planning and execution.</div>
+        <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;" data-i18n="Plan + Build Limits">Plan + Build Limits</div>
+        <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 12px;" data-i18n="Configure caps for automatic planning and execution.">Configure caps for automatic planning and execution.</div>
         <div style="display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 12px;">
           <div style="flex: 1; min-width: 150px;">
-            <label style="display: block; font-size: 11px; color: var(--text-muted); margin-bottom: 4px;">Max Plan Steps</label>
+            <label style="display: block; font-size: 11px; color: var(--text-muted); margin-bottom: 4px;" data-i18n="Max Plan Steps">Max Plan Steps</label>
             <input type="number" id="planMaxStepsInput" class="form-input" min="1" max="100" value="25" style="width: 100%; padding: 6px 8px; font-size: 12px;" />
-            <div style="font-size: 10px; color: var(--text-dim); margin-top: 2px;">Maximum steps in a generated plan (default: 25)</div>
+            <div style="font-size: 10px; color: var(--text-dim); margin-top: 2px;" data-i18n="Maximum steps in a generated plan (default: 25)">Maximum steps in a generated plan (default: 25)</div>
           </div>
           <div style="flex: 1; min-width: 150px;">
-            <label style="display: block; font-size: 11px; color: var(--text-muted); margin-bottom: 4px;">Max Re-plan Revisions</label>
+            <label style="display: block; font-size: 11px; color: var(--text-muted); margin-bottom: 4px;" data-i18n="Max Re-plan Revisions">Max Re-plan Revisions</label>
             <input type="number" id="planMaxRevisionsInput" class="form-input" min="0" max="20" value="5" style="width: 100%; padding: 6px 8px; font-size: 12px;" />
-            <div style="font-size: 10px; color: var(--text-dim); margin-top: 2px;">Maximum re-plan attempts per step (default: 5)</div>
+            <div style="font-size: 10px; color: var(--text-dim); margin-top: 2px;" data-i18n="Maximum re-plan attempts per step (default: 5)">Maximum re-plan attempts per step (default: 5)</div>
           </div>
         </div>
         <hr style="border: none; border-top: 1px solid var(--border-color); margin: 12px 0;">
-        <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">Per-Model Override</div>
-        <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 8px;">Auto = use project setting. On/Off = override for this specific model.</div>
+        <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;" data-i18n="Per-Model Override">Per-Model Override</div>
+        <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 8px;" data-i18n="Auto = use project setting. On/Off = override for this specific model.">Auto = use project setting. On/Off = override for this specific model.</div>
         <div id="uncensoredModelOverrideList" style="display: flex; flex-direction: column; gap: 4px;">
           <!-- Model overrides rendered here -->
         </div>
         <hr style="border: none; border-top: 1px solid var(--border-color); margin: 12px 0;">
-        <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">Diff Review</div>
-        <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 8px;">When enabled, agent file changes are shown as diffs for review before being applied.</div>
+        <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;" data-i18n="Diff Review">Diff Review</div>
+        <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 8px;" data-i18n="When enabled, agent file changes are shown as diffs for review before being applied.">When enabled, agent file changes are shown as diffs for review before being applied.</div>
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
           <div style="flex: 1; min-width: 0;">
-            <div style="font-weight: 600; font-size: 12px; color: var(--text-main);">Review changes before applying</div>
-            <div style="font-size: 10px; color: var(--text-dim); margin-top: 2px;">Toggle OFF to auto-apply agent changes immediately (legacy behavior).</div>
+            <div style="font-weight: 600; font-size: 12px; color: var(--text-main);" data-i18n="Review changes before applying">Review changes before applying</div>
+            <div style="font-size: 10px; color: var(--text-dim); margin-top: 2px;" data-i18n="Toggle OFF to auto-apply agent changes immediately (legacy behavior).">Toggle OFF to auto-apply agent changes immediately (legacy behavior).</div>
           </div>
           <label class="toggle-switch" style="cursor: pointer; flex-shrink: 0;">
             <input type="checkbox" id="diffReviewToggleSettings" style="display: none;" checked />
@@ -1707,12 +1709,12 @@
           </label>
         </div>
         <hr style="border: none; border-top: 1px solid var(--border-color); margin: 12px 0;">
-        <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">Prompt Enhancer</div>
-        <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 8px;">When ON, short prompts are automatically expanded into full build specs before sending. When OFF, use the ✨ button manually.</div>
+        <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;" data-i18n="Prompt Enhancer">Prompt Enhancer</div>
+        <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 8px;" data-i18n="When ON, short prompts are automatically expanded into full build specs before sending. When OFF, use the ✨ button manually.">When ON, short prompts are automatically expanded into full build specs before sending. When OFF, use the ✨ button manually.</div>
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
           <div style="flex: 1; min-width: 0;">
-            <div style="font-weight: 600; font-size: 12px; color: var(--text-main);">Auto-enhance short prompts</div>
-            <div style="font-size: 10px; color: var(--text-dim); margin-top: 2px;">Automatically expand one-line prompts into detailed specs (goal, scope, files, acceptance checks).</div>
+            <div style="font-weight: 600; font-size: 12px; color: var(--text-main);" data-i18n="Auto-enhance short prompts">Auto-enhance short prompts</div>
+            <div style="font-size: 10px; color: var(--text-dim); margin-top: 2px;" data-i18n="Automatically expand one-line prompts into detailed specs (goal, scope, files, acceptance checks).">Automatically expand one-line prompts into detailed specs (goal, scope, files, acceptance checks).</div>
           </div>
           <label class="toggle-switch" style="cursor: pointer; flex-shrink: 0;">
             <input type="checkbox" id="autoEnhanceToggleSettings" style="display: none;" />
@@ -1720,12 +1722,12 @@
           </label>
         </div>
         <hr style="border: none; border-top: 1px solid var(--border-color); margin: 12px 0;">
-        <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">Teach Mode</div>
-        <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 8px;">When ON, agent changes are explained in simple Bangla for non-coders. When OFF, no explanations shown.</div>
+        <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;" data-i18n="Teach Mode">Teach Mode</div>
+        <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 8px;" data-i18n="When ON, agent changes are explained in simple Bangla for non-coders. When OFF, no explanations shown.">When ON, agent changes are explained in simple Bangla for non-coders. When OFF, no explanations shown.</div>
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
           <div style="flex: 1; min-width: 0;">
-            <div style="font-weight: 600; font-size: 12px; color: var(--text-main);">Explain changes in Bangla</div>
-            <div style="font-size: 10px; color: var(--text-dim); margin-top: 2px;">Show a teach panel with plain-language explanations after every agent change.</div>
+            <div style="font-weight: 600; font-size: 12px; color: var(--textmain);" data-i18n="Explain changes in Bangla">Explain changes in Bangla</div>
+            <div style="font-size: 10px; color: var(--text-dim); margin-top: 2px;" data-i18n="Show a teach panel with plain-language explanations after every agent change.">Show a teach panel with plain-language explanations after every agent change.</div>
           </div>
           <label class="toggle-switch" style="cursor: pointer; flex-shrink: 0;">
             <input type="checkbox" id="teachModeToggleSettings" style="display: none;" />
@@ -1736,7 +1738,7 @@
     </div>
     <div style="border-top: 1px solid var(--border-color); padding-top: 12px;">
       <div style="display:flex; justify-content:flex-end; gap:8px;">
-        <button class="btn btn-secondary" id="btnCancelSettings">Close</button>
+        <button class="btn btn-secondary" id="btnCancelSettings" data-i18n="Close">Close</button>
       </div>
     </div>
   </div>
@@ -1745,60 +1747,60 @@
   <div class="settings-pane" id="settingsPaneAutonomy" style="display: none; flex-direction: column;">
     <div style="max-height: 40vh; overflow-y: auto; margin-bottom: 12px;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
-        <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Autonomy Engine</span>
+        <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;" data-i18n="Autonomy Engine">Autonomy Engine</span>
       </div>
       <div id="autonomyContent" style="display: flex; flex-direction: column; gap: 12px;">
         <!-- Catalog Injection Status -->
         <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; padding: 12px;">
-          <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">Catalog Injection</div>
-          <div style="font-size: 12px; color: var(--text-main); margin-bottom: 4px;">The full installed catalog (skills, plugins, MCPs) is injected into every agent's context at session start.</div>
-          <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 8px;">Status: <span id="catalogInjectionStatus" style="color: var(--success); font-weight: 600;">Active</span></div>
-          <button class="btn btn-secondary" id="btnViewCatalog" style="padding: 4px 10px; font-size: 11px;">View Full Catalog</button>
+          <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;" data-i18n="Catalog Injection">Catalog Injection</div>
+          <div style="font-size: 12px; color: var(--text-main); margin-bottom: 4px;" data-i18n="The full installed catalog (skills, plugins, MCPs) is injected into every agent's context at session start.">The full installed catalog (skills, plugins, MCPs) is injected into every agent's context at session start.</div>
+          <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 8px;">Status: <span id="catalogInjectionStatus" style="color: var(--success); font-weight: 600;" data-i18n="Active">Active</span></div>
+          <button class="btn btn-secondary" id="btnViewCatalog" style="padding: 4px 10px; font-size: 11px;" data-i18n="View Full Catalog">View Full Catalog</button>
         </div>
         
         <!-- Mandatory-Use Rule -->
         <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; padding: 12px;">
-          <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">Mandatory-Use Rule</div>
-          <div style="font-size: 12px; color: var(--text-main); margin-bottom: 4px;">On EVERY task, the agent MUST list which installed skills/plugins/MCPs apply and use them. "No tool applies" is only valid for trivial tasks with a one-line reason.</div>
-          <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 8px;">Enforcement: <span id="mandatoryUseStatus" style="color: var(--accent-blue); font-weight: 600;">Enabled</span></div>
+          <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;" data-i18n="Mandatory-Use Rule">Mandatory-Use Rule</div>
+          <div style="font-size: 12px; color: var(--text-main); margin-bottom: 4px;" data-i18n="On EVERY task, the agent MUST list which installed skills/plugins/MCPs apply and use them. \"No tool applies\" is only valid for trivial tasks with a one-line reason.">On EVERY task, the agent MUST list which installed skills/plugins/MCPs apply and use them. "No tool applies" is only valid for trivial tasks with a one-line reason.</div>
+          <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 8px;">Enforcement: <span id="mandatoryUseStatus" style="color: var(--accent-blue); font-weight: 600;" data-i18n="Enabled">Enabled</span></div>
         </div>
 
         <!-- Installed Skills -->
         <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; padding: 12px;">
-          <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">Mandatory Pre-installed Skills</div>
+          <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;" data-i18n="Mandatory Pre-installed Skills">Mandatory Pre-installed Skills</div>
           <div id="mandatorySkillsList" style="display: flex; flex-direction: column; gap: 4px; font-size: 11px;"></div>
         </div>
 
         <!-- Installed MCPs -->
         <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; padding: 12px;">
-          <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">Mandatory Pre-installed MCPs</div>
+          <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;" data-i18n="Mandatory Pre-installed MCPs">Mandatory Pre-installed MCPs</div>
           <div id="mandatoryMcpsList" style="display: flex; flex-direction: column; gap: 4px; font-size: 11px;"></div>
         </div>
 
         <!-- NEW Skills for Vibe-Coding -->
         <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; padding: 12px;">
-          <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">NEW Skills for Vibe-Coding Development</div>
+          <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;" data-i18n="NEW Skills for Vibe-Coding Development">NEW Skills for Vibe-Coding Development</div>
           <div id="vibeSkillsList" style="display: flex; flex-direction: column; gap: 4px; font-size: 11px;"></div>
         </div>
 
         <!-- NEW MCPs -->
         <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; padding: 12px;">
-          <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">NEW MCPs (Build Environment)</div>
+          <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;" data-i18n="NEW MCPs (Build Environment)">NEW MCPs (Build Environment)</div>
           <div id="newMcpsList" style="display: flex; flex-direction: column; gap: 4px; font-size: 11px;"></div>
         </div>
 
         <!-- Plugin Packs (product runtime library, later stage) -->
         <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; padding: 12px;">
-          <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">Plugin Packs (runtime library, ships in a later stage)</div>
+          <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;" data-i18n="Plugin Packs (runtime library, ships in a later stage)">Plugin Packs (runtime library, ships in a later stage)</div>
           <div id="pluginPacksList" style="display: flex; flex-direction: column; gap: 4px; font-size: 11px;"></div>
         </div>
 
         <!-- Pre-commit Gate -->
         <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; padding: 12px;">
-          <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">Pre-commit Gate</div>
-          <div style="font-size: 12px; color: var(--text-main); margin-bottom: 4px;">No work is marked done until mandatory checks pass:</div>
+          <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;" data-i18n="Pre-commit Gate">Pre-commit Gate</div>
+          <div style="font-size: 12px; color: var(--text-main); margin-bottom: 4px;" data-i18n="No work is marked done until mandatory checks pass:">No work is marked done until mandatory checks pass:</div>
           <div id="precommitChecks" style="display: flex; flex-direction: column; gap: 4px; font-size: 11px; margin-bottom: 8px;"></div>
-          <div style="font-size: 10px; color: var(--text-dim);">Gate Status: <span id="precommitGateStatus" style="color: var(--warning); font-weight: 600;">Pending</span></div>
+          <div style="font-size: 10px; color: var(--text-dim);">Gate Status: <span id="precommitGateStatus" style="color: var(--warning); font-weight: 600;" data-i18n="Pending">Pending</span></div>
         </div>
       </div>
     </div>
@@ -1813,7 +1815,7 @@
   <div class="settings-pane" id="settingsPaneBackup" style="display: none; flex-direction: column;">
     <div style="max-height: 40vh; overflow-y: auto; margin-bottom: 12px;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
-        <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Full Backup</span>
+        <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;" data-i18n="Backup & Restore">Backup & Restore</span>
       </div>
       
       <!-- Warning about sensitive data -->
@@ -1821,18 +1823,18 @@
         <div style="display: flex; align-items: flex-start; gap: 8px;">
           <span style="font-size: 16px; flex-shrink: 0;">⚠️</span>
           <div style="flex: 1;">
-            <div style="font-weight: 600; font-size: 12px; color: var(--warning); margin-bottom: 4px;">Sensitive Data Warning</div>
-            <div style="font-size: 11px; color: var(--text-muted); line-height: 1.5;">
+            <div style="font-weight: 600; font-size: 12px; color: var(--warning); margin-bottom: 4px;" data-i18n="Sensitive Data Warning">Sensitive Data Warning</div>
+            <div style="font-size: 11px; color: var(--text-muted); line-height: 1.5;" data-i18n="The backup file contains ALL your data including:">
               The backup file contains <strong>ALL</strong> your data including:
               <ul style="margin: 8px 0 0 20px; padding: 0; font-size: 10px;">
-                <li>All sessions (projects, files, chat history)</li>
-                <li>All providers <strong>including API keys</strong></li>
-                <li>All agents and team configurations</li>
-                <li>All custom skill packs, plugin packs, and MCP servers</li>
-                <li>All settings (Uncensored Mode, diff review, autonomy, etc.)</li>
-                <li>All checkpoints and brain notes</li>
+                <li data-i18n="All sessions (projects, files, chat history)">All sessions (projects, files, chat history)</li>
+                <li data-i18n="All providers including API keys">All providers <strong>including API keys</strong></li>
+                <li data-i18n="All agents and team configurations">All agents and team configurations</li>
+                <li data-i18n="All custom skill packs, plugin packs, and MCP servers">All custom skill packs, plugin packs, and MCP servers</li>
+                <li data-i18n="All settings (Uncensored Mode, diff review, autonomy, etc.)">All settings (Uncensored Mode, diff review, autonomy, etc.)</li>
+                <li data-i18n="All checkpoints and brain notes">All checkpoints and brain notes</li>
               </ul>
-              <strong>Treat the backup file like a password database.</strong> Do not share it publicly or commit it to version control.
+              <strong data-i18n="Treat the backup file like a password database.">Treat the backup file like a password database.</strong> <span data-i18n="Do not share it publicly or commit it to version control.">Do not share it publicly or commit it to version control.</span>
             </div>
           </div>
         </div>
@@ -1840,59 +1842,93 @@
 
       <!-- Export Backup -->
       <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; padding: 16px; margin-bottom: 16px;">
-        <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">Export Backup</div>
-        <div style="font-size: 11px; color: var(--text-dim); margin-bottom: 12px;">Download a complete JSON backup of all data.</div>
-        <button class="btn" id="btnExportBackup" style="padding: 8px 16px; font-size: 12px;">📥 Export Backup</button>
+        <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;" data-i18n="Export Backup">Export Backup</div>
+        <div style="font-size: 11px; color: var(--text-dim); margin-bottom: 12px;" data-i18n="Download a complete JSON backup of all data.">Download a complete JSON backup of all data.</div>
+        <button class="btn" id="btnExportBackup" style="padding: 8px 16px; font-size: 12px;" data-i18n="Export Backup">📥 Export Backup</button>
         <div id="exportBackupStatus" style="margin-top: 8px; font-size: 10px; color: var(--text-dim);"></div>
       </div>
 
       <!-- Import Backup -->
       <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; padding: 16px;">
-        <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">Import Backup</div>
-        <div style="font-size: 11px; color: var(--text-dim); margin-bottom: 12px;">Select a backup JSON file to restore. This will <strong>replace all current data</strong>.</div>
+        <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;" data-i18n="Import Backup">Import Backup</div>
+        <div style="font-size: 11px; color: var(--text-dim); margin-bottom: 12px;" data-i18n="Select a backup JSON file to restore. This will replace all current data.">Select a backup JSON file to restore. This will <strong>replace all current data</strong>.</div>
         <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;">
-          <input type="file" id="importBackupFile" accept=".json" style="flex: 1; min-width: 200px; background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 4px; padding: 6px 8px; color: var(--text-main); font-size: 11px;" />
+          <input type="file" id="importBackupFile" accept=".json" style="flex: 1; min-width: 200px; background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 4px; padding: 6px 8px; color: var(--text-main); font-size: 11px;" data-i18n-placeholder="Choose backup file..." />
         </div>
-        <button class="btn" id="btnImportBackup" style="padding: 8px 16px; font-size: 12px; background: var(--danger);" disabled>📤 Import Backup</button>
+        <button class="btn" id="btnImportBackup" style="padding: 8px 16px; font-size: 12px; background: var(--danger);" disabled data-i18n="Import Backup">📤 Import Backup</button>
         <div id="importBackupStatus" style="margin-top: 8px; font-size: 10px; color: var(--text-dim);"></div>
       </div>
     </div>
     <div style="border-top: 1px solid var(--border-color); padding-top: 12px;">
       <div style="display:flex; justify-content:flex-end; gap:8px;">
-        <button class="btn btn-secondary" id="btnCancelSettings">Close</button>
+        <button class="btn btn-secondary" id="btnCancelSettings" data-i18n="Close">Close</button>
       </div>
     </div>
   </div>
+
+  <!-- Language Tab -->
+    <div class="settings-pane" id="settingsPaneLanguage" style="display: none; flex-direction: column;">
+      <div style="max-height: 40vh; overflow-y: auto; margin-bottom: 12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
+          <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;" data-i18n="App Language">App Language</span>
+        </div>
+        <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; padding: 16px;">
+          <div style="font-size: 11px; color: var(--text-dim); margin-bottom: 16px;" data-i18n="Choose the display language for the entire app. All labels, buttons, panels, and messages will update instantly.">Choose the display language for the entire app. All labels, buttons, panels, and messages will update instantly.</div>
+          <div style="display: flex; flex-direction: column; gap: 12px;">
+            <label style="display: flex; align-items: center; gap: 12px; cursor: pointer; padding: 12px; background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 6px; transition: border-color 0.2s;">
+              <input type="radio" name="appLanguage" id="langEnRadio" value="en" style="width: 18px; height: 18px; accent-color: var(--accent-blue);" />
+              <div style="flex: 1;">
+                <div style="font-weight: 600; font-size: 13px; color: var(--text-main);" data-i18n="English">English</div>
+                <div style="font-size: 10px; color: var(--text-dim);" data-i18n="Default language">Default language</div>
+              </div>
+            </label>
+            <label style="display: flex; align-items: center; gap: 12px; cursor: pointer; padding: 12px; background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 6px; transition: border-color 0.2s;">
+              <input type="radio" name="appLanguage" id="langBnRadio" value="bn" style="width: 18px; height: 18px; accent-color: var(--accent-blue);" />
+              <div style="flex: 1;">
+                <div style="font-weight: 600; font-size: 13px; color: var(--text-main);" data-i18n="Bangla">বাংলা (Bangla)</div>
+                <div style="font-size: 10px; color: var(--text-dim);" data-i18n="Bengali language">Bengali language</div>
+              </div>
+            </label>
+          </div>
+          <div id="languageStatus" style="margin-top: 12px; font-size: 10px; color: var(--text-dim);"></div>
+        </div>
+      </div>
+      <div style="border-top: 1px solid var(--border-color); padding-top: 12px;">
+        <div style="display:flex; justify-content:flex-end; gap:8px;">
+          <button class="btn btn-secondary" id="btnCancelSettings" data-i18n="Close">Close</button>
+        </div>
+      </div>
+    </div>
 
   <!-- Enhanced Spec Preview Modal -->
   <div class="modal-overlay" id="enhancedSpecModal">
     <div class="modal-box" style="width: 700px; max-width: 95vw; max-height: 85vh;">
       <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-color); padding-bottom:8px;">
-        <h3 style="font-size: 14px; font-weight: 700;">Enhanced Build Spec</h3>
+        <h3 style="font-size: 14px; font-weight: 700;" data-i18n="Enhanced Build Spec">Enhanced Build Spec</h3>
         <button class="section-btn" id="btnCloseEnhancedSpec">✕</button>
       </div>
       <div style="max-height: 60vh; overflow-y: auto; padding: 8px 0;">
-        <div style="font-size: 11px; color: var(--text-dim); margin-bottom: 8px;">Review and edit the enhanced spec before sending to the agent.</div>
+        <div style="font-size: 11px; color: var(--text-dim); margin-bottom: 8px;" data-i18n="Review the expanded spec below. Edit if needed, then confirm to run.">Review and edit the enhanced spec before sending to the agent.</div>
         <div class="form-group" style="margin-bottom: 12px;">
-          <label class="form-label">Goal</label>
-          <textarea id="enhancedSpecGoal" class="form-input" placeholder="What should be built?" style="min-height: 60px; font-family: var(--font-mono); font-size: 11px;"></textarea>
+          <label class="form-label" data-i18n="Goal">Goal</label>
+          <textarea id="enhancedSpecGoal" class="form-input" placeholder="What should be built?" style="min-height: 60px; font-family: var(--font-mono); font-size: 11px;" data-i18n-placeholder="What should be built?"></textarea>
         </div>
         <div class="form-group" style="margin-bottom: 12px;">
-          <label class="form-label">Scope</label>
-          <textarea id="enhancedSpecScope" class="form-input" placeholder="What files/components are involved? What's in/out of scope?" style="min-height: 60px; font-family: var(--font-mono); font-size: 11px;"></textarea>
+          <label class="form-label" data-i18n="Scope">Scope</label>
+          <textarea id="enhancedSpecScope" class="form-input" placeholder="What files/components are involved? What's in/out of scope?" style="min-height: 60px; font-family: var(--font-mono); font-size: 11px;" data-i18n-placeholder="What files/components are involved? What's in/out of scope?"></textarea>
         </div>
         <div class="form-group" style="margin-bottom: 12px;">
-          <label class="form-label">Files Involved</label>
-          <textarea id="enhancedSpecFiles" class="form-input" placeholder="List of files to create/modify (one per line)" style="min-height: 60px; font-family: var(--font-mono); font-size: 11px;"></textarea>
+          <label class="form-label" data-i18n="Files Involved">Files Involved</label>
+          <textarea id="enhancedSpecFiles" class="form-input" placeholder="List of files to create/modify (one per line)" style="min-height: 60px; font-family: var(--font-mono); font-size: 11px;" data-i18n-placeholder="List of files to create/modify (one per line)"></textarea>
         </div>
         <div class="form-group" style="margin-bottom: 12px;">
-          <label class="form-label">Acceptance Checks</label>
-          <textarea id="enhancedSpecChecks" class="form-input" placeholder="How will we verify this works? (one per line)" style="min-height: 80px; font-family: var(--font-mono); font-size: 11px;"></textarea>
+          <label class="form-label" data-i18n="Acceptance Checks">Acceptance Checks</label>
+          <textarea id="enhancedSpecChecks" class="form-input" placeholder="How will we verify this works? (one per line)" style="min-height: 80px; font-family: var(--font-mono); font-size: 11px;" data-i18n-placeholder="How will we verify this works? (one per line)"></textarea>
         </div>
       </div>
       <div style="border-top: 1px solid var(--border-color); padding-top: 12px; display:flex; justify-content:flex-end; gap:8px;">
-        <button class="btn btn-secondary" id="btnCancelEnhancedSpec">Cancel</button>
-        <button class="btn" id="btnConfirmEnhancedSpec">Send to Agent</button>
+        <button class="btn btn-secondary" id="btnCancelEnhancedSpec" data-i18n="Cancel">Cancel</button>
+        <button class="btn" id="btnConfirmEnhancedSpec" data-i18n="Confirm & Run">Send to Agent</button>
       </div>
     </div>
   </div>
@@ -2856,6 +2892,397 @@ WORK STYLE:
       }
     ];
 
+    // ==================== LANGUAGE / I18N ====================
+    // Bangla (Bengali) translations for all UI text
+    // Usage: t('key') returns translation for current language
+    const I18N = {
+      en: {},
+      bn: {
+        // Header
+        'Provider': 'প্রোভাইডার',
+        'Settings': 'সেটিংস',
+        'Prompts': 'প্রম্পট',
+        'Command Palette': 'কমান্ড প্যালেট',
+        'Files': 'ফাইল',
+        'New File': 'নতুন ফাইল',
+        'Template': 'টেমপ্লেট',
+        'Load Template': 'টেমপ্লেট লোড করুন',
+        'Blank Project': 'খালি প্রজেক্ট',
+        'Landing Page': 'ল্যান্ডিং পেজ',
+        'Todo App': 'টু-ডু অ্যাপ',
+        'Mode': 'মোড',
+        'Chat': 'চ্যাট',
+        'Plan': 'পরিকল্পনা',
+        'Plan + Build': 'পরিকল্পনা + বিল্ড',
+        'Teach': 'শিখানো',
+        'Pause': 'বিরতি',
+        'Skip': 'বাদ দিন',
+        'Re-plan': 'পুনঃপরিকল্পনা',
+        'Agent': 'এজেন্ট',
+        'Team': 'টিম',
+        'Preview': 'প্রিভিউ',
+        'Health': 'হেলথ',
+        'Browser': 'ব্রাউজার',
+        'Graph': 'গ্রাফ',
+        'Activity': 'কার্যক্রম',
+        'History': 'ইতিহাস',
+        'Diff Review': 'ডিফ রিভিউ',
+        'Templates': 'টেমপ্লেট',
+        'Publish': 'প্রকাশ করুন',
+        'Send': 'পাঠান',
+        'Cancel': 'বাতিল',
+        'Enhance': 'বর্ধন করুন',
+        'Working...': 'কাজ করছে...',
+        'Agent ready': 'এজেন্ট প্রস্তুত',
+        'FlamingoCode Agent ready. Ask me to create or modify code in your virtual FS.': 'ফ্ল্যামিংগো কোড এজেন্ট প্রস্তুত। আমাকে আপনার ভার্চুয়াল ফাইল সিস্টেমে কোড তৈরি বা সংশোধন করার জন্য বলুন।',
+
+        // Settings tabs
+        'Providers': 'প্রোভাইডার',
+        'Skill Packs': 'স্কিল প্যাক',
+        'Plugin Packs': 'প্লাগইন প্যাক',
+        'MCP Registry': 'এমসিপি রেজিস্ট্রি',
+        'Usage & Quota': 'ব্যবহার এবং কোটা',
+        'Behavior': 'ব্যবহার',
+        'Autonomy': 'স্বায়ত্তশাসন',
+        'Backup': 'ব্যাকআপ',
+        'Language': 'ভাষা',
+        'Close': 'বন্ধ করুন',
+        'Add Provider': 'প্রোভাইডার যোগ করুন',
+        'Open Library': 'লাইব্রেরি খুলুন',
+        'Open Registry': 'রেজিস্ট্রি খুলুন',
+        'View Full Catalog': 'পুরো ক্যাটালগ দেখুন',
+        'Reset All': 'সব রিসেট করুন',
+
+        // Settings - Providers
+        'Provider Name': 'প্রোভাইডার নাম',
+        'Base URL': 'বেস ইউআরএল',
+        'Model': 'মডেল',
+        'API Key': 'এপিআই কী',
+        'CORS Proxy': 'কর্স প্রোক্সি',
+        'Test Connection': 'সংযোগ পরীক্ষা',
+        'Save': 'সংরক্ষণ',
+        'Delete': 'মুছে দিন',
+        'Default': 'ডিফল্ট',
+        'Custom': 'কাস্টম',
+        'Preset': 'প্রিসেট',
+
+        // Settings - Behavior
+        'Uncensored Mode': 'অনসেন্সরড মোড',
+        'Uncensored Mode for this project': 'এই প্রজেক্টের জন্য অনসেন্সরড মোড',
+        'Changes what FlamingoCode asks the model. A provider\'s own server-side rules still apply.': 'ফ্ল্যামিংগো কোড মডেল থেকে কী জিজ্ঞেস করে তা বদলায়। একটি প্রোভাইডার নিজস্ব সার্ভার-সাইড নিয়ম এখনও প্রযোজ্য।',
+        'Plan + Build Limits': 'পরিকল্পনা + বিল্ড সীমা',
+        'Configure caps for automatic planning and execution.': 'স্বয়ংক্রিয় পরিকল্পনা এবং এক্সিকিউশনের জন্য ক্যাপ কনফিগার করুন।',
+        'Max Plan Steps': 'সর্বোচ্চ পরিকল্পনা ধাপ',
+        'Maximum steps in a generated plan (default: 25)': 'একটি জেনারেটেড পরিকল্পনায় সর্বোচ্চ ধাপ (ডিফল্ট: ২৫)',
+        'Max Re-plan Revisions': 'সর্বোচ্চ পুনঃপরিকল্পনা রিভিশন',
+        'Maximum re-plan attempts per step (default: 5)': 'প্রতি ধাপে সর্বোচ্চ পুনঃপরিকল্পনা প্রচেষ্টা (ডিফল্ট: ৫)',
+        'Per-Model Override': 'প্রতি-মডেল ওভাররাইড',
+        'Auto = use project setting. On/Off = override for this specific model.': 'অটো = প্রজেক্ট সেটিং ব্যবহার করুন। অন/অফ = এই নির্দিষ্ট মডেলের জন্য ওভাররাইড।',
+        'Diff Review': 'ডিফ রিভিউ',
+        'Review changes before applying': 'প্রযোজনের আগে পরিবর্তন রিভিউ করুন',
+        'Toggle OFF to auto-apply agent changes immediately (legacy behavior).': 'OFF টগল করলে এজেন্ট পরিবর্তন অবিলম্বে প্রযোজ্য হবে (লিগ্যাসি আচরণ)।',
+        'Prompt Enhancer': 'প্রম্পট এনহ্যান্সার',
+        'Auto-enhance short prompts': 'সংক্ষিপ্ত প্রম্পট অটো-বর্ধন করুন',
+        'When ON, short prompts are automatically expanded into full build specs before sending. When OFF, use the ✨ button manually.': 'ON হলে, সংক্ষিপ্ত প্রম্পট পাঠানোর আগে স্বয়ংক্রিয়ভাবে পূর্ণ বিল্ড স্পেসে রূপান্তরিত হয়। OFF হলে, ✨ বোতাম ম্যানুয়ালি ব্যবহার করুন।',
+        'Teach Mode': 'শিখান মোড',
+        'Explain changes in Bangla': 'বাংলায় পরিবর্তন ব্যাখ্যা করুন',
+        'When ON, agent changes are explained in simple Bangla for non-coders. When OFF, no explanations shown.': 'ON হলে, এজেন্টের পরিবর্তন নন-কোডারদের জন্য সহজ বাংলায় ব্যাখ্যা করা হয়। OFF হলে, কোনো ব্যাখ্যা দেখানো হয় না।',
+
+        // Settings - Autonomy
+        'Autonomy Engine': 'স্বায়ত্তশাসন ইঞ্জিন',
+        'Catalog Injection': 'ক্যাটালগ ইনজেকশন',
+        'The full installed catalog (skills, plugins, MCPs) is injected into every agent\'s context at session start.': 'পুরো ইনস্টল করা ক্যাটালগ (স্কিল, প্লাগইন, এমসিপি) সেশন শুরুতে প্রতিটি এজেন্টের কনটেক্সটে ইনজেক্ট করা হয়।',
+        'Status': 'স্ট্যাটাস',
+        'Active': 'সক্রিয়',
+        'Mandatory-Use Rule': 'বাধ্যতামূলক-ব্যবহার নিয়ম',
+        'On EVERY task, the agent MUST list which installed skills/plugins/MCPs apply and use them. "No tool applies" is only valid for trivial tasks with a one-line reason.': 'প্রতিটি টাস্কে, এজেন্ট অবশ্যই কোন ইনস্টল করা স্কিল/প্লাগইন/এমসিপি প্রযোজ্য এবং ব্যবহার করছে তা তালিকাভুক্ত করতে হবে। "কোনো টুল প্রযোজ্য নয়" শুধুমাত্র সাধারণ টাস্কের জন্য এক লাইনের কারণসহ বৈধ।',
+        'Enforcement': 'প্রolution',
+        'Enabled': 'সক্রিয়',
+        'Mandatory Pre-installed Skills': 'বাধ্যতামূলক প্রি-ইনস্টল্ড স্কিল',
+        'Mandatory Pre-installed MCPs': 'বাধ্যতামূলক প্রি-ইনস্টল্ড এমসিপি',
+        'NEW Skills for Vibe-Coding Development': 'ভাইব-কোডিং ডেভেলপমেন্টের জন্য নতুন স্কিল',
+        'NEW MCPs (Build Environment)': 'নতুন এমসিপি (বিল্ড এনভায়রনমেন্ট)',
+        'Plugin Packs (runtime library, ships in a later stage)': 'প্লাগইন প্যাক (রানটাইম লাইব্রেরি, পরবর্তী স্টেজে শিপ হবে)',
+        'Pre-commit Gate': 'প্রি-কমিট গেট',
+        'No work is marked done until mandatory checks pass:': 'বাধ্যতামূলক চেক পাস না হওয়া পর্যন্ত কোনো কাজ ডান বলা হয় না:',
+        'Gate Status': 'গেট স্ট্যাটাস',
+        'Pending': 'অপেক্ষমাণ',
+
+        // Settings - Backup
+        'Backup & Restore': 'ব্যাকআপ এবং রিস্টোর',
+        'Export Project': 'প্রজেক্ট এক্সপোর্ট করুন',
+        'Import Project': 'প্রজেক্ট ইমপোর্ট করুন',
+        'Auto-backup': 'অটো-ব্যাকআপ',
+        'Backup interval': 'ব্যাকআপ ব্যবধান',
+
+        // Settings - Language
+        'App Language': 'অ্যাপের ভাষা',
+        'English': 'ইংরেজি',
+        'Bangla': 'বাংলা',
+        'Language preference saved. Reload to apply fully.': 'ভাষা পছন্দ সংরক্ষণ করা হয়েছে। সম্পূর্ণরূপে প্রযোজ্য করতে রিলোড করুন।',
+
+        // Usage & Quota
+        'Current Session': 'বর্তমান সেশন',
+        'Requests': 'অনুরোধ',
+        'Tokens': 'টোকেন',
+        'Est. Cost': 'আনুমানিক খরচ',
+        'Per Provider': 'প্রতি প্রোভাইডার',
+        'Per Project': 'প্রতি প্রজেক্ট',
+
+        // File tree / Editor
+        'Select or create a file to start editing...': 'সম্পাদনা শুরু করতে একটি ফাইল নির্বাচন বা তৈরি করুন...',
+        'Line': 'লাইন',
+        'Columns': 'কলাম',
+        'Encoding': 'এনকোডিং',
+        'UTF-8': 'UTF-৮',
+        'Save File': 'ফাইল সংরক্ষণ করুন',
+        'File saved': 'ফাইল সংরক্ষণ করা হয়েছে',
+
+        // Chat / Agent
+        'Type a message...': 'একটি বার্তা লিখুন...',
+        'Attach File': 'ফাইল সংযুক্ত করুন',
+        'Voice Input': 'ভয়েস ইনপুট',
+        'Stop': 'থামান',
+        'Copy': 'কপি করুন',
+        'Regenerate': 'পুনর্জেনারেট',
+        'Explain': 'ব্যাখ্যা করুন',
+        'Test': 'পরীক্ষা',
+        'Refactor': 'রিফ্যাক্টর',
+        'Security': 'সিকিউরিটি',
+
+        // Checkpoints
+        'Checkpoints': 'চেকপয়েন্ট',
+        'Create Checkpoint': 'চেকপয়েন্ট তৈরি করুন',
+        'Restore': 'রিস্টোর',
+        'Checkpoint created': 'চেকপয়েন্ট তৈরি হয়েছে',
+        'Restored checkpoint': 'চেকপয়েন্ট রিস্টোর করা হয়েছে',
+        'Cap': 'সীমা',
+        'Stored': 'সংরক্ষিত',
+
+        // Prompt Enhancer
+        'Prompt Enhanced': 'প্রম্পট বর্ধিত',
+        'Review the expanded spec below. Edit if needed, then confirm to run.': 'নিচের বর্ধিত স্পেকটি পর্যালোচনা করুন। প্রয়োজনে সম্পাদনা করুন, তারপর চালানোর জন্য নিশ্চিত করুন।',
+        'Confirm & Run': 'নিশ্চিত ও চালান',
+        'Back': 'পেছনে',
+
+        // Teach Mode
+        'Teach Mode': 'শিখান মোড',
+        'Change Summary': 'পরিবर्तन সারাংশ',
+        'What changed': 'কী পরিবর্তন হয়েছে',
+        'Why': 'কেন',
+        'What it does': 'এটি কী করে',
+
+        // Common
+        'Loading...': 'লোড হচ্ছে...',
+        'Error': 'ত্রুটি',
+        'Success': 'সফল',
+        'Warning': 'সতর্কতা',
+        'Info': 'তথ্য',
+        'Yes': 'হ্যাঁ',
+        'No': 'না',
+        'OK': 'ঠিক আছে',
+        'Apply': 'প্রয়োগ করুন',
+        'Edit': 'সম্পাদনা',
+        'View': 'দেখুন',
+        'Search': 'সার্চ',
+        'Filter': 'ফিল্টার',
+        'Clear': 'মুছে দিন',
+        'Refresh': 'রিফ্রেশ',
+        'Expand': 'প্রসারিত',
+        'Collapse': 'সংকুচিত',
+        'More': 'আরো',
+        'Less': 'কম',
+        'Open': 'খুলুন',
+        'Download': 'ডাউনলোড',
+        'Upload': 'আপলোড',
+        'Import': 'ইমপোর্ট',
+        'Export': 'এক্সপোর্ট',
+        'Create': 'তैयার করুন',
+        'Update': 'আপডেট',
+        'Delete': 'মুছে দিন',
+        'Rename': 'নাম পরিবর্তন',
+        'Duplicate': 'ডুপ্লিকেট',
+        'Move': 'স Thron',
+
+        // Plan panel
+        'Plan': 'পরিকল্পনা',
+        'Progress': 'প্রগতি',
+        'Step': 'ধাপ',
+        'Done': 'হয়েছে',
+        'Current': 'বর্তমান',
+        'Pending': 'অপেক্ষমাণ',
+
+        // Templates
+        'Template Gallery': 'টেমপ্লেট গ্যালারি',
+        'Create from template': 'টেমপ্লেট থেকে তৈরি করুন',
+
+        // Publish
+        'Publish to GitHub Pages': 'গিটহাব পেজে প্রকাশ করুন',
+        'Deploy': 'ডিপ্লয়',
+        'Building...': 'বিল্ড হচ্ছে...',
+        'Deployed': 'ডিপ্লয়েড',
+        'Live URL': 'লাইভ ইউআরএল',
+
+        // Team
+        'Team Room': 'টিম রুম',
+        'Discussion': 'আলোচনা',
+        'Execution': 'এক্সিকিউশন',
+        'Presentation': 'প্রেজেন্টেশন',
+        'Testing': 'টেস্টিং',
+        'Review': 'রিভিউ',
+        'Complete': 'সম্পূর্ণ',
+        'Senior Developer': 'সিনিয়র ডেভেলপার',
+        'Task Board': 'টাস্ক বোর্ড',
+        'Assign': 'নিযুক্ত করুন',
+        'Status': 'স্ট্যাটাস',
+        'Owner': 'মালিক',
+        'Priority': 'অগ্রাধিকার',
+
+        // Activity Log
+        'Activity Log': 'কার্যক্রম লগ',
+        'Timestamp': 'টাইমস্ট্যাম্প',
+        'Action': 'ক্রিয়া',
+        'Details': 'বিস্তারিত',
+
+        // Graph
+        'Code Graph': 'কোড গ্রাফ',
+        'Nodes': 'নোড',
+        'Edges': 'এজ',
+        'Search graph...': 'গ্রাফ সার্চ করুন...',
+
+        // Diff Review
+        'Pending Changes': 'বিচারাধীন পরিবর্তন',
+        'Accept': 'গ্রহণ করুন',
+        'Reject': 'প্রত্যাখ্যান',
+        'Accept All': 'সব গ্রহণ',
+        'Reject All': 'সব প্রত্যাখ্যান',
+        'Show Diff': 'ডিফ দেখুন',
+
+        // Prompt Library
+        'Prompt Library': 'প্রম্পট লাইব্রেরি',
+        'Save Prompt': 'প্রম্পট সংরক্ষণ',
+        'Prompt Name': 'প্রম্পট নাম',
+        'Prompt Text': 'প্রম্পট টেক্সট',
+        'Tags': 'ট্যাগ',
+        'Category': 'বিভাগ',
+        'My Prompts': 'আমার প্রম্পট',
+        'Built-in': 'বিল্ট-ইন',
+
+        // Skill Packs
+        'Skill Pack Library': 'স্কিল প্যাক লাইব্রেরি',
+        'New Skill Pack': 'নতুন স্কিল প্যাক',
+        'Pack Name': 'প্যাক নাম',
+        'Description': 'বিবরণ',
+        'Skills': 'স্কিল',
+        'Install': 'ইনস্টল',
+        'Uninstall': 'আনইনস্টল',
+
+        // Plugin Packs
+        'Plugin Pack Library': 'প্লাগইন প্যাক লাইব্রেরি',
+        'New Plugin Pack': 'নতুন প্লাগইন প্যাক',
+
+        // MCP
+        'MCP Server Registry': 'এমসিপি সার্ভার রেজিস্ট্রি',
+        'Add MCP Server': 'এমসিপি সার্ভার যোগ করুন',
+        'Server Name': 'সার্ভার নাম',
+        'Command': 'কমান্ড',
+        'Args': 'আর্গস',
+        'Env': 'এনভি',
+
+        // Welcome / Empty states
+        'No files yet. Create one to get started.': 'এখনো কোনো ফাইল নেই। শুরু করতে একটি তৈরি করুন।',
+        'No checkpoints yet. Checkpoints are created automatically before agent changes.': 'এখনো কোনো চেকপয়েন্ট নেই। এজেন্ট পরিবর্তনের আগে চেকপয়েন্ট স্বয়ংক্রিয়ভাবে তৈরি হয়।',
+        'No prompts yet.': 'এখনো কোনো প্রম্পট নেই।',
+        'No skills installed.': 'কোনো স্কিল ইনস্টল করা নেই।',
+        'No MCP servers configured.': 'কোনো এমসিপি সার্ভার কনফিগার করা নেই।',
+        'No activity yet.': 'এখনো কোনো কার্যক্রম নেই।',
+      }
+    };
+
+    // Translation function - returns translated string for current language
+    function t(key) {
+      const lang = appState.language || 'en';
+      if (lang === 'bn' && I18N.bn[key]) {
+        return I18N.bn[key];
+      }
+      return key; // fallback to key itself (English)
+    }
+
+    // Apply translations to all elements with data-i18n attribute
+    function applyTranslations() {
+      const lang = appState.language || 'en';
+      document.documentElement.lang = lang === 'bn' ? 'bn' : 'en';
+      
+      // Elements with data-i18n attribute
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        const translated = t(key);
+        if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+          if (el.hasAttribute('placeholder')) {
+            el.placeholder = translated;
+          } else {
+            el.value = translated;
+          }
+        } else if (el.tagName === 'OPTION') {
+          el.textContent = translated;
+        } else {
+          el.textContent = translated;
+        }
+      });
+
+      // Elements with data-i18n-placeholder attribute
+      document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+        const key = el.getAttribute('data-i18n-placeholder');
+        el.placeholder = t(key);
+      });
+
+      // Elements with data-i18n-title attribute
+      document.querySelectorAll('[data-i18n-title]').forEach(el => {
+        const key = el.getAttribute('data-i18n-title');
+        el.title = t(key);
+      });
+
+      // Update language toggle buttons
+      updateLanguageToggleUI();
+    }
+
+    // Update language toggle UI (header and settings)
+    function updateLanguageToggleUI() {
+      const lang = appState.language || 'en';
+      const headerToggle = document.getElementById('headerLanguageToggle');
+      const settingsToggle = document.getElementById('settingsLanguageToggle');
+      
+      if (headerToggle) {
+        headerToggle.textContent = lang === 'bn' ? 'বাংলা' : 'EN';
+        headerToggle.title = lang === 'bn' ? 'Switch to English' : 'Switch to Bangla';
+      }
+      if (settingsToggle) {
+        settingsToggle.textContent = lang === 'bn' ? 'বাংলা' : 'English';
+      }
+      
+      // Update radio buttons in settings if they exist
+      const enRadio = document.getElementById('langEnRadio');
+      const bnRadio = document.getElementById('langBnRadio');
+      if (enRadio) enRadio.checked = lang === 'en';
+      if (bnRadio) bnRadio.checked = lang === 'bn';
+    }
+
+    // Toggle language
+    function toggleLanguage() {
+      appState.language = (appState.language || 'en') === 'en' ? 'bn' : 'en';
+      saveAppState();
+      applyTranslations();
+      logActivity(`Language changed to ${appState.language === 'bn' ? 'Bangla' : 'English'}`, 'info');
+    }
+
+    // Set language explicitly
+    function setLanguage(lang) {
+      if (lang !== 'en' && lang !== 'bn') return;
+      appState.language = lang;
+      saveAppState();
+      applyTranslations();
+    }
+
     let appState = {
       prompts: [],  // Custom saved prompts (built-in starters live in BUILTIN_PROMPTS)
       customSkillPacks: {},  // User-created skill packs
@@ -2910,6 +3337,8 @@ WORK STYLE:
       lastEnhancedSpec: null,   // Store last enhanced spec for review
       // Teach Mode state
       teachMode: false,         // Explain agent changes in simple Bangla
+      // Language state
+      language: 'en',           // 'en' | 'bn'
       // Legacy single provider fields for backward compatibility
       provider: {
         preset: '9router',
@@ -6237,6 +6666,38 @@ Links: [[Brain Index]]
         if (btn) { btn.disabled = false; btn.textContent = '📤 Import Backup'; }
       };
       reader.readAsText(file);
+    }
+
+    // ==================== LANGUAGE TAB ====================
+    function renderLanguageTab() {
+      const enRadio = document.getElementById('langEnRadio');
+      const bnRadio = document.getElementById('langBnRadio');
+      const statusEl = document.getElementById('languageStatus');
+      const currentLang = appState.language || 'en';
+      
+      if (enRadio) enRadio.checked = currentLang === 'en';
+      if (bnRadio) bnRadio.checked = currentLang === 'bn';
+      if (statusEl) {
+        statusEl.textContent = currentLang === 'bn' 
+          ? 'Language set to Bangla (বাংলা). Changes apply instantly.'
+          : 'Language set to English. Changes apply instantly.';
+        statusEl.style.color = 'var(--text-dim)';
+      }
+
+      // Radio button handlers
+      [enRadio, bnRadio].forEach(radio => {
+        if (radio) {
+          radio.onchange = (e) => {
+            setLanguage(e.target.value);
+            if (statusEl) {
+              statusEl.textContent = e.target.value === 'bn'
+                ? 'Language set to Bangla (বাংলা). Changes apply instantly.'
+                : 'Language set to English. Changes apply instantly.';
+              statusEl.style.color = 'var(--success)';
+            }
+          };
+        }
+      });
     }
 
     // Show full catalog modal
@@ -9827,6 +10288,7 @@ Rules:
           if (tabName === 'autonomy') renderAutonomyTab();
           if (tabName === 'backup') renderBackupTab();
           if (tabName === 'usage') renderUsageDashboard();
+          if (tabName === 'language') renderLanguageTab();
         });
       });
 
@@ -10650,6 +11112,7 @@ Rules:
 
     function initApp() {
       loadAppState();
+      applyTranslations();
       updateHeaderUsageMeter();
       renderSessionPicker();
 
@@ -10725,6 +11188,12 @@ Rules:
       setupCommandPalette();
       initTeamModeUI();
       initTeamV2Launch();
+      
+      // Header language toggle
+      const headerLangToggle = document.getElementById('headerLanguageToggle');
+      if (headerLangToggle) {
+        headerLangToggle.onclick = toggleLanguage;
+      }
 
       const session = getCurrentSession();
       renderFileTree();
