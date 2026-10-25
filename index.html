@@ -11071,7 +11071,7 @@ CURRENT VIRTUAL FILES:
     }
 
     // Accept all pending changes
-    function acceptAllChanges() {
+    async function acceptAllChanges() {
       if (!appState.pendingChanges) return;
       
       const session = getCurrentSession();
