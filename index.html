@@ -1203,6 +1203,7 @@
         <button class="right-tab" data-pane="diffReview" data-i18n="Diff Review">Diff Review</button>
         <button class="right-tab" data-pane="templates" data-i18n="Templates">Templates</button>
         <button class="right-tab" data-pane="publish" data-i18n="Publish">Publish</button>
+        <button class="right-tab" data-pane="projectDoctor" data-i18n="Project Doctor">🏥 Project Doctor</button>
       </div>
 
       <div class="right-content">
@@ -1610,6 +1611,26 @@
         </div>
       </div>
     </section>
+
+    <!-- Project Doctor Pane -->
+    <div class="pane-view" id="paneProjectDoctor">
+      <div style="flex:1; overflow-y:auto; padding: 12px; display:flex; flex-direction:column; gap:12px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; padding: 8px 12px; background:var(--bg-surface); border:1px solid var(--border-color); border-radius:5px;">
+          <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;" data-i18n="Project Doctor">Project Doctor</div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span id="doctorIssueCount" style="font-size: 10px; color: var(--text-dim);">0 issues</span>
+          </div>
+        </div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; padding: 8px 12px; background:var(--bg-surface); border:1px solid var(--border-color); border-radius:5px;">
+          <button class="btn" id="btnScanProject" style="padding: 6px 12px; font-size: 11px;" data-i18n="Scan Project">🔍 Scan Project</button>
+          <button class="btn btn-secondary" id="btnFixAll" style="padding: 6px 12px; font-size: 11px; display:none;" data-i18n="Fix All">🔧 Fix All</button>
+          <button class="btn btn-secondary" id="btnExportReport" style="padding: 6px 12px; font-size: 11px; display:none;" data-i18n="Export Report">📄 Export</button>
+        </div>
+        <div id="doctorResults" style="flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:8px;">
+          <div style="font-size: 11px; color: var(--text-dim); text-align: center; padding: 20px;" data-i18n="Click Scan Project to start diagnosis">Click "Scan Project" to start diagnosis</div>
+        </div>
+      </div>
+    </div>
 
   </main>
 
@@ -3355,6 +3376,33 @@ WORK STYLE:
         'Reject All': 'সব প্রত্যাখ্যান',
         'Show Diff': 'ডিফ দেখুন',
 
+        // Project Doctor
+        'Project Doctor': 'প্রজেক্ট ডাক্তার',
+        'Scan Project': 'প্রজেক্ট স্ক্যান করুন',
+        'Fix All': 'সব ঠিক করুন',
+        'Export Report': 'রিপোর্ট এক্সপোর্ট করুন',
+        'Click Scan Project to start diagnosis': 'স্ক্যান শুরু করতে "প্রজেক্ট স্ক্যান করুন" ক্লিক করুন',
+        'Scanning...': 'স্ক্যান হচ্ছে...',
+        'Scan Complete': 'স্ক্যান সম্পন্ন',
+        'Issues Found': 'সমস্যা পাওয়া গেছে',
+        'No Issues': 'কোনো সমস্যা নেই',
+        'Severity': 'গুরুত্ব',
+        'File': 'ফাইল',
+        'Line': 'লাইন',
+        'Issue': 'সমস্যা',
+        'Fix': 'ঠিক করুন',
+        'Critical': 'গুরুতর',
+        'High': 'উচ্চ',
+        'Medium': 'মধ্যম',
+        'Low': 'নিম্ন',
+        'Broken Import': 'ভাঙা ইমপোর্ট',
+        'Unused Code': 'ব্যবহারহীন কোড',
+        'Security Smell': 'সিকিউরিটি গন্ধ',
+        'Missing File': 'অনুপস্থিত ফাইল',
+        'Hardcoded Secret': 'হার্ডকোডেড সিক্রেট',
+        'Eval Usage': 'eval ব্যবহার',
+        'Unsafe innerHTML': 'অসুরক্ষিত innerHTML',
+
         // Prompt Library
         'Prompt Library': 'প্রম্পট লাইব্রেরি',
         'Save Prompt': 'প্রম্পট সংরক্ষণ',
@@ -4806,6 +4854,725 @@ function getGraphSummary() {
   
   return `Code Graph: ${graph.nodes.length} nodes (${Object.entries(byType).map(([t,c])=>`${t}:${c}`).join(', ')}), ${graph.edges.length} edges (${byConfidence.EXTRACTED} extracted, ${byConfidence.INFERRED} inferred). Hubs: ${topNodes.join(', ')}. Updated: ${new Date(graph.updatedAt).toLocaleTimeString()}`;
 }
+
+// ==================== PROJECT DOCTOR ====================
+// Project-wide diagnostic: scan for bugs, dead code, security holes
+
+// Severity levels
+const DOCTOR_SEVERITY = {
+  CRITICAL: 'critical',
+  HIGH: 'high',
+  MEDIUM: 'medium',
+  LOW: 'low'
+};
+
+const DOCTOR_SEVERITY_COLORS = {
+  critical: '#ef4444',
+  high: '#f97316',
+  medium: '#f59e0b',
+  low: '#3b82f6'
+};
+
+const DOCTOR_SEVERITY_LABELS = {
+  critical: 'Critical',
+  high: 'High',
+  medium: 'Medium',
+  low: 'Low'
+};
+
+// Issue types
+const DOCTOR_ISSUE_TYPES = {
+  BROKEN_IMPORT: 'broken_import',
+  UNUSED_FILE: 'unused_file',
+  UNUSED_FUNCTION: 'unused_function',
+  HARDCODED_SECRET: 'hardcoded_secret',
+  EVAL_USAGE: 'eval_usage',
+  UNSAFE_INNERHTML: 'unsafe_innerhtml',
+  MISSING_FILE: 'missing_file',
+  UNRESOLVED_REFERENCE: 'unresolved_reference'
+};
+
+// Main scan function
+function scanProjectDoctor(session) {
+  if (!session || !session.files) {
+    return { issues: [], summary: 'No active session' };
+  }
+
+  const issues = [];
+  const graph = getOrBuildCodeGraph(session);
+  
+  // 1. Scan VFS files for security smells and code issues
+  for (const [filePath, content] of Object.entries(session.files)) {
+    if (!content || typeof content !== 'string') continue;
+    
+    // Skip internal files
+    if (filePath.startsWith('.devforge/')) continue;
+    
+    const lines = content.split('\n');
+    
+    // Security: Hardcoded secrets (API keys, passwords, tokens)
+    scanForSecrets(filePath, lines, issues);
+    
+    // Security: eval() usage
+    scanForEval(filePath, lines, issues);
+    
+    // Security: innerHTML with unsanitized input
+    scanForUnsafeInnerHTML(filePath, lines, issues);
+    
+    // Broken imports/references
+    scanForBrokenImports(filePath, lines, issues, session);
+    
+    // Missing files referenced in code
+    scanForMissingFiles(filePath, lines, issues, session);
+  }
+  
+  // 2. Use code graph to find unused files and functions
+  if (graph && graph.nodes.length > 0) {
+    scanForUnusedCode(graph, session, issues);
+  }
+  
+  // 3. Use code graph to find unresolved references
+  if (graph && graph.edges.length > 0) {
+    scanForUnresolvedReferences(graph, issues);
+  }
+  
+  // Sort by severity (critical first) then by file/line
+  issues.sort((a, b) => {
+    const severityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
+    const sevDiff = severityOrder[a.severity] - severityOrder[b.severity];
+    if (sevDiff !== 0) return sevDiff;
+    if (a.filePath !== b.filePath) return a.filePath.localeCompare(b.filePath);
+    return (a.line || 0) - (b.line || 0);
+  });
+  
+  return {
+    issues,
+    summary: `Found ${issues.length} issue${issues.length !== 1 ? 's' : ''}: ${issues.filter(i => i.severity === 'critical').length} critical, ${issues.filter(i => i.severity === 'high').length} high, ${issues.filter(i => i.severity === 'medium').length} medium, ${issues.filter(i => i.severity === 'low').length} low`
+  };
+}
+
+function addIssue(issues, type, severity, filePath, line, message, meta = {}) {
+  issues.push({
+    id: `${type}:${filePath}:${line}:${Date.now()}:${Math.random().toString(36).slice(2,6)}`,
+    type,
+    severity,
+    filePath,
+    line,
+    message,
+    meta,
+    fixed: false
+  });
+}
+
+// Security: Hardcoded secrets detection
+function scanForSecrets(filePath, lines, issues) {
+  const secretPatterns = [
+    { pattern: /(api[_-]?key|apikey)\s*[:=]\s*['\"][a-zA-Z0-9_\-]{20,}['\"]/gi, label: 'API Key' },
+    { pattern: /(secret|password|passwd|pwd)\s*[:=]\s*['\"][^'\"]{8,}['\"]/gi, label: 'Password/Secret' },
+    { pattern: /(token|access[_-]?token|auth[_-]?token)\s*[:=]\s*['\"][a-zA-Z0-9_\-\.]{20,}['\"]/gi, label: 'Auth Token' },
+    { pattern: /(private[_-]?key|privatekey)\s*[:=]\s*['\"][^'\"]{20,}['\"]/gi, label: 'Private Key' },
+    { pattern: /-----BEGIN (RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----/gi, label: 'Private Key Block' },
+    { pattern: /[a-zA-Z0-9_\-]{32,}/g, label: 'Long Random String (possible secret)' }
+  ];
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    for (const { pattern, label } of secretPatterns) {
+      pattern.lastIndex = 0;
+      if (pattern.test(line)) {
+        // Skip if it looks like a variable name or placeholder
+        if (!/['\"](your|your_|example|test|demo|placeholder|xxx|yyy|zzz|<.*>)/i.test(line)) {
+          addIssue(issues, DOCTOR_ISSUE_TYPES.HARDCODED_SECRET, DOCTOR_SEVERITY.CRITICAL, filePath, i + 1,
+            `Hardcoded ${label} detected`, { label, snippet: line.trim().slice(0, 100) });
+        }
+      }
+    }
+  }
+}
+
+// Security: eval() usage
+function scanForEval(filePath, lines, issues) {
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    // Match eval( but not as part of a variable name
+    if (/\beval\s*\(/.test(line) && !/['"]eval['"]/.test(line)) {
+      addIssue(issues, DOCTOR_ISSUE_TYPES.EVAL_USAGE, DOCTOR_SEVERITY.HIGH, filePath, i + 1,
+        'eval() usage detected — can execute arbitrary code', { snippet: line.trim().slice(0, 100) });
+    }
+    // Also check for Function constructor
+    if (/new\s+Function\s*\(/.test(line)) {
+      addIssue(issues, DOCTOR_ISSUE_TYPES.EVAL_USAGE, DOCTOR_SEVERITY.HIGH, filePath, i + 1,
+        'new Function() usage detected — similar to eval()', { snippet: line.trim().slice(0, 100) });
+    }
+    // setTimeout/setInterval with string argument
+    if (/setTimeout\s*\(\s*['\"].*['\"]|setInterval\s*\(\s*['\"].*['\"]/.test(line)) {
+      addIssue(issues, DOCTOR_ISSUE_TYPES.EVAL_USAGE, DOCTOR_SEVERITY.MEDIUM, filePath, i + 1,
+        'setTimeout/setInterval with string argument — acts like eval()', { snippet: line.trim().slice(0, 100) });
+    }
+  }
+}
+
+// Security: innerHTML with unsanitized input
+function scanForUnsafeInnerHTML(filePath, lines, issues) {
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    // innerHTML assignment with variable/concatenation
+    if (/\.innerHTML\s*=\s*[^'\"0-9]/.test(line) || /\.innerHTML\s*\+=/.test(line)) {
+      // Check if it's not a simple static string
+      if (!/\.innerHTML\s*=\s*['\"`][^'\"`]*['\"`]/.test(line)) {
+        addIssue(issues, DOCTOR_ISSUE_TYPES.UNSAFE_INNERHTML, DOCTOR_SEVERITY.HIGH, filePath, i + 1,
+          'innerHTML assignment with dynamic content — XSS risk if unsanitized', { snippet: line.trim().slice(0, 100) });
+      }
+    }
+    // insertAdjacentHTML with variable
+    if (/insertAdjacentHTML\s*\(/.test(line)) {
+      addIssue(issues, DOCTOR_ISSUE_TYPES.UNSAFE_INNERHTML, DOCTOR_SEVERITY.MEDIUM, filePath, i + 1,
+        'insertAdjacentHTML usage — verify content is sanitized', { snippet: line.trim().slice(0, 100) });
+    }
+  }
+}
+
+// Broken imports/references
+function scanForBrokenImports(filePath, lines, issues, session) {
+  const ext = '.' + filePath.split('.').pop().toLowerCase();
+  if (!['.js', '.ts', '.jsx', '.tsx', '.mjs', '.cjs', '.html', '.css'].includes(ext)) return;
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    
+    // ES6 imports
+    const importMatches = line.matchAll(/import\s+(?:[^'"\s]+\s+from\s+)?['"]([^'"]+)['"]/g);
+    for (const match of importMatches) {
+      const importPath = match[1];
+      if (importPath.startsWith('.')) {
+        // Relative import - check if file exists
+        const resolvedPath = resolveImportPath(filePath, importPath);
+        if (!session.files[resolvedPath] && !session.files[resolvedPath + '.js'] && !session.files[resolvedPath + '/index.js']) {
+          addIssue(issues, DOCTOR_ISSUE_TYPES.BROKEN_IMPORT, DOCTOR_SEVERITY.HIGH, filePath, i + 1,
+            `Broken import: "${importPath}" — file not found`, { importPath, resolvedPath });
+        }
+      }
+    }
+    
+    // require() calls
+    const requireMatches = line.matchAll(/require\s*\(\s*['"]([^'"]+)['"]\s*\)/g);
+    for (const match of requireMatches) {
+      const importPath = match[1];
+      if (importPath.startsWith('.')) {
+        const resolvedPath = resolveImportPath(filePath, importPath);
+        if (!session.files[resolvedPath] && !session.files[resolvedPath + '.js'] && !session.files[resolvedPath + '/index.js']) {
+          addIssue(issues, DOCTOR_ISSUE_TYPES.BROKEN_IMPORT, DOCTOR_SEVERITY.HIGH, filePath, i + 1,
+            `Broken require: "${importPath}" — file not found`, { importPath, resolvedPath });
+        }
+      }
+    }
+    
+    // HTML script/link tags
+    if (ext === '.html' || ext === '.htm') {
+      const scriptMatches = line.matchAll(/<script\s+[^>]*src\s*=\s*['"]([^'"]+)['"]/gi);
+      for (const match of scriptMatches) {
+        const src = match[1];
+        if (src.startsWith('.')) {
+          const resolvedPath = resolveImportPath(filePath, src);
+          if (!session.files[resolvedPath]) {
+            addIssue(issues, DOCTOR_ISSUE_TYPES.BROKEN_IMPORT, DOCTOR_SEVERITY.HIGH, filePath, i + 1,
+              `Broken script src: "${src}" — file not found`, { importPath: src, resolvedPath });
+          }
+        }
+      }
+      
+      const linkMatches = line.matchAll(/<link\s+[^>]*href\s*=\s*['"]([^'"]+\.css)['"]/gi);
+      for (const match of linkMatches) {
+        const href = match[1];
+        if (href.startsWith('.')) {
+          const resolvedPath = resolveImportPath(filePath, href);
+          if (!session.files[resolvedPath]) {
+            addIssue(issues, DOCTOR_ISSUE_TYPES.BROKEN_IMPORT, DOCTOR_SEVERITY.MEDIUM, filePath, i + 1,
+              `Broken stylesheet href: "${href}" — file not found`, { importPath: href, resolvedPath });
+          }
+        }
+      }
+    }
+    
+    // CSS @import
+    if (ext === '.css') {
+      const importMatches = line.matchAll(/@import\s+['"]([^'"]+)['"]/g);
+      for (const match of importMatches) {
+        const importPath = match[1];
+        if (importPath.startsWith('.')) {
+          const resolvedPath = resolveImportPath(filePath, importPath);
+          if (!session.files[resolvedPath]) {
+            addIssue(issues, DOCTOR_ISSUE_TYPES.BROKEN_IMPORT, DOCTOR_SEVERITY.MEDIUM, filePath, i + 1,
+              `Broken CSS @import: "${importPath}" — file not found`, { importPath, resolvedPath });
+          }
+        }
+      }
+    }
+  }
+}
+
+function resolveImportPath(currentFile, importPath) {
+  const currentDir = currentFile.substring(0, currentFile.lastIndexOf('/') + 1);
+  let resolved = currentDir + importPath;
+  
+  // Normalize path (handle ../ etc.)
+  const parts = resolved.split('/');
+  const normalized = [];
+  for (const part of parts) {
+    if (part === '..') {
+      normalized.pop();
+    } else if (part !== '.' && part !== '') {
+      normalized.push(part);
+    }
+  }
+  return normalized.join('/');
+}
+
+// Missing files referenced in code (e.g., fetch, dynamic imports)
+function scanForMissingFiles(filePath, lines, issues, session) {
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    
+    // Dynamic imports
+    const dynImportMatches = line.matchAll(/import\s*\(\s*['"]([^'"]+)['"]\s*\)/g);
+    for (const match of dynImportMatches) {
+      const importPath = match[1];
+      if (importPath.startsWith('.')) {
+        const resolvedPath = resolveImportPath(filePath, importPath);
+        if (!session.files[resolvedPath] && !session.files[resolvedPath + '.js']) {
+          addIssue(issues, DOCTOR_ISSUE_TYPES.MISSING_FILE, DOCTOR_SEVERITY.MEDIUM, filePath, i + 1,
+            `Dynamic import references missing file: "${importPath}"`, { importPath, resolvedPath });
+        }
+      }
+    }
+    
+    // fetch() calls to local files
+    const fetchMatches = line.matchAll(/fetch\s*\(\s*['"]([^'"]+)['"]/g);
+    for (const match of fetchMatches) {
+      const url = match[1];
+      if (url.startsWith('.')) {
+        const resolvedPath = resolveImportPath(filePath, url);
+        if (!session.files[resolvedPath]) {
+          addIssue(issues, DOCTOR_ISSUE_TYPES.MISSING_FILE, DOCTOR_SEVERITY.LOW, filePath, i + 1,
+            `fetch() references missing file: "${url}"`, { importPath: url, resolvedPath });
+        }
+      }
+    }
+  }
+}
+
+// Unused files and functions (using code graph)
+function scanForUnusedCode(graph, session, issues) {
+  // Build a map of all files in the project
+  const projectFiles = new Set();
+  for (const filePath of Object.keys(session.files)) {
+    if (!filePath.startsWith('.devforge/')) {
+      projectFiles.add(filePath);
+    }
+  }
+  
+  // Find file nodes in graph
+  const fileNodes = graph.nodes.filter(n => n.type === 'file');
+  const definedFiles = new Set(fileNodes.map(n => n.name));
+  
+  // Files in VFS but not in graph (might be unused or unparsed)
+  for (const filePath of projectFiles) {
+    const ext = '.' + filePath.split('.').pop().toLowerCase();
+    if (['.js', '.ts', '.jsx', '.tsx', '.html', '.css', '.mjs', '.cjs'].includes(ext)) {
+      if (!definedFiles.has(filePath)) {
+        addIssue(issues, DOCTOR_ISSUE_TYPES.UNUSED_FILE, DOCTOR_SEVERITY.LOW, filePath, 1,
+          `File not indexed in code graph — may be unused or unparsable`, { });
+      }
+    }
+  }
+  
+  // Find unused functions (defined but never called/imported)
+  const functionNodes = graph.nodes.filter(n => n.type === 'function' && !n.meta.isCall);
+  const importNodes = graph.nodes.filter(n => n.type === 'import');
+  
+  // Build a set of all function/class names that are referenced
+  const referencedNames = new Set();
+  for (const edge of graph.edges) {
+    if (edge.type === 'calls' || edge.type === 'imports' || edge.type === 'references') {
+      const toNode = graph.nodes.find(n => n.id === edge.to);
+      if (toNode) {
+        referencedNames.add(toNode.name.toLowerCase());
+      }
+    }
+    if (edge.type === 'defines') {
+      const fromNode = graph.nodes.find(n => n.id === edge.from);
+      if (fromNode && fromNode.type === 'file') {
+        // File defines this - it's an entry point
+      }
+    }
+  }
+  
+  // Check each function/class if it's referenced
+  for (const funcNode of functionNodes) {
+    const isEntryPoint = funcNode.meta.isEntryPoint || funcNode.name === 'main' || funcNode.name === 'init';
+    const isExported = funcNode.meta.exported;
+    const isReferenced = referencedNames.has(funcNode.name.toLowerCase());
+    
+    // Also check if it's a DOM event handler or callback (heuristic)
+    const isLikelyCallback = /^(on|handle|callback|listener)/i.test(funcNode.name);
+    
+    if (!isEntryPoint && !isExported && !isReferenced && !isLikelyCallback) {
+      // Check if it's a method inside a class (might be called via this.)
+      const isMethod = graph.edges.some(e => e.to === funcNode.id && e.type === 'defines');
+      const parentClass = graph.nodes.find(n => n.id === funcNode.id && n.type === 'class');
+      
+      if (!parentClass) {
+        addIssue(issues, DOCTOR_ISSUE_TYPES.UNUSED_FUNCTION, DOCTOR_SEVERITY.LOW, funcNode.filePath, funcNode.meta.line || 1,
+          `Function "${funcNode.name}" appears unused (not called, imported, or exported)`, { functionName: funcNode.name });
+      }
+    }
+  }
+  
+  // Check for unused classes
+  const classNodes = graph.nodes.filter(n => n.type === 'class');
+  for (const classNode of classNodes) {
+    const isReferenced = referencedNames.has(classNode.name.toLowerCase());
+    const isExported = classNode.meta.exported;
+    
+    if (!isReferenced && !isExported) {
+      addIssue(issues, DOCTOR_ISSUE_TYPES.UNUSED_FUNCTION, DOCTOR_SEVERITY.LOW, classNode.filePath, classNode.meta.line || 1,
+        `Class "${classNode.name}" appears unused (not instantiated, extended, or imported)`, { functionName: classNode.name });
+    }
+  }
+}
+
+// Unresolved references (from code graph INFERRED edges that couldn't be resolved)
+function scanForUnresolvedReferences(graph, issues) {
+  for (const edge of graph.edges) {
+    if (edge.confidence === 'INFERRED' && (edge.type === 'calls' || edge.type === 'imports')) {
+      const fromNode = graph.nodes.find(n => n.id === edge.from);
+      const toNode = graph.nodes.find(n => n.id === edge.to);
+      
+      if (fromNode && toNode) {
+        if (edge.type === 'calls' && toNode.meta.isCall) {
+          addIssue(issues, DOCTOR_ISSUE_TYPES.UNRESOLVED_REFERENCE, DOCTOR_SEVERITY.MEDIUM, fromNode.filePath, fromNode.meta.line || 1,
+            `Unresolved function call: "${toNode.name}" — no definition found`, { calledFunction: toNode.name });
+        }
+        if (edge.type === 'imports' && !edge.meta.resolvedFile) {
+          addIssue(issues, DOCTOR_ISSUE_TYPES.UNRESOLVED_REFERENCE, DOCTOR_SEVERITY.HIGH, fromNode.filePath, fromNode.meta.line || 1,
+            `Unresolved import: "${toNode.meta.from || toNode.name}" — target file not found`, { importPath: toNode.meta.from });
+        }
+      }
+    }
+  }
+}
+
+// Render Project Doctor panel
+function renderProjectDoctorPanel() {
+  const container = document.getElementById('doctorResults');
+  const countEl = document.getElementById('doctorIssueCount');
+  const fixAllBtn = document.getElementById('btnFixAll');
+  const exportBtn = document.getElementById('btnExportReport');
+  
+  if (!container) return;
+  
+  if (!appState.doctorResults || !appState.doctorResults.issues || appState.doctorResults.issues.length === 0) {
+    container.innerHTML = '<div style="font-size: 11px; color: var(--text-dim); text-align: center; padding: 20px;" data-i18n="Click Scan Project to start diagnosis">Click "Scan Project" to start diagnosis</div>';
+    if (countEl) countEl.textContent = '0 issues';
+    if (fixAllBtn) fixAllBtn.style.display = 'none';
+    if (exportBtn) exportBtn.style.display = 'none';
+    return;
+  }
+  
+  const issues = appState.doctorResults.issues;
+  if (countEl) countEl.textContent = `${issues.length} issue${issues.length !== 1 ? 's' : ''}`;
+  if (fixAllBtn) fixAllBtn.style.display = 'inline-flex';
+  if (exportBtn) exportBtn.style.display = 'inline-flex';
+  
+  // Group by severity
+  const bySeverity = {};
+  for (const issue of issues) {
+    if (!bySeverity[issue.severity]) bySeverity[issue.severity] = [];
+    bySeverity[issue.severity].push(issue);
+  }
+  
+  const severityOrder = ['critical', 'high', 'medium', 'low'];
+  let html = '';
+  
+  for (const severity of severityOrder) {
+    const sevIssues = bySeverity[severity];
+    if (!sevIssues || sevIssues.length === 0) continue;
+    
+    const color = DOCTOR_SEVERITY_COLORS[severity];
+    const label = t(DOCTOR_SEVERITY_LABELS[severity]) || DOCTOR_SEVERITY_LABELS[severity];
+    
+    html += `<div style="border:1px solid ${color}; border-radius:6px; overflow:hidden;">
+      <div style="background:${color}; color:white; padding:8px 12px; font-size:11px; font-weight:600; text-transform:uppercase; display:flex; align-items:center; gap:8px;">
+        <span>${label}</span>
+        <span style="background:rgba(255,255,255,0.2); padding:2px 8px; border-radius:10px; font-size:10px;">${sevIssues.length}</span>
+      </div>
+      <div style="max-height:300px; overflow-y:auto;">`;
+    
+    for (const issue of sevIssues) {
+      const typeLabel = t(issue.type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())) || issue.type;
+      const fileName = issue.filePath.split('/').pop() || issue.filePath;
+      const canFix = issue.meta.fixable !== false;
+      
+      html += `<div style="padding:10px 12px; border-bottom:1px solid var(--border-color); display:flex; flex-direction:column; gap:6px;">
+        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+          <span style="font-size:10px; font-weight:600; color:var(--text-muted); text-transform:uppercase;">${t('File') || 'File'}</span>
+          <span style="font-family:var(--font-mono); font-size:11px; color:var(--text-main);" title="${issue.filePath}">${escapeHtml(fileName)}</span>
+          <span style="font-size:10px; font-weight:600; color:var(--text-muted); text-transform:uppercase;">${t('Line') || 'Line'}</span>
+          <span style="font-family:var(--font-mono); font-size:11px; color:var(--text-main);">${issue.line || '?'}</span>
+          <span style="font-size:10px; font-weight:600; color:var(--text-muted); text-transform:uppercase;">${t('Issue') || 'Issue'}</span>
+          <span style="font-size:10px; padding:2px 6px; background:var(--bg-hover); border-radius:3px; color:var(--text-dim);">${escapeHtml(typeLabel)}</span>
+        </div>
+        <div style="font-size:12px; color:var(--text-main); line-height:1.5;">${escapeHtml(issue.message)}</div>
+        ${issue.meta.snippet ? `<div style="font-family:var(--font-mono); font-size:10px; color:var(--text-dim); background:var(--bg-dark); padding:6px 8px; border-radius:3px; overflow-x:auto;">${escapeHtml(issue.meta.snippet)}</div>` : ''}
+        <div style="display:flex; gap:8px; align-items:center;">
+          ${canFix ? `<button class="btn" onclick="fixDoctorIssue('${issue.id}')" style="padding:4px 10px; font-size:10px;" data-i18n="Fix">${t('Fix') || '🔧 Fix'}</button>` : ''}
+          <button class="btn btn-secondary" onclick="openFileAtLine('${issue.filePath}', ${issue.line || 1})" style="padding:4px 10px; font-size:10px;">${t('View') || '👁 View'}</button>
+          <button class="btn btn-secondary" onclick="copyDoctorIssue('${issue.id}')" style="padding:4px 10px; font-size:10px;">${t('Copy') || '📋 Copy'}</button>
+        </div>
+      </div>`;
+    }
+    
+    html += `</div></div>`;
+  }
+  
+  container.innerHTML = html;
+  
+  // Attach event handlers
+  container.querySelectorAll('[onclick^="fixDoctorIssue"]').forEach(btn => {
+    btn.onclick = () => fixDoctorIssue(btn.getAttribute('onclick').match(/'([^']+)'/)[1]);
+  });
+}
+
+function fixDoctorIssue(issueId) {
+  if (!appState.doctorResults || !appState.doctorResults.issues) return;
+  
+  const issue = appState.doctorResults.issues.find(i => i.id === issueId);
+  if (!issue) return;
+  
+  // Generate fix based on issue type
+  const fix = generateFixForIssue(issue);
+  if (!fix) {
+    logActivity(`No auto-fix available for ${issue.type}`, 'warning');
+    return;
+  }
+  
+  // Create change object for diff review
+  const change = {
+    type: 'file',
+    path: issue.filePath,
+    oldContent: fix.oldContent,
+    newContent: fix.newContent,
+    action: fix.action || 'modify',
+    doctorIssueId: issueId
+  };
+  
+  // Store pending change and open diff review
+  if (!appState.pendingChanges) {
+    appState.pendingChanges = { responseText: '', changes: [], timestamp: Date.now() };
+  }
+  appState.pendingChanges.changes.push(change);
+  
+  // Switch to diff review panel
+  document.querySelector('.right-tab[data-pane="diffReview"]').click();
+  
+  saveAppState();
+  logActivity(`Queued fix for ${issue.type} in ${issue.filePath}:${issue.line}`, 'info');
+}
+
+function generateFixForIssue(issue) {
+  const session = getCurrentSession();
+  if (!session || !session.files[issue.filePath]) return null;
+  
+  const content = session.files[issue.filePath];
+  const lines = content.split('\n');
+  const lineIdx = (issue.line || 1) - 1;
+  
+  switch (issue.type) {
+    case DOCTOR_ISSUE_TYPES.EVAL_USAGE:
+      // Replace eval() with safer alternative comment
+      if (lineIdx >= 0 && lineIdx < lines.length) {
+        const newLines = [...lines];
+        newLines[lineIdx] = newLines[lineIdx].replace(/\beval\s*\(/g, '/* FIXED: eval() removed */ (');
+        return {
+          oldContent: content,
+          newContent: newLines.join('\n'),
+          action: 'modify'
+        };
+      }
+      break;
+      
+    case DOCTOR_ISSUE_TYPES.UNSAFE_INNERHTML:
+      // Suggest using textContent or sanitization
+      if (lineIdx >= 0 && lineIdx < lines.length) {
+        const newLines = [...lines];
+        newLines[lineIdx] = newLines[lineIdx].replace(/\.innerHTML\s*=/, '.textContent = // FIXED: use textContent or sanitize');
+        return {
+          oldContent: content,
+          newContent: newLines.join('\n'),
+          action: 'modify'
+        };
+      }
+      break;
+      
+    case DOCTOR_ISSUE_TYPES.HARDCODED_SECRET:
+      // Replace with environment variable placeholder
+      if (lineIdx >= 0 && lineIdx < lines.length) {
+        const newLines = [...lines];
+        newLines[lineIdx] = newLines[lineIdx].replace(/(['\"])[a-zA-Z0-9_\-\.]{20,}(['\"])/g, '$1${process.env.SECRET_NAME}$2 // FIXED: use env var');
+        return {
+          oldContent: content,
+          newContent: newLines.join('\n'),
+          action: 'modify'
+        };
+      }
+      break;
+      
+    case DOCTOR_ISSUE_TYPES.BROKEN_IMPORT:
+    case DOCTOR_ISSUE_TYPES.MISSING_FILE:
+      // Can't auto-fix missing files - would need to create them
+      return null;
+      
+    case DOCTOR_ISSUE_TYPES.UNUSED_FUNCTION:
+    case DOCTOR_ISSUE_TYPES.UNUSED_FILE:
+      // Don't auto-delete - user should review
+      return null;
+      
+    case DOCTOR_ISSUE_TYPES.UNRESOLVED_REFERENCE:
+      // Can't auto-fix without knowing the intended target
+      return null;
+  }
+  
+  return null;
+}
+
+function fixAllDoctorIssues() {
+  if (!appState.doctorResults || !appState.doctorResults.issues) return;
+  
+  const fixableIssues = appState.doctorResults.issues.filter(i => 
+    i.meta.fixable !== false && generateFixForIssue(i)
+  );
+  
+  if (fixableIssues.length === 0) {
+    logActivity('No auto-fixable issues found', 'info');
+    return;
+  }
+  
+  // Create checkpoint before bulk fix
+  createCheckpoint('Project Doctor: Fix all issues');
+  
+  for (const issue of fixableIssues) {
+    fixDoctorIssue(issue.id);
+  }
+  
+  logActivity(`Queued ${fixableIssues.length} fixes for review`, 'success');
+}
+
+function exportDoctorReport() {
+  if (!appState.doctorResults) return;
+  
+  const report = {
+    timestamp: new Date().toISOString(),
+    summary: appState.doctorResults.summary,
+    issues: appState.doctorResults.issues.map(i => ({
+      type: i.type,
+      severity: i.severity,
+      file: i.filePath,
+      line: i.line,
+      message: i.message,
+      meta: i.meta
+    }))
+  };
+  
+  const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `project-doctor-report-${Date.now()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  
+  logActivity('Project Doctor report exported', 'success');
+}
+
+function copyDoctorIssue(issueId) {
+  if (!appState.doctorResults || !appState.doctorResults.issues) return;
+  
+  const issue = appState.doctorResults.issues.find(i => i.id === issueId);
+  if (!issue) return;
+  
+  const text = `[${issue.severity.toUpperCase()}] ${issue.filePath}:${issue.line} - ${issue.message}`;
+  navigator.clipboard.writeText(text).then(() => {
+    logActivity('Issue details copied to clipboard', 'success');
+  });
+}
+
+// Initialize Project Doctor panel
+function initProjectDoctorPanel() {
+  const btnScan = document.getElementById('btnScanProject');
+  const btnFixAll = document.getElementById('btnFixAll');
+  const btnExport = document.getElementById('btnExportReport');
+  
+  if (btnScan) {
+    btnScan.onclick = () => runProjectDoctorScan();
+  }
+  if (btnFixAll) {
+    btnFixAll.onclick = () => fixAllDoctorIssues();
+  }
+  if (btnExport) {
+    btnExport.onclick = () => exportDoctorReport();
+  }
+}
+
+async function runProjectDoctorScan() {
+  const btnScan = document.getElementById('btnScanProject');
+  const container = document.getElementById('doctorResults');
+  const countEl = document.getElementById('doctorIssueCount');
+  
+  if (btnScan) {
+    btnScan.disabled = true;
+    btnScan.textContent = t('Scanning...') || '🔍 Scanning...';
+  }
+  if (container) {
+    container.innerHTML = '<div style="font-size: 11px; color: var(--accent-blue); text-align: center; padding: 20px;">Scanning project...</div>';
+  }
+  
+  // Small delay to let UI update
+  await new Promise(r => setTimeout(r, 50));
+  
+  const session = getCurrentSession();
+  if (!session) {
+    if (container) container.innerHTML = '<div style="font-size: 11px; color: var(--error); text-align: center; padding: 20px;">No active session</div>';
+    if (btnScan) {
+      btnScan.disabled = false;
+      btnScan.textContent = t('Scan Project') || '🔍 Scan Project';
+    }
+    return;
+  }
+  
+  // Run scan
+  const results = scanProjectDoctor(session);
+  appState.doctorResults = results;
+  
+  // Render results
+  renderProjectDoctorPanel();
+  
+  if (btnScan) {
+    btnScan.disabled = false;
+    btnScan.textContent = t('Scan Project') || '🔍 Scan Project';
+  }
+  
+  logActivity(`Project Doctor scan complete: ${results.issues.length} issues found`, results.issues.length > 0 ? 'warning' : 'success');
+}
+
+// Make functions globally available
+window.scanProjectDoctor = scanProjectDoctor;
+window.renderProjectDoctorPanel = renderProjectDoctorPanel;
+window.fixDoctorIssue = fixDoctorIssue;
+window.fixAllDoctorIssues = fixAllDoctorIssues;
+window.exportDoctorReport = exportDoctorReport;
+window.copyDoctorIssue = copyDoctorIssue;
+window.initProjectDoctorPanel = initProjectDoctorPanel;
+window.runProjectDoctorScan = runProjectDoctorScan;
 
 // ==================== CODE GRAPH VIEW RENDERING ====================
 
@@ -11435,6 +12202,10 @@ Format:
                       document.getElementById('panePublish').classList.add('active');
                       initPublishPanel();
                     }
+                    if (paneName === 'projectDoctor') {
+                      document.getElementById('paneProjectDoctor').classList.add('active');
+                      initProjectDoctorPanel();
+                    }
 
                     // Clean up graph render loop when leaving graph tab
           if (paneName !== 'graph' && graphViewState.animationFrame) {
@@ -11468,7 +12239,8 @@ Format:
                 'history': 'show-agent',
                 'diffReview': 'show-agent',
                 'templates': 'show-agent',
-                'publish': 'show-agent'
+                'publish': 'show-agent',
+                'projectDoctor': 'show-agent'
               };
 
               appMain.className = `app-main ${tabToClass[tab] || 'show-agent'}`;
@@ -11489,6 +12261,8 @@ Format:
                 document.querySelector('.right-tab[data-pane="templates"]').click();
               } else if (tab === 'publish') {
                 document.querySelector('.right-tab[data-pane="publish"]').click();
+              } else if (tab === 'projectDoctor') {
+                document.querySelector('.right-tab[data-pane="projectDoctor"]').click();
               }
             });
           });
