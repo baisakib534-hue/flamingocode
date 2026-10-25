@@ -4165,6 +4165,268 @@ WORK STYLE:
       return true;
     }
 
+    // ==================== NEW RESTORE MODES (H2.4) ====================
+
+    // (a) Single-file restore from any checkpoint
+    function restoreFileFromCheckpoint(checkpointId, filePath) {
+      const idx = appState.checkpoints.findIndex(cp => cp.id === checkpointId);
+      if (idx === -1) {
+        logActivity('Checkpoint not found: ' + checkpointId, 'error');
+        return false;
+      }
+
+      const checkpoint = appState.checkpoints[idx];
+      const session = getCurrentSession();
+      if (!session || session.id !== checkpoint.sessionId) {
+        logActivity('Cannot restore file from checkpoint of different session', 'error');
+        return false;
+      }
+
+      if (!checkpoint.files[filePath]) {
+        logActivity(`File "${filePath}" not found in checkpoint`, 'error');
+        return false;
+      }
+
+      // Create pre-restore checkpoint first (so undo is undoable)
+      createCheckpoint('Pre-restore file: ' + filePath);
+
+      // Restore single file
+      session.files[filePath] = JSON.parse(JSON.stringify(checkpoint.files[filePath]));
+      // Mark as agent-modified since this is a programmatic restore
+      if (!session.fileMeta) session.fileMeta = {};
+      session.fileMeta[filePath] = { lastModifiedBy: 'agent', timestamp: Date.now() };
+
+      saveAppState();
+
+      // Refresh UI
+      renderFileTree();
+      renderTabs();
+      if (session.activeFile === filePath) {
+        openFile(filePath);
+      }
+      refreshPreview();
+      renderCheckpointPanel();
+
+      logActivity(`Restored file "${filePath}" from checkpoint: ${checkpoint.label}`, 'success');
+      return true;
+    }
+
+    // (b) Keep-my-edits restore — restore only files the agent changed since the checkpoint,
+    // never overwrite files the user edited by hand (list what was kept)
+    function restoreCheckpointKeepMyEdits(checkpointId) {
+      const idx = appState.checkpoints.findIndex(cp => cp.id === checkpointId);
+      if (idx === -1) {
+        logActivity('Checkpoint not found: ' + checkpointId, 'error');
+        return false;
+      }
+
+      const checkpoint = appState.checkpoints[idx];
+      const session = getCurrentSession();
+      if (!session || session.id !== checkpoint.sessionId) {
+        logActivity('Cannot restore checkpoint from different session', 'error');
+        return false;
+      }
+
+      // Create pre-restore checkpoint first (so undo is undoable)
+      createCheckpoint('Pre-restore (keep edits): ' + checkpoint.label);
+
+      const currentMeta = session.fileMeta || {};
+      const keptFiles = [];
+      const restoredFiles = [];
+      const checkpointTime = checkpoint.timestamp;
+
+      // For each file in the checkpoint, decide whether to restore
+      Object.keys(checkpoint.files).forEach(filePath => {
+        const meta = currentMeta[filePath];
+        const checkpointHasFile = checkpoint.files[filePath] !== undefined;
+
+        if (checkpointHasFile) {
+          // File exists in checkpoint
+          if (!meta) {
+            // No metadata = file hasn't been modified since checkpoint, restore it
+            session.files[filePath] = JSON.parse(JSON.stringify(checkpoint.files[filePath]));
+            restoredFiles.push(filePath);
+          } else if (meta.lastModifiedBy === 'agent' && meta.timestamp > checkpointTime) {
+            // Agent modified this file after checkpoint - restore the checkpoint version
+            session.files[filePath] = JSON.parse(JSON.stringify(checkpoint.files[filePath]));
+            restoredFiles.push(filePath);
+          } else if (meta.lastModifiedBy === 'user' && meta.timestamp > checkpointTime) {
+            // User edited this file after checkpoint - KEEP user's version
+            keptFiles.push(filePath);
+          } else {
+            // Modified before or at checkpoint time, restore
+            session.files[filePath] = JSON.parse(JSON.stringify(checkpoint.files[filePath]));
+            restoredFiles.push(filePath);
+          }
+        }
+      });
+
+      // Handle files that exist now but not in checkpoint (new files since checkpoint)
+      // These are kept as-is (user or agent created them after checkpoint)
+      Object.keys(session.files).forEach(filePath => {
+        if (!checkpoint.files[filePath]) {
+          const meta = currentMeta[filePath];
+          if (meta && meta.lastModifiedBy === 'user' && meta.timestamp > checkpointTime) {
+            keptFiles.push(filePath + ' (new)');
+          }
+        }
+      });
+
+      // Restore brain state
+      session.chatHistory = checkpoint.brainState.chatHistory ? JSON.parse(JSON.stringify(checkpoint.brainState.chatHistory)) : [];
+      session.activeFile = checkpoint.brainState.activeFile;
+      session.openTabs = checkpoint.brainState.openTabs ? [...checkpoint.brainState.openTabs] : [];
+
+      saveAppState();
+
+      // Refresh UI
+      renderFileTree();
+      renderTabs();
+      renderChatHistory();
+      if (session.activeFile && session.files[session.activeFile] !== undefined) {
+        openFile(session.activeFile);
+      }
+      refreshPreview();
+      renderCheckpointPanel();
+
+      let msg = `Restored checkpoint (keep edits): ${checkpoint.label}. Restored ${restoredFiles.length} file(s).`;
+      if (keptFiles.length > 0) {
+        msg += ` Kept ${keptFiles.length} user-edited file(s): ${keptFiles.join(', ')}`;
+      }
+      logActivity(msg, 'success');
+      return true;
+    }
+
+    // (c) Restore diff preview — show what a restore would change before doing it
+    function previewRestoreDiff(checkpointId) {
+      const idx = appState.checkpoints.findIndex(cp => cp.id === checkpointId);
+      if (idx === -1) {
+        logActivity('Checkpoint not found: ' + checkpointId, 'error');
+        return null;
+      }
+
+      const checkpoint = appState.checkpoints[idx];
+      const session = getCurrentSession();
+      if (!session || session.id !== checkpoint.sessionId) {
+        logActivity('Cannot preview restore from different session', 'error');
+        return null;
+      }
+
+      const currentMeta = session.fileMeta || {};
+      const checkpointTime = checkpoint.timestamp;
+      const diff = {
+        wouldRestore: [],      // files that would be restored from checkpoint
+        wouldKeep: [],         // user-edited files that would be kept
+        wouldDelete: [],       // files that exist now but not in checkpoint
+        newFiles: []           // files in checkpoint that don't exist now
+      };
+
+      // Check each file in checkpoint
+      Object.keys(checkpoint.files).forEach(filePath => {
+        const checkpointContent = checkpoint.files[filePath];
+        const currentContent = session.files[filePath];
+        const meta = currentMeta[filePath];
+
+        if (currentContent === undefined) {
+          // File doesn't exist now but exists in checkpoint - would be created
+          diff.newFiles.push(filePath);
+        } else if (currentContent !== checkpointContent) {
+          // Content differs
+          if (meta && meta.lastModifiedBy === 'user' && meta.timestamp > checkpointTime) {
+            // User edited after checkpoint - would keep current
+            diff.wouldKeep.push({ path: filePath, currentPreview: currentContent.slice(0, 80), checkpointPreview: checkpointContent.slice(0, 80) });
+          } else {
+            // Would restore from checkpoint
+            diff.wouldRestore.push({ path: filePath, currentPreview: currentContent.slice(0, 80), checkpointPreview: checkpointContent.slice(0, 80) });
+          }
+        }
+        // If content is same, no change needed
+      });
+
+      // Check for files that exist now but not in checkpoint (would be deleted in full restore)
+      Object.keys(session.files).forEach(filePath => {
+        if (!checkpoint.files[filePath]) {
+          const meta = currentMeta[filePath];
+          if (meta && meta.lastModifiedBy === 'user' && meta.timestamp > checkpointTime) {
+            diff.wouldKeep.push({ path: filePath + ' (new)', currentPreview: session.files[filePath].slice(0, 80), checkpointPreview: '(not in checkpoint)' });
+          } else {
+            diff.wouldDelete.push({ path: filePath, currentPreview: session.files[filePath].slice(0, 80) });
+          }
+        }
+      });
+
+      return diff;
+    }
+
+    // Show restore diff preview in a modal
+    function showRestorePreview(checkpointId) {
+      const diff = previewRestoreDiff(checkpointId);
+      if (!diff) return;
+
+      const cp = appState.checkpoints.find(c => c.id === checkpointId);
+      if (!cp) return;
+
+      // Build preview HTML
+      let html = `<h3 style="margin:0 0 12px;">Restore Preview: ${escapeHtml(cp.label)}</h3>`;
+      html += `<p style="font-size:11px; color:var(--text-dim); margin-bottom:12px;">Review changes before restoring. Green = would restore, Yellow = would keep (user edited), Red = would delete.</p>`;
+
+      if (diff.wouldRestore.length > 0) {
+        html += `<div style="margin-bottom:8px;"><strong style="color:var(--success);">Would restore (${diff.wouldRestore.length}):</strong></div>`;
+        diff.wouldRestore.forEach(d => {
+          html += `<div style="font-size:11px; font-family:monospace; color:var(--success); margin-left:12px; margin-bottom:4px;">${escapeHtml(d.path)}</div>`;
+        });
+      }
+
+      if (diff.wouldKeep.length > 0) {
+        html += `<div style="margin-bottom:8px;"><strong style="color:var(--warning);">Would keep - user edited (${diff.wouldKeep.length}):</strong></div>`;
+        diff.wouldKeep.forEach(d => {
+          html += `<div style="font-size:11px; font-family:monospace; color:var(--warning); margin-left:12px; margin-bottom:4px;">${escapeHtml(d.path)}</div>`;
+        });
+      }
+
+      if (diff.wouldDelete.length > 0) {
+        html += `<div style="margin-bottom:8px;"><strong style="color:var(--error);">Would delete (${diff.wouldDelete.length}):</strong></div>`;
+        diff.wouldDelete.forEach(d => {
+          html += `<div style="font-size:11px; font-family:monospace; color:var(--error); margin-left:12px; margin-bottom:4px;">${escapeHtml(d.path)}</div>`;
+        });
+      }
+
+      if (diff.newFiles.length > 0) {
+        html += `<div style="margin-bottom:8px;"><strong style="color:var(--accent-blue);">Would create (${diff.newFiles.length}):</strong></div>`;
+        diff.newFiles.forEach(d => {
+          html += `<div style="font-size:11px; font-family:monospace; color:var(--accent-blue); margin-left:12px; margin-bottom:4px;">${escapeHtml(d.path)}</div>`;
+        });
+      }
+
+      if (diff.wouldRestore.length === 0 && diff.wouldKeep.length === 0 && diff.wouldDelete.length === 0 && diff.newFiles.length === 0) {
+        html += `<div style="text-align:center; color:var(--text-dim); padding:20px;">No changes - already at this checkpoint</div>`;
+      }
+
+      // Show modal
+      const modal = document.createElement('div');
+      modal.style.cssText = 'position:fixed; inset:0; background:rgba(0,0,0,0.6); display:flex; align-items:center; justify-content:center; z-index:10000;';
+      modal.innerHTML = `
+        <div style="background:var(--bg-surface); border:1px solid var(--border-color); border-radius:8px; padding:20px; max-width:600px; max-height:80vh; overflow:auto; width:90%;">
+          ${html}
+          <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:16px;">
+            <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">Close</button>
+            <button class="btn btn-primary" onclick="confirmRestoreWithPreview('${checkpointId}'); this.closest('.modal-overlay').remove()">Restore</button>
+            <button class="btn btn-primary" style="background:var(--warning);" onclick="confirmKeepEditsWithPreview('${checkpointId}'); this.closest('.modal-overlay').remove()">Keep My Edits</button>
+          </div>
+        </div>
+      `;
+      modal.className = 'modal-overlay';
+      document.body.appendChild(modal);
+    }
+
+    function confirmRestoreWithPreview(checkpointId) {
+      restoreCheckpoint(checkpointId);
+    }
+
+    function confirmKeepEditsWithPreview(checkpointId) {
+      restoreCheckpointKeepMyEdits(checkpointId);
+    }
+
     function renderCheckpointPanel() {
       const container = document.getElementById('checkpointList');
       const capEl = document.getElementById('checkpointCapDisplay');
@@ -4182,19 +4444,44 @@ WORK STYLE:
       container.innerHTML = '';
       appState.checkpoints.forEach((cp, index) => {
         const item = document.createElement('div');
-        item.style.cssText = 'display:flex; align-items:center; justify-content:space-between; padding:8px 10px; background:var(--bg-surface); border:1px solid var(--border-color); border-radius:5px; margin-bottom:4px;';
+        item.style.cssText = 'display:flex; flex-direction:column; gap:6px; padding:8px 10px; background:var(--bg-surface); border:1px solid var(--border-color); border-radius:5px; margin-bottom:4px;';
         const time = new Date(cp.timestamp).toLocaleTimeString();
         const date = new Date(cp.timestamp).toLocaleDateString();
         const fileCount = Object.keys(cp.files).length;
+        
+        // Build file list for single-file restore dropdown
+        const fileOptions = Object.keys(cp.files).map(f => `<option value="${escapeHtml(f)}">${escapeHtml(f)}</option>`).join('');
+        
         item.innerHTML = `
-          <div style="flex:1; min-width:0;">
-            <div style="font-weight:600; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(cp.label)}</div>
-            <div style="font-size:10px; color:var(--text-dim);">${date} ${time} · ${fileCount} file(s) · ${cp.brainState.chatHistory?.length || 0} chat msg(s)</div>
+          <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:4px;">
+            <div style="flex:1; min-width:0;">
+              <div style="font-weight:600; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(cp.label)}</div>
+              <div style="font-size:10px; color:var(--text-dim);">${date} ${time} · ${fileCount} file(s) · ${cp.brainState.chatHistory?.length || 0} chat msg(s)</div>
+            </div>
+            <div style="display:flex; gap:4px; flex-wrap:wrap;">
+              <button class="btn btn-secondary" style="padding:3px 8px; font-size:10px;" onclick="showRestorePreview('${cp.id}')">Preview</button>
+              <button class="btn btn-secondary" style="padding:3px 8px; font-size:10px; background:var(--warning);" onclick="confirmKeepEditsCheckpoint('${cp.id}')">Keep Edits</button>
+              <button class="btn btn-primary" style="padding:3px 8px; font-size:10px;" onclick="confirmRestoreCheckpoint('${cp.id}')">Restore All</button>
+            </div>
           </div>
-          <button class="btn btn-secondary" style="padding:3px 8px; font-size:10px;" onclick="confirmRestoreCheckpoint('${cp.id}')">Restore</button>
+          <div style="display:flex; gap:4px; align-items:center; flex-wrap:wrap;">
+            <label style="font-size:10px; color:var(--text-dim);">Single file:</label>
+            <select class="btn btn-secondary" style="padding:2px 6px; font-size:10px; min-width:150px;" onchange="if(this.value) { restoreFileFromCheckpoint('${cp.id}', this.value); this.value=''; }">
+              <option value="">-- select file --</option>
+              ${fileOptions}
+            </select>
+          </div>
         `;
         container.appendChild(item);
       });
+    }
+
+    function confirmKeepEditsCheckpoint(checkpointId) {
+      const cp = appState.checkpoints.find(c => c.id === checkpointId);
+      if (!cp) return;
+      if (confirm(`Restore checkpoint "${cp.label}" but KEEP your manual edits?\n\nThis will restore only files the agent changed since the checkpoint. Files you edited by hand will be preserved (listed in the activity log). A pre-restore checkpoint will be created first.`)) {
+        restoreCheckpointKeepMyEdits(checkpointId);
+      }
     }
 
     function confirmRestoreCheckpoint(checkpointId) {
@@ -7441,6 +7728,7 @@ Links: [[Brain Index]]
         id,
         name: sessionName,
         files: { ...JSON.parse(JSON.stringify(TEMPLATES.blank)), ...brainFiles },
+        fileMeta: {},  // { [filePath]: { lastModifiedBy: 'agent'|'user', timestamp: number } }
         activeFile: 'index.html',
         openTabs: ['index.html', 'style.css', 'script.js'],
         chatHistory: []
@@ -10726,6 +11014,9 @@ CURRENT VIRTUAL FILES:
             session.files[targetPath] = blockContent;
             // Gap 4 Fix: Mark graph dirty on file changes for incremental rebuild
             markGraphDirty();
+            // Track agent modification for keep-my-edits restore
+            if (!session.fileMeta) session.fileMeta = {};
+            session.fileMeta[targetPath] = { lastModifiedBy: 'agent', timestamp: Date.now() };
           }
           fileModified = true;
           const lineCount = blockContent.split('\n').length;
@@ -10737,6 +11028,9 @@ CURRENT VIRTUAL FILES:
           if (isBrainNotePath(targetPath)) rebuildBrainIndex(session); // v2: index follows note deletions
           // Gap 4 Fix: Mark graph dirty on file deletions for incremental rebuild
           markGraphDirty();
+          // Track agent deletion for keep-my-edits restore
+          if (!session.fileMeta) session.fileMeta = {};
+          session.fileMeta[targetPath] = { lastModifiedBy: 'agent', timestamp: Date.now(), deleted: true };
           fileModified = true;
           chips.push({ type: 'delete', label: `Deleted ${targetPath}` });
           logActivity(`Agent deleted ${targetPath}`, 'warning');
@@ -12884,6 +13178,9 @@ Completion:`;
       textarea.addEventListener('blur', () => {
         const session = getCurrentSession();
         if (session && session.activeFile) {
+          // Track user modification for keep-my-edits restore
+          if (!session.fileMeta) session.fileMeta = {};
+          session.fileMeta[session.activeFile] = { lastModifiedBy: 'user', timestamp: Date.now() };
           clearTimeout(editorCheckpointTimer);
           editorCheckpointTimer = setTimeout(() => {
             createCheckpoint('Edit: ' + session.activeFile);
