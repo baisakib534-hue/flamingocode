@@ -298,6 +298,23 @@
       tab-size: 2;
     }
 
+    /* Inline Autocomplete Ghost Text */
+    .editor-wrapper {
+      position: relative;
+    }
+    .autocomplete-ghost {
+      position: absolute;
+      pointer-events: none;
+      font-family: var(--font-mono);
+      font-size: 12.5px;
+      line-height: 20px;
+      color: var(--text-dim);
+      white-space: pre;
+      tab-size: 2;
+      z-index: 10;
+      overflow: hidden;
+    }
+
     /* Right Panel (Agent Chat / Preview / Browser / Activity) */
     .panel-right {
       background-color: var(--bg-panel);
@@ -1052,6 +1069,7 @@
       <div class="editor-wrapper">
         <div class="line-numbers" id="lineNumbers">1</div>
         <textarea id="editorTextarea" class="editor-textarea" spellcheck="false" placeholder="Select or create a file to start editing..." data-i18n-placeholder="Select or create a file to start editing..."></textarea>
+        <div class="autocomplete-ghost" id="autocompleteGhost" aria-hidden="true"></div>
       </div>
     </section>
 
@@ -1732,6 +1750,19 @@
           </div>
           <label class="toggle-switch" style="cursor: pointer; flex-shrink: 0;">
             <input type="checkbox" id="teachModeToggleSettings" style="display: none;" />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <hr style="border: none; border-top: 1px solid var(--border-color); margin: 12px 0;">
+        <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;" data-i18n="Inline Autocomplete">Inline Autocomplete</div>
+        <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 8px;" data-i18n="Show ghost-text code completions while typing. Suggestions come from the current file context and the Brain code graph. Tab accepts, Esc dismisses.">Show ghost-text code completions while typing. Suggestions come from the current file context and the Brain code graph. Tab accepts, Esc dismisses.</div>
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+          <div style="flex: 1; min-width: 0;">
+            <div style="font-weight: 600; font-size: 12px; color: var(--text-main);" data-i18n="Enable autocomplete">Enable autocomplete</div>
+            <div style="font-size: 10px; color: var(--text-dim); margin-top: 2px;" data-i18n="Cursor-style ghost text completions in the editor.">Cursor-style ghost text completions in the editor.</div>
+          </div>
+          <label class="toggle-switch" style="cursor: pointer; flex-shrink: 0;">
+            <input type="checkbox" id="autocompleteToggleSettings" style="display: none;" />
             <span class="toggle-slider"></span>
           </label>
         </div>
@@ -3370,6 +3401,8 @@ WORK STYLE:
       lastEnhancedSpec: null,   // Store last enhanced spec for review
       // Teach Mode state
       teachMode: false,         // Explain agent changes in simple Bangla
+      // Inline Autocomplete state
+      autocompleteEnabled: true,  // Ghost-text code completions
       // Language state
       language: 'en',           // 'en' | 'bn'
       // Legacy single provider fields for backward compatibility
@@ -6272,6 +6305,17 @@ Links: [[Brain Index]]
           saveAppState();
           logActivity(e.target.checked ? 'Teach Mode enabled' : 'Teach Mode disabled', 'info');
           updateTeachModeUI();
+        };
+      }
+
+      // Autocomplete toggle (settings)
+      const autocompleteToggleSettings = document.getElementById('autocompleteToggleSettings');
+      if (autocompleteToggleSettings) {
+        autocompleteToggleSettings.checked = appState.autocompleteEnabled !== false; // Default ON
+        autocompleteToggleSettings.onchange = (e) => {
+          appState.autocompleteEnabled = e.target.checked;
+          saveAppState();
+          logActivity(e.target.checked ? 'Inline autocomplete enabled' : 'Inline autocomplete disabled', 'info');
         };
       }
     }
@@ -9941,9 +9985,126 @@ Rules:
 
     function setupEditorListeners() {
       const textarea = document.getElementById('editorTextarea');
+      const ghostEl = document.getElementById('autocompleteGhost');
       // Brain v2: manual edits to a note or the map rebuild the index (debounced)
       let indexRebuildTimer = null;
       let editorCheckpointTimer = null;
+      // Autocomplete state
+      let autocompleteTimer = null;
+      let currentGhostText = '';
+      let lastAutocompletePos = -1;
+
+      function positionGhost() {
+        if (!ghostEl || !currentGhostText) return;
+        const textareaRect = textarea.getBoundingClientRect();
+        const wrapperRect = textarea.parentElement.getBoundingClientRect();
+        // Calculate cursor position
+        const textBeforeCursor = textarea.value.substring(0, textarea.selectionStart);
+        const lines = textBeforeCursor.split('\n');
+        const lineIndex = lines.length - 1;
+        const charIndex = lines[lineIndex].length;
+        const lineHeight = 20; // matches CSS line-height
+        const charWidth = 7.5; // approximate monospace char width at 12.5px
+        const top = 10 + lineIndex * lineHeight; // 10px padding top
+        const left = 10 + charIndex * charWidth; // 10px padding left
+        ghostEl.style.top = top + 'px';
+        ghostEl.style.left = left + 'px';
+        ghostEl.style.maxWidth = (textareaRect.width - left - 10) + 'px';
+        ghostEl.textContent = currentGhostText;
+      }
+
+      function clearGhost() {
+        currentGhostText = '';
+        if (ghostEl) ghostEl.textContent = '';
+      }
+
+      async function fetchAutocomplete() {
+        if (!appState.autocompleteEnabled) return;
+        const session = getCurrentSession();
+        if (!session || !session.activeFile) return;
+        const cursorPos = textarea.selectionStart;
+        const text = textarea.value;
+        const textBeforeCursor = text.substring(0, cursorPos);
+        // Only trigger on word boundaries or after certain chars
+        const lastChar = textBeforeCursor.slice(-1);
+        if (textBeforeCursor.length < 2) return;
+        // Debounce key
+        const posKey = cursorPos + ':' + textBeforeCursor.slice(-50);
+        if (posKey === lastAutocompletePos) return;
+        lastAutocompletePos = posKey;
+
+        // Build context: current file + code graph
+        const fileContent = text;
+        const fileName = session.activeFile;
+        const lang = fileName.split('.').pop() || 'txt';
+
+        // Query code graph for relevant context
+        let graphContext = '';
+        try {
+          const graphResult = queryGraph(textBeforeCursor.slice(-200));
+          if (graphResult && graphResult.summary && !graphResult.summary.includes('empty')) {
+            graphContext = `\n--- CODE GRAPH CONTEXT ---\n${graphResult.summary}\n`;
+            if (graphResult.nodes && graphResult.nodes.length > 0) {
+              graphContext += 'Relevant symbols: ' + graphResult.nodes.slice(0, 10).map(n => n.name).join(', ') + '\n';
+            }
+          }
+        } catch (e) {
+          // Silently ignore graph errors
+        }
+
+        const prompt = `Complete the code at the cursor position. Return ONLY the completion text (no explanations, no markdown).
+
+File: ${fileName} (${lang})
+${graphContext}
+Code before cursor:
+${textBeforeCursor.slice(-500)}
+
+Completion:`;
+
+        try {
+          const provider = appState.providers[appState.activeProviderId];
+          if (!provider) return;
+          const baseUrl = provider.baseUrl.replace(/\/+$/, '');
+          const url = `${baseUrl}/chat/completions`;
+          const headers = {
+            'Content-Type': 'application/json',
+          };
+          if (provider.apiKey) {
+            if (provider.authStyle === 'bearer') headers['Authorization'] = `Bearer ${provider.apiKey}`;
+            else if (provider.authStyle === 'x-api-key') headers['x-api-key'] = provider.apiKey;
+          }
+          if (provider.customHeaders) {
+            try { Object.assign(headers, JSON.parse(provider.customHeaders)); } catch (_) {}
+          }
+
+          const body = {
+            model: provider.model,
+            messages: [{ role: 'user', content: prompt }],
+            max_tokens: 120,
+            temperature: 0.1,
+            stream: false,
+          };
+
+          const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
+          if (!res.ok) return;
+          const data = await res.json();
+          const completion = data.choices?.[0]?.message?.content?.trim();
+          if (completion) {
+            // Take only the first line or up to 80 chars
+            const firstLine = completion.split('\n')[0].slice(0, 80);
+            currentGhostText = firstLine;
+            positionGhost();
+          }
+        } catch (e) {
+          // Silently ignore
+        }
+      }
+
+      function debouncedAutocomplete() {
+        clearTimeout(autocompleteTimer);
+        autocompleteTimer = setTimeout(fetchAutocomplete, 150);
+      }
+
       textarea.addEventListener('input', () => {
         const session = getCurrentSession();
         if (session && session.activeFile) {
@@ -9958,6 +10119,12 @@ Rules:
           refreshPreview();
           saveAppState();
         }
+        // Trigger autocomplete debounced
+        if (appState.autocompleteEnabled) {
+          debouncedAutocomplete();
+        } else {
+          clearGhost();
+        }
       });
 
       // Create checkpoint on editor blur (user finished editing)
@@ -9969,9 +10136,28 @@ Rules:
             createCheckpoint('Edit: ' + session.activeFile);
           }, 500);
         }
+        clearGhost();
       });
 
       textarea.addEventListener('keydown', (e) => {
+        // Autocomplete: Tab to accept ghost text
+        if (e.key === 'Tab' && currentGhostText) {
+          e.preventDefault();
+          const start = textarea.selectionStart;
+          const end = textarea.selectionEnd;
+          textarea.value = textarea.value.substring(0, start) + currentGhostText + textarea.value.substring(end);
+          textarea.selectionStart = textarea.selectionEnd = start + currentGhostText.length;
+          clearGhost();
+          textarea.dispatchEvent(new Event('input'));
+          return;
+        }
+        // Esc to dismiss ghost
+        if (e.key === 'Escape' && currentGhostText) {
+          e.preventDefault();
+          clearGhost();
+          return;
+        }
+        // Normal Tab handling (indent)
         if (e.key === 'Tab') {
           e.preventDefault();
           const start = textarea.selectionStart;
@@ -9984,7 +10170,11 @@ Rules:
 
       textarea.addEventListener('scroll', () => {
         document.getElementById('lineNumbers').scrollTop = textarea.scrollTop;
+        positionGhost();
       });
+
+      // Update ghost position on window resize
+      window.addEventListener('resize', positionGhost);
     }
 
     function populateModelDropdown(preset, selectedModel) {
