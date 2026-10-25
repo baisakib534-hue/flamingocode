@@ -2217,6 +2217,67 @@
           <div id="precommitChecks" style="display: flex; flex-direction: column; gap: 4px; font-size: 11px; margin-bottom: 8px;"></div>
           <div style="font-size: 10px; color: var(--text-dim);">Gate Status: <span id="precommitGateStatus" style="color: var(--warning); font-weight: 600;" data-i18n="Pending">Pending</span></div>
         </div>
+
+        <!-- Safe Mode v2: Approval Ladder + Hardline Blocklist + Deny Rules -->
+        <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; padding: 12px;">
+          <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;" data-i18n="Safe Mode v2">Safe Mode v2</div>
+          <div style="font-size: 12px; color: var(--text-main); margin-bottom: 8px;" data-i18n="Controls how destructive agent actions are approved. Three modes + unconditional blocklist + user deny rules.">Controls how destructive agent actions are approved. Three modes + unconditional blocklist + user deny rules.</div>
+
+          <!-- Approval Mode Selector -->
+          <div style="margin-bottom: 12px;">
+            <label style="font-size: 11px; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 6px;" data-i18n="Approval Mode">Approval Mode</label>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+              <label style="display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 4px; cursor: pointer; font-size: 11px;">
+                <input type="radio" name="approvalMode" value="smart" style="width: 16px; height: 16px; accent-color: var(--accent-blue);" /> <span data-i18n="Smart (auxiliary judges risk)">Smart (auxiliary judges risk)</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 4px; cursor: pointer; font-size: 11px;">
+                <input type="radio" name="approvalMode" value="manual" style="width: 16px; height: 16px; accent-color: var(--accent-blue);" /> <span data-i18n="Manual (always ask)">Manual (always ask)</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 4px; cursor: pointer; font-size: 11px;">
+                <input type="radio" name="approvalMode" value="off" style="width: 16px; height: 16px; accent-color: var(--accent-blue);" /> <span data-i18n="Off (YOLO — everything auto-approved)">Off (YOLO — everything auto-approved)</span>
+              </label>
+            </div>
+            <div id="approvalModeDesc" style="margin-top: 6px; font-size: 10px; color: var(--text-dim);"></div>
+          </div>
+
+          <!-- Hardline Blocklist (read-only, cannot be overridden) -->
+          <div style="margin-bottom: 12px; padding: 8px; background: rgba(220, 53, 69, 0.1); border: 1px solid var(--danger); border-radius: 4px;">
+            <div style="font-size: 11px; font-weight: 600; color: var(--danger); margin-bottom: 6px; display: flex; align-items: center; gap: 6px;" data-i18n="Hardline Blocklist (NEVER overridden)">⛔ Hardline Blocklist (NEVER overridden)</div>
+            <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 6px;" data-i18n="These patterns are blocked in ALL modes including YOLO. Built-in defaults protect critical operations.">These patterns are blocked in ALL modes including YOLO. Built-in defaults protect critical operations.</div>
+            <div id="hardlineBlocklistDisplay" style="font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); max-height: 120px; overflow-y: auto;"></div>
+            <button class="btn btn-secondary" id="btnEditHardlineBlocklist" style="margin-top: 8px; padding: 4px 10px; font-size: 10px;" data-i18n="View/Edit (Advanced)">View/Edit (Advanced)</button>
+          </div>
+
+          <!-- User Deny Rules (glob patterns) -->
+          <div style="margin-bottom: 12px;">
+            <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px;" data-i18n="User Deny Rules (glob patterns)">User Deny Rules (glob patterns)</div>
+            <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 6px;" data-i18n="Block specific commands/patterns before YOLO is even consulted. One per line. Supports * wildcards.">Block specific commands/patterns before YOLO is even consulted. One per line. Supports * wildcards.</div>
+            <textarea id="denyRulesEditor" class="form-input" style="width: 100%; min-height: 80px; font-family: var(--font-mono); font-size: 11px; line-height: 1.5; padding: 8px; background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-main); resize: vertical;" placeholder="git push --force*
+curl * | sh*
+wget * | sh*
+rm -rf *
+sudo *"></textarea>
+            <div style="display: flex; gap: 8px; margin-top: 8px;">
+              <button class="btn" id="btnSaveDenyRules" style="padding: 6px 14px; font-size: 11px;" data-i18n="Save Deny Rules">💾 Save Deny Rules</button>
+              <button class="btn btn-secondary" id="btnResetDenyRules" style="padding: 6px 14px; font-size: 11px;" data-i18n="Reset to Defaults">↩ Reset to Defaults</button>
+            </div>
+            <div id="denyRulesStatus" style="margin-top: 6px; font-size: 10px; color: var(--text-dim);"></div>
+          </div>
+
+          <!-- YOLO Mode Warning Banner (shown when mode is 'off') -->
+          <div id="yoloWarningBanner" style="display: none; padding: 10px; background: rgba(220, 53, 69, 0.15); border: 1px solid var(--danger); border-radius: 4px; align-items: center; gap: 8px;">
+            <span style="font-size: 14px; flex-shrink: 0;">🚨</span>
+            <div style="flex: 1; font-size: 11px; color: var(--danger); font-weight: 600;" data-i18n="YOLO MODE ACTIVE — All approvals bypassed. Hardline blocklist and deny rules still apply.">YOLO MODE ACTIVE — All approvals bypassed. Hardline blocklist and deny rules still apply.</div>
+            <button class="btn btn-secondary" id="btnDismissYoloBanner" style="padding: 4px 10px; font-size: 10px; flex-shrink: 0;" data-i18n="Dismiss">Dismiss</button>
+            <button class="btn" id="btnSwitchToSmart" style="padding: 4px 10px; font-size: 10px; flex-shrink: 0; background: var(--accent-blue);" data-i18n="Switch to Smart">Switch to Smart</button>
+          </div>
+
+          <!-- Smart Mode Last Decision Display -->
+          <div id="smartDecisionDisplay" style="display: none; margin-top: 10px; padding: 8px; background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 4px; font-size: 10px; color: var(--text-dim);">
+            <div style="font-weight: 600; color: var(--text-muted); margin-bottom: 4px;" data-i18n="Last Smart Mode Decision">Last Smart Mode Decision:</div>
+            <div id="smartDecisionText" style="font-family: var(--font-mono);"></div>
+          </div>
+        </div>
       </div>
     </div>
     <div style="border-top: 1px solid var(--border-color); padding-top: 12px;">
@@ -3851,6 +3912,35 @@ WORK STYLE:
           'domain-skill': false
         },
         taskHistory: []  // History of tasks with tools used
+      },
+      // Safe Mode v2: approval ladder + hardline blocklist + deny rules
+      safeMode: {
+        approvalMode: 'smart',  // 'smart' | 'manual' | 'off' (YOLO)
+        // Hardline blocklist — NEVER overridden by any mode
+        hardlineBlocklist: [
+          'delete project',
+          'rm -rf /',
+          'send provider key',
+          'overwrite 9router key',
+          'git push --force',
+          'curl | sh',
+          'wget | sh',
+          'delete all files',
+          'purge database',
+          'drop table'
+        ],
+        // User-defined deny rules (glob patterns) — block before YOLO
+        denyRules: [
+          'git push --force*',
+          'curl * | sh*',
+          'wget * | sh*',
+          'rm -rf *',
+          'sudo *'
+        ],
+        // Smart mode auxiliary risk judge (stores last decision for transparency)
+        lastSmartDecision: null,
+        // YOLO mode banner visibility
+        yoloBannerDismissed: false
       },
       // Checkpoint / Time-travel state
       checkpoints: [],  // Array of {id, label, timestamp, files, brainState, sessionId}
@@ -7769,11 +7859,566 @@ Links: [[Brain Index]]
         precommitGateStatus.style.color = allPassed ? 'var(--success)' : 'var(--warning)';
       }
 
+      // Render Safe Mode v2
+      renderSafeModeTab();
+
       // View Catalog button
       const btnViewCatalog = document.getElementById('btnViewCatalog');
       if (btnViewCatalog) {
         btnViewCatalog.onclick = () => showFullCatalogModal();
       }
+    }
+
+    // ==================== SAFE MODE v2: APPROVAL LADDER + BLOCKLIST + DENY RULES ====================
+
+    // Render Safe Mode v2 tab
+    function renderSafeModeTab() {
+      // Ensure safeMode state exists
+      if (!appState.safeMode) {
+        appState.safeMode = {
+          approvalMode: 'smart',
+          hardlineBlocklist: [
+            'delete project',
+            'rm -rf /',
+            'send provider key',
+            'overwrite 9router key',
+            'git push --force',
+            'curl | sh',
+            'wget | sh',
+            'delete all files',
+            'purge database',
+            'drop table'
+          ],
+          denyRules: [
+            'git push --force*',
+            'curl * | sh*',
+            'wget * | sh*',
+            'rm -rf *',
+            'sudo *'
+          ],
+          lastSmartDecision: null,
+          yoloBannerDismissed: false
+        };
+      }
+
+      const sm = appState.safeMode;
+
+      // Approval mode radios
+      const radios = document.querySelectorAll('input[name="approvalMode"]');
+      radios.forEach(r => {
+        r.checked = (r.value === sm.approvalMode);
+        r.onchange = () => {
+          sm.approvalMode = r.value;
+          saveAppState();
+          updateApprovalModeUI();
+          updateYoloBanner();
+          logActivity(`Safe Mode: approval mode set to ${r.value}`, 'info');
+        };
+      });
+
+      // Approval mode description
+      const descEl = document.getElementById('approvalModeDesc');
+      if (descEl) {
+        const descriptions = {
+          smart: 'An auxiliary check judges risk: low-risk auto-approved, genuinely dangerous auto-denied, uncertain cases escalate to you.',
+          manual: 'Every destructive action asks for your confirmation before proceeding.',
+          off: 'YOLO mode — everything auto-approved. Hardline blocklist and deny rules still apply. Persistent red banner shows this is active.'
+        };
+        descEl.textContent = descriptions[sm.approvalMode] || '';
+      }
+
+      // Hardline blocklist display
+      const hardlineDisplay = document.getElementById('hardlineBlocklistDisplay');
+      if (hardlineDisplay) {
+        hardlineDisplay.innerHTML = sm.hardlineBlocklist.map(item => 
+          `<div style="padding: 2px 6px; margin: 2px 0; background: var(--bg-dark); border-radius: 3px;">${escapeHtml(item)}</div>`
+        ).join('');
+      }
+
+      // Hardline blocklist edit button (advanced)
+      const btnEditHardline = document.getElementById('btnEditHardlineBlocklist');
+      if (btnEditHardline) {
+        btnEditHardline.onclick = () => editHardlineBlocklist();
+      }
+
+      // Deny rules editor
+      const denyEditor = document.getElementById('denyRulesEditor');
+      if (denyEditor) {
+        denyEditor.value = sm.denyRules.join('\n');
+      }
+
+      // Save deny rules
+      const btnSaveDeny = document.getElementById('btnSaveDenyRules');
+      if (btnSaveDeny) {
+        btnSaveDeny.onclick = () => {
+          const text = denyEditor?.value || '';
+          sm.denyRules = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+          saveAppState();
+          const statusEl = document.getElementById('denyRulesStatus');
+          if (statusEl) {
+            statusEl.textContent = `Saved ${sm.denyRules.length} deny rule(s)`;
+            statusEl.style.color = 'var(--success)';
+          }
+          logActivity(`Safe Mode: deny rules updated (${sm.denyRules.length} rules)`, 'success');
+        };
+      }
+
+      // Reset deny rules to defaults
+      const btnResetDeny = document.getElementById('btnResetDenyRules');
+      if (btnResetDeny) {
+        btnResetDeny.onclick = () => {
+          sm.denyRules = [
+            'git push --force*',
+            'curl * | sh*',
+            'wget * | sh*',
+            'rm -rf *',
+            'sudo *'
+          ];
+          if (denyEditor) denyEditor.value = sm.denyRules.join('\n');
+          saveAppState();
+          const statusEl = document.getElementById('denyRulesStatus');
+          if (statusEl) {
+            statusEl.textContent = 'Reset to defaults';
+            statusEl.style.color = 'var(--accent-blue)';
+          }
+          logActivity('Safe Mode: deny rules reset to defaults', 'info');
+        };
+      }
+
+      // YOLO banner dismiss
+      const btnDismissYolo = document.getElementById('btnDismissYoloBanner');
+      if (btnDismissYolo) {
+        btnDismissYolo.onclick = () => {
+          sm.yoloBannerDismissed = true;
+          saveAppState();
+          updateYoloBanner();
+        };
+      }
+
+      // Switch to Smart from YOLO banner
+      const btnSwitchSmart = document.getElementById('btnSwitchToSmart');
+      if (btnSwitchSmart) {
+        btnSwitchSmart.onclick = () => {
+          sm.approvalMode = 'smart';
+          sm.yoloBannerDismissed = false;
+          saveAppState();
+          updateApprovalModeUI();
+          updateYoloBanner();
+          logActivity('Safe Mode: switched from YOLO to Smart', 'success');
+        };
+      }
+
+      // Initial UI update
+      updateApprovalModeUI();
+      updateYoloBanner();
+      renderSmartDecisionDisplay();
+    }
+
+    // Update approval mode UI (radio selection + description)
+    function updateApprovalModeUI() {
+      const sm = appState.safeMode;
+      if (!sm) return;
+      const radios = document.querySelectorAll('input[name="approvalMode"]');
+      radios.forEach(r => { r.checked = (r.value === sm.approvalMode); });
+      const descEl = document.getElementById('approvalModeDesc');
+      if (descEl) {
+        const descriptions = {
+          smart: 'An auxiliary check judges risk: low-risk auto-approved, genuinely dangerous auto-denied, uncertain cases escalate to you.',
+          manual: 'Every destructive action asks for your confirmation before proceeding.',
+          off: 'YOLO mode — everything auto-approved. Hardline blocklist and deny rules still apply. Persistent red banner shows this is active.'
+        };
+        descEl.textContent = descriptions[sm.approvalMode] || '';
+      }
+    }
+
+    // Update YOLO banner visibility
+    function updateYoloBanner() {
+      const sm = appState.safeMode;
+      if (!sm) return;
+      const banner = document.getElementById('yoloWarningBanner');
+      if (banner) {
+        if (sm.approvalMode === 'off' && !sm.yoloBannerDismissed) {
+          banner.style.display = 'flex';
+          // Also show a persistent top banner if not in settings
+          showPersistentYoloBanner();
+        } else {
+          banner.style.display = 'none';
+          hidePersistentYoloBanner();
+        }
+      }
+    }
+
+    // Persistent YOLO banner at top of app (always visible when YOLO mode is on)
+    function showPersistentYoloBanner() {
+      let banner = document.getElementById('persistentYoloBanner');
+      if (!banner) {
+        banner = document.createElement('div');
+        banner.id = 'persistentYoloBanner';
+        banner.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; z-index: 10000; padding: 8px 12px; background: rgba(220, 53, 69, 0.95); border-bottom: 2px solid var(--danger); color: white; font-size: 12px; font-weight: 600; display: flex; align-items: center; justify-content: space-between; gap: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.3);';
+        banner.innerHTML = `
+          <span>🚨 YOLO MODE ACTIVE — All approvals bypassed. Hardline blocklist & deny rules still apply.</span>
+          <div style="display: flex; gap: 8px;">
+            <button id="btnPersistentYoloDismiss" style="padding: 4px 10px; font-size: 11px; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); border-radius: 4px; color: white; cursor: pointer;">Dismiss</button>
+            <button id="btnPersistentYoloSwitch" style="padding: 4px 10px; font-size: 11px; background: var(--accent-blue); border: none; border-radius: 4px; color: white; cursor: pointer;">Switch to Smart</button>
+          </div>
+        `;
+        document.body.appendChild(banner);
+        // Adjust body padding to not hide content
+        document.body.style.paddingTop = (banner.offsetHeight + 4) + 'px';
+        
+        document.getElementById('btnPersistentYoloDismiss').onclick = () => {
+          appState.safeMode.yoloBannerDismissed = true;
+          saveAppState();
+          hidePersistentYoloBanner();
+          updateYoloBanner();
+        };
+        document.getElementById('btnPersistentYoloSwitch').onclick = () => {
+          appState.safeMode.approvalMode = 'smart';
+          appState.safeMode.yoloBannerDismissed = false;
+          saveAppState();
+          hidePersistentYoloBanner();
+          updateApprovalModeUI();
+          updateYoloBanner();
+          logActivity('Safe Mode: switched from YOLO to Smart', 'success');
+        };
+      }
+      banner.style.display = 'flex';
+    }
+
+    function hidePersistentYoloBanner() {
+      const banner = document.getElementById('persistentYoloBanner');
+      if (banner) {
+        banner.style.display = 'none';
+        document.body.style.paddingTop = '';
+      }
+    }
+
+    // Render last smart mode decision
+    function renderSmartDecisionDisplay() {
+      const sm = appState.safeMode;
+      const display = document.getElementById('smartDecisionDisplay');
+      const textEl = document.getElementById('smartDecisionText');
+      if (!display || !textEl) return;
+      
+      if (sm.lastSmartDecision) {
+        display.style.display = 'block';
+        textEl.textContent = JSON.stringify(sm.lastSmartDecision, null, 2);
+      } else {
+        display.style.display = 'none';
+      }
+    }
+
+    // Edit hardline blocklist (advanced modal)
+    function editHardlineBlocklist() {
+      const sm = appState.safeMode;
+      const current = sm.hardlineBlocklist.join('\n');
+      const newText = prompt('Hardline Blocklist (NEVER overridden by any mode). One pattern per line:\n\n' + current, current);
+      if (newText !== null && newText !== current) {
+        sm.hardlineBlocklist = newText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+        saveAppState();
+        renderSafeModeTab();
+        logActivity('Safe Mode: hardline blocklist updated', 'warning');
+      }
+    }
+
+    // ==================== APPROVAL LADDER LOGIC ====================
+
+    // Glob pattern matching (supports * wildcards)
+    function matchGlob(pattern, text) {
+      if (!pattern || !text) return false;
+      // Escape regex special chars except *
+      const regexPattern = pattern
+        .replace(/[.+?^${}()|[\]\\]/g, '\\$&')
+        .replace(/\*/g, '.*');
+      try {
+        return new RegExp('^' + regexPattern + '$', 'i').test(text);
+      } catch {
+        return false;
+      }
+    }
+
+    // Check if action matches hardline blocklist
+    function checkHardlineBlocklist(actionText) {
+      const sm = appState.safeMode;
+      if (!sm || !sm.hardlineBlocklist) return { blocked: false };
+      
+      for (const pattern of sm.hardlineBlocklist) {
+        // Hardline uses simple substring match (case-insensitive) for critical patterns
+        if (actionText.toLowerCase().includes(pattern.toLowerCase())) {
+          return { 
+            blocked: true, 
+            reason: `Hardline blocklist match: "${pattern}"`,
+            pattern,
+            level: 'hardline'
+          };
+        }
+      }
+      return { blocked: false };
+    }
+
+    // Check if action matches user deny rules (glob patterns)
+    function checkDenyRules(actionText) {
+      const sm = appState.safeMode;
+      if (!sm || !sm.denyRules) return { blocked: false };
+      
+      for (const pattern of sm.denyRules) {
+        if (matchGlob(pattern, actionText)) {
+          return { 
+            blocked: true, 
+            reason: `Deny rule match: "${pattern}"`,
+            pattern,
+            level: 'deny-rule'
+          };
+        }
+      }
+      return { blocked: false };
+    }
+
+    // Smart mode auxiliary risk judge
+    // Returns: { allow: boolean, reason: string, risk: 'low'|'medium'|'high'|'critical' }
+    async function smartModeJudge(actionText, actionType) {
+      // Quick heuristic classification for common destructive actions
+      const criticalPatterns = [
+        /delete\s+(project|all|database|repo)/i,
+        /rm\s+-rf\s+\//i,
+        /git\s+push\s+--force/i,
+        /(send|expose|leak|share)\s+(provider|api)\s+key/i,
+        /overwrite\s+9router/i,
+        /(curl|wget)\s+.*\|\s*sh/i,
+        /drop\s+table/i,
+        /purge\s+database/i,
+        /sudo\s+/i
+      ];
+
+      const highRiskPatterns = [
+        /delete\s+/i,
+        /remove\s+/i,
+        /git\s+push/i,
+        /deploy\s+(production|prod)/i,
+        /publish\s+/i,
+        /spend\s+/i,
+        /pay\s+/i,
+        /purchase\s+/i,
+        /encrypt|decrypt/i,
+        /auth\s+(system|design)/i,
+        /security\s+hardening/i,
+        /migration/i
+      ];
+
+      const lowRiskPatterns = [
+        /create\s+/i,
+        /add\s+/i,
+        /update\s+/i,
+        /modify\s+/i,
+        /edit\s+/i,
+        /write\s+/i,
+        /read\s+/i,
+        /browse\s+/i,
+        /search\s+/i,
+        /analyze\s+/i
+      ];
+
+      // Check critical first
+      for (const pattern of criticalPatterns) {
+        if (pattern.test(actionText)) {
+          return { 
+            allow: false, 
+            reason: `Critical risk detected: ${actionText.slice(0, 100)}`, 
+            risk: 'critical',
+            actionText,
+            actionType
+          };
+        }
+      }
+
+      // Check high risk
+      for (const pattern of highRiskPatterns) {
+        if (pattern.test(actionText)) {
+          return { 
+            allow: false, // In smart mode, high risk = escalate to user
+            reason: `High risk detected, requires your approval: ${actionText.slice(0, 100)}`, 
+            risk: 'high',
+            actionText,
+            actionType
+          };
+        }
+      }
+
+      // Check low risk (auto-approve)
+      for (const pattern of lowRiskPatterns) {
+        if (pattern.test(actionText)) {
+          return { 
+            allow: true, 
+            reason: `Low risk, auto-approved: ${actionText.slice(0, 100)}`, 
+            risk: 'low',
+            actionText,
+            actionType
+          };
+        }
+      }
+
+      // Default: medium risk, escalate
+      return { 
+        allow: false, 
+        reason: `Uncertain risk, escalating to you: ${actionText.slice(0, 100)}`, 
+        risk: 'medium',
+        actionText,
+        actionType
+      };
+    }
+
+    // Main approval ladder function
+    // Returns: { allowed: boolean, reason: string, requiresUserInput: boolean, decision: object }
+    async function runApprovalLadder(actionText, actionType) {
+      const sm = appState.safeMode;
+      if (!sm) return { allowed: true, reason: 'Safe Mode not initialized', requiresUserInput: false };
+
+      // Step 1: Hardline blocklist (NEVER overridden)
+      const hardlineCheck = checkHardlineBlocklist(actionText);
+      if (hardlineCheck.blocked) {
+        logActivity(`🛑 BLOCKED (Hardline): ${hardlineCheck.reason}`, 'error');
+        return { 
+          allowed: false, 
+          reason: hardlineCheck.reason, 
+          requiresUserInput: false, 
+          decision: { level: 'hardline', ...hardlineCheck } 
+        };
+      }
+
+      // Step 2: User deny rules (block before YOLO)
+      const denyCheck = checkDenyRules(actionText);
+      if (denyCheck.blocked) {
+        logActivity(`🛑 BLOCKED (Deny Rule): ${denyCheck.reason}`, 'error');
+        return { 
+          allowed: false, 
+          reason: denyCheck.reason, 
+          requiresUserInput: false, 
+          decision: { level: 'deny-rule', ...denyCheck } 
+        };
+      }
+
+      // Step 3: Approval mode
+      switch (sm.approvalMode) {
+        case 'off': // YOLO - everything allowed (past hardline + deny rules)
+          logActivity(`✅ AUTO-APPROVED (YOLO): ${actionText.slice(0, 80)}`, 'success');
+          return { 
+            allowed: true, 
+            reason: 'YOLO mode: auto-approved', 
+            requiresUserInput: false, 
+            decision: { level: 'yolo', actionText, actionType } 
+          };
+
+        case 'manual': // Always ask
+          const userConfirm = confirm(`⚠️ Manual approval required:\n\n${actionText}\n\nAllow this action?`);
+          if (userConfirm) {
+            logActivity(`✅ APPROVED (Manual): ${actionText.slice(0, 80)}`, 'success');
+            return { 
+              allowed: true, 
+              reason: 'User approved (manual mode)', 
+              requiresUserInput: true, 
+              decision: { level: 'manual', approved: true, actionText, actionType } 
+            };
+          } else {
+            logActivity(`🛑 DENIED (Manual): ${actionText.slice(0, 80)}`, 'warning');
+            return { 
+              allowed: false, 
+              reason: 'User denied (manual mode)', 
+              requiresUserInput: true, 
+              decision: { level: 'manual', approved: false, actionText, actionType } 
+            };
+          }
+
+        case 'smart':
+        default: // Smart mode - auxiliary judges risk
+          const smartDecision = await smartModeJudge(actionText, actionType);
+          sm.lastSmartDecision = smartDecision;
+          saveAppState();
+          renderSmartDecisionDisplay();
+          
+          if (smartDecision.allow) {
+            logActivity(`✅ AUTO-APPROVED (Smart): ${smartDecision.reason}`, 'success');
+            return { 
+              allowed: true, 
+              reason: smartDecision.reason, 
+              requiresUserInput: false, 
+              decision: { level: 'smart', ...smartDecision } 
+            };
+          } else {
+            // Escalate to user for high/medium/critical risk
+            const userConfirm = confirm(`🤔 Smart Mode — ${smartDecision.risk.toUpperCase()} RISK:\n\n${smartDecision.reason}\n\nAllow this action?`);
+            if (userConfirm) {
+              logActivity(`✅ APPROVED (Smart → User): ${actionText.slice(0, 80)}`, 'success');
+              return { 
+                allowed: true, 
+                reason: 'User approved after smart escalation', 
+                requiresUserInput: true, 
+                decision: { level: 'smart-escalated', approved: true, ...smartDecision } 
+              };
+            } else {
+              logActivity(`🛑 DENIED (Smart → User): ${actionText.slice(0, 80)}`, 'warning');
+              return { 
+                allowed: false, 
+                reason: 'User denied after smart escalation', 
+                requiresUserInput: true, 
+                decision: { level: 'smart-escalated', approved: false, ...smartDecision } 
+              };
+            }
+          }
+      }
+    }
+
+    // Wrapper for human checkpoints to use the approval ladder
+    async function requestHumanCheckpointWithApproval(reason, actionText, actionType) {
+      // First run the approval ladder
+      const approvalResult = await runApprovalLadder(actionText || reason, actionType);
+      
+      // If approval ladder allows, no need for human checkpoint
+      if (approvalResult.allowed && !approvalResult.requiresUserInput) {
+        return { approved: true, userNote: null, approval: approvalResult };
+      }
+      
+      // If approval ladder denied, return denied
+      if (!approvalResult.allowed) {
+        return { approved: false, userNote: approvalResult.reason, approval: approvalResult };
+      }
+      
+      // If approval ladder requires user input (manual or smart escalation), 
+      // the user has already been prompted, so return that result
+      if (approvalResult.requiresUserInput) {
+        return { 
+          approved: approvalResult.decision.approved, 
+          userNote: approvalResult.decision.approved ? null : approvalResult.reason, 
+          approval: approvalResult 
+        };
+      }
+      
+      // Fallback to original human checkpoint for big decisions
+      return requestHumanCheckpoint(reason);
+    }
+
+    // Check if action is a "destructive agent action" that needs approval
+    function isDestructiveAction(actionText, actionType) {
+      const destructivePatterns = [
+        /delete/i,
+        /remove/i,
+        /purge/i,
+        /drop\s+table/i,
+        /git\s+push/i,
+        /deploy/i,
+        /publish/i,
+        /spend/i,
+        /pay/i,
+        /purchase/i,
+        /provider\s+key/i,
+        /api\s+key/i,
+        /encrypt|decrypt/i,
+        /sudo/i,
+        /curl.*\|.*sh/i,
+        /wget.*\|.*sh/i,
+        /rm\s+-rf/i
+      ];
+      
+      return destructivePatterns.some(p => p.test(actionText || ''));
     }
 
     // Render Project Rules tab
@@ -9951,7 +10596,7 @@ CURRENT VIRTUAL FILES:
       return html;
     }
 
-    function parseAndApplyBlocks(responseText) {
+    async function parseAndApplyBlocks(responseText) {
           const session = getCurrentSession();
 
           // READ-ONLY PLAN MODE GUARD: Block all file/VFS mutations in strict read-only plan mode
@@ -10038,6 +10683,31 @@ CURRENT VIRTUAL FILES:
         const actionType = match[1];
         const targetPath = match[2].trim();
         const blockContent = match[3];
+
+        // Safe Mode v2: Run approval ladder for destructive actions BEFORE executing
+        if (actionType === 'file' || actionType === 'delete') {
+          const actionDesc = actionType === 'delete' 
+            ? `Delete file: ${targetPath}`
+            : `Write file: ${targetPath}`;
+          
+          const approval = await runApprovalLadder(actionDesc, actionType);
+          if (!approval.allowed) {
+            const msg = `🛑 BLOCKED by Safe Mode (${approval.decision.level}): ${approval.reason}`;
+            logActivity(msg, 'error');
+            chips.push({ type: 'blocked', label: `Blocked: ${targetPath} (${approval.decision.level})` });
+            continue; // Skip this action
+          }
+          if (approval.requiresUserInput && !approval.decision.approved) {
+            const msg = `🛑 DENIED by user: ${actionDesc}`;
+            logActivity(msg, 'warning');
+            chips.push({ type: 'blocked', label: `Denied: ${targetPath}` });
+            continue; // Skip this action
+          }
+          // Log approval decision for audit trail
+          if (approval.decision.level !== 'yolo') {
+            logActivity(`✅ Safe Mode approval: ${approval.decision.level} — ${actionDesc}`, 'info');
+          }
+        }
 
         if (actionType === 'file') {
           if (isBrainNotePath(targetPath)) {
@@ -10293,7 +10963,7 @@ CURRENT VIRTUAL FILES:
 
       // Attach event handlers
       container.querySelectorAll('.btn-accept-file').forEach(btn => {
-        btn.onclick = () => acceptFileChange(btn.getAttribute('data-path'));
+        btn.onclick = async () => await acceptFileChange(btn.getAttribute('data-path'));
       });
       container.querySelectorAll('.btn-reject-file').forEach(btn => {
         btn.onclick = () => rejectFileChange(btn.getAttribute('data-path'));
@@ -10301,7 +10971,7 @@ CURRENT VIRTUAL FILES:
     }
 
     // Accept a single file change
-    function acceptFileChange(path) {
+    async function acceptFileChange(path) {
       if (!appState.pendingChanges) return;
       
       const change = appState.pendingChanges.changes.find(c => c.path === path);
@@ -10309,7 +10979,31 @@ CURRENT VIRTUAL FILES:
       
       const session = getCurrentSession();
       if (!session) return;
+
+      // Safe Mode v2: Run approval ladder before accepting
+      const actionDesc = change.action === 'delete' 
+        ? `Delete file: ${path}`
+        : change.action === 'create'
+          ? `Create file: ${path}`
+          : `Modify file: ${path}`;
       
+      const approval = await runApprovalLadder(actionDesc, change.action === 'delete' ? 'delete' : 'file');
+      if (!approval.allowed) {
+        const msg = `🛑 BLOCKED by Safe Mode (${approval.decision.level}): ${approval.reason}`;
+        logActivity(msg, 'error');
+        alert(msg);
+        return;
+      }
+      if (approval.requiresUserInput && !approval.decision.approved) {
+        const msg = `🛑 DENIED by user: ${actionDesc}`;
+        logActivity(msg, 'warning');
+        alert(msg);
+        return;
+      }
+      if (approval.decision.level !== 'yolo') {
+        logActivity(`✅ Safe Mode approval: ${approval.decision.level} — ${actionDesc}`, 'info');
+      }
+
       // Apply the change
       if (change.action === 'delete') {
         delete session.files[path];
@@ -10382,8 +11076,50 @@ CURRENT VIRTUAL FILES:
       
       const session = getCurrentSession();
       if (!session) return;
+
+      // Safe Mode v2: Run approval ladder for all changes
+      // We need to check each change and apply only approved ones
+      const approvedChanges = [];
+      const blockedChanges = [];
       
-      appState.pendingChanges.changes.forEach(change => {
+      for (const change of appState.pendingChanges.changes) {
+        const actionDesc = change.action === 'delete' 
+          ? `Delete file: ${change.path}`
+          : change.action === 'create'
+            ? `Create file: ${change.path}`
+            : `Modify file: ${change.path}`;
+        
+        const approval = await runApprovalLadder(actionDesc, change.action === 'delete' ? 'delete' : 'file');
+        if (!approval.allowed) {
+          const msg = `🛑 BLOCKED by Safe Mode (${approval.decision.level}): ${approval.reason}`;
+          logActivity(msg, 'error');
+          blockedChanges.push({ path: change.path, reason: approval.reason });
+          continue;
+        }
+        if (approval.requiresUserInput && !approval.decision.approved) {
+          const msg = `🛑 DENIED by user: ${actionDesc}`;
+          logActivity(msg, 'warning');
+          blockedChanges.push({ path: change.path, reason: 'User denied' });
+          continue;
+        }
+        if (approval.decision.level !== 'yolo') {
+          logActivity(`✅ Safe Mode approval: ${approval.decision.level} — ${actionDesc}`, 'info');
+        }
+        approvedChanges.push(change);
+      }
+
+      if (blockedChanges.length > 0) {
+        alert(`Safe Mode blocked ${blockedChanges.length} change(s):\n` + 
+          blockedChanges.map(b => `  ${b.path}: ${b.reason}`).join('\n'));
+      }
+
+      if (approvedChanges.length === 0) {
+        logActivity('No changes approved by Safe Mode', 'warning');
+        return;
+      }
+
+      // Apply approved changes
+      approvedChanges.forEach(change => {
         if (change.action === 'delete') {
           delete session.files[change.path];
           if (isBrainNotePath(change.path)) rebuildBrainIndex(session);
@@ -10402,11 +11138,11 @@ CURRENT VIRTUAL FILES:
         }
       });
       
-      logActivity(`Accepted all ${appState.pendingChanges.changes.length} changes`, 'success');
+      logActivity(`Accepted ${approvedChanges.length} of ${appState.pendingChanges.changes.length} changes (${blockedChanges.length} blocked)`, 'success');
       
       // Teach Mode: generate Bangla explanation for accepted changes
-      if (appState.teachMode && appState.pendingChanges.changes.length > 0) {
-        const explanationHtml = generateBanglaExplanation(appState.pendingChanges.changes);
+      if (appState.teachMode && approvedChanges.length > 0) {
+        const explanationHtml = generateBanglaExplanation(approvedChanges);
         if (explanationHtml) {
           setTimeout(() => {
             const contentEl = document.getElementById('teachContent');
@@ -10839,7 +11575,7 @@ async function sendAgentPrompt(userPrompt, autoTurn = 0) {
 
         session.chatHistory.push({ role: 'assistant', content: reply });
 
-        const { chips, fileModified, toolsUsed, noteReads } = parseAndApplyBlocks(reply);
+        const { chips, fileModified, toolsUsed, noteReads } = await parseAndApplyBlocks(reply);
         appendChatMessage('agent', reply, chips, toolsUsed);
 
         // Brain v2: notes fetched via brain-read are injected on the next turn
@@ -11759,7 +12495,7 @@ Rules:
 
         session.chatHistory.push({ role: 'assistant', content: reply });
         
-        const { chips, fileModified, toolsUsed } = parseAndApplyBlocks(reply);
+        const { chips, fileModified, toolsUsed, noteReads } = await parseAndApplyBlocks(reply);
         appendChatMessage('agent', reply, chips, toolsUsed);
 
         if (fileModified) {
@@ -14013,7 +14749,7 @@ Requirements:
         const reply = await callLLMWithFallback(messages);
 
         // Parse and apply the generated files
-        const { chips, fileModified, toolsUsed } = parseAndApplyBlocks(reply);
+        const { chips, fileModified, toolsUsed, noteReads } = await parseAndApplyBlocks(reply);
         
         if (fileModified) {
           refreshPreview();
@@ -15045,7 +15781,7 @@ Requirements:
       // Diff Review panel handlers
       const btnAcceptAll = document.getElementById('btnAcceptAllChanges');
       const btnRejectAll = document.getElementById('btnRejectAllChanges');
-      if (btnAcceptAll) btnAcceptAll.onclick = acceptAllChanges;
+      if (btnAcceptAll) btnAcceptAll.onclick = async () => await acceptAllChanges();
       if (btnRejectAll) btnRejectAll.onclick = rejectAllChanges;
 
       setupEditorListeners();
@@ -16887,7 +17623,7 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
         recordAgentUsage(agent, Date.now() - v2T0, v2PromptChars, (response || '').length);
 
         // Parse and apply any file blocks
-        const { chips, fileModified, toolsUsed } = parseAndApplyBlocks(response);
+        const { chips, fileModified, toolsUsed, noteReads } = await parseAndApplyBlocks(response);
 
         // Return summary for presentation
         const summary = response.replace(/```(file|delete|browse):[\s\S]*?```/g, '').trim();
@@ -17072,7 +17808,7 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
             if (!tryTaskDoneTransition(task, 'idle-done')) {
               appendTeamChat('status', task.owner, 'Rework finished but GATE BLOCKED — missing: ' + task.gate.missing.join(', '));
             }
-            const { chips, fileModified } = parseAndApplyBlocks(newOutput);
+            const { chips, fileModified, toolsUsed, noteReads } = await parseAndApplyBlocks(newOutput);
             logActivity(`${agent.name} completed rework for ${task.title}`, 'success');
           } catch (err) {
             logActivity(`Rework failed for ${agent.name}: ${err.message}`, 'error');
@@ -17424,7 +18160,7 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
 
       try {
         const response = await callLLMWithFallback(messages);
-        const { chips, fileModified, toolsUsed } = parseAndApplyBlocks(response);
+        const { chips, fileModified, toolsUsed, noteReads } = await parseAndApplyBlocks(response);
         const summary = response.replace(/```(file|delete|browse|spawn):[\s\S]*?```/g, '').trim();
         return { summary: summary || 'Sub-task completed (see file changes)', toolsUsed };
       } catch (err) {
@@ -18226,12 +18962,13 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
       }
     }
 
-    // ---------- Human checkpoints: ONLY on big decisions ----------
+    // ---------- Human checkpoints: ONLY on big decisions ----------  -- MODIFIED FOR SAFE MODE v2
     function isBigDecision(text) {
       return /\b(architect|architecture|database schema|delete all|purge|drop table|migration|spend|budget|pay|purchase|api key|encryption|auth system|auth design|deploy|production|security hardening)\b/i.test(text || '');
     }
 
-    function requestHumanCheckpoint(reason) {
+    // Original human checkpoint (kept for fallback)
+    function requestHumanCheckpointOriginal(reason) {
       return new Promise(resolve => {
         const v2 = getTeamV2();
         v2.checkpoints.push({ reason, answer: null, at: Date.now() });
@@ -18258,6 +18995,38 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
         }
         recordSessionEvent('checkpoint', 'HUMAN CHECKPOINT requested: ' + reason);
       });
+    }
+
+    // Safe Mode v2: Human checkpoint with approval ladder integration
+    async function requestHumanCheckpoint(reason, actionText, actionType) {
+      // Run the approval ladder first
+      const approvalResult = await runApprovalLadder(actionText || reason, actionType);
+      
+      // If approval ladder allows without user input, auto-approve
+      if (approvalResult.allowed && !approvalResult.requiresUserInput) {
+        recordSessionEvent('checkpoint', 'AUTO-APPROVED by Safe Mode: ' + reason + ' (' + approvalResult.decision.level + ')');
+        return { approved: true, userNote: null, approval: approvalResult };
+      }
+      
+      // If approval ladder denied, return denied
+      if (!approvalResult.allowed) {
+        recordSessionEvent('checkpoint', 'BLOCKED by Safe Mode: ' + reason + ' (' + approvalResult.decision.level + ')');
+        return { approved: false, userNote: approvalResult.reason, approval: approvalResult };
+      }
+      
+      // If approval ladder required user input (manual/smart-escalated), user was already prompted
+      if (approvalResult.requiresUserInput) {
+        const approved = approvalResult.decision.approved;
+        recordSessionEvent('checkpoint', (approved ? 'APPROVED' : 'DENIED') + ' by user via Safe Mode: ' + reason + ' (' + approvalResult.decision.level + ')');
+        return { 
+          approved, 
+          userNote: approved ? null : approvalResult.reason, 
+          approval: approvalResult 
+        };
+      }
+      
+      // Fallback to original human checkpoint for big decisions not caught by approval ladder
+      return requestHumanCheckpointOriginal(reason);
     }
 
     // ---------- Architecture voting: agents vote, user sees tally + winner ----------
