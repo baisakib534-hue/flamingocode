@@ -2545,6 +2545,7 @@
         <div class="form-group" id="groupApiKey">
           <label class="form-label">API Key Pool</label>
           <div id="keyPoolContainer" style="display: flex; flex-direction: column; gap: 6px;">
+            <!-- MARKER: credential pool — provider entry holds MULTIPLE keys with rotation strategy picker -->
             <div style="display: flex; gap: 6px; align-items: center;">
               <input type="password" id="providerApiKey" class="form-input" placeholder="Bearer token or API Key" style="flex: 1;" />
               <button type="button" class="btn" id="btnAddKeyToPool" style="padding: 6px 10px; font-size: 11px;">Add Key</button>
@@ -3041,17 +3042,22 @@
         contextWindow: 128000
       },
       'openrouter': {
-        name: 'OpenRouter',
-        type: 'openai-compatible',
-        baseUrl: 'https://openrouter.ai/api/v1',
-        model: 'openai/gpt-4o-mini',
-        apiKey: '',
-        authStyle: 'bearer',
-        customHeaders: { 'HTTP-Referer': 'https://devforge.app', 'X-Title': 'DevForge' },
-        corsProxy: '',
-        streaming: true,
-        contextWindow: 128000
-      },
+              name: 'OpenRouter',
+              type: 'openai-compatible',
+              baseUrl: 'https://openrouter.ai/api/v1',
+              model: 'openai/gpt-4o-mini',
+              apiKey: 'YOUR_OPENROUTER_KEY',
+              keyPool: [
+                { id: 'key_1', key: 'sk-or-v1-first-key...', health: 'healthy', lastUsed: 0, usageCount: 0, benchedModels: [], cooldownUntil: 0 },
+                { id: 'key_2', key: 'sk-or-v1-second-key...', health: 'healthy', lastUsed: 0, usageCount: 0, benchedModels: [], cooldownUntil: 0 }
+              ],
+              rotationStrategy: 'round_robin',
+              authStyle: 'bearer',
+              customHeaders: { 'HTTP-Referer': 'https://devforge.app', 'X-Title': 'DevForge' },
+              corsProxy: '',
+              streaming: true,
+              contextWindow: 128000
+            },
       'groq': {
         name: 'Groq',
         type: 'openai-compatible',
@@ -12592,6 +12598,7 @@ Format:
     }
 
     function getKeyHealthClass(health) {
+      // MARKER: per-key health — healthy / cooling down until HH:MM / benched for model X / dead
       switch (health) {
         case 'healthy': return 'health-healthy';
         case 'cooling': return 'health-cooling';
@@ -12638,49 +12645,75 @@ Format:
     }
 
     // Key pool selection logic
-    function getNextKeyFromPool(provider) {
-      const keyPool = provider.keyPool || [];
-      if (keyPool.length === 0) return null;
-      
-      const healthyKeys = keyPool.filter(k => k.health === 'healthy');
-      const coolingKeys = keyPool.filter(k => k.health === 'cooling' && k.cooldownUntil <= Date.now());
-      const availableKeys = [...healthyKeys, ...coolingKeys];
-      
-      // Restore keys whose cooldown has expired
-      coolingKeys.forEach(k => {
-        k.health = 'healthy';
-        k.cooldownUntil = 0;
-      });
-      
-      if (availableKeys.length === 0) return null;
-      
-      const strategy = provider.rotationStrategy || 'fill_first';
-      
-      switch (strategy) {
-        case 'fill_first':
-          // Use first available key until it fails
-          return availableKeys[0];
-          
-        case 'round_robin':
-          // Find the key with oldest lastUsed
-          return availableKeys.reduce((oldest, key) => 
-            key.lastUsed < oldest.lastUsed ? key : oldest
+        function getNextKeyFromPool(provider) {
+          // MARKER: key rotation — strategy picker: fill_first / round_robin / least_used / random
+          const keyPool = provider.keyPool || [];
+          if (keyPool.length === 0) return null;
+
+          const currentModel = provider.model;
+          const now = Date.now();
+
+          // Filter keys: healthy, cooling (expired), benched (not for current model OR bench expired)
+          const healthyKeys = keyPool.filter(k => k.health === 'healthy');
+          const coolingKeys = keyPool.filter(k => k.health === 'cooling' && k.cooldownUntil <= now);
+          const benchedKeys = keyPool.filter(k => 
+            k.health === 'benched' && 
+            k.benchedModels && 
+            k.benchedModels.length > 0 && 
+            (!k.benchedModels.includes(currentModel) || (k.benchedUntil && k.benchedUntil <= now))
           );
-          
-        case 'least_used':
-          // Use key with lowest usageCount
-          return availableKeys.reduce((least, key) => 
-            key.usageCount < least.usageCount ? key : least
-          );
-          
-        case 'random':
-          // Random selection from available keys
-          return availableKeys[Math.floor(Math.random() * availableKeys.length)];
-          
-        default:
-          return availableKeys[0];
-      }
-    }
+
+          const availableKeys = [...healthyKeys, ...coolingKeys, ...benchedKeys];
+
+          // Restore keys whose cooldown has expired
+          coolingKeys.forEach(k => {
+            k.health = 'healthy';
+            k.cooldownUntil = 0;
+          });
+
+          // Restore benched keys whose bench cooldown has expired
+          keyPool.forEach(k => {
+            if (k.health === 'benched' && k.benchedUntil && k.benchedUntil <= now) {
+              k.health = 'healthy';
+              k.benchedModels = [];
+              k.benchedUntil = 0;
+            }
+            // Also restore if no more benched models
+            if (k.health === 'benched' && (!k.benchedModels || k.benchedModels.length === 0)) {
+              k.health = 'healthy';
+              k.benchedUntil = 0;
+            }
+          });
+
+          if (availableKeys.length === 0) return null;
+
+          const strategy = provider.rotationStrategy || 'fill_first';
+
+          switch (strategy) {
+            case 'fill_first':
+              // Use first available key until it fails
+              return availableKeys[0];
+
+            case 'round_robin':
+              // Find the key with oldest lastUsed
+              return availableKeys.reduce((oldest, key) =>
+                key.lastUsed < oldest.lastUsed ? key : oldest
+              );
+
+            case 'least_used':
+              // Use key with lowest usageCount
+              return availableKeys.reduce((least, key) =>
+                key.usageCount < least.usageCount ? key : least
+              );
+
+            case 'random':
+              // Random selection from available keys
+              return availableKeys[Math.floor(Math.random() * availableKeys.length)];
+
+            default:
+              return availableKeys[0];
+          }
+        }
 
     function markKeyHealth(provider, keyId, health, model = null) {
       const keyPool = provider.keyPool || [];
@@ -12703,6 +12736,7 @@ Format:
               key.benchedModels.push(model);
             }
           }
+          key.benchedUntil = now + 60 * 60 * 1000; // 1 hour bench cooldown
           break;
           
         case 'dead':
@@ -12747,19 +12781,27 @@ Format:
     }
 
     function applyPresetToForm(presetKey) {
-      const preset = PROVIDER_PRESETS[presetKey];
-      if (!preset) return;
-      
-      document.getElementById('providerName').value = preset.name;
-      document.getElementById('providerType').value = preset.type;
-      document.getElementById('providerBaseUrl').value = preset.baseUrl;
-      document.getElementById('providerModel').value = preset.model;
-      document.getElementById('providerApiKey').value = preset.apiKey;
-      document.getElementById('providerAuthStyle').value = preset.authStyle;
-      document.getElementById('providerCustomHeaders').value = preset.customHeaders ? JSON.stringify(preset.customHeaders, null, 2) : '';
-      document.getElementById('providerCorsProxy').value = preset.corsProxy;
-      document.getElementById('providerStreaming').checked = preset.streaming;
-    }
+          const preset = PROVIDER_PRESETS[presetKey];
+          if (!preset) return;
+
+          document.getElementById('providerName').value = preset.name;
+          document.getElementById('providerType').value = preset.type;
+          document.getElementById('providerBaseUrl').value = preset.baseUrl;
+          document.getElementById('providerModel').value = preset.model;
+          document.getElementById('providerApiKey').value = preset.apiKey || '';
+          document.getElementById('providerAuthStyle').value = preset.authStyle;
+          document.getElementById('providerCustomHeaders').value = preset.customHeaders ? JSON.stringify(preset.customHeaders, null, 2) : '';
+          document.getElementById('providerCorsProxy').value = preset.corsProxy || '';
+          document.getElementById('providerStreaming').checked = preset.streaming !== false;
+          document.getElementById('providerContextWindow').value = preset.contextWindow || '';
+
+          // Load key pool from preset
+          const keyPool = preset.keyPool || [];
+          if (keyPool.length > 0) {
+            renderKeyPoolList(keyPool);
+          }
+          document.getElementById('providerRotationStrategy').value = preset.rotationStrategy || 'fill_first';
+        }
 
     function saveProvider() {
           const name = document.getElementById('providerName').value.trim();
