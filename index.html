@@ -12733,7 +12733,7 @@ Format:
         }
       });
       
-      document.getElementById('btnRefreshFallbackChain')?.onclick = () => {
+      document.getElementById('btnRefreshFallbackChain').onclick = () => {
         buildProviderFallbackChain();
         renderProviderFallbackChain();
         logActivity('Provider fallback chain refreshed', 'success');
