@@ -1702,6 +1702,9 @@
             <button class="remove-image" id="btnRemoveImage" title="Remove image" aria-label="Remove image">✕</button>
           </div>
 
+          <!-- H5.3: Attachment chips (show attached files/folders/diff/url) -->
+          <div id="attachChips" class="attach-chips" style="display: none; flex-wrap: wrap; gap: 6px; padding: 4px 12px; font-size: 12px;"></div>
+
           <div class="chat-input-wrapper">
             <input type="text" id="chatInput" class="chat-input" placeholder="Ask agent to build, edit, or fix..." data-i18n-placeholder="Ask agent to build, edit, or fix..." />
             <button class="btn btn-secondary image-upload-btn" id="btnImageUpload" title="Upload screenshot or mockup (paste, drag & drop, or click)" data-i18n-title="Upload Image">🖼</button>
@@ -1714,6 +1717,43 @@
               <option value="bn-BD">Bangla (বাংলা)</option>
             </select>
             <button class="btn" id="btnSend" data-i18n="Send">Send</button>
+          </div>
+
+          <!-- H5.3: @-attach picker overlay -->
+          <div id="attachPicker" class="attach-picker-overlay" style="display: none; position: absolute; bottom: 100%; left: 0; right: 0; background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 8px 8px 0 0; box-shadow: 0 -4px 16px rgba(0,0,0,0.2); z-index: 100; max-height: 300px; overflow: hidden;">
+            <div style="padding: 8px 12px; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;" data-i18n="Attach">Attach</span>
+              <input type="text" id="attachSearch" placeholder="Filter files, folders..." style="flex: 1; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-main); font-size: 11px; padding: 4px 8px;" data-i18n-placeholder="Filter files, folders..." />
+              <button class="btn btn-secondary" id="btnAttachUrl" style="padding: 4px 8px; font-size: 11px;" data-i18n="Attach URL">🔗</button>
+            </div>
+            <div style="display: flex; flex: 1; overflow: hidden;">
+              <!-- Files tab -->
+              <div id="attachFilesTab" class="attach-picker-tab" style="flex: 1; overflow-y: auto; padding: 8px; display: none; flex-direction: column; gap: 2px;">
+                <div id="attachPickerFiles" style="display: flex; flex-direction: column; gap: 2px;"></div>
+                <div id="attachNoFiles" style="font-size: 11px; color: var(--text-dim); padding: 8px; text-align: center; display: none;" data-i18n="No files to attach">No files to attach</div>
+              </div>
+              <!-- Folders tab -->
+              <div id="attachFoldersTab" class="attach-picker-tab" style="flex: 1; overflow-y: auto; padding: 8px; display: none; flex-direction: column; gap: 2px;">
+                <div id="attachPickerFolders" style="display: flex; flex-direction: column; gap: 2px;"></div>
+                <div id="attachNoFolders" style="font-size: 11px; color: var(--text-dim); padding: 8px; text-align: center; display: none;" data-i18n="No folders to attach">No folders to attach</div>
+              </div>
+              <!-- Diff tab -->
+              <div id="attachDiffTab" class="attach-picker-tab" style="flex: 1; overflow-y: auto; padding: 8px; display: none; flex-direction: column; gap: 2px;">
+                <div id="attachPickerDiff" style="display: flex; flex-direction: column; gap: 2px;"></div>
+                <div id="attachNoDiff" style="font-size: 11px; color: var(--text-dim); padding: 8px; text-align: center; display: none;" data-i18n="No diff to attach">No diff to attach</div>
+              </div>
+              <!-- URL tab -->
+              <div id="attachUrlTab" class="attach-picker-tab" style="flex: 1; overflow-y: auto; padding: 8px; display: none; flex-direction: column; gap: 8px;">
+                <div id="attachPickerUrl" style="display: flex; flex-direction: column; gap: 4px;">
+                  <label style="font-size: 11px; color: var(--text-muted);" data-i18n="Enter URL to attach">Enter URL to attach</label>
+                  <input type="url" id="attachUrlInput" class="form-input" placeholder="https://example.com/doc.md" style="width: 100%;" data-i18n-placeholder="https://example.com/doc.md" />
+                  <button class="btn" id="btnAttachUrlConfirm" style="align-self: flex-end;" data-i18n="Attach URL">Attach URL</button>
+                </div>
+              </div>
+            </div>
+            <div style="padding: 8px 12px; border-top: 1px solid var(--border-color); display: flex; gap: 4px; justify-content: flex-end;">
+              <button class="btn btn-secondary" id="btnAttachPickerClose" style="font-size: 11px;" data-i18n="Close">Close</button>
+            </div>
           </div>
         </div>
 
@@ -4959,6 +4999,20 @@ WORK STYLE:
         'Review Import': 'আমদানি রিভিউ করুন',
         'Security scan passed. Review the items below before importing.': 'সিকিউরিটি স্ক্যান পাস করেছে। আমদানি করার আগে নিচের আইটেমগুলো রিভিউ করুন।',
         'Confirm Import': 'আমদানি নিশ্চিত করুন',
+
+        // Chat @-attach (H5.3)
+        'Attach': 'সংযুক্ত করুন',
+        'Attach File': 'ফাইল সংযুক্ত করুন',
+        'Attach Folder': 'ফোল্ডার সংযুক্ত করুন',
+        'Attach Diff': 'ডিফ সংযুক্ত করুন',
+        'Attach URL': 'URL সংযুক্ত করুন',
+        'Attachments': 'সংযুক্তি',
+        'Attach a file, folder, diff, or URL': 'একটি ফাইল, ফোল্ডার, ডিফ, বা URL সংযুক্ত করুন',
+        'No files to attach': 'সংযুক্ত করার জন্য কোনো ফাইল নেই',
+        'No folders to attach': 'সংযুক্ত করার জন্য কোনো ফোল্ডার নেই',
+        'Current diff attached': 'বর্তমান ডিফ সংযুক্ত',
+        'Enter URL to attach': 'সংযুক্ত করার জন্য URL লিখুন',
+        'Remove attachment': 'সংযোগ বিচ্ছিন্ন করুন',
       }
     };
 
@@ -15696,9 +15750,25 @@ async function sendAgentPrompt(userPrompt, autoTurn = 0) {
       agentWorking = true;
       const session = getCurrentSession();
 
+      // H5.3: Add attachment context to user prompt (only on first turn)
+      let promptWithAttachments = userPrompt;
+      if (autoTurn === 0) {
+        const attachContext = buildAttachPromptContext();
+        if (attachContext) {
+          promptWithAttachments = userPrompt + attachContext;
+        }
+      }
+
       if (autoTurn === 0) {
         appendChatMessage('user', userPrompt);
-        session.chatHistory.push({ role: 'user', content: userPrompt });
+        session.chatHistory.push({ role: 'user', content: promptWithAttachments });
+
+        // Clear attachments after adding to chat history
+        if (session.attachments && session.attachments.length > 0) {
+          session.attachments = [];
+          saveAppState();
+          renderAttachChips();
+        }
 
         // Auto-title session from first user message if using default name
         if (session.name.startsWith('Session ')) {
@@ -19697,6 +19767,400 @@ Format:
 
       // ==================== F4: VOICE BUILD MODE ====================
       setupVoiceBuild();
+
+      // ==================== H5.3: CHAT @-ATTACH ====================
+      setupChatAttachments();
+    }
+
+    // ==================== H5.3: CHAT @-ATTACH (Global Functions) ====================
+    // Attachment state is stored per-session in appState.sessions[sessionId].attachments
+
+    function ensureSessionAttachments() {
+      const session = getCurrentSession();
+      if (!session.attachments) {
+        session.attachments = [];
+      }
+      return session.attachments;
+    }
+
+    // Get all attachable files from current session
+    function getAttachableFiles() {
+      const session = getCurrentSession();
+      if (!session.files) return [];
+      return Object.entries(session.files)
+        .filter(([, f]) => f && typeof f === 'object' && f.content !== undefined)
+        .map(([path, f]) => ({ type: 'file', path, label: path, data: f.content }));
+    }
+
+    // Get all attachable folders from current session
+    function getAttachableFolders() {
+      const session = getCurrentSession();
+      if (!session.files) return [];
+      const folders = new Set();
+      Object.keys(session.files).forEach(path => {
+        const parts = path.split('/');
+        for (let i = 1; i < parts.length; i++) {
+          folders.add(parts.slice(0, i).join('/'));
+        }
+      });
+      return Array.from(folders).map(folderPath => ({
+        type: 'folder',
+        path: folderPath,
+        label: folderPath + '/',
+        data: { folderPath }
+      }));
+    }
+
+    // Get current diff if available
+    function getAttachableDiff() {
+      if (!appState.pendingChanges || !appState.pendingChanges.changes || appState.pendingChanges.changes.length === 0) {
+        return null;
+      }
+      return {
+        type: 'diff',
+        path: 'diff',
+        label: 'Current Diff (' + appState.pendingChanges.changes.length + ' changes)',
+        data: appState.pendingChanges
+      };
+    }
+
+    // Render attachment chips
+    function renderAttachChips() {
+      const container = document.getElementById('attachChips');
+      const attachments = ensureSessionAttachments();
+      if (attachments.length === 0) {
+        container.style.display = 'none';
+        container.innerHTML = '';
+        return;
+      }
+      container.style.display = 'flex';
+      container.innerHTML = attachments.map((att, idx) => `
+        <span class="attach-chip" style="display:inline-flex;align-items:center;gap:4px;background:var(--bg-surface);border:1px solid var(--border-color);border-radius:12px;padding:2px 8px 2px 6px;font-size:11px;color:var(--text-main);" data-idx="${idx}">
+          <span class="attach-chip-icon" style="font-size:10px;">${att.type === 'file' ? '📄' : att.type === 'folder' ? '📁' : att.type === 'diff' ? '🔍' : '🔗'}</span>
+          <span class="attach-chip-label" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(att.label)}</span>
+          <button class="attach-chip-remove" style="background:none;border:none;color:var(--text-dim);cursor:pointer;padding:0 2px;font-size:12px;line-height:1;" data-idx="${idx}" title="${t('Remove attachment')}">✕</button>
+        </span>
+      `).join('');
+      // Add remove handlers
+      container.querySelectorAll('.attach-chip-remove').forEach(btn => {
+        btn.onclick = (e) => {
+          e.stopPropagation();
+          const idx = parseInt(btn.getAttribute('data-idx'), 10);
+          removeAttachment(idx);
+        };
+      });
+    }
+
+    // Add attachment
+    function addAttachment(attachment) {
+      const attachments = ensureSessionAttachments();
+      // Valid attachment types
+      const validTypes = ['file', 'folder', 'diff', 'url'];
+      if (!validTypes.includes(attachment.type)) {
+        logActivity('Invalid attachment type: ' + attachment.type, 'warning');
+        return false;
+      }
+      // Prevent duplicates (same type + path/url)
+      const exists = attachments.some(a => a.type === attachment.type && a.path === attachment.path);
+      if (exists) return false;
+      attachments.push(attachment);
+      saveAppState();
+      renderAttachChips();
+      return true;
+    }
+
+    // Remove attachment by index
+    function removeAttachment(idx) {
+      const attachments = ensureSessionAttachments();
+      if (idx >= 0 && idx < attachments.length) {
+        attachments.splice(idx, 1);
+        saveAppState();
+        renderAttachChips();
+      }
+    }
+
+    // Attach current diff
+    function attachDiff() {
+      const diff = getAttachableDiff();
+      if (diff) {
+        addAttachment(diff);
+        closeAttachPicker();
+      }
+    }
+
+    // Attach URL
+    function attachUrl() {
+      const attachUrlInput = document.getElementById('attachUrlInput');
+      const url = attachUrlInput.value.trim();
+      if (!url) return;
+      try {
+        new URL(url); // validate
+      } catch (e) {
+        logActivity('Invalid URL', 'warning');
+        return;
+      }
+      const attachment = {
+        type: 'url',
+        path: url,
+        label: url,
+        data: { url }
+      };
+      if (addAttachment(attachment)) {
+        attachUrlInput.value = '';
+        closeAttachPicker();
+      }
+    }
+
+    // Build context string from attachments for prompt
+    function buildAttachPromptContext() {
+      const attachments = ensureSessionAttachments();
+      if (attachments.length === 0) return '';
+      let context = '\n\n--- ATTACHED CONTEXT ---\n';
+      attachments.forEach(att => {
+        context += '\n@' + att.label + '\n';
+        if (att.type === 'file') {
+          context += '```\n' + (att.data || '') + '\n```\n';
+        } else if (att.type === 'folder') {
+          context += '[Folder: ' + att.path + ']\n';
+        } else if (att.type === 'diff') {
+          context += '[Pending Diff]\n';
+          if (att.data && att.data.changes) {
+            att.data.changes.forEach(c => {
+              context += '--- ' + c.path + ' (' + c.action + ') ---\n';
+              if (c.oldContent) context += '-OLD-\n' + c.oldContent + '\n';
+              if (c.newContent) context += '+NEW+\n' + c.newContent + '\n';
+            });
+          }
+        } else if (att.type === 'url') {
+          context += '[URL: ' + att.data.url + ']\n';
+        }
+      });
+      context += '--- END ATTACHED CONTEXT ---\n';
+      return context;
+    }
+
+    // ==================== H5.3: CHAT @-ATTACH (Setup) ====================
+    function setupChatAttachments() {
+      const chatInput = document.getElementById('chatInput');
+      const attachPicker = document.getElementById('attachPicker');
+      const attachSearch = document.getElementById('attachSearch');
+      const btnAttachUrl = document.getElementById('btnAttachUrl');
+      const btnAttachUrlConfirm = document.getElementById('btnAttachUrlConfirm');
+      const btnAttachPickerClose = document.getElementById('btnAttachPickerClose');
+      const attachUrlInput = document.getElementById('attachUrlInput');
+
+      let attachPickerSelectedIndex = 0;
+      let attachPickerItems = [];
+      let attachPickerActiveTab = 'files'; // 'files', 'folders', 'diff', 'url'
+      let attachPickerKeydownHandler = null;
+
+      // Open attachment picker
+      function openAttachPicker() {
+        const picker = document.getElementById('attachPicker');
+        if (picker.style.display !== 'none') {
+          closeAttachPicker();
+          return;
+        }
+
+        // Build items for files and folders
+        const files = getAttachableFiles();
+        const folders = getAttachableFolders();
+        const diff = getAttachableDiff();
+
+        // Populate file list
+        const filesContainer = document.getElementById('attachPickerFiles');
+        const noFilesEl = document.getElementById('attachNoFiles');
+        if (files.length > 0) {
+          filesContainer.innerHTML = files.map((f, i) => `
+            <div class="attach-picker-item" data-type="file" data-idx="${i}" style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:4px;cursor:pointer;background:transparent;transition:background 0.1s;" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='transparent'">
+              <span style="font-size:12px;">📄</span>
+              <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;">${escapeHtml(f.path)}</span>
+            </div>
+          `).join('');
+          filesContainer.style.display = 'flex';
+          noFilesEl.style.display = 'none';
+        } else {
+          filesContainer.style.display = 'none';
+          noFilesEl.style.display = 'block';
+        }
+
+        // Populate folder list
+        const foldersContainer = document.getElementById('attachPickerFolders');
+        const noFoldersEl = document.getElementById('attachNoFolders');
+        if (folders.length > 0) {
+          foldersContainer.innerHTML = folders.map((f, i) => `
+            <div class="attach-picker-item" data-type="folder" data-idx="${i}" style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:4px;cursor:pointer;background:transparent;transition:background 0.1s;" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='transparent'">
+              <span style="font-size:12px;">📁</span>
+              <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;">${escapeHtml(f.path)}/</span>
+            </div>
+          `).join('');
+          foldersContainer.style.display = 'flex';
+          noFoldersEl.style.display = 'none';
+        } else {
+          foldersContainer.style.display = 'none';
+          noFoldersEl.style.display = 'block';
+        }
+
+        // Populate diff
+        const diffContainer = document.getElementById('attachPickerDiff');
+        const noDiffEl = document.getElementById('attachNoDiff');
+        if (diff) {
+          diffContainer.innerHTML = `
+            <div class="attach-picker-item" data-type="diff" data-idx="0" style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:4px;cursor:pointer;background:transparent;transition:background 0.1s;" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='transparent'">
+              <span style="font-size:12px;">🔍</span>
+              <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;">${escapeHtml(diff.label)}</span>
+            </div>
+          `;
+          diffContainer.style.display = 'flex';
+          noDiffEl.style.display = 'none';
+        } else {
+          diffContainer.style.display = 'none';
+          noDiffEl.style.display = 'block';
+        }
+
+        // Show files tab by default
+        showAttachTab('files');
+
+        picker.style.display = 'block';
+        attachSearch.value = '';
+        attachSearch.focus();
+
+        // Keyboard navigation
+        if (attachPickerKeydownHandler) {
+          document.removeEventListener('keydown', attachPickerKeydownHandler);
+        }
+        attachPickerKeydownHandler = (e) => {
+          const visibleItems = Array.from(document.querySelectorAll('.attach-picker-item:not([style*="display: none"])'));
+          if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            attachPickerSelectedIndex = Math.min(attachPickerSelectedIndex + 1, visibleItems.length - 1);
+            updateAttachPickerSelection(visibleItems);
+          } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            attachPickerSelectedIndex = Math.max(attachPickerSelectedIndex - 1, 0);
+            updateAttachPickerSelection(visibleItems);
+          } else if (e.key === 'Enter') {
+            e.preventDefault();
+            const item = visibleItems[attachPickerSelectedIndex];
+            if (item) {
+              const type = item.dataset.type;
+              const idx = parseInt(item.dataset.idx, 10);
+              if (type === 'file') {
+                const files = getAttachableFiles();
+                addAttachment(files[idx]);
+              } else if (type === 'folder') {
+                const folders = getAttachableFolders();
+                addAttachment(folders[idx]);
+              } else if (type === 'diff') {
+                attachDiff();
+              }
+              closeAttachPicker();
+            }
+          } else if (e.key === 'Escape') {
+            e.preventDefault();
+            closeAttachPicker();
+          } else if (e.key === 'Tab') {
+            e.preventDefault();
+            // Cycle tabs
+            const tabs = ['files', 'folders', 'diff', 'url'];
+            const currentIdx = tabs.indexOf(attachPickerActiveTab);
+            const nextTab = tabs[(currentIdx + 1) % tabs.length];
+            showAttachTab(nextTab);
+          }
+        };
+        document.addEventListener('keydown', attachPickerKeydownHandler);
+
+        // Click handlers for items
+        document.querySelectorAll('.attach-picker-item').forEach(item => {
+          item.onclick = () => {
+            const type = item.dataset.type;
+            const idx = parseInt(item.dataset.idx, 10);
+            if (type === 'file') {
+              const files = getAttachableFiles();
+              addAttachment(files[idx]);
+            } else if (type === 'folder') {
+              const folders = getAttachableFolders();
+              addAttachment(folders[idx]);
+            } else if (type === 'diff') {
+              attachDiff();
+            }
+            closeAttachPicker();
+          };
+        });
+
+        // Search filter
+        attachSearch.oninput = () => {
+          const query = attachSearch.value.toLowerCase();
+          document.querySelectorAll('.attach-picker-item').forEach(item => {
+            const label = item.textContent.toLowerCase();
+            item.style.display = label.includes(query) ? 'flex' : 'none';
+          });
+          attachPickerSelectedIndex = 0;
+          updateAttachPickerSelection(Array.from(document.querySelectorAll('.attach-picker-item:not([style*="display: none"])'));
+        };
+      }
+
+      function showAttachTab(tab) {
+        attachPickerActiveTab = tab;
+        document.querySelectorAll('.attach-picker-tab').forEach(t => t.style.display = 'none');
+        document.getElementById('attach' + tab.charAt(0).toUpperCase() + tab.slice(1) + 'Tab').style.display = 'flex';
+        attachPickerSelectedIndex = 0;
+        updateAttachPickerSelection(Array.from(document.querySelectorAll('.attach-picker-item:not([style*="display: none"])'));
+      }
+
+      function updateAttachPickerSelection(items) {
+        items.forEach((item, i) => {
+          item.style.background = i === attachPickerSelectedIndex ? 'var(--bg-hover)' : 'transparent';
+        });
+        if (items[attachPickerSelectedIndex]) {
+          items[attachPickerSelectedIndex].scrollIntoView({ block: 'nearest' });
+        }
+      }
+
+      function closeAttachPicker() {
+        const picker = document.getElementById('attachPicker');
+        picker.style.display = 'none';
+        if (attachPickerKeydownHandler) {
+          document.removeEventListener('keydown', attachPickerKeydownHandler);
+          attachPickerKeydownHandler = null;
+        }
+        attachPickerSelectedIndex = 0;
+      }
+
+      // Chat input @ trigger
+      chatInput.addEventListener('keydown', (e) => {
+        if (e.key === '@' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+          // Only trigger if @ is at start or after whitespace
+          const cursorPos = chatInput.selectionStart;
+          const textBeforeCursor = chatInput.value.slice(0, cursorPos);
+          if (cursorPos === 0 || /\s$/.test(textBeforeCursor)) {
+            e.preventDefault();
+            openAttachPicker();
+          }
+        }
+      });
+
+      // Button handlers
+      btnAttachUrl?.addEventListener('click', () => showAttachTab('url'));
+      btnAttachUrlConfirm?.addEventListener('click', attachUrl);
+      btnAttachPickerClose?.addEventListener('click', closeAttachPicker);
+      attachUrlInput?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') attachUrl();
+      });
+
+      // Close picker when clicking outside
+      document.addEventListener('click', (e) => {
+        const picker = document.getElementById('attachPicker');
+        const chatInputWrapper = document.querySelector('.chat-input-wrapper');
+        if (picker.style.display !== 'none' &&
+            !picker.contains(e.target) &&
+            !chatInputWrapper.contains(e.target)) {
+          closeAttachPicker();
+        }
+      });
+
+      // Initial render
+      renderAttachChips();
     }
 
     // ==================== H1.1: LEARN COMMAND & SAVE AS SKILL ====================
