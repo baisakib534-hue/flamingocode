@@ -1598,6 +1598,7 @@
             <div style="display:flex; align-items:center; gap:8px;">
               <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;" data-i18n="Mode">Mode</span>
               <select id="modeSelector" class="form-select" style="padding:4px 8px; font-size:11px; min-width:140px;" title="Select agent mode">
+                <option value="general" data-i18n="General">🌟 General</option>
                 <option value="chat" data-i18n="Chat">💬 Chat</option>
                 <option value="codebase-chat" data-i18n="Ask Codebase">🔍 Ask Codebase</option>
                 <option value="plan" data-i18n="Plan">📋 Plan</option>
@@ -2711,6 +2712,20 @@
             <input type="checkbox" id="teachModeToggleSettings" style="display: none;" />
             <span class="toggle-slider"></span>
           </label>
+        </div>
+        <hr style="border: none; border-top: 1px solid var(--border-color); margin: 12px 0;">
+        <!-- General Mode: Default Mode Selector -->
+        <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;" data-i18n="General Mode">General Mode</div>
+        <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 8px;" data-i18n="Default mode for new users (General = no code, results only)">Default mode for new users (General = no code, results only)</div>
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+          <div style="flex: 1; min-width: 0;">
+            <div style="font-weight: 600; font-size: 12px; color: var(--text-main);" data-i18n="Default Mode">Default Mode</div>
+            <div style="font-size: 10px; color: var(--text-dim); margin-top: 2px;">Choose the initial mode for fresh users. Existing users keep their current mode.</div>
+          </div>
+          <select id="defaultModeSelect" class="form-select" style="padding: 4px 8px; font-size: 11px; min-width: 140px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-main);">
+            <option value="general" data-i18n="General">🌟 General</option>
+            <option value="chat" data-i18n="Chat">💬 Chat</option>
+          </select>
         </div>
         <hr style="border: none; border-top: 1px solid var(--border-color); margin: 12px 0;">
         <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;" data-i18n="Repo Map">Repo Map</div>
@@ -5766,9 +5781,11 @@ Detail level: {{detail_level}}`,
         'Landing Page': 'ল্যান্ডিং পেজ',
         'Todo App': 'টু-ডু অ্যাপ',
         'Mode': 'মোড',
+        'General': 'সাধারণ',
         'Chat': 'চ্যাট',
         'Plan': 'পরিকল্পনা',
         'Plan + Build': 'পরিকল্পনা + বিল্ড',
+        'Plan (Read-Only)': 'পরিকল্পনা (রিড-ওনলি)',
         'Teach': 'শিখানো',
         'Pause': 'বিরতি',
         'Skip': 'বাদ দিন',
@@ -5861,6 +5878,25 @@ Detail level: {{detail_level}}`,
         'Teach Mode': 'শিখান মোড',
         'Explain changes in Bangla': 'বাংলায় পরিবর্তন ব্যাখ্যা করুন',
         'When ON, agent changes are explained in simple Bangla for non-coders. When OFF, no explanations shown.': 'ON হলে, এজেন্টের পরিবর্তন নন-কোডারদের জন্য সহজ বাংলায় ব্যাখ্যা করা হয়। OFF হলে, কোনো ব্যাখ্যা দেখানো হয় না।',
+        'General Mode': 'সাধারণ মোড',
+        'Default Mode': 'ডিফল্ট মোড',
+        'Default mode for new users (General = no code, results only)': 'নতুন ব্যবহারকারীদের জন্য ডিফল্ট মোড (সাধারণ = কোড নয়, শুধু ফলাফল)',
+        'Show code': 'কোড দেখান',
+        'Hide code': 'কোড লুকান',
+        'Progress': 'প্রগতি',
+        'Result': 'ফলাফল',
+        'Error occurred — fixing': 'একটা সমস্যা হয়েছে — আমি ঠিক করছি',
+        'Done — tested': 'হয়েছে — পরীক্ষা করা হয়েছে',
+        'Tests passed': 'পাস',
+        'Try it': 'চেষ্টা করুন',
+        'Approved': 'ঠিক আছে',
+        'Change it': 'বদলাও',
+        'General — code hidden, results only': 'সাধারণ — কোড দেখাবে না, শুধু ফলাফল',
+        '(planning only)': '(শুধু পরিকল্পনা)',
+        '(read-only — approve to build)': '(রিড-ওনলি — বিল্ড করার অনুমতি দিন)',
+        '(paused)': '(বিরত)',
+        '(executing)': '(এক্সিকিউট হচ্ছে)',
+        '(ask about codebase)': '(কোডবেস সম্পর্কে জিজ্ঞেস করুন)',
 
         // Settings - Autonomy
         'Autonomy Engine': 'স্বায়ত্তশাসন ইঞ্জিন',
@@ -6649,7 +6685,8 @@ Detail level: {{detail_level}}`,
       teamPhase: null,  // 'discussion' | 'execution' | 'presentation' | 'testing' | 'review' | 'complete'
       teamReviewRound: 0,
       // Plan + Build mode state
-      planMode: 'chat',  // 'chat' | 'codebase-chat' | 'plan' | 'plan-readonly' | 'plan-build' | 'step-plan'
+      planMode: 'general',  // 'general' | 'chat' | 'codebase-chat' | 'plan' | 'plan-readonly' | 'plan-build' | 'step-plan'
+      defaultMode: 'general',  // 'general' | 'chat' - default mode for fresh users
       readOnlyPlanMode: false,  // Explicit read-only flag for strict plan mode
       currentPlan: [],  // Array of plan steps: {id, text, done, current, note, revised}
       planStepIndex: 0,
@@ -6665,6 +6702,8 @@ Detail level: {{detail_level}}`,
       // Uncensored Mode state
       uncensoredPerProject: {},  // { [projectId]: boolean }
       uncensoredPerModel: {},    // { ['providerId|modelId']: 'auto' | 'on' | 'off' }
+      // General Mode state
+      generalModeShowCode: {},   // { [messageId]: boolean } - per-task code visibility
       // Autonomy Engine state
       autonomy: {
         catalogInjected: true,
@@ -12184,19 +12223,23 @@ function updatePlanControlsVisibility() {
 
   // Update status text
   if (modeStatus) {
-    if (mode === 'plan') {
-      modeStatus.textContent = '(planning only)';
+    if (mode === 'general') {
+      modeStatus.textContent = t('General — code hidden, results only');
+    } else if (mode === 'plan') {
+      modeStatus.textContent = t('(planning only)');
     } else if (mode === 'plan-readonly') {
-      modeStatus.textContent = '(read-only — approve to build)';
+      modeStatus.textContent = t('(read-only — approve to build)');
     } else if (mode === 'plan-build') {
-      modeStatus.textContent = appState.planPaused ? '(paused)' : '(executing)';
+      modeStatus.textContent = appState.planPaused ? t('(paused)') : t('(executing)');
+    } else if (mode === 'codebase-chat') {
+      modeStatus.textContent = t('(ask about codebase)');
     } else {
       modeStatus.textContent = '';
     }
   }
 
   // Show/hide plan panel and controls
-  if (mode === 'chat' || mode === 'codebase-chat') {
+  if (mode === 'general' || mode === 'chat' || mode === 'codebase-chat') {
     planPanelWrapper.style.display = 'none';
     planControls.style.display = 'none';
   } else if (mode === 'plan' || mode === 'plan-readonly') {
@@ -12211,11 +12254,6 @@ function updatePlanControlsVisibility() {
   const pauseBtn = document.getElementById('btnPausePlan');
   if (pauseBtn) {
     pauseBtn.textContent = appState.planPaused ? '▶ Resume' : '⏸ Pause';
-  }
-
-  // Update mode status for codebase-chat
-  if (modeStatus && mode === 'codebase-chat') {
-    modeStatus.textContent = '(ask about codebase)';
   }
 }
 
@@ -12551,6 +12589,17 @@ Links: [[Brain Index]]
           saveAppState();
           logActivity(e.target.checked ? 'Teach Mode enabled' : 'Teach Mode disabled', 'info');
           updateTeachModeUI();
+        };
+      }
+
+      // Default Mode selector (General Mode)
+      const defaultModeSelect = document.getElementById('defaultModeSelect');
+      if (defaultModeSelect) {
+        defaultModeSelect.value = appState.defaultMode || 'general';
+        defaultModeSelect.onchange = (e) => {
+          appState.defaultMode = e.target.value;
+          saveAppState();
+          logActivity(`Default mode set to ${e.target.value}`, 'info');
         };
       }
 
@@ -19258,6 +19307,13 @@ Only propose merges for skills that are genuinely overlapping or complementary. 
           if (role === 'user') {
             msg.textContent = content;
           } else if (role === 'agent') {
+            // Generate a unique message ID for "Show code" tracking
+            const msgId = 'msg-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+            msg.dataset.msgId = msgId;
+
+            // Check if we're in General Mode
+            const isGeneralMode = appState.planMode === 'general';
+
             // Clean text content by removing block contents
             let cleanText = content.replace(/```(file|delete|browse):[\s\S]*?```/g, '').trim();
 
@@ -19266,56 +19322,105 @@ Only propose merges for skills that are genuinely overlapping or complementary. 
               cleanText = processCitations(cleanText);
             }
 
-            let html = cleanText ? `<p style="white-space: pre-wrap;">${cleanText}</p>` : '';
+            if (isGeneralMode) {
+              // GENERAL MODE RENDERING
+              // Extract code blocks for "Show code" toggle
+              const codeBlocks = extractCodeBlocks(content);
+              const hasCode = codeBlocks.length > 0;
+              const hasChips = chips && chips.length > 0;
+              const isError = content.toLowerCase().includes('error') || content.toLowerCase().includes('failed');
+              const isDone = content.toLowerCase().includes('done') || content.toLowerCase().includes('complete') || content.toLowerCase().includes('finished');
+              const showCode = appState.generalModeShowCode[msgId] === true;
 
-        if (chips.length > 0) {
-          html += '<div style="margin-top:6px;">';
-          chips.forEach(c => {
-            let cls = '';
-            let icon = '📁';
-            if (c.type === 'delete') {
-              cls = 'delete';
-              icon = '🗑️';
-            } else if (c.type === 'browse') {
-              cls = 'browse';
-              icon = '🌐';
-            } else if (c.type === 'read') {
-              cls = 'read';
-              icon = '📖';
-            } else if (c.type === 'batch') {
-              cls = 'batch';
-              icon = '📦';
+              let html = '';
+
+              if (isError) {
+                // Error state: plain Bangla sentence
+                html += `<div style="padding:12px; background:var(--danger-bg, #2a0a0a); border:1px solid var(--danger-border, #5a1a1a); border-radius:6px; color:var(--text-main);">
+                  <div style="font-weight:600; margin-bottom:4px;">⚠ ${t('Error occurred — fixing')}</div>
+                  <div style="font-size:12px; color:var(--text-dim);">${escapeHtml(cleanText || 'An error occurred')}</div>
+                </div>`;
+              } else if (isDone || hasChips) {
+                // Result card: done state with Bangla
+                const verificationEvidence = extractVerificationEvidence(content);
+                const testCount = verificationEvidence ? extractTestCount(verificationEvidence) : 0;
+            
+                html += `<div class="general-result-card" style="padding:16px; background:var(--bg-panel); border:1px solid var(--border-color); border-radius:8px; margin-bottom:8px;">
+                  <div style="display:flex; align-items:flex-start; gap:12px;">
+                    <div style="flex:1; min-width:0;">
+                      <div style="font-weight:600; font-size:14px; margin-bottom:8px; color:var(--success);">${t('Done — tested')}</div>
+                      <div style="font-size:13px; line-height:1.6; color:var(--text-main);">${escapeHtml(cleanText || 'Task completed')}</div>
+                      ${verificationEvidence ? `<div style="margin-top:10px; padding:8px 12px; background:var(--success-bg, #0a2a0a); border:1px solid var(--success-border, #1a5a1a); border-radius:4px; font-size:12px; color:var(--success);">✓ ${t('Tests passed')}: ${testCount}</div>` : ''}
+                    </div>
+                    <button class="btn-try-preview" style="flex-shrink:0; padding:8px 16px; background:var(--accent); color:var(--bg); border:none; border-radius:4px; font-weight:600; cursor:pointer;" onclick="focusPreview()">${t('Try it')}</button>
+                  </div>
+                  <div style="display:flex; gap:8px; margin-top:12px; padding-top:12px; border-top:1px solid var(--border-color);">
+                    <button class="btn-approve" style="padding:6px 12px; background:var(--success); color:var(--bg); border:none; border-radius:4px; font-weight:600; cursor:pointer;" onclick="approveTask('${msgId}')">${t('Approved')}</button>
+                    <button class="btn-reject" style="padding:6px 12px; background:var(--warning); color:var(--bg); border:none; border-radius:4px; font-weight:600; cursor:pointer;" onclick="rejectTask('${msgId}')">${t('Change it')}</button>
+                    ${hasCode ? `<button class="btn-show-code" style="padding:6px 12px; background:var(--bg-surface); color:var(--text-main); border:1px solid var(--border-color); border-radius:4px; font-weight:600; cursor:pointer;" onclick="toggleShowCode('${msgId}', this)">${showCode ? t('Hide code') : t('Show code')}</button>` : ''}
+                  </div>
+                  ${showCode && hasCode ? `<div class="general-code-block" style="margin-top:12px; padding:12px; background:var(--bg-dark); border:1px solid var(--border-color); border-radius:4px; font-family:var(--font-mono); font-size:11px; overflow:auto; max-height:300px;">${escapeHtml(codeBlocks.join('\n\n'))}</div>` : ''}
+                </div>`;
+              } else {
+                // Progress line: single Bangla line
+                const progressText = generateProgressBangla(cleanText, chips);
+                html += `<div class="general-progress" style="padding:10px 12px; background:var(--bg-surface); border:1px solid var(--border-color); border-radius:6px; font-size:13px; color:var(--text-main); line-height:1.5;">${escapeHtml(progressText)}</div>`;
+              }
+
+              msg.innerHTML = html;
+            } else {
+              // NORMAL MODE (existing rendering)
+              let html = cleanText ? `<p style="white-space: pre-wrap;">${cleanText}</p>` : '';
+
+              if (chips.length > 0) {
+                html += '<div style="margin-top:6px;">';
+                chips.forEach(c => {
+                  let cls = '';
+                  let icon = '📁';
+                  if (c.type === 'delete') {
+                    cls = 'delete';
+                    icon = '🗑️';
+                  } else if (c.type === 'browse') {
+                    cls = 'browse';
+                    icon = '🌐';
+                  } else if (c.type === 'read') {
+                    cls = 'read';
+                    icon = '📖';
+                  } else if (c.type === 'batch') {
+                    cls = 'batch';
+                    icon = '📦';
+                  }
+                  html += `<div class="action-chip ${cls}">${icon} <span>${escapeHtml(c.label)}</span></div> `;
+                });
+                html += '</div>';
+              }
+
+              // Tools Used strip
+              if (toolsUsed && toolsUsed.length > 0) {
+                html += '<div style="margin-top:8px; padding:6px 8px; background:var(--bg-dark); border:1px solid var(--border-color); border-radius:4px; font-size:10px;">';
+                html += '<div style="font-weight:600; color:var(--accent-blue); margin-bottom:4px; font-family:var(--font-mono);">Tools Used:</div>';
+                html += '<div style="display:flex; flex-wrap:wrap; gap:4px;">';
+                toolsUsed.forEach(tool => {
+                  const typeColor = tool.type === 'skill' ? 'var(--accent-blue)' : tool.type === 'plugin' ? 'var(--success)' : tool.type === 'mcp' ? 'var(--warning)' : 'var(--text-muted)';
+                  html += `<span style="background:${typeColor}20; color:${typeColor}; padding:2px 6px; border-radius:3px; font-family:var(--font-mono); font-size:9px;">${escapeHtml(tool.name)} (${tool.type})</span>`;
+                });
+                html += '</div></div>';
+              } else if (toolsUsed && toolsUsed.length === 0) {
+                // Show reason for no tools
+                html += '<div style="margin-top:8px; padding:6px 8px; background:var(--bg-dark); border:1px solid var(--border-color); border-radius:4px; font-size:10px; color:var(--text-dim);">';
+                html += 'No tools applied — trivial task (no tool-match required).';
+                html += '</div>';
+              }
+
+              msg.innerHTML = html || '<em>Action completed.</em>';
             }
-            html += `<div class="action-chip ${cls}">${icon} <span>${escapeHtml(c.label)}</span></div> `;
-          });
-          html += '</div>';
+          } else {
+            msg.textContent = content;
+          }
+
+          chat.appendChild(msg);
+          chat.scrollTop = chat.scrollHeight;
         }
-
-        // Tools Used strip
-        if (toolsUsed && toolsUsed.length > 0) {
-          html += '<div style="margin-top:8px; padding:6px 8px; background:var(--bg-dark); border:1px solid var(--border-color); border-radius:4px; font-size:10px;">';
-          html += '<div style="font-weight:600; color:var(--accent-blue); margin-bottom:4px; font-family:var(--font-mono);">Tools Used:</div>';
-          html += '<div style="display:flex; flex-wrap:wrap; gap:4px;">';
-          toolsUsed.forEach(tool => {
-            const typeColor = tool.type === 'skill' ? 'var(--accent-blue)' : tool.type === 'plugin' ? 'var(--success)' : tool.type === 'mcp' ? 'var(--warning)' : 'var(--text-muted)';
-            html += `<span style="background:${typeColor}20; color:${typeColor}; padding:2px 6px; border-radius:3px; font-family:var(--font-mono); font-size:9px;">${escapeHtml(tool.name)} (${tool.type})</span>`;
-          });
-          html += '</div></div>';
-        } else if (toolsUsed && toolsUsed.length === 0) {
-          // Show reason for no tools
-          html += '<div style="margin-top:8px; padding:6px 8px; background:var(--bg-dark); border:1px solid var(--border-color); border-radius:4px; font-size:10px; color:var(--text-dim);">';
-          html += 'No tools applied — trivial task (no tool-match required).';
-          html += '</div>';
-        }
-
-        msg.innerHTML = html || '<em>Action completed.</em>';
-      } else {
-        msg.textContent = content;
-      }
-
-      chat.appendChild(msg);
-      chat.scrollTop = chat.scrollHeight;
-    }
 
     // Process citations in codebase chat responses: [file:path], [symbol:name], [note:name]
     function processCitations(text) {
@@ -19396,6 +19501,130 @@ Only propose merges for skills that are genuinely overlapping or complementary. 
     function escapeHtml(str) {
       // Escape HTML entities for safe rendering
       return str.replace(/&/g, '&').replace(/</g, '<').replace(/>/g, '>');
+    }
+
+    // ==================== GENERAL MODE: Helper Functions ====================
+    // Extract code blocks (```file:..., ```delete:..., ```browse:...) from content
+    function extractCodeBlocks(content) {
+      const blocks = [];
+      const regex = /```(file|delete|browse):([\s\S]*?)```/g;
+      let match;
+      while ((match = regex.exec(content)) !== null) {
+        blocks.push(match[0]); // Full block including backticks
+      }
+      return blocks;
+    }
+
+    // Extract verification evidence from content
+    function extractVerificationEvidence(content) {
+      const patterns = [
+        /পরীক্ষা করা হয়েছে.*?(\d+).*?পাস/gi,
+        /Tests passed.*?(\d+)/gi,
+        /verification.*?(\d+).*?pass/gi,
+        /✓.*?(\d+).*?test/gi,
+      ];
+      for (const pattern of patterns) {
+        const match = content.match(pattern);
+        if (match) return match[0];
+      }
+      return null;
+    }
+
+    // Extract test count from verification evidence
+    function extractTestCount(evidence) {
+      const match = evidence.match(/(\d+)/);
+      return match ? parseInt(match[1], 10) : 0;
+    }
+
+    // Generate Bangla progress text based on clean text and chips
+    function generateProgressBangla(cleanText, chips) {
+      // Try to infer action from cleanText or chips
+      const text = (cleanText || '').toLowerCase();
+      const chipTypes = (chips || []).map(c => c.type);
+
+      if (chipTypes.includes('create') || text.includes('create') || text.includes('new')) {
+        return 'আমি নতুন ফাইল তৈরি করছি…';
+      }
+      if (chipTypes.includes('modify') || text.includes('update') || text.includes('modify') || text.includes('edit')) {
+        return 'আমি ফাইল আপডেট করছি…';
+      }
+      if (chipTypes.includes('delete') || text.includes('delete') || text.includes('remove')) {
+        return 'আমি ফাইল মুছে দিচ্ছি…';
+      }
+      if (chipTypes.includes('browse') || text.includes('browse') || text.includes('search') || text.includes('find')) {
+        return 'আমি কোড খুঁজে দেখছি…';
+      }
+      if (text.includes('test') || text.includes('verify') || text.includes('check')) {
+        return 'এবার পরীক্ষা করছি…';
+      }
+      if (text.includes('build') || text.includes('compile') || text.includes('run')) {
+        return 'আমি বিল্ড করছি…';
+      }
+      if (text.includes('fix') || text.includes('error') || text.includes('bug')) {
+        return 'আমি সমস্যা ঠিক করছি…';
+      }
+      // Default progress
+      return cleanText || 'কাজ চলছে…';
+    }
+
+    // Focus the preview panel
+    function focusPreview() {
+      const previewBtn = document.getElementById('btnPreview');
+      if (previewBtn) {
+        previewBtn.click();
+      }
+      const previewFrame = document.getElementById('previewFrame');
+      if (previewFrame) {
+        previewFrame.focus();
+      }
+    }
+
+    // Approve task (in General Mode - just logs for now, can be extended)
+    function approveTask(msgId) {
+      logActivity('Task approved by user (General Mode)', 'success');
+      const msg = document.querySelector(`[data-msg-id="${msgId}"]`);
+      if (msg) {
+        const approveBtn = msg.querySelector('.btn-approve');
+        const rejectBtn = msg.querySelector('.btn-reject');
+        if (approveBtn) approveBtn.disabled = true;
+        if (rejectBtn) rejectBtn.disabled = true;
+        approveBtn.textContent = '✓ ' + t('Approved');
+      }
+    }
+
+    // Reject task (in General Mode - triggers re-plan or asks for clarification)
+    function rejectTask(msgId) {
+      logActivity('Task rejected by user (General Mode) - requesting changes', 'warning');
+      const msg = document.querySelector(`[data-msg-id="${msgId}"]`);
+      if (msg) {
+        const approveBtn = msg.querySelector('.btn-approve');
+        const rejectBtn = msg.querySelector('.btn-reject');
+        if (approveBtn) approveBtn.disabled = true;
+        if (rejectBtn) rejectBtn.disabled = true;
+        rejectBtn.textContent = '✓ ' + t('Change it');
+      }
+      // Could trigger a follow-up prompt to the agent
+      const chatInput = document.getElementById('chatInput');
+      if (chatInput) {
+        chatInput.focus();
+        chatInput.value = 'Please make changes: ';
+      }
+    }
+
+    // Toggle code visibility for a specific task
+    function toggleShowCode(msgId, btn) {
+      const current = appState.generalModeShowCode[msgId] === true;
+      appState.generalModeShowCode[msgId] = !current;
+      saveAppState();
+      btn.textContent = !current ? t('Hide code') : t('Show code');
+      // Re-render the message by toggling the code block
+      const msg = document.querySelector(`[data-msg-id="${msgId}"]`);
+      if (msg) {
+        const codeBlock = msg.querySelector('.general-code-block');
+        if (codeBlock) {
+          codeBlock.style.display = !current ? 'block' : 'none';
+        }
+      }
     }
 
     // ==================== TEACH MODE: Bangla Explanation Generator ====================
