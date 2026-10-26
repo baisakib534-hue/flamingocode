@@ -1,3 +1,5 @@
+# ⛔ SUPERSEDED — DO NOT DISPATCH (his 2026-10-27 ~02:21 clarification: IDE = VS Code sidebar like Antigravity/Cursor/Git Pilot; agent = Codex/Claude Code; agent mode alone does everything, like Qoder — so NO standalone IDE batch. Its features are already covered: Tab → Devin Desktop prompt §4, Composer → 7.2 + Team Mode, Bugbot → Batch 6, background agents → H5.1. Spec kept as reference in ~/workspace/devforge/cursor-ide-spec.md.)
+
 # Batch — Cursor IDE features (dispatch right after the Devin Desktop prompt)
 
 ## Context
