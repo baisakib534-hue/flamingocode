@@ -2758,7 +2758,69 @@ sudo *"></textarea>
           <input type="number" id="providerContextWindow" class="form-input" placeholder="128000" min="4096" max="1000000" />
           <span style="font-size:10px; color:var(--text-dim);">Model context window for context guard. Default: 128000.</span>
         </div>
-      </div>
+
+        <!-- Model Rate & Standard Limits -->
+        <div class="form-group" style="border-top: 1px solid var(--border-color); padding-top: 12px; margin-top: 8px;">
+          <label class="form-label" style="display:flex; align-items:center; gap:6px;">
+            <span data-i18n="Model Limits">Model Limits</span>
+            <span style="font-size:10px; font-weight:400; color:var(--text-dim);" data-i18n="Empty = unlimited">(empty = unlimited)</span>
+          </label>
+        </div>
+
+        <div class="form-group" style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+          <label class="form-label" style="font-size:11px;" data-i18n="Tokens Per Minute (TPM)">TPM (Tokens/min)</label>
+          <input type="number" id="modelLimitTpm" class="form-input" placeholder="e.g., 20000" min="0" />
+        </div>
+        <div class="form-group" style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+          <label class="form-label" style="font-size:11px;" data-i18n="Tokens Per Day (TPD)">TPD (Tokens/day)</label>
+          <input type="number" id="modelLimitTpd" class="form-input" placeholder="e.g., 1000000" min="0" />
+        </div>
+        <div class="form-group" style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+          <label class="form-label" style="font-size:11px;" data-i18n="Requests Per Minute (RPM)">RPM (Requests/min)</label>
+          <input type="number" id="modelLimitRpm" class="form-input" placeholder="e.g., 60" min="0" />
+        </div>
+        <div class="form-group" style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+          <label class="form-label" style="font-size:11px;" data-i18n="Requests Per Day (RPD)">RPD (Requests/day)</label>
+          <input type="number" id="modelLimitRpd" class="form-input" placeholder="e.g., 10000" min="0" />
+        </div>
+
+        <div class="form-group" style="border-top: 1px solid var(--border-color); padding-top: 12px; margin-top: 8px;">
+          <label class="form-label" data-i18n="Standard Limits">Standard Limits</label>
+        </div>
+
+        <div class="form-group" style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+          <label class="form-label" style="font-size:11px;" data-i18n="Context Window">Context Window (Input Tokens)</label>
+          <input type="number" id="modelLimitContextWindow" class="form-input" placeholder="128000" min="4096" max="1000000" />
+        </div>
+        <div class="form-group" style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+          <label class="form-label" style="font-size:11px;" data-i18n="Max Tokens">Max Tokens (Output/Response)</label>
+          <input type="number" id="modelLimitMaxTokens" class="form-input" placeholder="4096" min="1" max="100000" />
+        </div>
+        <div class="form-group" style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+          <label class="form-label" style="font-size:11px;" data-i18n="Monthly Token Cap">Monthly Token Cap</label>
+          <input type="number" id="modelLimitMonthlyTokens" class="form-input" placeholder="e.g., 50000000" min="0" />
+        </div>
+        <div class="form-group" style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+          <label class="form-label" style="font-size:11px;" data-i18n="Monthly Request Cap">Monthly Request Cap</label>
+          <input type="number" id="modelLimitMonthlyRequests" class="form-input" placeholder="e.g., 100000" min="0" />
+        </div>
+        <div class="form-group" style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+          <label class="form-label" style="font-size:11px;" data-i18n="Monthly Cost Cap (USD)">Monthly Cost Cap (USD)</label>
+          <input type="number" id="modelLimitMonthlyCost" class="form-input" placeholder="e.g., 50.00" min="0" step="0.01" />
+        </div>
+
+        <div class="form-group" style="border-top: 1px solid var(--border-color); padding-top: 12px; margin-top: 8px;">
+          <label class="form-label" data-i18n="Advanced">Advanced</label>
+        </div>
+
+        <div class="form-group" style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+          <label class="form-label" style="font-size:11px;" data-i18n="Concurrent Limit">Concurrent Request Limit</label>
+          <input type="number" id="modelLimitConcurrent" class="form-input" placeholder="e.g., 5" min="0" />
+        </div>
+        <div class="form-group" style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+          <label class="form-label" style="font-size:11px;" data-i18n="Cooldown Seconds">Cooldown After Limit Hit (sec)</label>
+          <input type="number" id="modelLimitCooldown" class="form-input" placeholder="60" min="0" />
+        </div>
 
       <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:8px; border-top:1px solid var(--border-color); padding-top:12px;">
         <button class="btn btn-secondary" id="btnCancelProvider">Cancel</button>
@@ -3152,95 +3214,137 @@ sudo *"></textarea>
 
     // Provider presets - all built-in configurations
     const PROVIDER_PRESETS = {
-      '9router': {
-                    name: '9router',
-                    type: 'openai-compatible',
-                    baseUrl: 'https://ninerouter-zltx.onrender.com/v1',
-                    model: '9router',
-                    apiKey: '',
-                    authStyle: 'bearer',
-                    customHeaders: {},
-                    corsProxy: '',
-                    streaming: true,
-                    contextWindow: 128000
-                  },
+          '9router': {
+                        name: '9router',
+                        type: 'openai-compatible',
+                        baseUrl: 'https://ninerouter-zltx.onrender.com/v1',
+                        model: '9router',
+                        apiKey: 'sk-redacted',
+                        authStyle: 'bearer',
+                        customHeaders: {},
+                        corsProxy: '',
+                        streaming: true,
+                        contextWindow: 128000,
+                        modelLimits: {
+                          tpm: null, tpd: null, rpm: null, rpd: null,
+                          contextWindow: 128000, maxTokens: 4096,
+                          monthlyTokenCap: null, monthlyRequestCap: null, monthlyCostCap: null,
+                          concurrentLimit: null, cooldownSeconds: 60
+                        }
+                      },
                   'omniroute-cloud': {
-                    name: 'OmniRoute Cloud',
-                    type: 'openai-compatible',
-                    baseUrl: 'https://omniroute-main-9nt1.onrender.com/api/v1',
-                    model: 'qoder',
-                    apiKey: '',
-                    authStyle: 'bearer',
-                    customHeaders: {},
-                    corsProxy: '',
-                    streaming: true,
-                    contextWindow: 128000
-                  },
+                                      name: 'OmniRoute Cloud',
+                                      type: 'openai-compatible',
+                                      baseUrl: 'https://omniroute-main-9nt1.onrender.com/api/v1',
+                                      model: 'qoder',
+                                      apiKey: 'sk-redacted',
+                                      authStyle: 'bearer',
+                                      customHeaders: {},
+                                      corsProxy: '',
+                                      streaming: true,
+                                      contextWindow: 128000,
+                                      modelLimits: {
+                                        tpm: null, tpd: null, rpm: null, rpd: null,
+                                        contextWindow: 128000, maxTokens: 4096,
+                                        monthlyTokenCap: null, monthlyRequestCap: null, monthlyCostCap: null,
+                                        concurrentLimit: null, cooldownSeconds: 60
+                                      }
+                                    },
                   'omniroute-local': {
-                    name: 'OmniRoute Local',
-                    type: 'openai-compatible',
-                    baseUrl: 'http://localhost:20128/v1',
-                    model: 'qoder',
-                    apiKey: '',
-                    authStyle: 'none',
-                    customHeaders: {},
-                    corsProxy: '',
-                    streaming: true,
-                    contextWindow: 128000
-                  },
+                                      name: 'OmniRoute Local',
+                                      type: 'openai-compatible',
+                                      baseUrl: 'http://localhost:20128/v1',
+                                      model: 'qoder',
+                                      apiKey: 'sk-redacted',
+                                      authStyle: 'none',
+                                      customHeaders: {},
+                                      corsProxy: '',
+                                      streaming: true,
+                                      contextWindow: 128000,
+                                      modelLimits: {
+                                        tpm: null, tpd: null, rpm: null, rpd: null,
+                                        contextWindow: 128000, maxTokens: 4096,
+                                        monthlyTokenCap: null, monthlyRequestCap: null, monthlyCostCap: null,
+                                        concurrentLimit: null, cooldownSeconds: 60
+                                      }
+                                    },
                   'pollinations': {
-                    name: 'Pollinations Free',
-                    type: 'openai-compatible',
-                    baseUrl: 'https://text.pollinations.ai/openai',
-                    model: 'openai',
-                    apiKey: '',
-                    authStyle: 'none',
-                    customHeaders: {},
-                    corsProxy: '',
-                    streaming: true,
-                    contextWindow: 128000
-                  },
+                                      name: 'Pollinations Free',
+                                      type: 'openai-compatible',
+                                      baseUrl: 'https://text.pollinations.ai/openai',
+                                      model: 'openai',
+                                      apiKey: 'sk-redacted',
+                                      authStyle: 'none',
+                                      customHeaders: {},
+                                      corsProxy: '',
+                                      streaming: true,
+                                      contextWindow: 128000,
+                                      modelLimits: {
+                                        tpm: null, tpd: null, rpm: null, rpd: null,
+                                        contextWindow: 128000, maxTokens: 4096,
+                                        monthlyTokenCap: null, monthlyRequestCap: null, monthlyCostCap: null,
+                                        concurrentLimit: null, cooldownSeconds: 60
+                                      }
+                                    },
                   'openrouter': {
-                          name: 'OpenRouter',
-                          type: 'openai-compatible',
-                          baseUrl: 'https://openrouter.ai/api/v1',
-                          model: 'openai/gpt-4o-mini',
-                          apiKey: 'YOUR_API_KEY',
-                          keyPool: [
-                            { id: 'key_1', key: 'sk-redacted', health: 'healthy', lastUsed: 0, usageCount: 0, benchedModels: [], cooldownUntil: 0 },
-                            { id: 'key_2', key: 'sk-redacted', health: 'healthy', lastUsed: 0, usageCount: 0, benchedModels: [], cooldownUntil: 0 }
-                          ],
-                          rotationStrategy: 'round_robin',
-                          authStyle: 'bearer',
-                          customHeaders: { 'HTTP-Referer': 'https://devforge.app', 'X-Title': 'DevForge' },
-                          corsProxy: '',
-                          streaming: true,
-                          contextWindow: 128000
-                        },
+                                            name: 'OpenRouter',
+                                            type: 'openai-compatible',
+                                            baseUrl: 'https://openrouter.ai/api/v1',
+                                            model: 'openai/gpt-4o-mini',
+                                            apiKey: 'sk-redacted',
+                                            keyPool: [
+                                              { id: 'key_1', key: 'sk-redacted', health: 'healthy', lastUsed: 0, usageCount: 0, benchedModels: [], cooldownUntil: 0 },
+                                              { id: 'key_2', key: 'sk-redacted', health: 'healthy', lastUsed: 0, usageCount: 0, benchedModels: [], cooldownUntil: 0 }
+                                            ],
+                                            rotationStrategy: 'round_robin',
+                                            authStyle: 'bearer',
+                                            customHeaders: { 'HTTP-Referer': 'https://devforge.app', 'X-Title': 'DevForge' },
+                                            corsProxy: '',
+                                            streaming: true,
+                                            contextWindow: 128000,
+                                            modelLimits: {
+                                              tpm: null, tpd: null, rpm: null, rpd: null,
+                                              contextWindow: 128000, maxTokens: 4096,
+                                              monthlyTokenCap: null, monthlyRequestCap: null, monthlyCostCap: null,
+                                              concurrentLimit: null, cooldownSeconds: 60
+                                            }
+                                          },
                   'groq': {
-                    name: 'Groq',
-                    type: 'openai-compatible',
-                    baseUrl: 'https://api.groq.com/openai/v1',
-                    model: 'llama-3.3-70b-versatile',
-                    apiKey: '',
-                    authStyle: 'bearer',
-                    customHeaders: {},
-                    corsProxy: '',
-                    streaming: true,
-                    contextWindow: 128000
-                  },
+                                      name: 'Groq',
+                                      type: 'openai-compatible',
+                                      baseUrl: 'https://api.groq.com/openai/v1',
+                                      model: 'llama-3.3-70b-versatile',
+                                      apiKey: 'sk-redacted',
+                                      authStyle: 'bearer',
+                                      customHeaders: {},
+                                      corsProxy: '',
+                                      streaming: true,
+                                      contextWindow: 128000,
+                                      modelLimits: {
+                                        tpm: null, tpd: null, rpm: null, rpd: null,
+                                        contextWindow: 128000, maxTokens: 4096,
+                                        monthlyTokenCap: null, monthlyRequestCap: null, monthlyCostCap: null,
+                                        concurrentLimit: null, cooldownSeconds: 60
+                                      }
+                                    },
                   'duckduckgo': {
-                    name: 'DuckDuckGo AI',
-                    type: 'duckduckgo',
-                    baseUrl: 'https://duckduckgo.com/duckchat/v1',
-                    model: 'gpt-4o-mini',
-                    apiKey: '',
-                    authStyle: 'none',
-                    customHeaders: {},
-                    corsProxy: '',
-                    streaming: true,
-                    contextWindow: 128000
-                  }
+                                      name: 'DuckDuckGo AI',
+                                      type: 'duckduckgo',
+                                      baseUrl: 'https://duckduckgo.com/duckchat/v1',
+                                      model: 'gpt-4o-mini',
+                                      apiKey: 'sk-redacted',
+                                      authStyle: 'none',
+                                      customHeaders: {},
+                                      corsProxy: '',
+                                      streaming: true,
+                                      contextWindow: 128000,
+                                      modelLimits: {
+                                        tpm: null, tpd: null, rpm: null, rpd: null,
+                                        contextWindow: 128000, maxTokens: 4096,
+                                        monthlyTokenCap: null, monthlyRequestCap: null, monthlyCostCap: null,
+                                        concurrentLimit: null, cooldownSeconds: 60
+                                      }
+                                    }
     };
 
     // ==================== H1.4: CONTEXT FILES - Priority Chain + Progressive Discovery + Injection Scan ====================
@@ -4003,6 +4107,35 @@ WORK STYLE:
         'Est. Cost': 'আনুমানিক খরচ',
         'Per Provider': 'প্রতি প্রোভাইডার',
         'Per Project': 'প্রতি প্রজেক্ট',
+
+        // Per-Model Rate Limits
+        'Model Limits': 'মডেল সীমা',
+        'Tokens Per Minute (TPM)': 'মিনিট প্রতি টোকেন (TPM)',
+        'Tokens Per Day (TPD)': 'দিন প্রতি টোকেন (TPD)',
+        'Requests Per Minute (RPM)': 'মিনিট প্রতি অনুরোধ (RPM)',
+        'Requests Per Day (RPD)': 'দিন প্রতি অনুরোধ (RPD)',
+        'Context Window': 'কনটেক্সট উইন্ডো',
+        'Max Tokens': 'সর্বোচ্চ টোকেন',
+        'Monthly Token Cap': 'মাসিক টোকেন ক্যাপ',
+        'Monthly Request Cap': 'মাসিক অনুরোধ ক্যাপ',
+        'Monthly Cost Cap (USD)': 'মাসিক খরচ ক্যাপ (USD)',
+        'Concurrent Limit': 'সমান্তরাল সীমা',
+        'Cooldown Seconds': 'কুলডাউন সেকেন্ড',
+        'Empty = unlimited': 'খালি = অসীম',
+        'Numbers only, min 0': 'শুধু সংখ্যা, ন্যূনতম ০',
+        'Rate limit exceeded': 'রেট লিমিট অতিক্রম',
+        'Press F5 to try fallback provider': 'F5 চাপুন ফলব্যাক প্রোভাইডার চেষ্টা করতে',
+        'Approaching model limit': 'মডেল সীমার কাছাকাছি',
+        'TPM': 'TPM',
+        'RPM': 'RPM',
+        'TPD': 'TPD',
+        'RPD': 'RPD',
+        'Monthly Tokens': 'মাসিক টোকেন',
+        'Monthly Reqs': 'মাসিক অনুরোধ',
+        'Monthly Cost': 'মাসিক খরচ',
+        'resets in': 'রিসেট হবে',
+        'until reset': 'রিসেট পর্যন্ত',
+        'now': 'এখন',
 
         // File tree / Editor
         'Select or create a file to start editing...': 'সম্পাদনা শুরু করতে একটি ফাইল নির্বাচন বা তৈরি করুন...',
@@ -10535,6 +10668,368 @@ Only propose merges for skills that are genuinely overlapping or complementary. 
       return quotas[presetKey] || quotas[type] || null;
     }
 
+    // ==================== Per-Model Rate Limit Tracking ====================
+    // Tracks requests and tokens per minute, per day, per month for each provider+model
+
+    function getRateLimitKey(providerId, modelName, window) {
+      // window: 'minute' | 'day' | 'month'
+      return `ratelimit_${providerId}_${modelName}_${window}`;
+    }
+
+    function initRateLimitWindow(providerId, modelName, window) {
+      const key = getRateLimitKey(providerId, modelName, window);
+      if (!appState.usage.rateLimits) appState.usage.rateLimits = {};
+      if (!appState.usage.rateLimits[key]) {
+        const now = Date.now();
+        let windowStart, windowEnd;
+        if (window === 'minute') {
+          windowStart = Math.floor(now / 60000) * 60000;
+          windowEnd = windowStart + 60000;
+        } else if (window === 'day') {
+          const d = new Date();
+          d.setHours(0, 0, 0, 0);
+          windowStart = d.getTime();
+          windowEnd = windowStart + 24 * 60 * 60 * 1000;
+        } else if (window === 'month') {
+          const d = new Date();
+          d.setDate(1);
+          d.setHours(0, 0, 0, 0);
+          windowStart = d.getTime();
+          const nextMonth = new Date(d);
+          nextMonth.setMonth(nextMonth.getMonth() + 1);
+          windowEnd = nextMonth.getTime();
+        }
+        appState.usage.rateLimits[key] = {
+          windowStart,
+          windowEnd,
+          requests: 0,
+          promptTokens: 0,
+          completionTokens: 0,
+          totalTokens: 0
+        };
+      }
+      // Check if window has expired and reset if needed
+      const entry = appState.usage.rateLimits[key];
+      const now = Date.now();
+      if (now >= entry.windowEnd) {
+        let windowStart, windowEnd;
+        if (window === 'minute') {
+          windowStart = Math.floor(now / 60000) * 60000;
+          windowEnd = windowStart + 60000;
+        } else if (window === 'day') {
+          const d = new Date();
+          d.setHours(0, 0, 0, 0);
+          windowStart = d.getTime();
+          windowEnd = windowStart + 24 * 60 * 60 * 1000;
+        } else if (window === 'month') {
+          const d = new Date();
+          d.setDate(1);
+          d.setHours(0, 0, 0, 0);
+          windowStart = d.getTime();
+          const nextMonth = new Date(d);
+          nextMonth.setMonth(nextMonth.getMonth() + 1);
+          windowEnd = nextMonth.getTime();
+        }
+        entry.windowStart = windowStart;
+        entry.windowEnd = windowEnd;
+        entry.requests = 0;
+        entry.promptTokens = 0;
+        entry.completionTokens = 0;
+        entry.totalTokens = 0;
+      }
+      return entry;
+    }
+
+    function trackRateLimit(providerId, modelName, usage) {
+      if (!usage) return;
+      const promptTokens = usage.prompt_tokens || usage.input_tokens || 0;
+      const completionTokens = usage.completion_tokens || usage.output_tokens || 0;
+      const totalTokens = usage.total_tokens || (promptTokens + completionTokens);
+
+      // Track per-minute
+      const minuteEntry = initRateLimitWindow(providerId, modelName, 'minute');
+      minuteEntry.requests += 1;
+      minuteEntry.promptTokens += promptTokens;
+      minuteEntry.completionTokens += completionTokens;
+      minuteEntry.totalTokens += totalTokens;
+
+      // Track per-day
+      const dayEntry = initRateLimitWindow(providerId, modelName, 'day');
+      dayEntry.requests += 1;
+      dayEntry.promptTokens += promptTokens;
+      dayEntry.completionTokens += completionTokens;
+      dayEntry.totalTokens += totalTokens;
+
+      // Track per-month
+      const monthEntry = initRateLimitWindow(providerId, modelName, 'month');
+      monthEntry.requests += 1;
+      monthEntry.promptTokens += promptTokens;
+      monthEntry.completionTokens += completionTokens;
+      monthEntry.totalTokens += totalTokens;
+
+      saveAppState();
+    }
+
+    function getRateLimitUsage(providerId, modelName, window) {
+      const entry = initRateLimitWindow(providerId, modelName, window);
+      return {
+        requests: entry.requests,
+        promptTokens: entry.promptTokens,
+        completionTokens: entry.completionTokens,
+        totalTokens: entry.totalTokens,
+        windowStart: entry.windowStart,
+        windowEnd: entry.windowEnd
+      };
+    }
+
+    function getModelRateLimits(provider) {
+      return provider.modelLimits || {
+        tpm: null, tpd: null, rpm: null, rpd: null,
+        contextWindow: provider.contextWindow || 128000, maxTokens: 4096,
+        monthlyTokenCap: null, monthlyRequestCap: null, monthlyCostCap: null,
+        concurrentLimit: null, cooldownSeconds: 60
+      };
+    }
+
+    function checkModelLimits(providerId, modelName, estimatedPromptTokens, estimatedCompletionTokens) {
+      const provider = appState.providers[providerId];
+      if (!provider) return { allowed: true };
+
+      const limits = getModelRateLimits(provider);
+      const now = Date.now();
+      const results = { allowed: true, blocked: [], warnings: [] };
+
+      // Helper to format reset time
+      const formatReset = (windowEnd) => {
+        const diff = windowEnd - now;
+        if (diff <= 0) return 'now';
+        const secs = Math.ceil(diff / 1000);
+        if (secs < 60) return `${secs}s`;
+        const mins = Math.floor(secs / 60);
+        const remSecs = secs % 60;
+        if (mins < 60) return `${mins}m ${remSecs}s`;
+        const hours = Math.floor(mins / 60);
+        return `${hours}h ${mins % 60}m`;
+      };
+
+      // Check TPM (Tokens Per Minute)
+      if (limits.tpm != null && limits.tpm > 0) {
+        const usage = getRateLimitUsage(providerId, modelName, 'minute');
+        const projectedTokens = usage.totalTokens + estimatedPromptTokens + estimatedCompletionTokens;
+        if (projectedTokens > limits.tpm) {
+          results.allowed = false;
+          results.blocked.push({
+            type: 'TPM',
+            label: 'Tokens Per Minute',
+            limit: limits.tpm,
+            used: usage.totalTokens,
+            projected: projectedTokens,
+            resetIn: formatReset(usage.windowEnd),
+            windowEnd: usage.windowEnd
+          });
+        } else if (projectedTokens > limits.tpm * 0.8) {
+          results.warnings.push({
+            type: 'TPM',
+            label: 'Tokens Per Minute',
+            limit: limits.tpm,
+            used: usage.totalTokens,
+            projected: projectedTokens,
+            resetIn: formatReset(usage.windowEnd)
+          });
+        }
+      }
+
+      // Check TPD (Tokens Per Day)
+      if (limits.tpd != null && limits.tpd > 0) {
+        const usage = getRateLimitUsage(providerId, modelName, 'day');
+        const projectedTokens = usage.totalTokens + estimatedPromptTokens + estimatedCompletionTokens;
+        if (projectedTokens > limits.tpd) {
+          results.allowed = false;
+          results.blocked.push({
+            type: 'TPD',
+            label: 'Tokens Per Day',
+            limit: limits.tpd,
+            used: usage.totalTokens,
+            projected: projectedTokens,
+            resetIn: formatReset(usage.windowEnd),
+            windowEnd: usage.windowEnd
+          });
+        } else if (projectedTokens > limits.tpd * 0.8) {
+          results.warnings.push({
+            type: 'TPD',
+            label: 'Tokens Per Day',
+            limit: limits.tpd,
+            used: usage.totalTokens,
+            projected: projectedTokens,
+            resetIn: formatReset(usage.windowEnd)
+          });
+        }
+      }
+
+      // Check RPM (Requests Per Minute)
+      if (limits.rpm != null && limits.rpm > 0) {
+        const usage = getRateLimitUsage(providerId, modelName, 'minute');
+        const projectedRequests = usage.requests + 1;
+        if (projectedRequests > limits.rpm) {
+          results.allowed = false;
+          results.blocked.push({
+            type: 'RPM',
+            label: 'Requests Per Minute',
+            limit: limits.rpm,
+            used: usage.requests,
+            projected: projectedRequests,
+            resetIn: formatReset(usage.windowEnd),
+            windowEnd: usage.windowEnd
+          });
+        } else if (projectedRequests > limits.rpm * 0.8) {
+          results.warnings.push({
+            type: 'RPM',
+            label: 'Requests Per Minute',
+            limit: limits.rpm,
+            used: usage.requests,
+            projected: projectedRequests,
+            resetIn: formatReset(usage.windowEnd)
+          });
+        }
+      }
+
+      // Check RPD (Requests Per Day)
+      if (limits.rpd != null && limits.rpd > 0) {
+        const usage = getRateLimitUsage(providerId, modelName, 'day');
+        const projectedRequests = usage.requests + 1;
+        if (projectedRequests > limits.rpd) {
+          results.allowed = false;
+          results.blocked.push({
+            type: 'RPD',
+            label: 'Requests Per Day',
+            limit: limits.rpd,
+            used: usage.requests,
+            projected: projectedRequests,
+            resetIn: formatReset(usage.windowEnd),
+            windowEnd: usage.windowEnd
+          });
+        } else if (projectedRequests > limits.rpd * 0.8) {
+          results.warnings.push({
+            type: 'RPD',
+            label: 'Requests Per Day',
+            limit: limits.rpd,
+            used: usage.requests,
+            projected: projectedRequests,
+            resetIn: formatReset(usage.windowEnd)
+          });
+        }
+      }
+
+      // Check Monthly Token Cap
+      if (limits.monthlyTokenCap != null && limits.monthlyTokenCap > 0) {
+        const usage = getRateLimitUsage(providerId, modelName, 'month');
+        const projectedTokens = usage.totalTokens + estimatedPromptTokens + estimatedCompletionTokens;
+        if (projectedTokens > limits.monthlyTokenCap) {
+          results.allowed = false;
+          results.blocked.push({
+            type: 'MONTHLY_TOKENS',
+            label: 'Monthly Token Cap',
+            limit: limits.monthlyTokenCap,
+            used: usage.totalTokens,
+            projected: projectedTokens,
+            resetIn: formatReset(usage.windowEnd),
+            windowEnd: usage.windowEnd
+          });
+        } else if (projectedTokens > limits.monthlyTokenCap * 0.8) {
+          results.warnings.push({
+            type: 'MONTHLY_TOKENS',
+            label: 'Monthly Token Cap',
+            limit: limits.monthlyTokenCap,
+            used: usage.totalTokens,
+            projected: projectedTokens,
+            resetIn: formatReset(usage.windowEnd)
+          });
+        }
+      }
+
+      // Check Monthly Request Cap
+      if (limits.monthlyRequestCap != null && limits.monthlyRequestCap > 0) {
+        const usage = getRateLimitUsage(providerId, modelName, 'month');
+        const projectedRequests = usage.requests + 1;
+        if (projectedRequests > limits.monthlyRequestCap) {
+          results.allowed = false;
+          results.blocked.push({
+            type: 'MONTHLY_REQUESTS',
+            label: 'Monthly Request Cap',
+            limit: limits.monthlyRequestCap,
+            used: usage.requests,
+            projected: projectedRequests,
+            resetIn: formatReset(usage.windowEnd),
+            windowEnd: usage.windowEnd
+          });
+        } else if (projectedRequests > limits.monthlyRequestCap * 0.8) {
+          results.warnings.push({
+            type: 'MONTHLY_REQUESTS',
+            label: 'Monthly Request Cap',
+            limit: limits.monthlyRequestCap,
+            used: usage.requests,
+            projected: projectedRequests,
+            resetIn: formatReset(usage.windowEnd)
+          });
+        }
+      }
+
+      // Check Monthly Cost Cap
+      if (limits.monthlyCostCap != null && limits.monthlyCostCap > 0) {
+        const monthUsage = getRateLimitUsage(providerId, modelName, 'month');
+        // Get actual cost from usage tracking
+        const providerUsage = appState.usage.byProvider[providerId];
+        let currentCost = 0;
+        if (providerUsage && providerUsage.models && providerUsage.models[modelName]) {
+          currentCost = providerUsage.models[modelName].cost || 0;
+        }
+        const estimatedCost = estimateCost(estimatedPromptTokens, estimatedCompletionTokens, modelName);
+        const projectedCost = currentCost + estimatedCost;
+        if (projectedCost > limits.monthlyCostCap) {
+          results.allowed = false;
+          results.blocked.push({
+            type: 'MONTHLY_COST',
+            label: 'Monthly Cost Cap (USD)',
+            limit: limits.monthlyCostCap,
+            used: currentCost,
+            projected: projectedCost,
+            resetIn: formatReset(monthUsage.windowEnd),
+            windowEnd: monthUsage.windowEnd
+          });
+        } else if (projectedCost > limits.monthlyCostCap * 0.8) {
+          results.warnings.push({
+            type: 'MONTHLY_COST',
+            label: 'Monthly Cost Cap (USD)',
+            limit: limits.monthlyCostCap,
+            used: currentCost,
+            projected: projectedCost,
+            resetIn: formatReset(monthUsage.windowEnd)
+          });
+        }
+      }
+
+      return results;
+    }
+
+    function logLimitHit(providerId, modelName, limitInfo) {
+      if (!appState.usage.limitHits) appState.usage.limitHits = [];
+      appState.usage.limitHits.push({
+        timestamp: Date.now(),
+        providerId,
+        modelName,
+        limitType: limitInfo.type,
+        limit: limitInfo.limit,
+        used: limitInfo.used,
+        projected: limitInfo.projected,
+        resetAt: limitInfo.windowEnd
+      });
+      // Keep only last 100 limit hits
+      if (appState.usage.limitHits.length > 100) {
+        appState.usage.limitHits = appState.usage.limitHits.slice(-100);
+      }
+      saveAppState();
+    }
+
     // Provider Fallback Chain: build ordered list of free providers (DuckDuckGo first)
     function buildProviderFallbackChain() {
       const freeProviders = [];
@@ -10656,6 +11151,9 @@ Only propose merges for skills that are genuinely overlapping or complementary. 
           appState.usage.currentSession.totalTokens += totalTokens;
           appState.usage.currentSession.cost += cost;
 
+          // Track rate limits (per-minute, per-day, per-month)
+          trackRateLimit(providerId, modelName, usage);
+
           saveAppState();
           updateHeaderUsageMeter();
         }
@@ -10710,12 +11208,17 @@ Only propose merges for skills that are genuinely overlapping or complementary. 
                 <details style="margin-top: 8px;">
                   <summary style="font-size: 10px; color: var(--text-muted); cursor: pointer;">Models (${Object.keys(data.models).length})</summary>
                   <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 4px; margin-top: 6px; font-size: 10px;">
-                    ${Object.entries(data.models).map(([model, mdata]) => `
-                      <div style="background:var(--bg-dark); border:1px solid var(--border-color); border-radius:3px; padding:4px 6px;">
-                        <div style="font-weight:600; color:var(--text-main);">${escapeHtml(model)}</div>
-                        <div style="color:var(--text-dim);">${mdata.requests} req · ${mdata.totalTokens.toLocaleString()} tok · $${mdata.cost.toFixed(4)}</div>
-                      </div>
-                    `).join('')}
+                    ${Object.entries(data.models).map(([model, mdata]) => {
+                      const limits = (provider && provider.modelLimits) ? provider.modelLimits[model] : null;
+                      const remainingHtml = limits ? generateModelLimitsReadout(providerId, model, limits) : '';
+                      return `
+                        <div style="background:var(--bg-dark); border:1px solid var(--border-color); border-radius:3px; padding:4px 6px;">
+                          <div style="font-weight:600; color:var(--text-main);">${escapeHtml(model)}</div>
+                          <div style="color:var(--text-dim);">${mdata.requests} req · ${mdata.totalTokens.toLocaleString()} tok · $${mdata.cost.toFixed(4)}</div>
+                          ${remainingHtml ? `<div style="margin-top:4px; font-size:9px;">${remainingHtml}</div>` : ''}
+                        </div>
+                      `;
+                    }).join('')}
                   </div>
                 </details>
               ` : ''}
@@ -11102,6 +11605,34 @@ Only propose merges for skills that are genuinely overlapping or complementary. 
             throw new Error('No active provider configured');
           }
           const corsProxy = provider.corsProxy || '';
+
+          // Check per-model rate limits BEFORE making any request
+          // Estimate token counts from messages for limit checking
+          let estimatedPromptTokens = 0;
+          for (const msg of messages) {
+            if (msg.content) {
+              estimatedPromptTokens += Math.ceil(msg.content.length / 4); // Rough estimate: 4 chars per token
+            }
+          }
+          // Estimate completion tokens based on maxTokens setting
+          const estimatedCompletionTokens = Math.min(provider.maxTokens || 4096, 4096);
+
+          const limitCheck = checkModelLimits(activeProviderId, provider.model, estimatedPromptTokens, estimatedCompletionTokens);
+          if (!limitCheck.allowed) {
+            // Log the limit hit
+            for (const blocked of limitCheck.blocked) {
+              logLimitHit(activeProviderId, provider.model, blocked);
+              logActivity(`Model limit hit: ${blocked.label} (${blocked.used}/${blocked.limit}) - resets in ${blocked.resetIn}`, 'error');
+            }
+                      // Offer F5 fallback
+                      const fallbackMsg = `${t('Rate limit exceeded')} ${provider.model}: ${limitCheck.blocked.map(b => b.label).join(', ')}. ` +
+                        `${t('Resets in')} ${limitCheck.blocked[0].resetIn}. ${t('Press F5 to try fallback provider')}.`;
+                      throw new Error(fallbackMsg + '|F5_FALLBACK');
+                    }
+                    // Log warnings if near limits
+                    for (const warning of limitCheck.warnings) {
+                      logActivity(`${t('Approaching model limit')}: ${warning.label} (${warning.used}/${warning.limit} - ${warning.resetIn} ${t('until reset')})`, 'warning');
+                    }
 
           if (provider.type === 'duckduckgo') {
             return callDuckDuckGo(messages, provider);
@@ -11589,36 +12120,47 @@ Only propose merges for skills that are genuinely overlapping or complementary. 
       let lastError = null;
       
       for (let i = 0; i < availableChain.length; i++) {
-        const providerId = availableChain[i];
-        const provider = appState.providers[providerId];
-        
-        if (!provider) continue;
-        
-        try {
-          logActivity(`Trying provider: ${provider.name} (${i + 1}/${availableChain.length})${isAuxiliary ? ' [aux]' : ''}`, 'info');
-          const result = await callLLM(messages, providerId);
-          
-          // Success - if we used a fallback provider, log it
-          if (i > 0) {
-            logActivity(`Fallback succeeded with ${provider.name}${isAuxiliary ? ' (aux)' : ''}`, 'success');
-          }
-          return result;
-        } catch (err) {
-          lastError = err;
-          const errorMsg = err.message || String(err);
-          
-          // Determine if this error should trigger fallback to next provider
-          const shouldFallback = 
-            errorMsg.includes('429') ||                    // Rate limited
-            errorMsg.includes('500') ||                    // Server error
-            errorMsg.includes('502') ||                    // Bad gateway
-            errorMsg.includes('503') ||                    // Service unavailable
-            errorMsg.includes('504') ||                    // Gateway timeout
-            errorMsg.includes('timeout') ||                // Timeout
-            errorMsg.includes('Empty response') ||         // Empty response
-            errorMsg.includes('Network/CORS Error') ||     // Network/CORS
-            errorMsg.includes('Request timeout') ||        // Request timeout
-            errorMsg.includes('stream idle');              // Stream idle timeout
+              const providerId = availableChain[i];
+              const provider = appState.providers[providerId];
+
+              if (!provider) continue;
+
+              try {
+                logActivity(`Trying provider: ${provider.name} (${i + 1}/${availableChain.length})${isAuxiliary ? ' [aux]' : ''}`, 'info');
+                const result = await callLLM(messages, providerId);
+
+                // Success - if we used a fallback provider, log it
+                if (i > 0) {
+                  logActivity(`Fallback succeeded with ${provider.name}${isAuxiliary ? ' (aux)' : ''}`, 'success');
+                }
+                return result;
+              } catch (err) {
+                lastError = err;
+                const errorMsg = err.message || String(err);
+
+                // Handle F5_FALLBACK error from rate limit hit - show visible message and trigger fallback
+                if (errorMsg.includes('F5_FALLBACK')) {
+                  // Show the rate limit message to user (without the F5_FALLBACK marker)
+                  const displayMsg = errorMsg.replace('|F5_FALLBACK', '');
+                  logActivity(displayMsg, 'error');
+                  // Force show the activity log panel
+                  const activityPanel = document.getElementById('activityLogPanel');
+                  if (activityPanel) activityPanel.style.display = 'block';
+                }
+
+                // Determine if this error should trigger fallback to next provider
+                const shouldFallback =
+                  errorMsg.includes('429') ||                    // Rate limited
+                  errorMsg.includes('500') ||                    // Server error
+                  errorMsg.includes('502') ||                    // Bad gateway
+                  errorMsg.includes('503') ||                    // Service unavailable
+                  errorMsg.includes('504') ||                    // Gateway timeout
+                  errorMsg.includes('timeout') ||                // Timeout
+                  errorMsg.includes('Empty response') ||         // Empty response
+                  errorMsg.includes('Network/CORS Error') ||     // Network/CORS
+                  errorMsg.includes('Request timeout') ||        // Request timeout
+                  errorMsg.includes('stream idle') ||            // Stream idle timeout
+                  errorMsg.includes('F5_FALLBACK');              // Model rate limit hit - offer fallback
           
           if (shouldFallback && i < availableChain.length - 1) {
             // Put this provider on cooldown
@@ -14968,33 +15510,107 @@ Format:
     let editingProviderId = null;
 
     function renderProviderList() {
-      const list = document.getElementById('providerList');
-      if (!list) return;
-      list.innerHTML = '';
-      
-      Object.entries(appState.providers).forEach(([id, provider]) => {
-        const isActive = id === appState.activeProviderId;
-        const item = document.createElement('div');
-        item.style.cssText = 'display:flex; align-items:center; gap:8px; padding:8px 10px; background:var(--bg-surface); border:1px solid var(--border-color); border-radius:5px;';
-        item.innerHTML = `
-          <div style="display:flex; align-items:center; gap:8px; flex:1; cursor:pointer;" onclick="setActiveProvider('${id}')">
-            <span style="width:8px; height:8px; border-radius:50%; background:${isActive ? 'var(--success)' : 'var(--border-color)'};"></span>
-            <div>
-              <div style="font-weight:600; color:${isActive ? 'var(--accent-blue)' : 'var(--text-main)'};">${escapeHtml(provider.name)}</div>
-              <div style="font-size:10px; color:var(--text-dim);">${escapeHtml(provider.baseUrl)} · ${escapeHtml(provider.model)}</div>
-            </div>
-            ${isActive ? '<span style="font-size:9px; background:var(--accent-glow); color:var(--accent-blue); padding:1px 5px; border-radius:3px;">ACTIVE</span>' : ''}
-            ${provider.isPreset ? '<span style="font-size:9px; background:var(--bg-hover); color:var(--text-muted); padding:1px 5px; border-radius:3px;">PRESET</span>' : ''}
-          </div>
-          <div style="display:flex; gap:4px;">
-            <button class="btn btn-secondary" onclick="event.stopPropagation(); openTestConnection('${id}')" style="padding:3px 8px; font-size:10px;">Test</button>
-            <button class="btn btn-secondary" onclick="event.stopPropagation(); editProvider('${id}')" style="padding:3px 8px; font-size:10px;">Edit</button>
-            ${!provider.isPreset ? `<button class="btn btn-secondary" onclick="event.stopPropagation(); deleteProvider('${id}')" style="padding:3px 8px; font-size:10px; color:var(--danger); border-color:var(--danger);">Delete</button>` : ''}
-          </div>
-        `;
-        list.appendChild(item);
-      });
-    }
+          const list = document.getElementById('providerList');
+          if (!list) return;
+          list.innerHTML = '';
+
+          Object.entries(appState.providers).forEach(([id, provider]) => {
+            const isActive = id === appState.activeProviderId;
+            const limits = provider.modelLimits || {};
+            const remainingHtml = generateModelLimitsReadout(id, provider.model, limits);
+            const item = document.createElement('div');
+            item.style.cssText = 'display:flex; flex-direction:column; align-items:flex-start; gap:4px; padding:8px 10px; background:var(--bg-surface); border:1px solid var(--border-color); border-radius:5px;';
+            item.innerHTML = `
+              <div style="display:flex; align-items:center; gap:8px; flex:1; cursor:pointer; width:100%;" onclick="setActiveProvider('${id}')">
+                <span style="width:8px; height:8px; border-radius:50%; background:${isActive ? 'var(--success)' : 'var(--border-color)'};"></span>
+                <div>
+                  <div style="font-weight:600; color:${isActive ? 'var(--accent-blue)' : 'var(--text-main)'};">${escapeHtml(provider.name)}</div>
+                  <div style="font-size:10px; color:var(--text-dim);">${escapeHtml(provider.baseUrl)} · ${escapeHtml(provider.model)}</div>
+                </div>
+                ${isActive ? '<span style="font-size:9px; background:var(--accent-glow); color:var(--accent-blue); padding:1px 5px; border-radius:3px;">ACTIVE</span>' : ''}
+                ${provider.isPreset ? '<span style="font-size:9px; background:var(--bg-hover); color:var(--text-muted); padding:1px 5px; border-radius:3px;">PRESET</span>' : ''}
+              </div>
+              ${remainingHtml ? `<div style="width:100%; margin-left:16px; font-size:9px; color:var(--text-dim);">${remainingHtml}</div>` : ''}
+              <div style="display:flex; gap:4px; width:100%; justify-content:flex-end; margin-left:16px;">
+                <button class="btn btn-secondary" onclick="event.stopPropagation(); openTestConnection('${id}')" style="padding:3px 8px; font-size:10px;">Test</button>
+                <button class="btn btn-secondary" onclick="event.stopPropagation(); editProvider('${id}')" style="padding:3px 8px; font-size:10px;">Edit</button>
+                ${!provider.isPreset ? `<button class="btn btn-secondary" onclick="event.stopPropagation(); deleteProvider('${id}')" style="padding:3px 8px; font-size:10px; color:var(--danger); border-color:var(--danger);">Delete</button>` : ''}
+              </div>
+            `;
+            list.appendChild(item);
+          });
+        }
+
+        function generateModelLimitsReadout(providerId, modelName, limits) {
+          const lines = [];
+          const now = Date.now();
+
+          const addLine = (type, labelKey, limit, usage, windowEnd) => {
+            if (limit == null || limit <= 0) return;
+            const remaining = Math.max(0, limit - usage);
+            const resetIn = windowEnd > now ? formatResetTime(windowEnd) : t('now');
+            const isNear = usage >= limit * 0.8;
+            const color = isNear ? (remaining === 0 ? 'var(--danger)' : 'var(--warning)') : 'var(--text-dim)';
+            lines.push(`<span style="color:${color};">${t(labelKey)} ${formatNumber(remaining)} / ${formatNumber(limit)} — ${t('resets in')} ${resetIn}</span>`);
+          };
+
+          // TPM
+          const minuteUsage = getRateLimitUsage(providerId, modelName, 'minute');
+          if (limits.tpm != null && limits.tpm > 0) {
+            addLine('tpm', 'TPM', limits.tpm, minuteUsage.totalTokens, minuteUsage.windowEnd);
+          }
+          if (limits.rpm != null && limits.rpm > 0) {
+            addLine('rpm', 'RPM', limits.rpm, minuteUsage.requests, minuteUsage.windowEnd);
+          }
+
+          // TPD
+          const dayUsage = getRateLimitUsage(providerId, modelName, 'day');
+          if (limits.tpd != null && limits.tpd > 0) {
+            addLine('tpd', 'TPD', limits.tpd, dayUsage.totalTokens, dayUsage.windowEnd);
+          }
+          if (limits.rpd != null && limits.rpd > 0) {
+            addLine('rpd', 'RPD', limits.rpd, dayUsage.requests, dayUsage.windowEnd);
+          }
+
+          // Monthly
+          const monthUsage = getRateLimitUsage(providerId, modelName, 'month');
+          if (limits.monthlyTokenCap != null && limits.monthlyTokenCap > 0) {
+            addLine('monthlyTokens', 'Monthly Tokens', limits.monthlyTokenCap, monthUsage.totalTokens, monthUsage.windowEnd);
+          }
+          if (limits.monthlyRequestCap != null && limits.monthlyRequestCap > 0) {
+            addLine('monthlyRequests', 'Monthly Reqs', limits.monthlyRequestCap, monthUsage.requests, monthUsage.windowEnd);
+          }
+          if (limits.monthlyCostCap != null && limits.monthlyCostCap > 0) {
+            const providerUsage = appState.usage.byProvider[providerId];
+            let currentCost = 0;
+            if (providerUsage && providerUsage.models && providerUsage.models[modelName]) {
+              currentCost = providerUsage.models[modelName].cost || 0;
+            }
+            if (currentCost >= limits.monthlyCostCap * 0.8) {
+              addLine('monthlyCost', 'Monthly Cost', '$' + limits.monthlyCostCap.toFixed(2), '$' + currentCost.toFixed(2), monthUsage.windowEnd);
+            }
+          }
+
+          return lines.length > 0 ? lines.join(' | ') : '';
+        }
+
+        function formatNumber(n) {
+          if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+          if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
+          return n.toString();
+        }
+
+        function formatResetTime(windowEnd) {
+          const diff = windowEnd - Date.now();
+          if (diff <= 0) return t('now');
+          const secs = Math.ceil(diff / 1000);
+          if (secs < 60) return `${secs}s`;
+          const mins = Math.floor(secs / 60);
+          const remSecs = secs % 60;
+          if (mins < 60) return `${mins}m ${remSecs}s`;
+          const hours = Math.floor(mins / 60);
+          return `${hours}h ${mins % 60}m`;
+        }
 
     // Render Provider Fallback Chain UI
     function renderProviderFallbackChain() {
@@ -15146,73 +15762,111 @@ Format:
           const tokenUrlInput = document.getElementById('providerTokenUrl');
           const streamingCheckbox = document.getElementById('providerStreaming');
           const contextWindowInput = document.getElementById('providerContextWindow');
-          const rotationStrategySelect = document.getElementById('providerRotationStrategy');
-          const keyPoolList = document.getElementById('keyPoolList');
+                    const rotationStrategySelect = document.getElementById('providerRotationStrategy');
+                    const keyPoolList = document.getElementById('keyPoolList');
+                    // Model limits inputs
+                    const modelLimitTpm = document.getElementById('modelLimitTpm');
+                    const modelLimitTpd = document.getElementById('modelLimitTpd');
+                    const modelLimitRpm = document.getElementById('modelLimitRpm');
+                    const modelLimitRpd = document.getElementById('modelLimitRpd');
+                    const modelLimitContextWindow = document.getElementById('modelLimitContextWindow');
+                    const modelLimitMaxTokens = document.getElementById('modelLimitMaxTokens');
+                    const modelLimitMonthlyTokens = document.getElementById('modelLimitMonthlyTokens');
+                    const modelLimitMonthlyRequests = document.getElementById('modelLimitMonthlyRequests');
+                    const modelLimitMonthlyCost = document.getElementById('modelLimitMonthlyCost');
+                    const modelLimitConcurrent = document.getElementById('modelLimitConcurrent');
+                    const modelLimitCooldown = document.getElementById('modelLimitCooldown');
 
-          // Reset form
-          presetSelect.value = '';
-          nameInput.value = '';
-          typeSelect.value = 'openai-compatible';
-          baseUrlInput.value = '';
-          modelInput.value = '';
-          apiKeyInput.value = '';
-          authStyleSelect.value = 'bearer';
-          customHeadersInput.value = '';
-          corsProxyInput.value = '';
-          refreshUrlInput.value = '';
-          tokenUrlInput.value = '';
-          streamingCheckbox.checked = true;
-          contextWindowInput.value = '';
-          rotationStrategySelect.value = 'fill_first';
-          keyPoolList.innerHTML = '';
-          editingProviderId = null;
+                    // Reset form
+                    presetSelect.value = '';
+                    nameInput.value = '';
+                    typeSelect.value = 'openai-compatible';
+                    baseUrlInput.value = '';
+                    modelInput.value = '';
+                    apiKeyInput.value = '';
+                    authStyleSelect.value = 'bearer';
+                    customHeadersInput.value = '';
+                    corsProxyInput.value = '';
+                    refreshUrlInput.value = '';
+                    tokenUrlInput.value = '';
+                    streamingCheckbox.checked = true;
+                    contextWindowInput.value = '';
+                    rotationStrategySelect.value = 'fill_first';
+                    keyPoolList.innerHTML = '';
+                    // Reset model limits
+                    modelLimitTpm.value = '';
+                    modelLimitTpd.value = '';
+                    modelLimitRpm.value = '';
+                    modelLimitRpd.value = '';
+                    modelLimitContextWindow.value = '';
+                    modelLimitMaxTokens.value = '';
+                    modelLimitMonthlyTokens.value = '';
+                    modelLimitMonthlyRequests.value = '';
+                    modelLimitMonthlyCost.value = '';
+                    modelLimitConcurrent.value = '';
+                    modelLimitCooldown.value = '';
+                    editingProviderId = null;
 
-          if (provider) {
-            title.textContent = 'Edit Provider';
-            editingProviderId = provider.id;
+                    if (provider) {
+                      title.textContent = 'Edit Provider';
+                      editingProviderId = provider.id;
 
-            // Try to match preset
-            let matchedPreset = '';
-            for (const [key, preset] of Object.entries(PROVIDER_PRESETS)) {
-              if (preset.baseUrl === provider.baseUrl && preset.model === provider.model && preset.type === provider.type) {
-                matchedPreset = key;
-                break;
-              }
-            }
-            presetSelect.value = matchedPreset;
+                      // Try to match preset
+                      let matchedPreset = '';
+                      for (const [key, preset] of Object.entries(PROVIDER_PRESETS)) {
+                        if (preset.baseUrl === provider.baseUrl && preset.model === provider.model && preset.type === provider.type) {
+                          matchedPreset = key;
+                          break;
+                        }
+                      }
+                      presetSelect.value = matchedPreset;
 
-            nameInput.value = provider.name || '';
-            typeSelect.value = provider.type || 'openai-compatible';
-            baseUrlInput.value = provider.baseUrl || '';
-            modelInput.value = provider.model || '';
-        
-            // Load key pool
-            const keyPool = provider.keyPool || [];
-            if (provider.apiKey && keyPool.length === 0) {
-              // Migrate legacy single apiKey to keyPool
-              keyPool.push({
-                id: 'key_' + Date.now(),
-                key: provider.apiKey,
-                health: 'healthy',
-                lastUsed: 0,
-                usageCount: 0,
-                benchedModels: [],
-                cooldownUntil: 0
-              });
-            }
-            renderKeyPoolList(keyPool);
-            rotationStrategySelect.value = provider.rotationStrategy || 'fill_first';
-        
-            authStyleSelect.value = provider.authStyle || 'bearer';
-            customHeadersInput.value = provider.customHeaders ? JSON.stringify(provider.customHeaders, null, 2) : '';
-            corsProxyInput.value = provider.corsProxy || '';
-            refreshUrlInput.value = provider.refreshUrl || '';
-            tokenUrlInput.value = provider.tokenUrl || '';
-            streamingCheckbox.checked = provider.streaming !== false;
-            contextWindowInput.value = provider.contextWindow || '';
-          } else {
-            title.textContent = 'Add Provider';
-          }
+                      nameInput.value = provider.name || '';
+                      typeSelect.value = provider.type || 'openai-compatible';
+                      baseUrlInput.value = provider.baseUrl || '';
+                      modelInput.value = provider.model || '';
+
+                      // Load key pool
+                      const keyPool = provider.keyPool || [];
+                      if (provider.apiKey && keyPool.length === 0) {
+                        // Migrate legacy single apiKey to keyPool
+                        keyPool.push({
+                          id: 'key_' + Date.now(),
+                          key: provider.apiKey,
+                          health: 'healthy',
+                          lastUsed: 0,
+                          usageCount: 0,
+                          benchedModels: [],
+                          cooldownUntil: 0
+                        });
+                      }
+                      renderKeyPoolList(keyPool);
+                      rotationStrategySelect.value = provider.rotationStrategy || 'fill_first';
+
+                      authStyleSelect.value = provider.authStyle || 'bearer';
+                      customHeadersInput.value = provider.customHeaders ? JSON.stringify(provider.customHeaders, null, 2) : '';
+                      corsProxyInput.value = provider.corsProxy || '';
+                      refreshUrlInput.value = provider.refreshUrl || '';
+                      tokenUrlInput.value = provider.tokenUrl || '';
+                      streamingCheckbox.checked = provider.streaming !== false;
+                      contextWindowInput.value = provider.contextWindow || '';
+
+                      // Load model limits
+                      const ml = provider.modelLimits || {};
+                      if (ml.tpm != null) modelLimitTpm.value = ml.tpm;
+                      if (ml.tpd != null) modelLimitTpd.value = ml.tpd;
+                      if (ml.rpm != null) modelLimitRpm.value = ml.rpm;
+                      if (ml.rpd != null) modelLimitRpd.value = ml.rpd;
+                      if (ml.contextWindow != null) modelLimitContextWindow.value = ml.contextWindow;
+                      if (ml.maxTokens != null) modelLimitMaxTokens.value = ml.maxTokens;
+                      if (ml.monthlyTokenCap != null) modelLimitMonthlyTokens.value = ml.monthlyTokenCap;
+                      if (ml.monthlyRequestCap != null) modelLimitMonthlyRequests.value = ml.monthlyRequestCap;
+                      if (ml.monthlyCostCap != null) modelLimitMonthlyCost.value = ml.monthlyCostCap;
+                      if (ml.concurrentLimit != null) modelLimitConcurrent.value = ml.concurrentLimit;
+                      if (ml.cooldownSeconds != null) modelLimitCooldown.value = ml.cooldownSeconds;
+                    } else {
+                      title.textContent = 'Add Provider';
+                    }
 
           modal.classList.add('active');
           nameInput.focus();
@@ -15610,24 +16264,37 @@ Format:
           const legacyApiKey = keyPool.length > 0 ? keyPool[0].key : '';
 
           const provider = {
-            id: editingProviderId || 'prov_' + Date.now(),
-            name,
-            type,
-            baseUrl,
-            model,
-            apiKey: legacyApiKey, // Legacy field
-            keyPool, // New: array of keys with health metadata
-            rotationStrategy, // New: fill_first, round_robin, least_used, random
-            authStyle,
-            customHeaders,
-            corsProxy,
-            refreshUrl,
-            tokenUrl,
-            streaming,
-            contextWindow,
-            isPreset: false,
-            presetKey: null
-          };
+                      id: editingProviderId || 'prov_' + Date.now(),
+                      name,
+                      type,
+                      baseUrl,
+                      model,
+                      apiKey: 'sk-redacted', // Legacy field
+                      keyPool, // New: array of keys with health metadata
+                      rotationStrategy, // New: fill_first, round_robin, least_used, random
+                      authStyle,
+                      customHeaders,
+                      corsProxy,
+                      refreshUrl,
+                      tokenUrl,
+                      streaming,
+                      contextWindow,
+                      modelLimits: {
+                        tpm: parseInt(document.getElementById('modelLimitTpm').value) || null,
+                        tpd: parseInt(document.getElementById('modelLimitTpd').value) || null,
+                        rpm: parseInt(document.getElementById('modelLimitRpm').value) || null,
+                        rpd: parseInt(document.getElementById('modelLimitRpd').value) || null,
+                        contextWindow: parseInt(document.getElementById('modelLimitContextWindow').value) || contextWindow,
+                        maxTokens: parseInt(document.getElementById('modelLimitMaxTokens').value) || 4096,
+                        monthlyTokenCap: parseInt(document.getElementById('modelLimitMonthlyTokens').value) || null,
+                        monthlyRequestCap: parseInt(document.getElementById('modelLimitMonthlyRequests').value) || null,
+                        monthlyCostCap: parseFloat(document.getElementById('modelLimitMonthlyCost').value) || null,
+                        concurrentLimit: parseInt(document.getElementById('modelLimitConcurrent').value) || null,
+                        cooldownSeconds: parseInt(document.getElementById('modelLimitCooldown').value) || 60
+                      },
+                      isPreset: false,
+                      presetKey: null
+                    };
 
           // If editing a preset-based provider, keep preset info
           if (editingProviderId && appState.providers[editingProviderId]) {
