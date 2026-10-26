@@ -1744,6 +1744,17 @@
             <button class="btn" id="btnSend" data-i18n="Send">Send</button>
           </div>
 
+          <!-- Batch 7.12: Message Queue UI -->
+          <div id="messageQueueContainer" style="display: none; margin-top: 8px; padding: 8px 12px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; font-size: 12px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+              <div style="font-weight: 600; color: var(--text-main);" data-i18n="Message Queue">Message Queue</div>
+              <span id="messageQueueCount" style="font-size: 11px; color: var(--text-muted);"></span>
+            </div>
+            <div id="messageQueueList" style="display: flex; flex-direction: column; gap: 6px; max-height: 200px; overflow-y: auto;">
+              <!-- Queued messages rendered here -->
+            </div>
+          </div>
+
           <!-- H5.3: @-attach picker overlay -->
           <div id="attachPicker" class="attach-picker-overlay" style="display: none; position: absolute; bottom: 100%; left: 0; right: 0; background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 8px 8px 0 0; box-shadow: 0 -4px 16px rgba(0,0,0,0.2); z-index: 100; max-height: 300px; overflow: hidden;">
             <div style="padding: 8px 12px; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; gap: 8px;">
@@ -2908,6 +2919,27 @@
               <option value="english" data-i18n="English">English</option>
             </select>
             <div style="font-size: 10px; color: var(--text-dim); margin-top: 2px;" data-i18n="Answer language: Auto = match question language, Bangla = always Bangla, English = always English">Answer language: Auto = match question language, Bangla = always Bangla, English = always English</div>
+          </div>
+        </div>
+        <hr style="border: none; border-top: 1px solid var(--border-color); margin: 12px 0;">
+        <!-- Message Queue (Batch 7.12) -->
+        <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;" data-i18n="Message Queue">Message Queue</div>
+        <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 8px;" data-i18n="Messages queued while a task is running will be sent automatically after the task finishes.">Messages queued while a task is running will be sent automatically after the task finishes.</div>
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+          <div style="flex: 1; min-width: 0;">
+            <div style="font-weight: 600; font-size: 12px; color: var(--text-main);" data-i18n="Enable message queue">Enable message queue</div>
+            <div style="font-size: 10px; color: var(--text-dim); margin-top: 2px;" data-i18n="When ON, messages sent while a task runs are queued and auto-sent after the task finishes.">When ON, messages sent while a task runs are queued and auto-sent after the task finishes.</div>
+          </div>
+          <label class="toggle-switch" style="cursor: pointer; flex-shrink: 0;">
+            <input type="checkbox" id="messageQueueEnabledToggle" style="display: none;" checked />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div style="display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 8px;">
+          <div style="flex: 1; min-width: 150px;">
+            <label style="display: block; font-size: 11px; color: var(--text-muted); margin-bottom: 4px;" data-i18n="Queue cap">Queue cap</label>
+            <input type="number" id="messageQueueCapInput" class="form-input" min="1" max="100" value="20" style="width: 100%; padding: 6px 8px; font-size: 12px;" />
+            <div style="font-size: 10px; color: var(--text-dim); margin-top: 2px;" data-i18n="Maximum queued messages per session (default: 20, max: 100)">Maximum queued messages per session (default: 20, max: 100)</div>
           </div>
         </div>
       </div>
@@ -6631,6 +6663,31 @@ Detail level: {{detail_level}}`,
         'risk-scored-review': 'রিস্ক-স্কোয়ার্ড-রিভিউ',
         'git-pinned-memory': 'গিট-পিনড-মেমরি',
 
+        // Message Queue (Batch 7.12)
+        'Message Queue': 'মেসেজ কিউ',
+        'Queue': 'কিউ',
+        'Queued': 'কিউড',
+        'Send now': 'এখন পাঠান',
+        'Edit': 'সম্পাদনা',
+        'Delete': 'মুছে দিন',
+        'Order': 'ক্রম',
+        'Message': 'বার্তা',
+        'Status': 'অবস্থা',
+        'queue full — wait for one to send': 'কিউ পূর্ণ — পাঠানোর জন্য অপেক্ষা করুন',
+        'queued message': 'কিউড বার্তা',
+        'queued messages': 'কিউড বার্তা',
+        'No queued messages': 'কোনো কিউড বার্তা নেই',
+        'send the next one?': 'পরবর্তীটি পাঠাবেন?',
+        'Send': 'পাঠান',
+        'Delete all': 'সব মুছে দিন',
+        'Message queue': 'বার্তা কিউ',
+        'Enable message queue': 'বার্তা কিউ সক্রিয় করুন',
+        'Queue cap': 'কিউ সীমা',
+        'Messages queued while a task is running will be sent automatically after the task finishes.': 'একটি কাজ চলাকালীন কিউ করা বার্তাগুলো কাজ শেষ হলে স্বয়ংক্রিয়ভাবে পাঠানো হবে।',
+        'Offline sync pending…': 'অফলাইন সিঙ্ক প্রক্রিয়াধীন…',
+        'Synced': 'সিঙ্ক করা হয়েছে',
+        'Awaiting desktop acknowledgement': 'ডেস্কটপ স্বীকৃতি অপেক্ষা',
+
         // Frontend Design (Batch 7.8)
         'Design Tokens': 'ডিজাইন টোকেন',
         'Design tokens define the visual language: colors, spacing, typography, radius, fonts. Used by the agent for all new UI.': 'ডিজাইন টোকেন ভিজ্যুয়াল ভাষা নির্ধারণ করে: রঙ, স্পেসিং, টাইপোগ্রাফি, রেডিয়াস, ফন্ট। এজেন্ট সব নতুন UI-তে এগুলো ব্যবহার করে।',
@@ -6948,6 +7005,9 @@ Detail level: {{detail_level}}`,
         topN: 8,                    // Max results to return
         threshold: 1                // Minimum score to include (1 = any hit)
       },
+      // Message Queue (Batch 7.12) — queued follow-up messages per session
+      messageQueueEnabled: true,    // Master toggle for message queue
+      messageQueueCap: 20,          // Max queued messages per session
       // Superpowers Pack settings (Batch 7.3)
       superpowersEnabled: {},       // { [skillId]: boolean } — per-skill enable toggles, default all ON
       // Verification-before-completion gate (Batch 7.3)
@@ -12430,7 +12490,8 @@ Links: [[Brain Index]]
         activeFile: 'index.html',
         openTabs: ['index.html', 'style.css', 'script.js'],
         chatHistory: [],
-        workingMemory: ''  // H1.3: bounded working memory block (hard cap: WORKING_MEMORY_CAP chars)
+        workingMemory: '',  // H1.3: bounded working memory block (hard cap: WORKING_MEMORY_CAP chars)
+        messageQueue: []    // Batch 7.12: queued follow-up messages per session
       };
       appState.activeSessionId = id;
       saveAppState();
@@ -12901,6 +12962,29 @@ Links: [[Brain Index]]
           appState.researchLanguage = e.target.value;
           saveAppState();
           logActivity(`Research language set to ${e.target.value}`, 'info');
+        };
+      }
+
+      // Message Queue settings (Batch 7.12)
+      const messageQueueEnabledToggle = document.getElementById('messageQueueEnabledToggle');
+      if (messageQueueEnabledToggle) {
+        messageQueueEnabledToggle.checked = appState.messageQueueEnabled !== false; // Default ON
+        messageQueueEnabledToggle.onchange = (e) => {
+          appState.messageQueueEnabled = e.target.checked;
+          saveAppState();
+          logActivity(e.target.checked ? 'Message queue ENABLED' : 'Message queue DISABLED', e.target.checked ? 'success' : 'warning');
+        };
+      }
+      const messageQueueCapInput = document.getElementById('messageQueueCapInput');
+      if (messageQueueCapInput) {
+        messageQueueCapInput.value = appState.messageQueueCap ?? 20;
+        messageQueueCapInput.onchange = (e) => {
+          const val = parseInt(e.target.value, 10);
+          if (!isNaN(val) && val >= 1 && val <= 100) {
+            appState.messageQueueCap = val;
+            saveAppState();
+            logActivity(`Message queue cap set to ${val}`, 'info');
+          }
         };
       }
     }
@@ -22775,7 +22859,188 @@ async function sendAgentPrompt(userPrompt, autoTurn = 0) {
         agentWorking = false;
         stopTimer();
         saveAppState();
+        // Batch 7.12: Process message queue when task finishes
+        processMessageQueue();
       }
+    }
+
+    // ==================== BATCH 7.12: MESSAGE QUEUE ====================
+    // Queue a message when agent is busy
+    function queueMessage(text) {
+      const session = getCurrentSession();
+      if (!session) return false;
+      
+      // Initialize messageQueue if not present
+      if (!session.messageQueue) {
+        session.messageQueue = [];
+      }
+      
+      // Check queue cap
+      const cap = appState.messageQueueCap || 20;
+      const queuedCount = session.messageQueue.filter(m => m.status === 'queued').length;
+      if (queuedCount >= cap) {
+        logActivity(t('queue full — wait for one to send'), 'warning');
+        return false;
+      }
+      
+      const entry = {
+        id: 'msgq_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
+        text: text,
+        createdAt: Date.now(),
+        status: 'queued'  // 'queued' | 'sent' | 'deleted'
+      };
+      
+      session.messageQueue.push(entry);
+      saveAppState();
+      renderMessageQueue();
+      return true;
+    }
+
+    // Render the message queue UI
+    function renderMessageQueue() {
+      const container = document.getElementById('messageQueueContainer');
+      const list = document.getElementById('messageQueueList');
+      const countEl = document.getElementById('messageQueueCount');
+      if (!container || !list || !countEl) return;
+      
+      const session = getCurrentSession();
+      if (!session || !session.messageQueue) {
+        container.style.display = 'none';
+        return;
+      }
+      
+      // Filter out deleted messages for display
+      const queuedMessages = session.messageQueue.filter(m => m.status === 'queued');
+      
+      if (queuedMessages.length === 0) {
+        container.style.display = 'none';
+        return;
+      }
+      
+      container.style.display = 'block';
+      countEl.textContent = queuedMessages.length === 1 
+        ? t('queued message') 
+        : queuedMessages.length + ' ' + t('queued messages');
+      
+      list.innerHTML = '';
+      queuedMessages.forEach((msg, index) => {
+        const row = document.createElement('div');
+        row.style.cssText = 'display: flex; align-items: center; gap: 8px; padding: 6px 8px; background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 4px;';
+        row.innerHTML = `
+          <span style="font-weight: 600; color: var(--accent-blue); min-width: 24px; text-align: right;">${index + 1}.</span>
+          <span style="flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-main);">${escapeHtml(msg.text)}</span>
+          <button class="btn btn-secondary" data-msgq-edit="${escapeHtml(msg.id)}" style="padding: 2px 8px; font-size: 11px;" data-i18n="Edit">Edit</button>
+          <button class="btn btn-secondary" data-msgq-delete="${escapeHtml(msg.id)}" style="padding: 2px 8px; font-size: 11px;" data-i18n="Delete">Delete</button>
+          <button class="btn" data-msgq-sendnow="${escapeHtml(msg.id)}" style="padding: 2px 8px; font-size: 11px;" data-i18n="Send now">Send now</button>
+        `;
+        list.appendChild(row);
+      });
+      
+      // Attach event handlers
+      list.querySelectorAll('[data-msgq-edit]').forEach(btn => {
+        btn.onclick = (e) => {
+          const id = e.target.getAttribute('data-msgq-edit');
+          editQueuedMessage(id);
+        };
+      });
+      list.querySelectorAll('[data-msgq-delete]').forEach(btn => {
+        btn.onclick = (e) => {
+          const id = e.target.getAttribute('data-msgq-delete');
+          deleteQueuedMessage(id);
+        };
+      });
+      list.querySelectorAll('[data-msgq-sendnow]').forEach(btn => {
+        btn.onclick = (e) => {
+          const id = e.target.getAttribute('data-msgq-sendnow');
+          sendQueuedNow(id);
+        };
+      });
+      
+      applyTranslations();
+    }
+
+    // Edit a queued message
+    function editQueuedMessage(id) {
+      const session = getCurrentSession();
+      if (!session || !session.messageQueue) return;
+      
+      const msg = session.messageQueue.find(m => m.id === id);
+      if (!msg || msg.status !== 'queued') return;
+      
+      const newText = prompt(t('Edit') + ': ' + t('Message'), msg.text);
+      if (newText === null || newText.trim() === '') return;
+      
+      msg.text = newText.trim();
+      saveAppState();
+      renderMessageQueue();
+    }
+
+    // Delete a queued message (mark as deleted, keep in history)
+    function deleteQueuedMessage(id) {
+      const session = getCurrentSession();
+      if (!session || !session.messageQueue) return;
+      
+      const msg = session.messageQueue.find(m => m.id === id);
+      if (!msg) return;
+      
+      msg.status = 'deleted';
+      saveAppState();
+      renderMessageQueue();
+    }
+
+    // Send a queued message immediately (after current step completes)
+    function sendQueuedNow(id) {
+      const session = getCurrentSession();
+      if (!session || !session.messageQueue) return;
+      
+      const msg = session.messageQueue.find(m => m.id === id);
+      if (!msg || msg.status !== 'queued') return;
+      
+      msg.status = 'sent';
+      saveAppState();
+      renderMessageQueue();
+      
+      // Send as follow-up in the same session
+      sendAgentPrompt(msg.text);
+    }
+
+    // Process the message queue: send next queued message when agent finishes
+    function processMessageQueue() {
+      // Only auto-process on desktop, not on phone (phone never auto-sends)
+      if (appState.isMobileApp) return;
+      
+      const session = getCurrentSession();
+      if (!session || !session.messageQueue) return;
+      
+      // Check if message queue is enabled
+      if (appState.messageQueueEnabled === false) return;
+      
+      const nextQueued = session.messageQueue.find(m => m.status === 'queued');
+      if (!nextQueued) return;
+      
+      // Don't queue if agent is already working (shouldn't happen but safety check)
+      if (agentWorking) return;
+      
+      nextQueued.status = 'sent';
+      saveAppState();
+      renderMessageQueue();
+      
+      // Send as follow-up in the same session
+      sendAgentPrompt(nextQueued.text);
+    }
+
+    // Check for queued messages on session open and offer to send/delete
+    function checkQueuedMessagesOnSessionOpen() {
+      const session = getCurrentSession();
+      if (!session || !session.messageQueue) return;
+      
+      const queuedMessages = session.messageQueue.filter(m => m.status === 'queued');
+      if (queuedMessages.length === 0) return;
+      
+      // This will be called when a session is loaded
+      // The UI will show the queue automatically via renderMessageQueue()
+      // We just log it for awareness
+      logActivity(`${queuedMessages.length} ${t('queued messages')} ${t('send the next one?')}`, 'info');
     }
 
     // ==================== RECIPES: RUNNER (Batch 7.5) ====================
@@ -24958,33 +25223,38 @@ CURRENT VIRTUAL FILES (outlines):
     }
 
     function switchSession(sessionId) {
-      if (!appState.sessions[sessionId]) return;
-      const previousSessionId = appState.activeSessionId;
-      appState.activeSessionId = sessionId;
-      saveAppState();
-      renderSessionPicker();
-      renderSessionList();
-      renderFileTree();
-      renderTabs();
-      renderChatHistory();
-      updateUncensoredUI();
-      updateHeaderUsageMeter();
-      previewHealthReset();
-      const session = getCurrentSession();
-      if (session.activeFile && session.files[session.activeFile] !== undefined) {
-        document.getElementById('editorTextarea').value = session.files[session.activeFile];
-      } else {
-        document.getElementById('editorTextarea').value = '';
-      }
-      updateLineNumbers();
-      refreshPreview();
-      logActivity(`Switched to session: ${session.name}`, 'info');
+          if (!appState.sessions[sessionId]) return;
+          const previousSessionId = appState.activeSessionId;
+          appState.activeSessionId = sessionId;
+          saveAppState();
+          renderSessionPicker();
+          renderSessionList();
+          renderFileTree();
+          renderTabs();
+          renderChatHistory();
+          updateUncensoredUI();
+          updateHeaderUsageMeter();
+          previewHealthReset();
+          const session = getCurrentSession();
+          if (session.activeFile && session.files[session.activeFile] !== undefined) {
+            document.getElementById('editorTextarea').value = session.files[session.activeFile];
+          } else {
+            document.getElementById('editorTextarea').value = '';
+          }
+          updateLineNumbers();
+          refreshPreview();
+          logActivity(`Switched to session: ${session.name}`, 'info');
       
-      // Show recap card for the new session (but not on initial load)
-      if (previousSessionId && previousSessionId !== sessionId) {
-        setTimeout(() => showSessionRecap(session), 100);
-      }
-    }
+          // Batch 7.12: Render message queue for this session
+          renderMessageQueue();
+          // Batch 7.12: Check for queued messages on session open
+          checkQueuedMessagesOnSessionOpen();
+
+          // Show recap card for the new session (but not on initial load)
+          if (previousSessionId && previousSessionId !== sessionId) {
+            setTimeout(() => showSessionRecap(session), 100);
+          }
+        }
 
     // Update Uncensored Mode UI in header based on current project state
     function updateUncensoredUI() {
@@ -27063,6 +27333,15 @@ Format:
         const currentMode = modeSelector?.value || 'general';
         if (currentMode === 'research') {
           startResearchBackground(text);
+          return;
+        }
+
+        // Batch 7.12: Queue message if agent is working and message queue is enabled
+        if (agentWorking && appState.messageQueueEnabled !== false) {
+          const queued = queueMessage(text);
+          if (queued) {
+            logActivity(t('Message queued'), 'info');
+          }
           return;
         }
 
@@ -29457,6 +29736,11 @@ Requirements:
       updateUncensoredUI();
       updateTeachModeUI();
       updatePlanControlsVisibility();
+      
+      // Batch 7.12: Render message queue
+      renderMessageQueue();
+      // Batch 7.12: Check for queued messages on session open
+      checkQueuedMessagesOnSessionOpen();
       
       // Load plan from brain file if exists
       const loadedPlan = loadPlanFromBrainFile();
