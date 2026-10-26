@@ -20433,6 +20433,17 @@ async function sendAgentPrompt(userPrompt, autoTurn = 0) {
         }
       }
 
+      // Spec-driven flow (Batch 7.6): Spec Mode ON routes a fresh user prompt
+      // into requirements → design → tasks with approval gates instead of
+      // building directly. startSpecFlow drafts requirements.md and waits
+      // for approval; it runs via sendSpecPrompt, not this function, so
+      // release agentWorking here and hand off.
+      if (autoTurn === 0 && appState.specMode === true) {
+        agentWorking = false;
+        startSpecFlow(userPrompt);
+        return;
+      }
+
       // Tool Recommender: run matcher on first user turn (Batch 7.2b)
       if (autoTurn === 0 && appState.toolRecommendationsEnabled) {
         const recommendations = recommendToolsForTask(userPrompt);

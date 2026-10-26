@@ -159,6 +159,23 @@ runTest('.devforge/specs/<feature>/ directory structure created', () => {
   assertRegex(script, /\.devforge\/specs|specs\/[^\/]+\/requirements|specs\/[^\/]+\/design|specs\/[^\/]+\/tasks/, 'Should create spec directory structure');
 });
 
+// Verifier repair (2026-10-26): startSpecFlow was defined but never called —
+// Spec Mode toggle did nothing at runtime. The send path must route a fresh
+// user prompt into the spec flow when Spec Mode is ON.
+// NOTE: extractFunction() only grabs up to the first '}' inside a function,
+// so scope by string position instead: the routing must sit inside
+// sendAgentPrompt (after its definition, before the next top-level fn).
+runTest('Spec Mode routes fresh prompt into startSpecFlow (wiring)', () => {
+  const sendAt = script.indexOf('async function sendAgentPrompt');
+  assert(sendAt >= 0, 'sendAgentPrompt exists');
+  const callAt = script.indexOf('startSpecFlow(userPrompt)', sendAt);
+  assert(callAt > sendAt, 'sendAgentPrompt calls startSpecFlow(userPrompt)');
+  const checkAt = script.indexOf('appState.specMode === true', sendAt);
+  assert(checkAt > sendAt && checkAt < callAt, 'sendAgentPrompt gates the call on appState.specMode === true');
+  const releaseAt = script.indexOf('agentWorking = false', checkAt);
+  assert(releaseAt > checkAt && releaseAt < callAt, 'sendAgentPrompt releases agentWorking before handing off to the spec flow');
+});
+
 // Summary
 console.log(`\n=== RESULTS: ${passCount} passed, ${failCount} failed ===`);
 if (failCount > 0) {
