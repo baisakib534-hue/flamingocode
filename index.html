@@ -5090,7 +5090,9 @@ WORK STYLE:
         enabled: true,              // 'Load tools when needed' mode (default)
         loadedCount: 0,             // Number of tool definitions loaded this session
         loadedKeys: []              // Keys of loaded tool definitions
-      }
+      },
+      // Scheduled Tasks + Watch Loops (H5.1)
+      scheduledTasks: []  // Array of {id, name, schedule, prompt, skills, modelPin, workdir, noAgent, script, deliver, monitor, enabled, created, nextRun, lastRun, status, preflightValid, preflightAlerted}
     };
 
     function loadAppState() {
