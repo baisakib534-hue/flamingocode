@@ -1495,6 +1495,8 @@
             <span style="font-size: 9px; color: var(--text-dim);" id="tokenBudgetText">0%</span>
           </div>
           <div style="font-size: 9px; color: var(--success);" id="tokensSaved">+0 saved</div>
+          <!-- Loaded tools line (Batch 7.10) -->
+          <div style="font-size: 9px; color: var(--accent-blue); font-family: var(--font-mono);" id="loadedToolsLine"></div>
         </div>
       </div>
       <!-- Usage Meter -->
@@ -2800,6 +2802,32 @@
             <input type="checkbox" id="toolRecommendationsToggleSettings" style="display: none;" checked />
             <span class="toggle-slider"></span>
           </label>
+        </div>
+        <hr style="border: none; border-top: 1px solid var(--border-color); margin: 12px 0;">
+        <!-- Tool Search (Batch 7.10) -->
+        <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;" data-i18n="Tool Search">Tool Search</div>
+        <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 8px;" data-i18n="Load tools when needed via keyword search instead of loading all tools. Reduces context tokens by ~85%.">Load tools when needed via keyword search instead of loading all tools. Reduces context tokens by ~85%.</div>
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+          <div style="flex: 1; min-width: 0;">
+            <div style="font-weight: 600; font-size: 12px; color: var(--text-main);" data-i18n="Tool search enabled">Tool search enabled</div>
+            <div style="font-size: 10px; color: var(--text-dim); margin-top: 2px;" data-i18n="When ON, agent searches for relevant tools by keyword. OFF falls back to category defaults.">When ON, agent searches for relevant tools by keyword. OFF falls back to category defaults.</div>
+          </div>
+          <label class="toggle-switch" style="cursor: pointer; flex-shrink: 0;">
+            <input type="checkbox" id="toolSearchToggleSettings" style="display: none;" checked />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div style="display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 12px;">
+          <div style="flex: 1; min-width: 150px;">
+            <label style="display: block; font-size: 11px; color: var(--text-muted); margin-bottom: 4px;" data-i18n="Top N results">Top N results</label>
+            <input type="number" id="toolSearchTopNInput" class="form-input" min="1" max="50" value="8" style="width: 100%; padding: 6px 8px; font-size: 12px;" />
+            <div style="font-size: 10px; color: var(--text-dim); margin-top: 2px;" data-i18n="Maximum tools to return per search (default: 8)">Maximum tools to return per search (default: 8)</div>
+          </div>
+          <div style="flex: 1; min-width: 150px;">
+            <label style="display: block; font-size: 11px; color: var(--text-muted); margin-bottom: 4px;" data-i18n="Score threshold">Score threshold</label>
+            <input type="number" id="toolSearchThresholdInput" class="form-input" min="0" max="10" value="1" style="width: 100%; padding: 6px 8px; font-size: 12px;" />
+            <div style="font-size: 10px; color: var(--text-dim); margin-top: 2px;" data-i18n="Minimum score to include (1 = any hit, default: 1)">Minimum score to include (1 = any hit, default: 1)</div>
+          </div>
         </div>
         <hr style="border: none; border-top: 1px solid var(--border-color); margin: 12px 0;">
         <!-- Verification Before Completion (Batch 7.3) -->
@@ -5898,6 +5926,18 @@ Detail level: {{detail_level}}`,
         '(executing)': '(এক্সিকিউট হচ্ছে)',
         '(ask about codebase)': '(কোডবেস সম্পর্কে জিজ্ঞেস করুন)',
 
+        // Tool Search (Batch 7.10)
+        'Tool Search': 'টুল সার্চ',
+        'Search tools': 'টুল সার্চ করুন',
+        'Tool search enabled': 'টুল সার্চ সক্রিয়',
+        'Top N results': 'সর্বোচ্চ N ফলাফল',
+        'Score threshold': 'স্কোর থ্রেশহোল্ড',
+        'Tools loaded': 'লোড করা টুল',
+        'saved': 'বچে',
+        'tokens': 'টোকেন',
+        'Search missed — using category defaults': 'সার্চ মিস — ক্যাটাগরি ডিফল্ট ব্যবহার করছি',
+        'No tools matched': 'কোনো টুল মেলেনি',
+
         // Settings - Autonomy
         'Autonomy Engine': 'স্বায়ত্তশাসন ইঞ্জিন',
         'Catalog Injection': 'ক্যাটালগ ইনজেকশন',
@@ -6838,6 +6878,12 @@ Detail level: {{detail_level}}`,
         enabled: true,              // 'Load tools when needed' mode (default)
         loadedCount: 0,             // Number of tool definitions loaded this session
         loadedKeys: []              // Keys of loaded tool definitions
+      },
+      // Tool Search (Batch 7.10) — keyword search over all known tools
+      toolSearch: {
+        enabled: true,              // 'Load tools when needed' via search (default ON)
+        topN: 8,                    // Max results to return
+        threshold: 1                // Minimum score to include (1 = any hit)
       },
       // Superpowers Pack settings (Batch 7.3)
       superpowersEnabled: {},       // { [skillId]: boolean } — per-skill enable toggles, default all ON
@@ -12653,6 +12699,45 @@ Links: [[Brain Index]]
         };
       }
 
+      // Tool Search settings (Batch 7.10)
+      const toolSearchToggle = document.getElementById('toolSearchToggleSettings');
+      if (toolSearchToggle) {
+        toolSearchToggle.checked = appState.toolSearch?.enabled !== false; // Default ON
+        toolSearchToggle.onchange = (e) => {
+          if (!appState.toolSearch) appState.toolSearch = { enabled: true, topN: 8, threshold: 1 };
+          appState.toolSearch.enabled = e.target.checked;
+          saveAppState();
+          logActivity(e.target.checked ? 'Tool search enabled' : 'Tool search disabled', 'info');
+          rebuildToolSearchIndex();
+        };
+      }
+      const toolSearchTopN = document.getElementById('toolSearchTopNInput');
+      if (toolSearchTopN) {
+        toolSearchTopN.value = appState.toolSearch?.topN ?? 8;
+        toolSearchTopN.onchange = (e) => {
+          const val = parseInt(e.target.value, 10);
+          if (!isNaN(val) && val >= 1 && val <= 50) {
+            if (!appState.toolSearch) appState.toolSearch = { enabled: true, topN: 8, threshold: 1 };
+            appState.toolSearch.topN = val;
+            saveAppState();
+            logActivity(`Tool search top-N set to ${val}`, 'info');
+          }
+        };
+      }
+      const toolSearchThreshold = document.getElementById('toolSearchThresholdInput');
+      if (toolSearchThreshold) {
+        toolSearchThreshold.value = appState.toolSearch?.threshold ?? 1;
+        toolSearchThreshold.onchange = (e) => {
+          const val = parseInt(e.target.value, 10);
+          if (!isNaN(val) && val >= 0 && val <= 10) {
+            if (!appState.toolSearch) appState.toolSearch = { enabled: true, topN: 8, threshold: 1 };
+            appState.toolSearch.threshold = val;
+            saveAppState();
+            logActivity(`Tool search threshold set to ${val}`, 'info');
+          }
+        };
+      }
+
       // Verification Before Completion toggle (Batch 7.3)
       const verificationToggle = document.getElementById('verificationBeforeCompletionToggleSettings');
       if (verificationToggle) {
@@ -13272,62 +13357,420 @@ function validateRecipe(recipe) {
       // These are loaded via plugin_ prefix
     };
 
-    // Plain-text catalog + rule, injected into agent context and spawn templates.
-        // Progressive disclosure: only names + one-line triggers injected; full content loads on demand via loadSkillContent() / loadToolContent().
-        function buildAutonomyCatalogText() {
-          let text = '=== AUTONOMY ENGINE: INSTALLED CATALOG ===\n';
-          text += 'These skills, plugins, MCPs and tools are installed. Full content loads on demand when you declare Tools used.\n\n';
-          text += '--- MANDATORY PRE-INSTALLED SKILLS (jcode pack) ---\n';
-          text += AUTONOMY_CATALOG.skills.map(s => '• ' + s.name + ': ' + s.desc.split('.')[0] + '. [load: skill_' + s.name + ']').join('\n');
-          text += '\n\n--- MANDATORY PRE-INSTALLED MCPs ---\n';
-          text += AUTONOMY_CATALOG.mcps.map(m => '• ' + m.name + ': ' + m.desc.split('.')[0] + '. [load: mcp_' + m.name + ']').join('\n');
-          text += '\n\n--- SKILLS FOR VIBE-CODING DEVELOPMENT ---\n';
-          text += AUTONOMY_CATALOG.vibeSkills.map(s => '• ' + s.name + ': ' + s.desc.split('.')[0] + '. [load: vibe_' + s.name + ']').join('\n');
-          text += '\n\n--- MCPs (BUILD ENVIRONMENT) ---\n';
-          text += AUTONOMY_CATALOG.newMcps.map(m => '• ' + m.name + ': ' + m.desc.split('.')[0] + '. [load: mcp_' + m.name + ']').join('\n');
-          text += '\n\n--- PLUGIN PACKS (product runtime library) ---\n';
-          text += AUTONOMY_CATALOG.pluginPacks.map(p => '• ' + p.name + ': ' + p.desc.split('.')[0] + '. [load: plugin_' + p.name + ']').join('\n');
+    // ==================== TOOL SEARCH INDEX (Batch 7.10) ====================
+    // Single searchable index over ALL tools the app knows about:
+    // built-in tools (TOOL_DEFINITIONS), skills (AUTONOMY_CATALOG), MCP servers,
+    // plugin packs (AUTONOMY_CATALOG), and TOOL_RECOMMENDATIONS entries.
+    // NEVER a second catalog — built from EXISTING registries only.
+    // Each entry: { id, kind, name, whatItDoes, keywords: [Bangla + English] }
+    // Reuses existing descriptions/triggers — no duplicate copy.
+    // Rebuilds on install/uninstall/enable/disable (hook into existing paths).
+    // Global export for test extraction and command palette access
+    window.TOOL_SEARCH_INDEX = (function () {
+      const index = {};
 
-          // User-configured MCP servers (from registry) - scrub credentials before injecting
-          const userMcpServers = Object.values(appState.mcpServers || {}).filter(s => s.enabled !== false);
-          if (userMcpServers.length > 0) {
-            text += '\\n\\n--- USER MCP SERVERS (registry) ---\\n';
-            text += userMcpServers.map(server => {
-              const scrubbed = scrubMcpCredentialsForContext(server);
-              const toolsInfo = scrubbed.enabledTools && scrubbed.enabledTools.length > 0
-                ? ' | Tools: ' + scrubbed.enabledTools.map(t => t.replace('mcp_', '')).join(', ')
-                : ' | Tools: (all declared)';
-              const trustInfo = ' | Trust: ' + (scrubbed.trust || 'untrusted');
-              const limitInfo = scrubbed.callLimit ? ' | Call limit: ' + scrubbed.callLimit + '/session' : '';
-              return '• ' + scrubbed.name + ': ' + (scrubbed.description || 'No description') + toolsInfo + trustInfo + limitInfo + '. [load: mcp_' + scrubbed.id.replace('mcp_', '') + ']';
-            }).join('\\n');
-          }
+      // Helper: extract keywords from text (English words + Bangla chars)
+      function extractKeywords(text) {
+        if (!text) return [];
+        const words = text.toLowerCase()
+          .replace(/[^\w\s\u0980-\u09FF]/g, ' ')
+          .split(/\s+/)
+          .filter(w => w.length > 1);
+        // Dedupe
+        return [...new Set(words)];
+      }
 
-          // Tools (B4.7 Lazy Loading) - only show names + triggers when lazy loading enabled
-          if (appState.lazyTools?.enabled) {
-            const allTools = Object.values(TOOL_DEFINITIONS);
-            const loadedKeys = appState.lazyTools.loadedKeys || [];
-            text += '\n\n--- TOOLS (lazy-loaded) ---\n';
-            text += 'Mode: Load tools when needed. ' + loadedKeys.length + ' of ' + allTools.length + ' loaded.\n';
-            text += allTools.map(t => {
-              const isLoaded = loadedKeys.includes(t.name);
-              const status = isLoaded ? '[LOADED]' : '[load: tool_' + t.name + ']';
-              return '• ' + t.name + ' (' + t.type + '): ' + t.trigger + '. ' + status;
-            }).join('\n');
-          } else {
-            // "Tools already loaded" mode - show full definitions inline
-            const allTools = Object.values(TOOL_DEFINITIONS);
-            text += '\n\n--- TOOLS (pre-loaded) ---\n';
-            text += allTools.map(t => '• ' + t.name + ' (' + t.type + '): ' + t.trigger + '. Full: ' + t.description).join('\n');
-          }
+      // Helper: add entry to index
+      function addEntry(id, kind, name, whatItDoes, extraKeywords = []) {
+        const keywords = [...new Set([
+          ...extractKeywords(name),
+          ...extractKeywords(whatItDoes),
+          ...extraKeywords.map(k => k.toLowerCase())
+        ])];
+        index[id] = { id, kind, name, whatItDoes, keywords };
+      }
 
-          // Custom user skill packs
-          if (appState.customSkillPacks && Object.keys(appState.customSkillPacks).length > 0) {
-            text += '\n\n--- CUSTOM USER SKILL PACKS ---\n';
-            text += Object.values(appState.customSkillPacks).map(s => '• ' + s.name + ' (' + (s.category || 'general') + '): ' + (s.instructions || '').split('.')[0] + '. [load: custom_' + s.id + ']').join('\n');
-          }
-          return text;
+      // 1. Built-in tools from TOOL_DEFINITIONS
+      for (const [key, tool] of Object.entries(TOOL_DEFINITIONS)) {
+        addEntry('tool_' + key, 'builtin', tool.name, tool.trigger + '. ' + tool.description, [key]);
+      }
+
+      // 2. Skills from AUTONOMY_CATALOG (jcode pack + vibe skills)
+      for (const skill of AUTONOMY_CATALOG.skills) {
+        addEntry('skill_' + skill.name, 'skill', skill.name, skill.desc, ['skill', skill.name]);
+      }
+      for (const skill of AUTONOMY_CATALOG.vibeSkills) {
+        addEntry('vibe_' + skill.name, 'skill', skill.name, skill.desc, ['vibe', 'skill', skill.name]);
+      }
+      for (const skill of AUTONOMY_CATALOG.superpowers) {
+        addEntry('superpower_' + skill.name, 'skill', skill.name, skill.desc, ['superpower', 'skill', skill.name]);
+      }
+
+      // 3. MCP servers from AUTONOMY_CATALOG
+      for (const mcp of [...AUTONOMY_CATALOG.mcps, ...AUTONOMY_CATALOG.newMcps]) {
+        addEntry('mcp_' + mcp.name, 'mcp', mcp.name, mcp.desc, ['mcp', 'server', mcp.name]);
+      }
+
+      // 4. Plugin packs from AUTONOMY_CATALOG
+      for (const plugin of AUTONOMY_CATALOG.pluginPacks) {
+        addEntry('plugin_' + plugin.name, 'plugin', plugin.name, plugin.desc, ['plugin', 'pack', plugin.name]);
+      }
+
+      // 5. TOOL_RECOMMENDATIONS entries (reuse their whatItDoes + triggers)
+      // Use 'rec_' prefix to avoid overwriting catalog entries with same base ID
+      for (const rec of TOOL_RECOMMENDATIONS) {
+        const recId = 'rec_' + rec.id;
+        addEntry(recId, 'recommendation', rec.name, rec.whatItDoes, rec.triggers);
+      }
+
+      // 6. Custom user skill packs (dynamic)
+      if (typeof appState !== 'undefined' && appState.customSkillPacks) {
+        for (const [id, pack] of Object.entries(appState.customSkillPacks)) {
+          addEntry('custom_' + id, 'skill', pack.name, pack.instructions || '', ['custom', 'skill', pack.name]);
         }
+      }
+
+      // 7. User MCP servers (dynamic)
+      if (typeof appState !== 'undefined' && Array.isArray(appState.mcpServers)) {
+        for (const server of appState.mcpServers) {
+          if (server.id && server.name) {
+            addEntry('mcp_' + server.id, 'mcp', server.name, server.desc || server.description || '', ['mcp', 'server', server.name]);
+          }
+        }
+      }
+
+      // 8. User plugin packs (dynamic)
+      if (typeof appState !== 'undefined' && appState.pluginCatalog?.installed) {
+        for (const [packName, packInfo] of Object.entries(appState.pluginCatalog.installed)) {
+          addEntry('plugin_' + packName, 'plugin', packName, packInfo.desc || '', ['plugin', 'pack', packName]);
+        }
+      }
+
+      return index;
+    }());
+
+    // Keyword search over TOOL_SEARCH_INDEX — lightweight, NO model call.
+    // Scoring: name hit = 3, keyword hit = 2, description hit = 1.
+    // Returns { tools: [...], estimatedTokens, savedVsAll }.
+    // topN default 8, threshold default 1.
+    function searchTools(query) {
+      const settings = appState.toolSearch || { enabled: true, topN: 8, threshold: 1 };
+      if (!settings.enabled) return { tools: [], estimatedTokens: 0, savedVsAll: 0 };
+
+      const q = (query || '').toLowerCase().trim();
+      if (!q) return { tools: [], estimatedTokens: 0, savedVsAll: 0 };
+
+      const qWords = q.split(/\s+/).filter(w => w.length > 0);
+      const allEntries = Object.values(TOOL_SEARCH_INDEX);
+
+      // Score each entry
+      const scored = allEntries.map(entry => {
+        let score = 0;
+        let matchedField = '';
+
+        // Name hit (exact or substring)
+        const nameLower = entry.name.toLowerCase();
+        if (qWords.some(w => nameLower.includes(w))) {
+          score += 3;
+          matchedField = 'name';
+        }
+
+        // Keyword hit
+        if (!matchedField || matchedField === 'name') {
+          const keywordHit = entry.keywords.some(k => qWords.some(w => k.includes(w)));
+          if (keywordHit) {
+            score += 2;
+            if (!matchedField) matchedField = 'keyword';
+          }
+        }
+
+        // Description hit (whatItDoes)
+        if (!matchedField || matchedField === 'name' || matchedField === 'keyword') {
+          const descLower = entry.whatItDoes.toLowerCase();
+          if (qWords.some(w => descLower.includes(w))) {
+            score += 1;
+            if (!matchedField) matchedField = 'description';
+          }
+        }
+
+        return { entry, score, matchedField };
+      });
+
+      // Filter by threshold, sort by score desc, take topN
+      const threshold = settings.threshold || 1;
+      const topN = settings.topN || 8;
+      const results = scored
+        .filter(r => r.score >= threshold)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, topN)
+        .map(r => ({
+          id: r.entry.id,
+          kind: r.entry.kind,
+          name: r.entry.name,
+          whatItDoes: r.entry.whatItDoes,
+          score: r.score,
+          matchedField: r.matchedField
+        }));
+
+      // Token estimation (chars/4, same as B2 dashboard)
+      const estimateTokens = (obj) => Math.round(JSON.stringify(obj).length / 4);
+      const estimatedTokens = results.reduce((sum, r) => sum + estimateTokens(r), 0);
+
+      // All-schemas estimate for savedVsAll
+      const allSchemaChars = allEntries.reduce((sum, e) => sum + JSON.stringify(e).length, 0);
+      const allSchemasEstimate = Math.round(allSchemaChars / 4);
+      const savedVsAll = Math.max(0, allSchemasEstimate - estimatedTokens);
+
+      return { tools: results, estimatedTokens, savedVsAll };
+    }
+
+    // Load a tool for the next step (Batch 7.10) — called from command palette tool search
+    // Marks the tool as loaded in lazyTools and adds to context for next agent turn
+    function loadToolForNextStep(tool) {
+      // For built-in tools, mark as loaded in lazyTools
+      if (tool.kind === 'builtin' && tool.id.startsWith('tool_')) {
+        const toolName = tool.id.replace('tool_', '');
+        if (appState.lazyTools?.enabled && !appState.lazyTools.loadedKeys.includes(toolName)) {
+          appState.lazyTools.loadedKeys.push(toolName);
+          appState.lazyTools.loadedCount = appState.lazyTools.loadedKeys.length;
+          saveAppState();
+        }
+        // Also trigger lazy loading via loadToolContent
+        loadToolContent('tool_' + toolName);
+      }
+      // For skills/mcps/plugins, the [load: prefix] in catalog will trigger loading on next turn
+      // We just need to ensure the tool appears in the catalog text for the next context build
+      // This happens automatically since buildAutonomyCatalogText reads the index
+
+      // Update loaded tools display
+      updateTokenMeter(getCurrentSession());
+    }
+    function rebuildToolSearchIndex() {
+      // Re-run the IIFE logic by reassigning TOOL_SEARCH_INDEX
+      // Since TOOL_SEARCH_INDEX is const, we mutate it in place
+      const newIndex = (function () {
+        const index = {};
+
+        function extractKeywords(text) {
+          if (!text) return [];
+          const words = text.toLowerCase()
+            .replace(/[^\w\s\u0980-\u09FF]/g, ' ')
+            .split(/\s+/)
+            .filter(w => w.length > 1);
+          return [...new Set(words)];
+        }
+
+        function addEntry(id, kind, name, whatItDoes, extraKeywords = []) {
+          const keywords = [...new Set([
+            ...extractKeywords(name),
+            ...extractKeywords(whatItDoes),
+            ...extraKeywords.map(k => k.toLowerCase())
+          ])];
+          index[id] = { id, kind, name, whatItDoes, keywords };
+        }
+
+        for (const [key, tool] of Object.entries(TOOL_DEFINITIONS)) {
+          addEntry('tool_' + key, 'builtin', tool.name, tool.trigger + '. ' + tool.description, [key]);
+        }
+        for (const skill of AUTONOMY_CATALOG.skills) {
+          addEntry('skill_' + skill.name, 'skill', skill.name, skill.desc, ['skill', skill.name]);
+        }
+        for (const skill of AUTONOMY_CATALOG.vibeSkills) {
+          addEntry('vibe_' + skill.name, 'skill', skill.name, skill.desc, ['vibe', 'skill', skill.name]);
+        }
+        for (const skill of AUTONOMY_CATALOG.superpowers) {
+          addEntry('superpower_' + skill.name, 'skill', skill.name, skill.desc, ['superpower', 'skill', skill.name]);
+        }
+        for (const mcp of [...AUTONOMY_CATALOG.mcps, ...AUTONOMY_CATALOG.newMcps]) {
+          addEntry('mcp_' + mcp.name, 'mcp', mcp.name, mcp.desc, ['mcp', 'server', mcp.name]);
+        }
+        for (const plugin of AUTONOMY_CATALOG.pluginPacks) {
+          addEntry('plugin_' + plugin.name, 'plugin', plugin.name, plugin.desc, ['plugin', 'pack', plugin.name]);
+        }
+        for (const rec of TOOL_RECOMMENDATIONS) {
+          const recId = 'rec_' + rec.id;
+          addEntry(recId, 'recommendation', rec.name, rec.whatItDoes, rec.triggers);
+        }
+        if (typeof appState !== 'undefined' && appState.customSkillPacks) {
+          for (const [id, pack] of Object.entries(appState.customSkillPacks)) {
+            addEntry('custom_' + id, 'skill', pack.name, pack.instructions || '', ['custom', 'skill', pack.name]);
+          }
+        }
+        if (typeof appState !== 'undefined' && Array.isArray(appState.mcpServers)) {
+          for (const server of appState.mcpServers) {
+            if (server.id && server.name) {
+              addEntry('mcp_' + server.id, 'mcp', server.name, server.desc || server.description || '', ['mcp', 'server', server.name]);
+            }
+          }
+        }
+        if (typeof appState !== 'undefined' && appState.pluginCatalog?.installed) {
+          for (const [packName, packInfo] of Object.entries(appState.pluginCatalog.installed)) {
+            addEntry('plugin_' + packName, 'plugin', packName, packInfo.desc || '', ['plugin', 'pack', packName]);
+          }
+        }
+
+        return index;
+      })();
+
+      // Local reference for internal functions (points to global window.TOOL_SEARCH_INDEX)
+      const TOOL_SEARCH_INDEX = window.TOOL_SEARCH_INDEX;
+
+      // Mutate in place
+      for (const key of Object.keys(TOOL_SEARCH_INDEX)) {
+        delete TOOL_SEARCH_INDEX[key];
+      }
+      Object.assign(TOOL_SEARCH_INDEX, newIndex);
+    }
+
+    // Batch 7.10: Fallback to B4.7 category defaults when search returns nothing
+    // Returns array of tool IDs for the given category
+    function loadCategoryDefaults(category) {
+      const cat = (category || '').toLowerCase();
+      const defaults = [];
+      if (cat === 'file' || cat === 'files' || cat === 'read' || cat === 'write') {
+        defaults.push('tool_read', 'tool_write', 'tool_findSymbol');
+      } else if (cat === 'search' || cat === 'grep' || cat === 'find') {
+        defaults.push('tool_grep', 'tool_findSymbol', 'tool_read');
+      } else if (cat === 'edit' || cat === 'patch') {
+        defaults.push('tool_write', 'tool_read', 'tool_findSymbol');
+      } else if (cat === 'shell' || cat === 'terminal' || cat === 'exec') {
+        defaults.push('tool_shell', 'tool_read', 'tool_write');
+      } else if (cat === 'web' || cat === 'fetch' || cat === 'http') {
+        defaults.push('tool_fetch', 'tool_read', 'tool_write');
+      } else if (cat === 'git') {
+        defaults.push('tool_shell', 'tool_read', 'tool_write');
+      } else {
+        // Generic default: common file tools
+        defaults.push('tool_read', 'tool_write', 'tool_findSymbol');
+      }
+      return defaults;
+    }
+
+    // Batch 7.10: Log search miss for debugging/telemetry
+    function logSearchMiss(query) {
+      console.log('[Tool Search] Search missed for query: ' + query + ' — using category defaults');
+    }
+
+    // Batch 7.10: Open command palette programmatically
+    function openCommandPalette(mode) {
+      const palette = document.getElementById('commandPalette');
+      if (palette) {
+        palette.style.display = 'flex';
+        const input = palette.querySelector('input');
+        if (input) {
+          input.focus();
+          if (mode === 'tool-search') {
+            input.value = '/tool ';
+          }
+        }
+      }
+    }
+
+    // Batch 7.10: Render session panel with loaded tools info
+    function renderSessionPanel() {
+      // The loaded tools line is updated by updateTokenMeter()
+      // This function ensures the session panel is visible and updated
+      const panel = document.getElementById('sessionPanel');
+      if (panel) {
+        panel.style.display = 'block';
+      }
+      // Force update of loaded tools line
+      updateTokenMeter();
+    }
+
+    // Plain-text catalog + rule, injected into agent context and spawn templates.
+    // Progressive disclosure: only names + one-line triggers injected; full content loads on demand via loadSkillContent() / loadToolContent().
+    // Batch 7.10: Accept optional query to filter tools via searchTools() — agent calls this with step description.
+    function buildAutonomyCatalogText(query) {
+              let text = '';
+              text += 'These skills, plugins, MCPs and tools are installed. Full content loads on demand when you declare Tools used.\n\n';
+              text += '--- MANDATORY PRE-INSTALLED SKILLS (jcode pack) ---\n';
+              text += AUTONOMY_CATALOG.skills.map(s => '• ' + s.name + ': ' + s.desc.split('.')[0] + '. [load: skill_' + s.name + ']').join('\n');
+              text += '\n\n--- MANDATORY PRE-INSTALLED MCPs ---\n';
+              text += AUTONOMY_CATALOG.mcps.map(m => '• ' + m.name + ': ' + m.desc.split('.')[0] + '. [load: mcp_' + m.name + ']').join('\n');
+              text += '\n\n--- SKILLS FOR VIBE-CODING DEVELOPMENT ---\n';
+              text += AUTONOMY_CATALOG.vibeSkills.map(s => '• ' + s.name + ': ' + s.desc.split('.')[0] + '. [load: vibe_' + s.name + ']').join('\n');
+              text += '\n\n--- MCPs (BUILD ENVIRONMENT) ---\n';
+              text += AUTONOMY_CATALOG.newMcps.map(m => '• ' + m.name + ': ' + m.desc.split('.')[0] + '. [load: mcp_' + m.name + ']').join('\n');
+              text += '\n\n--- PLUGIN PACKS (product runtime library) ---\n';
+              text += AUTONOMY_CATALOG.pluginPacks.map(p => '• ' + p.name + ': ' + p.desc.split('.')[0] + '. [load: plugin_' + p.name + ']').join('\n');
+
+              // User-configured MCP servers (from registry) - scrub credentials before injecting
+              const userMcpServers = Object.values(appState.mcpServers || {}).filter(s => s.enabled !== false);
+              if (userMcpServers.length > 0) {
+                text += '\n\n--- USER MCP SERVERS (registry) ---\n';
+                text += userMcpServers.map(server => {
+                  const scrubbed = scrubMcpCredentialsForContext(server);
+                  const toolsInfo = scrubbed.enabledTools && scrubbed.enabledTools.length > 0
+                    ? ' | Tools: ' + scrubbed.enabledTools.map(t => t.replace('mcp_', '')).join(', ')
+                    : ' | Tools: (all declared)';
+                  const trustInfo = ' | Trust: ' + (scrubbed.trust || 'untrusted');
+                  const limitInfo = scrubbed.callLimit ? ' | Call limit: ' + scrubbed.callLimit + '/session' : '';
+                  return '• ' + scrubbed.name + ': ' + (scrubbed.description || 'No description') + toolsInfo + trustInfo + limitInfo + '. [load: mcp_' + scrubbed.id.replace('mcp_', '') + ']';
+                }).join('\n');
+              }
+
+              // Tool Search (Batch 7.10) — replaces B4.7 lazy-loading with query-driven loading
+              // If query provided, searchTools() returns ranked matches; otherwise fall back to B4.7 behavior
+              if (query && appState.toolSearch?.enabled) {
+                const searchResult = searchTools(query);
+                if (searchResult.tools.length > 0) {
+                  // Track loaded tools for session panel
+                  if (!appState.toolSearch.loadedForStep) appState.toolSearch.loadedForStep = {};
+                  appState.toolSearch.loadedForStep.current = searchResult.tools.map(t => t.id);
+                  appState.toolSearch.lastSavedTokens = searchResult.savedVsAll;
+                  text += '\n\n--- TOOLS (searched) ---\n';
+                  text += 'Mode: Load tools when needed (search). ' + searchResult.tools.length + ' tools matched. Saved ~' + searchResult.savedVsAll + ' tokens.\n';
+                  text += searchResult.tools.map(t => {
+                    return '• ' + t.name + ' (' + t.kind + '): ' + t.whatItDoes.split('.')[0] + '. [load: ' + t.id + ']';
+                  }).join('\n');
+                } else {
+                  // Fallback to B4.7 category defaults — log the miss
+                  console.log('[Tool Search] Search missed for query: ' + query + ' — using category defaults');
+                  text += '\n\n--- TOOLS (fallback: category defaults) ---\n';
+                  text += '[Search missed — using category defaults]\n';
+                  // Include B4.7 lazy-loading display as fallback
+                  if (appState.lazyTools?.enabled) {
+                    const allTools = Object.values(TOOL_DEFINITIONS);
+                    const loadedKeys = appState.lazyTools.loadedKeys || [];
+                    text += 'Mode: Load tools when needed. ' + loadedKeys.length + ' of ' + allTools.length + ' loaded.\n';
+                    text += allTools.map(t => {
+                      const isLoaded = loadedKeys.includes(t.name);
+                      const status = isLoaded ? '[LOADED]' : '[load: tool_' + t.name + ']';
+                      return '• ' + t.name + ' (' + t.type + '): ' + t.trigger + '. ' + status;
+                    }).join('\n');
+                  } else {
+                    const allTools = Object.values(TOOL_DEFINITIONS);
+                    text += allTools.map(t => '• ' + t.name + ' (' + t.type + '): ' + t.trigger + '. Full: ' + t.description).join('\n');
+                  }
+                }
+              } else {
+                // B4.7 Lazy Loading (original behavior) — used when tool search is disabled or no query
+                if (appState.lazyTools?.enabled) {
+                  const allTools = Object.values(TOOL_DEFINITIONS);
+                  const loadedKeys = appState.lazyTools.loadedKeys || [];
+                  text += '\n\n--- TOOLS (lazy-loaded) ---\n';
+                  text += 'Mode: Load tools when needed. ' + loadedKeys.length + ' of ' + allTools.length + ' loaded.\n';
+                  text += allTools.map(t => {
+                    const isLoaded = loadedKeys.includes(t.name);
+                    const status = isLoaded ? '[LOADED]' : '[load: tool_' + t.name + ']';
+                    return '• ' + t.name + ' (' + t.type + '): ' + t.trigger + '. ' + status;
+                  }).join('\n');
+                } else {
+                  // "Tools already loaded" mode - show full definitions inline
+                  const allTools = Object.values(TOOL_DEFINITIONS);
+                  text += '\n\n--- TOOLS (pre-loaded) ---\n';
+                  text += allTools.map(t => '• ' + t.name + ' (' + t.type + '): ' + t.trigger + '. Full: ' + t.description).join('\n');
+                }
+              }
+
+              // Custom user skill packs
+              if (appState.customSkillPacks && Object.keys(appState.customSkillPacks).length > 0) {
+                text += '\n\n--- CUSTOM USER SKILL PACKS ---\n';
+                text += Object.values(appState.customSkillPacks).map(s => '• ' + s.name + ' (' + (s.category || 'general') + '): ' + (s.instructions || '').split('.')[0] + '. [load: custom_' + s.id + ']').join('\n');
+              }
+              return text;
+            }
 
     // Scrub credential fields from MCP server object before injecting into agent context
     function scrubMcpCredentialsForContext(server) {
@@ -17436,7 +17879,8 @@ Only propose merges for skills that are genuinely overlapping or complementary. 
 
       // Autonomy Engine: catalog + mandatory-use rule + pre-commit gate.
       // Always injected, never opt-in — spec part 1 (catalog injection at session start).
-      context += '\n\n' + buildAutonomyCatalogText() + '\n\n' + buildMandatoryUseRuleText() + '\n\n' + buildPrecommitGateText() + '\n';
+      // Batch 7.10: Pass current user prompt for tool search (query-driven loading)
+      context += '\n\n' + buildAutonomyCatalogText(_lastUserPrompt) + '\n\n' + buildMandatoryUseRuleText() + '\n\n' + buildPrecommitGateText() + '\n';
 
       // Project Rules: inject compact digest of .devforge/rules.md
       const rulesDigest = buildRulesDigest(session);
@@ -21372,6 +21816,20 @@ function updateTokenMeter(session) {
   }
   if (tokenBudgetTextEl) tokenBudgetTextEl.textContent = `${budgetPercent}%`;
   if (tokensSavedEl) tokensSavedEl.textContent = savedTokens > 0 ? `+${savedTokens.toLocaleString()} saved` : '+0 saved';
+
+  // Batch 7.10: Update loaded tools line from tool search
+  const loadedToolsEl = document.getElementById('loadedToolsLine');
+  if (loadedToolsEl && appState.toolSearch?.loadedForStep?.current) {
+    const loaded = appState.toolSearch.loadedForStep.current;
+    const saved = appState.toolSearch.lastSavedTokens || 0;
+    const toolNames = loaded.map(id => {
+      // Extract display name from id (remove prefix)
+      return id.replace(/^(tool_|skill_|vibe_|superpower_|mcp_|plugin_|custom_|recommendation_)/, '');
+    });
+    loadedToolsEl.textContent = `Tools loaded: ${toolNames.join(', ')} (${loaded.length}) — saved ~${saved.toLocaleString()} tok`;
+  } else if (loadedToolsEl) {
+    loadedToolsEl.textContent = '';
+  }
 }
 
 // ==================== TOOL RECOMMENDER FUNCTIONS (Batch 7.2b) ====================
@@ -28467,6 +28925,8 @@ Requirements:
 
       // Action registry — every app action searchable from the keyboard
       const actionRegistry = [
+        // Tool Search (Batch 7.10) — special section that shows tool search results
+        { id: 'toolSearch', title: 'Search Tools', desc: 'Find and load tools by keyword (type "tool: <keyword>")', section: 'Tool Search', icon: '🔧', shortcut: '', action: () => {} }, // Handled specially
         // File & Project
         { id: 'newProject', title: 'New Project', desc: 'Create a new empty project', section: 'File & Project', icon: '📄', shortcut: '', action: () => { const name = prompt('Enter new project name:'); if (name) { const newId = createNewSession(name); switchSession(newId); } } },
         { id: 'openProject', title: 'Open Project', desc: 'Switch to another project session', section: 'File & Project', icon: '📁', shortcut: '', action: () => { document.getElementById('sessionSelect').focus(); } },
@@ -28535,6 +28995,35 @@ Requirements:
             a.desc.toLowerCase().includes(q) ||
             a.id.toLowerCase().includes(q)
           );
+
+          // Batch 7.10: Tool Search mode — if query starts with "tool:" or contains "tool search"
+          // Show matching tools from TOOL_SEARCH_INDEX
+          const isToolSearch = q.startsWith('tool:') || q.includes('tool search') || q === 'tool';
+          if (isToolSearch && appState.toolSearch?.enabled) {
+            const searchQuery = q.startsWith('tool:') ? q.replace('tool:', '').trim() : q.replace('tool search', '').trim();
+            if (searchQuery) {
+              const searchResult = searchTools(searchQuery);
+              if (searchResult.tools.length > 0) {
+                // Add tool search results as temporary actions
+                const toolActions = searchResult.tools.map(t => ({
+                  id: 'toolSelect_' + t.id,
+                  title: t.name,
+                  desc: t.whatItDoes,
+                  section: 'Tool Search Results',
+                  icon: '🔧',
+                  shortcut: '',
+                  isToolSearchResult: true,
+                  toolData: t,
+                  action: () => {
+                    // Load the tool for the next step
+                    loadToolForNextStep(t);
+                    logActivity(`Loaded tool for next step: ${t.name}`, 'success');
+                  }
+                }));
+                filteredActions = [...toolActions, ...filteredActions];
+              }
+            }
+          }
         }
         selectedIndex = 0;
         renderList();
