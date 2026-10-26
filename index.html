@@ -2317,6 +2317,8 @@
         <button class="settings-tab" data-settings-tab="skillLibrarian" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">Skill Librarian</button>
         <button class="settings-tab" data-settings-tab="scheduled" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;" data-i18n="Scheduled Tasks">Scheduled Tasks</button>
         <button class="settings-tab" data-settings-tab="importTools" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;" data-i18n="Import from Tools">Import from Tools</button>
+        <button class="settings-tab" data-settings-tab="hooks" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;" data-i18n="Hooks">Hooks</button>
+        <button class="settings-tab" data-settings-tab="pluginCatalog" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;" data-i18n="Plugin Catalog">Plugin Catalog</button>
       </div>
 
       <!-- Providers Tab -->
@@ -2967,6 +2969,42 @@ sudo *"></textarea>
                 <button class="btn btn-secondary" id="btnCancelImportReview" data-i18n="Cancel">Cancel</button>
                 <button class="btn" id="btnConfirmImport" style="background: var(--success);" data-i18n="Confirm Import">✅ Confirm Import</button>
               </div>
+            </div>
+          </div>
+          <div style="border-top: 1px solid var(--border-color); padding-top: 12px;">
+            <div style="display:flex; justify-content:flex-end; gap:8px;">
+              <button class="btn btn-secondary" id="btnCancelSettings" data-i18n="Close">Close</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Hooks Tab (H5.4) -->
+        <div class="settings-pane" id="settingsPaneHooks" style="display: none; flex-direction: column;">
+          <div style="max-height: 40vh; overflow-y: auto; margin-bottom: 12px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
+              <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;" data-i18n="Hooks">Hooks</span>
+              <button class="btn" id="btnAddHook" style="padding: 4px 10px; font-size: 11px;" data-i18n="Add Hook">+ Add Hook</button>
+            </div>
+            <div id="hooksList" style="display: flex; flex-direction: column; gap: 6px;">
+              <!-- Hooks rendered here -->
+            </div>
+          </div>
+          <div style="border-top: 1px solid var(--border-color); padding-top: 12px;">
+            <div style="display:flex; justify-content:flex-end; gap:8px;">
+              <button class="btn btn-secondary" id="btnCancelSettings" data-i18n="Close">Close</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Plugin Catalog Tab (H5.4) -->
+        <div class="settings-pane" id="settingsPanePluginCatalog" style="display: none; flex-direction: column;">
+          <div style="max-height: 40vh; overflow-y: auto; margin-bottom: 12px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
+              <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;" data-i18n="Plugin Catalog">Plugin Catalog</span>
+              <button class="btn" id="btnOpenPluginCatalogModal" style="padding: 4px 10px; font-size: 11px;" data-i18n="Browse Catalog">📦 Browse Catalog</button>
+            </div>
+            <div id="pluginCatalogList" style="display: flex; flex-direction: column; gap: 6px;">
+              <!-- Installed plugin packs rendered here -->
             </div>
           </div>
           <div style="border-top: 1px solid var(--border-color); padding-top: 12px;">
@@ -3633,6 +3671,112 @@ sudo *"></textarea>
       <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:8px; border-top:1px solid var(--border-color); padding-top:12px;">
         <button class="btn btn-secondary" id="btnCancelMcpServer">Cancel</button>
         <button class="btn" id="btnSaveMcpServer">Save Server</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hook Modal (H5.4) -->
+  <div class="modal-overlay" id="hookModal">
+    <div class="modal-box" style="width: 500px; max-width: 95vw;">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-color); padding-bottom:8px;">
+        <h3 id="hookModalTitle" style="font-size: 14px; font-weight: 700;">Add Hook</h3>
+        <button class="section-btn" id="btnCloseHookModal">✕</button>
+      </div>
+
+      <form id="hookForm" style="padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+        <div class="form-group">
+          <label class="form-label" data-i18n="Hook Name">Hook Name</label>
+          <input type="text" id="hookName" class="form-input" placeholder="e.g., Notify on build fail" required />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" data-i18n="Event">Event</label>
+          <select id="hookEvent" class="form-select" required>
+            <option value="">Select event...</option>
+            <option value="build-finish" data-i18n="Build Finish">Build Finish</option>
+            <option value="task-complete" data-i18n="Task Complete">Task Complete</option>
+            <option value="senior-reject" data-i18n="Senior Reject">Senior Reject</option>
+            <option value="review-complete" data-i18n="Review Complete">Review Complete</option>
+            <option value="test-complete" data-i18n="Test Complete">Test Complete</option>
+            <option value="project-start" data-i18n="Project Start">Project Start</option>
+            <option value="agent-spawn" data-i18n="Agent Spawn">Agent Spawn</option>
+            <option value="task-fail" data-i18n="Task Fail">Task Fail</option>
+            <option value="rework-complete" data-i18n="Rework Complete">Rework Complete</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" data-i18n="Condition (JS expression)">Condition (JS expression)</label>
+          <input type="text" id="hookCondition" class="form-input" placeholder="e.g., data.rejectCount >= 2" />
+          <small style="font-size: 10px; color: var(--text-dim);">Optional. Return true to trigger. Access event data via 'data' object.</small>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" data-i18n="Action Type">Action Type</label>
+          <select id="hookActionType" class="form-select" onchange="updateHookActionFields()" required>
+            <option value="notification" data-i18n="Notification">Notification</option>
+            <option value="webhook" data-i18n="Webhook">Webhook</option>
+            <option value="log" data-i18n="Log">Log</option>
+            <option value="email" data-i18n="Email (Desktop)">Email (Desktop)</option>
+          </select>
+        </div>
+
+        <div id="hookActionUrlRow" class="form-group" style="display: none;">
+          <label class="form-label" data-i18n="Webhook URL">Webhook URL</label>
+          <input type="url" id="hookActionUrl" class="form-input" placeholder="https://example.com/webhook" />
+        </div>
+
+        <div id="hookActionMessageRow" class="form-group" style="display: none;">
+          <label class="form-label" data-i18n="Notification Message">Notification Message</label>
+          <input type="text" id="hookActionMessage" class="form-input" placeholder="Hook triggered!" />
+        </div>
+
+        <div class="form-group" style="flex-direction: row; align-items: center; gap: 8px;">
+          <label style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; min-width: 120px;" data-i18n="Enabled">Enabled</label>
+          <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 12px; color: var(--text-main);">
+            <input type="checkbox" id="hookEnabled" checked />
+            <span>Enable this hook</span>
+          </label>
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:8px; border-top:1px solid var(--border-color); padding-top:12px;">
+          <button type="button" class="btn btn-secondary" id="btnCancelHook" data-i18n="Cancel">Cancel</button>
+          <button type="submit" class="btn" id="btnSaveHook" data-i18n="Save Hook">Save Hook</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Plugin Catalog Modal (H5.4) -->
+  <div class="modal-overlay" id="pluginCatalogModal">
+    <div class="modal-box" style="width: 700px; max-width: 95vw; max-height: 85vh;">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-color); padding-bottom:8px;">
+        <h3 style="font-size: 14px; font-weight: 700;" data-i18n="Plugin Catalog">Plugin Catalog</h3>
+        <button class="section-btn" id="btnClosePluginCatalogModal">✕</button>
+      </div>
+
+      <div style="max-height: 70vh; overflow-y: auto; padding: 16px;">
+        <div style="font-size: 11px; color: var(--text-dim); margin-bottom: 16px;" data-i18n="Browse and install reviewed plugin packs. Installed packs can be enabled per agent.">Browse and install reviewed plugin packs. Installed packs can be enabled per agent.</div>
+        <div id="pluginCatalogModalList" style="display: flex; flex-direction: column; gap: 8px;">
+          <!-- Plugin packs rendered here -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Plugin Pack Manager Modal (H5.4) -->
+  <div class="modal-overlay" id="pluginPackManagerModal">
+    <div class="modal-box" style="width: 500px; max-width: 95vw;">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-color); padding-bottom:8px;">
+        <h3 id="pluginPackManagerTitle" style="font-size: 14px; font-weight: 700;">Manage Plugin Pack</h3>
+        <button class="section-btn" id="btnClosePluginPackManagerModal">✕</button>
+      </div>
+
+      <div style="padding: 16px; max-height: 60vh; overflow-y: auto;">
+        <div style="font-size: 11px; color: var(--text-dim); margin-bottom: 16px;">Enable or disable this plugin pack for each agent.</div>
+        <div id="pluginPackManagerAgentList" style="display: flex; flex-direction: column; gap: 6px;">
+          <!-- Agent toggles rendered here -->
+        </div>
       </div>
     </div>
   </div>
@@ -5013,8 +5157,38 @@ WORK STYLE:
         'Current diff attached': 'বর্তমান ডিফ সংযুক্ত',
         'Enter URL to attach': 'সংযুক্ত করার জন্য URL লিখুন',
         'Remove attachment': 'সংযোগ বিচ্ছিন্ন করুন',
-      }
-    };
+
+        // Hooks + Plugin Catalog (H5.4)
+        'Hooks': 'হুকস',
+        'Plugin Catalog': 'প্লাগিন ক্যাটালগ',
+        'Add Hook': 'হুক যোগ করুন',
+        'Edit Hook': 'হুক সম্পাদনা করুন',
+        'Add Hook': '+ হুক যোগ করুন',
+        'Browse Catalog': 'ক্যাটালগ ব্রাউজ করুন',
+        'Hook Name': 'হুক নাম',
+        'Event': 'ইভেন্ট',
+        'Condition (JS expression)': 'শর্ত (JS এক্সপ্রেশন)',
+        'Action Type': 'অ্যাকশন টাইপ',
+        'Webhook URL': 'ওয়েবহুক URL',
+        'Notification Message': 'নোটিফিকেশন মেসেজ',
+        'Enabled': 'সক্রিয়',
+        'Save Hook': 'হুক সংরক্ষণ করুন',
+        'Cancel': 'বাতিল',
+        'Delete': 'মুছে দিন',
+        'Manage Agents': 'এজেন্ট ম্যানেজ করুন',
+        'Install': 'ইনস্টল করুন',
+        'Uninstall': 'আনইনস্টল করুন',
+        'Plugin Pack': 'প্লাগিন প্যাক',
+        'Version': 'ভার্সন',
+        'Category': 'বিভাগ',
+        'Triggers': 'ট্রিগার',
+        'Installed': 'ইনস্টল করা',
+        'Available': 'উপলব্ধ',
+        'Manage': 'ম্যানেজ করুন',
+        'No hooks yet. Click "Add Hook" to create one.': 'এখনো কোনো হুক নেই। "হুক যোগ করুন" ক্লিক করুন।',
+        'No plugin packs installed. Click "Browse Catalog" to install.': 'কোনো প্লাগিন প্যাক ইনস্টল নেই। "ক্যাটালগ ব্রাউজ করুন" ক্লিক করুন।',
+  }
+};
 
     // Translation function - returns translated string for current language
     function t(key) {
@@ -5243,7 +5417,11 @@ WORK STYLE:
         loadedKeys: []              // Keys of loaded tool definitions
       },
       // Scheduled Tasks + Watch Loops (H5.1)
-      scheduledTasks: []  // Array of {id, name, schedule, prompt, skills, modelPin, workdir, noAgent, script, deliver, monitor, enabled, created, nextRun, lastRun, status, preflightValid, preflightAlerted}
+      scheduledTasks: [],  // Array of {id, name, schedule, prompt, skills, modelPin, workdir, noAgent, script, deliver, monitor, enabled, created, nextRun, lastRun, status, preflightValid, preflightAlerted}
+      // Hooks (H5.4)
+      hooks: [],  // Array of {id, name, event, condition, action, enabled, created}
+      // Plugin Catalog (H5.4)
+      pluginCatalog: { installed: {}, enabledForAgent: {} }  // installed: {packName: {version, installedAt}}, enabledForAgent: {agentId: [packNames]}
     };
 
     function loadAppState() {
@@ -9690,6 +9868,86 @@ Links: [[Brain Index]]
       ]
     };
 
+    // ==================== H5.4 HOOKS + PLUGIN CATALOG ====================
+    // Hook event types
+    const HOOK_EVENTS = [
+      'build-finish',       // When a build/task completes
+      'task-complete',      // When any task completes
+      'senior-reject',      // When Senior rejects work (includes reject count)
+      'review-complete',    // When review phase completes
+      'test-complete',      // When testing phase completes
+      'project-start',      // When a project/session starts
+      'agent-spawn',        // When a new agent is spawned
+      'task-fail',          // When a task fails
+      'rework-complete'     // When rework completes
+    ];
+
+    // Hook action types
+    const ACTION_TYPES = [
+      'webhook',      // POST to a webhook URL
+      'notification', // Show in-app notification
+      'log',          // Log to activity/console
+      'email'         // Send email (future: desktop)
+    ];
+
+    // Plugin Pack Catalog (reviewed packs available for one-click install)
+    const PLUGIN_PACK_CATALOG = {
+      'component-pack': {
+        name: 'component-pack',
+        displayName: 'Component Pack',
+        desc: 'Forms, tables, charts, modals. Ready-made UI code the agent drops in instead of generating from scratch.',
+        version: '1.0.0',
+        category: 'UI',
+        triggers: ['UI component needed', 'form generation', 'data display'],
+        steps: ['Analyze requirements', 'Select appropriate component', 'Customize and inject code']
+      },
+      'auth-pack': {
+        name: 'auth-pack',
+        displayName: 'Auth Pack',
+        desc: 'Sign-in, sessions, protected routes.',
+        version: '1.0.0',
+        category: 'Security',
+        triggers: ['Authentication needed', 'user login', 'session management'],
+        steps: ['Setup auth provider', 'Create login flow', 'Add protected routes']
+      },
+      'payments-pack': {
+        name: 'payments-pack',
+        displayName: 'Payments Pack',
+        desc: 'Checkout and billing flows.',
+        version: '1.0.0',
+        category: 'Commerce',
+        triggers: ['Payment integration', 'checkout flow', 'subscription'],
+        steps: ['Configure payment provider', 'Build checkout', 'Handle webhooks']
+      },
+      'ai-integration-pack': {
+        name: 'ai-integration-pack',
+        displayName: 'AI Integration Pack',
+        desc: 'Provider-agnostic LLM client.',
+        version: '1.0.0',
+        category: 'AI',
+        triggers: ['LLM integration', 'AI feature', 'prompt engineering'],
+        steps: ['Setup provider client', 'Add retry/fallback', 'Token tracking']
+      },
+      'i18n-pack': {
+        name: 'i18n-pack',
+        displayName: 'i18n Pack',
+        desc: 'Translations and locale handling.',
+        version: '1.0.0',
+        category: 'Internationalization',
+        triggers: ['Multi-language support', 'translation', 'locale'],
+        steps: ['Setup i18n framework', 'Extract strings', 'Add locale files']
+      },
+      'analytics-pack': {
+        name: 'analytics-pack',
+        displayName: 'Analytics Pack',
+        desc: 'Event tracking and reporting.',
+        version: '1.0.0',
+        category: 'Analytics',
+        triggers: ['Event tracking', 'analytics', 'metrics'],
+        steps: ['Configure provider', 'Add event calls', 'Build dashboards']
+      }
+    };
+
     // ==================== TOOL DEFINITIONS REGISTRY (B4.7) ====================
     // Single source of truth for all tools (built-in, skill-based, MCP-based).
     // Used for lazy loading: agent context gets names + triggers only; full def loads on demand.
@@ -9824,23 +10082,198 @@ Links: [[Brain Index]]
     }
 
     // Parse "Tools used:" line from agent response and trigger lazy loading (B4.7)
-    function parseToolsUsedLine(responseText) {
-      if (!appState.lazyTools?.enabled) return;
-      const match = responseText.match(/Tools used:\s*(.+)/i);
-      if (!match) return;
-      const toolsLine = match[1].trim();
-      const toolNames = toolsLine.split(',').map(s => s.trim()).filter(Boolean);
-      
-      for (const toolName of toolNames) {
-        // Check if it's a load: prefix for lazy loading
-        if (toolName.startsWith('load:')) {
-          const loadKey = toolName.replace('load:', '').trim();
-          loadToolContent(loadKey);
-        }
-      }
-    }
+        function parseToolsUsedLine(responseText) {
+          if (!appState.lazyTools?.enabled) return;
+          const match = responseText.match(/Tools used:\s*(.+)/i);
+          if (!match) return;
+          const toolsLine = match[1].trim();
+          const toolNames = toolsLine.split(',').map(s => s.trim()).filter(Boolean);
 
-    function buildMandatoryUseRuleText() {
+          for (const toolName of toolNames) {
+            // Check if it's a load: prefix for lazy loading
+            if (toolName.startsWith('load:')) {
+              const loadKey = toolName.replace('load:', '').trim();
+              loadToolContent(loadKey);
+            }
+          }
+        }
+
+        // ==================== H5.4 HOOKS FUNCTIONS ====================
+        // Register a new hook
+        function registerHook(hookData) {
+          const hook = {
+            id: 'hook_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
+            name: hookData.name || 'Untitled Hook',
+            event: hookData.event,
+            condition: hookData.condition || '', // JS expression, e.g., "data.rejectCount >= 2"
+            action: hookData.action, // { type: 'webhook', url: '...', payload: {...} }
+            enabled: hookData.enabled !== false,
+            created: Date.now()
+          };
+          appState.hooks.push(hook);
+          saveAppState();
+          logActivity(`Hook registered: ${hook.name} (${hook.event})`, 'info');
+          return hook;
+        }
+
+        // Unregister a hook
+        function unregisterHook(hookId) {
+          const idx = appState.hooks.findIndex(h => h.id === hookId);
+          if (idx === -1) return false;
+          const hook = appState.hooks.splice(idx, 1)[0];
+          saveAppState();
+          logActivity(`Hook unregistered: ${hook.name}`, 'info');
+          return true;
+        }
+
+        // Get hooks for a specific event
+        function getHooksForEvent(event) {
+          return appState.hooks.filter(h => h.enabled && h.event === event);
+        }
+
+        // Evaluate hook condition (safe JS evaluation)
+        function evaluateHookCondition(condition, data) {
+          if (!condition || condition.trim() === '') return true;
+          try {
+            // Create a safe evaluation context
+            const ctx = { data };
+            // eslint-disable-next-line no-new-func
+            const fn = new Function('data', 'return (' + condition + ');');
+            return fn(data);
+          } catch (e) {
+            console.warn('Hook condition evaluation failed:', e.message);
+            return false;
+          }
+        }
+
+        // Execute hook action
+        async function executeHookAction(action, data) {
+          if (!action || !action.type) return;
+          try {
+            switch (action.type) {
+              case 'webhook':
+                if (action.url) {
+                  await fetch(action.url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(action.payload || data)
+                  });
+                  logActivity(`Hook webhook fired: ${action.url}`, 'success');
+                }
+                break;
+              case 'notification':
+                logActivity(action.message || `Hook triggered: ${JSON.stringify(data)}`, 'info');
+                break;
+              case 'log':
+                console.log('[Hook]', action.message || data);
+                break;
+              case 'email':
+                // Future: desktop email integration
+                logActivity('Email hook action not yet implemented (desktop only)', 'warning');
+                break;
+            }
+          } catch (e) {
+            logActivity(`Hook action failed: ${e.message}`, 'error');
+          }
+        }
+
+        // Fire hooks for an event
+        async function fireHook(event, data) {
+          const hooks = getHooksForEvent(event);
+          for (const hook of hooks) {
+            if (evaluateHookCondition(hook.condition, data)) {
+              await executeHookAction(hook.action, data);
+            }
+          }
+        }
+
+        // ==================== H5.4 PLUGIN CATALOG FUNCTIONS ====================
+        // Get available plugin packs from catalog
+        function getAvailablePluginPacks() {
+          return Object.values(PLUGIN_PACK_CATALOG);
+        }
+
+        // Get installed plugin packs
+        function getInstalledPluginPacks() {
+          return Object.entries(appState.pluginCatalog.installed || {}).map(([name, info]) => ({
+            ...PLUGIN_PACK_CATALOG[name],
+            ...info,
+            installed: true
+          }));
+        }
+
+        // Install a plugin pack
+        function installPluginPack(packName) {
+          const pack = PLUGIN_PACK_CATALOG[packName];
+          if (!pack) throw new Error('Plugin pack not found: ' + packName);
+          if (appState.pluginCatalog.installed[packName]) {
+            throw new Error('Plugin pack already installed: ' + packName);
+          }
+          appState.pluginCatalog.installed[packName] = {
+            version: pack.version,
+            installedAt: Date.now()
+          };
+          saveAppState();
+          logActivity(`Plugin pack installed: ${pack.displayName}`, 'success');
+          return true;
+        }
+
+        // Uninstall a plugin pack
+        function uninstallPluginPack(packName) {
+          if (!appState.pluginCatalog.installed[packName]) {
+            throw new Error('Plugin pack not installed: ' + packName);
+          }
+          delete appState.pluginCatalog.installed[packName];
+          // Also remove from all agents' enabled lists
+          Object.keys(appState.pluginCatalog.enabledForAgent || {}).forEach(agentId => {
+            const idx = appState.pluginCatalog.enabledForAgent[agentId].indexOf(packName);
+            if (idx !== -1) {
+              appState.pluginCatalog.enabledForAgent[agentId].splice(idx, 1);
+            }
+          });
+          saveAppState();
+          logActivity(`Plugin pack uninstalled: ${packName}`, 'info');
+          return true;
+        }
+
+        // Enable plugin pack for an agent
+        function enablePluginPackForAgent(agentId, packName) {
+          if (!appState.pluginCatalog.installed[packName]) {
+            throw new Error('Plugin pack not installed: ' + packName);
+          }
+          if (!appState.pluginCatalog.enabledForAgent) {
+            appState.pluginCatalog.enabledForAgent = {};
+          }
+          if (!appState.pluginCatalog.enabledForAgent[agentId]) {
+            appState.pluginCatalog.enabledForAgent[agentId] = [];
+          }
+          if (!appState.pluginCatalog.enabledForAgent[agentId].includes(packName)) {
+            appState.pluginCatalog.enabledForAgent[agentId].push(packName);
+            saveAppState();
+            logActivity(`Plugin pack enabled for agent: ${packName}`, 'success');
+          }
+          return true;
+        }
+
+        // Disable plugin pack for an agent
+        function disablePluginPackForAgent(agentId, packName) {
+          if (!appState.pluginCatalog.enabledForAgent?.[agentId]) return true;
+          const idx = appState.pluginCatalog.enabledForAgent[agentId].indexOf(packName);
+          if (idx !== -1) {
+            appState.pluginCatalog.enabledForAgent[agentId].splice(idx, 1);
+            saveAppState();
+            logActivity(`Plugin pack disabled for agent: ${packName}`, 'info');
+          }
+          return true;
+        }
+
+        // Get enabled plugin packs for an agent
+        function getEnabledPluginPacksForAgent(agentId) {
+          const enabledNames = appState.pluginCatalog.enabledForAgent?.[agentId] || [];
+          return enabledNames.map(name => PLUGIN_PACK_CATALOG[name]).filter(Boolean);
+        }
+
+        function buildMandatoryUseRuleText() {
       return '=== MANDATORY-USE RULE ===\n' +
         'You are autonomous by default. On EVERY task, BEFORE acting, you MUST list which installed skills/plugins/MCPs apply to this task and use them.\n' +
         'Do not wait to be told, do not wait for @mentions — decide yourself and apply them.\n' +
@@ -11020,6 +11453,269 @@ Links: [[Brain Index]]
       // Refresh relevant tabs if they're open
       renderMcpServerSummary();
       renderBuiltinSkillPacks();
+    }
+
+    // ==================== H5.4 HOOKS TAB RENDER ====================
+    function renderHooksTab() {
+      const list = document.getElementById('hooksList');
+      const addBtn = document.getElementById('btnAddHook');
+      if (!list) return;
+
+      // Render existing hooks
+      if (appState.hooks && appState.hooks.length > 0) {
+        list.innerHTML = appState.hooks.map(hook => `
+          <div style="padding: 10px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 4px; display: flex; flex-direction: column; gap: 6px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span style="font-weight: 600; font-size: 12px;">${escapeHtml(hook.name)}</span>
+              <span style="font-size: 10px; padding: 2px 6px; background: ${hook.enabled ? 'var(--success)' : 'var(--text-dim)'}; color: white; border-radius: 3px;">${hook.enabled ? 'ON' : 'OFF'}</span>
+            </div>
+            <div style="font-size: 10px; color: var(--text-muted); display: flex; gap: 12px; flex-wrap: wrap;">
+              <span>Event: <strong>${escapeHtml(hook.event)}</strong></span>
+              <span>Action: <strong>${escapeHtml(hook.action?.type || 'none')}</strong></span>
+              ${hook.condition ? `<span>Condition: <code style="font-size: 9px;">${escapeHtml(hook.condition)}</code></span>` : ''}
+            </div>
+            <div style="display: flex; gap: 6px; margin-top: 4px;">
+              <button class="btn btn-secondary btn-sm" data-hook-id="${hook.id}" onclick="editHook(this.dataset.hookId)" style="padding: 4px 8px; font-size: 10px;">Edit</button>
+              <button class="btn btn-secondary btn-sm" data-hook-id="${hook.id}" onclick="toggleHook(this.dataset.hookId)" style="padding: 4px 8px; font-size: 10px;">${hook.enabled ? 'Disable' : 'Enable'}</button>
+              <button class="btn btn-secondary btn-sm" data-hook-id="${hook.id}" onclick="deleteHook(this.dataset.hookId)" style="padding: 4px 8px; font-size: 10px; color: var(--danger); border-color: var(--danger);">Delete</button>
+            </div>
+          </div>
+        `).join('');
+      } else {
+        list.innerHTML = '<div style="text-align: center; padding: 20px; color: var(--text-dim); font-size: 11px;">No hooks yet. Click "Add Hook" to create one.</div>';
+      }
+
+      // Add hook button
+      if (addBtn) {
+        addBtn.onclick = () => openHookModal();
+      }
+    }
+
+    // Hook modal
+    let editingHookId = null;
+
+    function openHookModal(hookId = null) {
+      editingHookId = hookId;
+      const modal = document.getElementById('hookModal');
+      if (!modal) return;
+
+      // Reset form
+      const form = document.getElementById('hookForm');
+      if (form) form.reset();
+
+      const title = document.getElementById('hookModalTitle');
+      if (title) title.textContent = hookId ? 'Edit Hook' : 'Add Hook';
+
+      if (hookId) {
+        const hook = appState.hooks.find(h => h.id === hookId);
+        if (hook) {
+          document.getElementById('hookName').value = hook.name;
+          document.getElementById('hookEvent').value = hook.event;
+          document.getElementById('hookCondition').value = hook.condition || '';
+          document.getElementById('hookActionType').value = hook.action?.type || 'notification';
+          document.getElementById('hookActionUrl').value = hook.action?.url || '';
+          document.getElementById('hookActionMessage').value = hook.action?.message || '';
+          document.getElementById('hookEnabled').checked = hook.enabled;
+        }
+      }
+
+      // Update action fields visibility
+      updateHookActionFields();
+
+      modal.classList.add('active');
+    }
+
+    function closeHookModal() {
+      document.getElementById('hookModal')?.classList.remove('active');
+      editingHookId = null;
+    }
+
+    function updateHookActionFields() {
+      const type = document.getElementById('hookActionType')?.value;
+      const urlField = document.getElementById('hookActionUrlRow');
+      const msgField = document.getElementById('hookActionMessageRow');
+      if (urlField) urlField.style.display = type === 'webhook' ? 'block' : 'none';
+      if (msgField) msgField.style.display = (type === 'notification' || type === 'log') ? 'block' : 'none';
+    }
+
+    function saveHook() {
+      const name = document.getElementById('hookName')?.value?.trim();
+      const event = document.getElementById('hookEvent')?.value;
+      const condition = document.getElementById('hookCondition')?.value?.trim();
+      const actionType = document.getElementById('hookActionType')?.value;
+      const actionUrl = document.getElementById('hookActionUrl')?.value?.trim();
+      const actionMessage = document.getElementById('hookActionMessage')?.value?.trim();
+      const enabled = document.getElementById('hookEnabled')?.checked !== false;
+
+      if (!name || !event || !actionType) {
+        alert('Please fill in all required fields.');
+        return;
+      }
+      if (actionType === 'webhook' && !actionUrl) {
+        alert('Webhook URL is required for webhook action.');
+        return;
+      }
+
+      const action = {
+        type: actionType,
+        url: actionType === 'webhook' ? actionUrl : '',
+        message: actionType === 'notification' ? actionMessage : ''
+      };
+
+      if (editingHookId) {
+        const idx = appState.hooks.findIndex(h => h.id === editingHookId);
+        if (idx !== -1) {
+          appState.hooks[idx] = { ...appState.hooks[idx], name, event, condition, action, enabled };
+          logActivity('Hook updated: ' + name, 'success');
+        }
+      } else {
+        registerHook({ name, event, condition, action, enabled });
+      }
+
+      saveAppState();
+      closeHookModal();
+      renderHooksTab();
+    }
+
+    function editHook(hookId) {
+      openHookModal(hookId);
+    }
+
+    function toggleHook(hookId) {
+      const hook = appState.hooks.find(h => h.id === hookId);
+      if (hook) {
+        hook.enabled = !hook.enabled;
+        saveAppState();
+        renderHooksTab();
+        logActivity('Hook ' + (hook.enabled ? 'enabled' : 'disabled') + ': ' + hook.name, 'info');
+      }
+    }
+
+    function deleteHook(hookId) {
+      if (!confirm('Delete this hook?')) return;
+      unregisterHook(hookId);
+      renderHooksTab();
+    }
+
+    // ==================== H5.4 PLUGIN CATALOG TAB RENDER ====================
+    function renderPluginCatalogTab() {
+      const list = document.getElementById('pluginCatalogList');
+      const browseBtn = document.getElementById('btnOpenPluginCatalogModal');
+      if (!list) return;
+
+      // Render installed plugin packs
+      const installed = getInstalledPluginPacks();
+      if (installed.length > 0) {
+        list.innerHTML = installed.map(pack => {
+          const enabledAgents = Object.entries(appState.pluginCatalog.enabledForAgent || {}).filter(([_, packs]) => packs.includes(pack.name)).map(([id]) => id);
+          return `
+            <div style="padding: 10px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 4px; display: flex; flex-direction: column; gap: 6px;">
+              <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <div>
+                  <span style="font-weight: 600; font-size: 12px;">${escapeHtml(pack.displayName)}</span>
+                  <span style="font-size: 10px; color: var(--text-muted); margin-left: 8px;">v${escapeHtml(pack.version)}</span>
+                </div>
+                <span style="font-size: 10px; padding: 2px 6px; background: var(--success); color: white; border-radius: 3px;">Installed</span>
+              </div>
+              <div style="font-size: 10px; color: var(--text-dim);">${escapeHtml(pack.desc)}</div>
+              <div style="font-size: 10px; color: var(--text-muted);">Category: ${escapeHtml(pack.category)} | Enabled for ${enabledAgents.length} agent(s)</div>
+              <div style="display: flex; gap: 6px; margin-top: 4px;">
+                <button class="btn btn-secondary btn-sm" onclick="openPluginCatalogModal('${escapeHtml(pack.name)}')" style="padding: 4px 8px; font-size: 10px;">Manage</button>
+                <button class="btn btn-secondary btn-sm" onclick="uninstallPluginPack('${escapeHtml(pack.name)}'); renderPluginCatalogTab();" style="padding: 4px 8px; font-size: 10px; color: var(--danger); border-color: var(--danger);">Uninstall</button>
+              </div>
+            </div>
+          `;
+        }).join('');
+      } else {
+        list.innerHTML = '<div style="text-align: center; padding: 20px; color: var(--text-dim); font-size: 11px;">No plugin packs installed. Click "Browse Catalog" to install.</div>';
+      }
+
+      // Browse catalog button
+      if (browseBtn) {
+        browseBtn.onclick = () => openPluginCatalogModal();
+      }
+    }
+
+    // Plugin Catalog Modal
+    function openPluginCatalogModal(installedPackName = null) {
+      const modal = document.getElementById('pluginCatalogModal');
+      const list = document.getElementById('pluginCatalogModalList');
+      if (!modal || !list) return;
+
+      // Show available packs from catalog
+      const available = getAvailablePluginPacks();
+      const installedNames = Object.keys(appState.pluginCatalog.installed || {});
+
+      list.innerHTML = available.map(pack => {
+        const isInstalled = installedNames.includes(pack.name);
+        return `
+          <div style="padding: 12px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 4px; margin-bottom: 8px; display: flex; flex-direction: column; gap: 8px;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+              <div>
+                <span style="font-weight: 600; font-size: 12px;">${escapeHtml(pack.displayName)}</span>
+                <span style="font-size: 10px; color: var(--text-muted); margin-left: 8px;">v${escapeHtml(pack.version)}</span>
+              </div>
+              <span style="font-size: 10px; padding: 2px 6px; background: ${isInstalled ? 'var(--success)' : 'var(--accent-blue)'}; color: white; border-radius: 3px;">${isInstalled ? 'Installed' : 'Available'}</span>
+            </div>
+            <div style="font-size: 10px; color: var(--text-dim);">${escapeHtml(pack.desc)}</div>
+            <div style="font-size: 10px; color: var(--text-muted);">Category: ${escapeHtml(pack.category)}</div>
+            <div style="font-size: 10px; color: var(--text-muted);">Triggers: ${escapeHtml(pack.triggers.join(', '))}</div>
+            <div style="display: flex; gap: 6px;">
+              ${!isInstalled ? `
+                <button class="btn btn-sm" onclick="installPluginPack('${escapeHtml(pack.name)}'); renderPluginCatalogTab(); openPluginCatalogModal();" style="padding: 4px 10px; font-size: 10px;">Install</button>
+              ` : `
+                <button class="btn btn-secondary btn-sm" onclick="openPluginPackManager('${escapeHtml(pack.name)}')" style="padding: 4px 10px; font-size: 10px;">Manage Agents</button>
+              `}
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      modal.classList.add('active');
+    }
+
+    function closePluginCatalogModal() {
+      document.getElementById('pluginCatalogModal')?.classList.remove('active');
+    }
+
+    // Open plugin pack manager to enable/disable per agent
+    function openPluginPackManager(packName) {
+      closePluginCatalogModal();
+      const modal = document.getElementById('pluginPackManagerModal');
+      const list = document.getElementById('pluginPackManagerAgentList');
+      if (!modal || !list) return;
+
+      const agents = Object.values(appState.agents || {});
+      const enabledForAgents = appState.pluginCatalog.enabledForAgent || {};
+
+      list.innerHTML = agents.map(agent => {
+        const isEnabled = enabledForAgents[agent.id]?.includes(packName) || false;
+        return `
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 4px; margin-bottom: 6px;">
+            <span style="font-weight: 500; font-size: 11px;">${escapeHtml(agent.name)}</span>
+            <label class="toggle-switch" style="cursor: pointer;">
+              <input type="checkbox" ${isEnabled ? 'checked' : ''} onchange="togglePluginPackForAgent('${escapeHtml(agent.id)}', '${escapeHtml(packName)}', this.checked);" />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        `;
+      }).join('');
+
+      modal.classList.add('active');
+    }
+
+    function closePluginPackManagerModal() {
+      document.getElementById('pluginPackManagerModal')?.classList.remove('active');
+    }
+
+    function togglePluginPackForAgent(agentId, packName, enabled) {
+      if (enabled) {
+        enablePluginPackForAgent(agentId, packName);
+      } else {
+        disablePluginPackForAgent(agentId, packName);
+      }
+      // Re-render the manager modal
+      openPluginPackManager(packName);
     }
 
     // Export all app state to a JSON file
@@ -19562,6 +20258,8 @@ Format:
           if (tabName === 'skillLibrarian') renderSkillLibrarian();
           if (tabName === 'scheduled') renderScheduledTasksTab();
           if (tabName === 'importTools') renderImportToolsTab();
+          if (tabName === 'hooks') renderHooksTab();
+          if (tabName === 'pluginCatalog') renderPluginCatalogTab();
         });
       });
 
@@ -23368,6 +24066,27 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
           e.currentTarget.classList.remove('active');
           document.getElementById('mcpRegistryModal').classList.add('active');
         }
+      });
+
+      // Hook Modal (H5.4)
+      document.getElementById('btnCloseHookModal')?.addEventListener('click', closeHookModal);
+      document.getElementById('btnCancelHook')?.addEventListener('click', closeHookModal);
+      document.getElementById('hookForm')?.addEventListener('submit', (e) => { e.preventDefault(); saveHook(); });
+      document.getElementById('hookActionType')?.addEventListener('change', updateHookActionFields);
+      document.getElementById('hookModal')?.addEventListener('click', (e) => {
+        if (e.target === e.currentTarget) closeHookModal();
+      });
+
+      // Plugin Catalog Modal (H5.4)
+      document.getElementById('btnClosePluginCatalogModal')?.addEventListener('click', closePluginCatalogModal);
+      document.getElementById('pluginCatalogModal')?.addEventListener('click', (e) => {
+        if (e.target === e.currentTarget) closePluginCatalogModal();
+      });
+
+      // Plugin Pack Manager Modal (H5.4)
+      document.getElementById('btnClosePluginPackManagerModal')?.addEventListener('click', closePluginPackManagerModal);
+      document.getElementById('pluginPackManagerModal')?.addEventListener('click', (e) => {
+        if (e.target === e.currentTarget) closePluginPackManagerModal();
       });
     }
 
