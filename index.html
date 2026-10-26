@@ -2733,6 +2733,33 @@
           </div>
         </div>
         <hr style="border: none; border-top: 1px solid var(--border-color); margin: 12px 0;">
+        <!-- Hybrid Search + Blast Radius (Batch 7.7) -->
+        <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;" data-i18n="Hybrid Search + Blast Radius">Hybrid Search + Blast Radius</div>
+        <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 8px;" data-i18n="Configure Sverklo's hybrid search token budget and Serena's blast radius depth. These work on the in-app code graph.">Configure Sverklo's hybrid search token budget and Serena's blast radius depth. These work on the in-app code graph.</div>
+        <div style="display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 12px;">
+          <div style="flex: 1; min-width: 150px;">
+            <label style="display: block; font-size: 11px; color: var(--text-muted); margin-bottom: 4px;" data-i18n="Hybrid Search Token Budget">Hybrid Search Token Budget</label>
+            <input type="number" id="hybridSearchBudgetInput" class="form-input" min="100" max="5000" value="500" style="width: 100%; padding: 6px 8px; font-size: 12px;" />
+            <div style="font-size: 10px; color: var(--text-dim); margin-top: 2px;" data-i18n="Token budget for hybrid search results (default: 500, Sverklo target: ~300-500 ranked tokens vs 5000-15000 grep lines).">Token budget for hybrid search results (default: 500, Sverklo target: ~300-500 ranked tokens vs 5000-15000 grep lines).</div>
+          </div>
+          <div style="flex: 1; min-width: 150px;">
+            <label style="display: block; font-size: 11px; color: var(--text-muted); margin-bottom: 4px;" data-i18n="Blast Radius Max Depth">Blast Radius Max Depth</label>
+            <input type="number" id="blastRadiusDepthInput" class="form-input" min="1" max="5" value="2" style="width: 100%; padding: 6px 8px; font-size: 12px;" />
+            <div style="font-size: 10px; color: var(--text-dim); margin-top: 2px;" data-i18n="Maximum hops for blast radius analysis (default: 2).">Maximum hops for blast radius analysis (default: 2).</div>
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+          <div style="flex: 1; min-width: 0;">
+            <div style="font-weight: 600; font-size: 12px; color: var(--text-main);" data-i18n="Prefer Symbol Search Over Grep">Prefer Symbol Search Over Grep</div>
+            <div style="font-size: 10px; color: var(--text-dim); margin-top: 2px;" data-i18n="When ON, agent uses findSymbol/findReferences instead of grep for code navigation. When Serena tools available, they are preferred.">When ON, agent uses findSymbol/findReferences instead of grep for code navigation. When Serena tools available, they are preferred.</div>
+          </div>
+          <label class="toggle-switch" style="cursor: pointer; flex-shrink: 0;">
+            <input type="checkbox" id="preferSymbolSearchToggleSettings" style="display: none;" checked />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <hr style="border: none; border-top: 1px solid var(--border-color); margin: 12px 0;">
+        <!-- Inline Autocomplete -->
         <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;" data-i18n="Inline Autocomplete">Inline Autocomplete</div>
         <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 8px;" data-i18n="Show ghost-text code completions while typing. Suggestions come from the current file context and the Brain code graph. Tab accepts, Esc dismisses.">Show ghost-text code completions while typing. Suggestions come from the current file context and the Brain code graph. Tab accepts, Esc dismisses.</div>
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
@@ -4128,6 +4155,15 @@ sudo *"></textarea>
           </div>
         </div>
 
+        <!-- Known Servers Catalog (Serena, Sverklo, etc.) -->
+        <div style="border:1px solid var(--border-color); border-radius:5px; padding:10px; background:var(--bg-surface);">
+          <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom:8px;">Known Servers Catalog</div>
+          <div style="font-size: 10px; color: var(--text-dim); margin-bottom:8px;">Click Install to add a pre-configured server. Runs on desktop — in the web app, the built-in tools below do the same job.</div>
+          <div id="mcpKnownServersList" style="display:flex; flex-direction:column; gap:6px;">
+            <!-- Known server items rendered here -->
+          </div>
+        </div>
+
         <div id="mcpServerList" style="display:flex; flex-direction:column; gap:6px;">
           <!-- MCP server items rendered here -->
         </div>
@@ -5413,8 +5449,9 @@ WORK STYLE:
         kind: 'mcp',
         name: 'serena',
         whatItDoes: 'Semantic code editing and navigation via language server',
+        description: 'Semantic code editing and navigation via language server — in the web app, the built-in tools below do the same job.',
         triggers: ['serena', 'semantic', 'code editing', 'language server', 'lsp', 'navigate', 'refactor', 'সেরিনা', 'সিম্যান্টিক', 'কোড এডিটিং', 'ল্যাঙ্গুয়েজ সার্ভার', 'নেভিগেট', 'রিফ্যাক্টর'],
-        install: { how: 'manual', note: 'Manual install: see Serena docs. No stdio package in registry yet.' },
+        install: { how: 'add-mcp', serverId: 'mcp_serena', catalogId: 'mcp_serena', command: 'uvx --from git+https://github.com/oraios/serena serena-mcp-server', transport: 'stdio', note: 'Runs on desktop — in the web app, the built-in tools below do the same job.' },
         scoreBoost: 0
       },
       {
@@ -5422,8 +5459,9 @@ WORK STYLE:
         kind: 'mcp',
         name: 'sverklo',
         whatItDoes: 'Code search and analysis across repositories',
+        description: 'Code search and analysis across repositories — in the web app, the built-in tools below do the same job.',
         triggers: ['sverklo', 'code search', 'analysis', 'repository', 'search code', 'সভার্ক্লো', 'কোড সার্চ', 'অ্যানালাইসিস', 'রিপোজিটরি', 'কোড খুঁজুন'],
-        install: { how: 'manual', note: 'Manual install: see Sverklo docs. No stdio package in registry yet.' },
+        install: { how: 'add-mcp', serverId: 'mcp_sverklo', catalogId: 'mcp_sverklo', command: 'npx -y @sverklo/mcp-server', transport: 'stdio', note: 'Runs on desktop — in the web app, the built-in tools below do the same job.' },
         scoreBoost: 0
       }
     ];
@@ -5673,6 +5711,9 @@ Detail level: {{detail_level}}`,
         createdAt: 1735689600011
       }
     ];
+
+    // Expose globally for testing and external access
+    window.TOOL_RECOMMENDATIONS = TOOL_RECOMMENDATIONS;
 
     // ==================== LANGUAGE / I18N ====================
     // Bangla (Bengali) translations for all UI text
@@ -6379,6 +6420,45 @@ Detail level: {{detail_level}}`,
         'Close': 'বন্ধ করুন',
         'Save': 'সংরক্ষণ',
         'Cancel': 'বাতিল',
+
+        // Serena + Sverklo MCPs (Batch 7.7)
+        'Hybrid Search + Blast Radius': 'হাইব্রিড সার্চ + ব্লাস্ট রেডিয়াস',
+        "Configure Sverklo's hybrid search token budget and Serena's blast radius depth. These work on the in-app code graph.": "Sverklo-এর হাইব্রিড সার্চ টোকেন বাজেট এবং Serena-এর ব্লাস্ট রেডিয়াস ডেপথ কনফিগার করুন। এগুলো ইন-অ্যাপ কোড গ্রাফে কাজ করে।",
+        'Hybrid Search Token Budget': 'হাইব্রিড সার্চ টোকেন বাজেট',
+        'Token budget for hybrid search results (default: 500, Sverklo target: ~300-500 ranked tokens vs 5000-15000 grep lines).': 'হাইব্রিড সার্চ রেজাল্টের টোকেন বাজেট (ডিফল্ট: ৫০০, Sverklo লক্ষ্য: ~৩০০-৫০০ র‍্যাঙ্কড টোকেন বনাম ৫০০০-১৫০০০ গ্রেপ লাইন)।',
+        'Blast Radius Max Depth': 'ব্লাস্ট রেডিয়াস সর্বোচ্চ ডেপথ',
+        'Maximum hops for blast radius analysis (default: 2).': 'ব্লাস্ট রেডিয়াস অ্যানালিসিসের জন্য সর্বোচ্চ হপ (ডিফল্ট: ২)।',
+        'Prefer Symbol Search Over Grep': 'সিম্বল সার্চ বেছে নিন গ্রেপের পরিবর্তে',
+        'When ON, agent uses findSymbol/findReferences instead of grep for code navigation. When Serena tools available, they are preferred.': 'ON হলে, এজেন্ট কোড নেভিগেশনের জন্য findSymbol/findReferences ব্যবহার করে গ্রেপের পরিবর্তে। Serena টুল উপলব্ধ থাকলে সেগুলো প্রাধান্য পায়।',
+        'Find Symbol': 'সিম্বল খুঁজুন',
+        'Find References': 'রেফারেন্স খুঁজুন',
+        'Rename Symbol': 'সিম্বল রিনেম করুন',
+        'Insert After Symbol': 'সিম্বলের পরে ইনসার্ট করুন',
+        'Hybrid Search': 'হাইব্রিড সার্চ',
+        'Blast Radius': 'ব্লাস্ট রেডিয়াস',
+        'File Dependency Graph': 'ফাইল ডিপেন্ডেন্সি গ্রাফ',
+        'Risk Scored Review': 'রিস্ক স্কোয়ার্ড রিভিউ',
+        'Pinned Memory': 'পিনড মেমরি',
+        'Runs on desktop — in the web app, the built-in tools below do the same job': 'ডেস্কটপে চলে — ওয়েব অ্যাপে, নিচের বিল্ট-ইন টুলগুলো একই কাজ করে',
+        'Known Servers Catalog': 'জানা সার্ভার ক্যাটালগ',
+        'Serena (oraios/serena)': 'Serena (oraios/serena)',
+        'Sverklo (sverklo/sverklo)': 'Sverklo (sverklo/sverklo)',
+        'Install': 'ইনস্টল',
+        'Untrusted': 'বিশ্বস্ত নয়',
+        'Tools': 'টুলস',
+        'Config Template': 'কনফিগ টেমপ্লেট',
+        'Command': 'কমান্ড',
+        'Args': 'আর্গস',
+        'Env': 'এনভি',
+        'find-symbol': 'ফাইন্ড-সিম্বল',
+        'find-references': 'ফাইন্ড-রেফারেন্স',
+        'insert-after-symbol': 'ইনসার্ট-আফ্টার-সিম্বল',
+        'rename': 'রিনেম',
+        'hybrid-search': 'হাইব্রিড-সার্চ',
+        'blast-radius': 'ব্লাস্ট-রেডিয়াস',
+        'file-dependency-graph': 'ফাইল-ডিপেন্ডেন্সি-গ্রাফ',
+        'risk-scored-review': 'রিস্ক-স্কোয়ার্ড-রিভিউ',
+        'git-pinned-memory': 'গিট-পিনড-মেমরি',
   }
 };
 
@@ -8324,6 +8404,598 @@ function getGraphSummary() {
   return `Code Graph: ${graph.nodes.length} nodes (${Object.entries(byType).map(([t,c])=>`${t}:${c}`).join(', ')}), ${graph.edges.length} edges (${byConfidence.EXTRACTED} extracted, ${byConfidence.INFERRED} inferred). Hubs: ${topNodes.join(', ')}. Updated: ${new Date(graph.updatedAt).toLocaleTimeString()}`;
 }
 
+// ==================== SERENA SEMANTIC NAVIGATION (Batch 7.7) ====================
+// These work on the existing code graph — no separate LSP process needed in web app.
+
+// findSymbol: exact + prefix + fuzzy match on code-graph nodes
+function findSymbolInGraph(query) {
+  const session = getCurrentSession();
+  if (!session) return [];
+  const graph = getOrBuildCodeGraph(session);
+  if (!graph || graph.nodes.length === 0) return [];
+
+  const q = query.toLowerCase().trim();
+  const results = [];
+
+  for (const node of graph.nodes) {
+    if (node.type === NODE_TYPES.FILE) continue; // Skip file nodes
+    const name = node.name.toLowerCase();
+    let score = 0;
+    let matchType = '';
+
+    // Exact match (highest priority)
+    if (name === q) {
+      score = 100;
+      matchType = 'exact';
+    }
+    // Prefix match
+    else if (name.startsWith(q)) {
+      score = 80;
+      matchType = 'prefix';
+    }
+    // Fuzzy match (substring)
+    else if (name.includes(q)) {
+      score = 60;
+      matchType = 'fuzzy';
+    }
+    // Also check file path for matches
+    else if (node.filePath.toLowerCase().includes(q)) {
+      score = 40;
+      matchType = 'filepath';
+    }
+
+    if (score > 0) {
+      results.push({
+        id: node.id,
+        name: node.name,
+        kind: node.type,
+        file: node.filePath,
+        line: node.meta?.line || 0,
+        signature: node.meta?.signature || '',
+        matchType,
+        score
+      });
+    }
+  }
+
+  // Sort by score desc, then by name
+  results.sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
+  return results.slice(0, 50);
+}
+
+// findReferences: all references to a symbol via graph's reference edges
+function findReferencesInGraph(symbolId) {
+  const session = getCurrentSession();
+  if (!session) return [];
+  const graph = getOrBuildCodeGraph(session);
+  if (!graph) return [];
+
+  // Find the target node
+  const targetNode = graph.nodes.find(n => n.id === symbolId);
+  if (!targetNode) return [];
+
+  const results = [];
+  // Find all edges where target is the destination (incoming references)
+  for (const edge of graph.edges) {
+    if (edge.to === symbolId && (edge.type === EDGE_TYPES.REFERENCES || edge.type === EDGE_TYPES.CALLS || edge.type === EDGE_TYPES.IMPORTS || edge.type === EDGE_TYPES.USES)) {
+      const fromNode = graph.nodes.find(n => n.id === edge.from);
+      if (fromNode) {
+        results.push({
+          id: fromNode.id,
+          name: fromNode.name,
+          kind: fromNode.type,
+          file: fromNode.filePath,
+          line: fromNode.meta?.line || 0,
+          edgeType: edge.type,
+          confidence: edge.confidence
+        });
+      }
+    }
+  }
+
+  // Also find edges where target is source and type is DEFINES (definition location)
+  for (const edge of graph.edges) {
+    if (edge.from === symbolId && edge.type === EDGE_TYPES.DEFINES) {
+      const toNode = graph.nodes.find(n => n.id === edge.to);
+      if (toNode) {
+        results.push({
+          id: toNode.id,
+          name: toNode.name,
+          kind: toNode.type,
+          file: toNode.filePath,
+          line: toNode.meta?.line || 0,
+          edgeType: 'defines',
+          confidence: edge.confidence
+        });
+      }
+    }
+  }
+
+  return results;
+}
+
+// renameSymbol: rename by SYMBOL — applies to definition + all references as diff patches
+function renameSymbolInGraph(symbolId, newName) {
+  const session = getCurrentSession();
+  if (!session) return { patches: [], unresolved: [] };
+
+  const graph = getOrBuildCodeGraph(session);
+  if (!graph) return { patches: [], unresolved: [] };
+
+  const targetNode = graph.nodes.find(n => n.id === symbolId);
+  if (!targetNode) return { patches: [], unresolved: [] };
+
+  // Find all references
+  const references = findReferencesInGraph(symbolId);
+  const patches = [];
+  const unresolved = [];
+
+  // Group references by file
+  const refsByFile = {};
+  for (const ref of references) {
+    if (!refsByFile[ref.file]) refsByFile[ref.file] = [];
+    refsByFile[ref.file].push(ref);
+  }
+
+  // For each file, create a unified diff patch
+  for (const [filePath, refs] of Object.entries(refsByFile)) {
+    const fileContent = session.files[filePath];
+    if (!fileContent) {
+      unresolved.push({ file: filePath, reason: 'File not in session' });
+      continue;
+    }
+
+    const lines = fileContent.split('\n');
+    const changes = [];
+
+    for (const ref of refs) {
+      const lineIdx = (ref.line || 1) - 1; // Convert to 0-indexed
+      if (lineIdx >= 0 && lineIdx < lines.length) {
+        const oldLine = lines[lineIdx];
+        // Only replace the symbol name, not other occurrences on the line
+        // Simple approach: replace the exact name occurrence
+        if (oldLine.includes(targetNode.name)) {
+          const newLine = oldLine.replace(new RegExp(`\\b${escapeRegExp(targetNode.name)}\\b`, 'g'), newName);
+          if (newLine !== oldLine) {
+            changes.push({ line: lineIdx, oldLine, newLine });
+            lines[lineIdx] = newLine;
+          }
+        } else {
+          unresolved.push({ file: filePath, line: ref.line, reason: 'Symbol name not found on line' });
+        }
+      } else {
+        unresolved.push({ file: filePath, line: ref.line, reason: 'Line out of bounds' });
+      }
+    }
+
+    if (changes.length > 0) {
+      const newContent = lines.join('\n');
+      patches.push({
+        file: filePath,
+        oldContent: fileContent,
+        newContent: newContent,
+        description: `Rename ${targetNode.name} → ${newName} (${changes.length} occurrences)`
+      });
+    }
+  }
+
+  return { patches, unresolved };
+}
+
+// insertAfterSymbol: insert code after a symbol's definition
+function insertAfterSymbolInGraph(symbolId, code) {
+  const session = getCurrentSession();
+  if (!session) return { patches: [] };
+
+  const graph = getOrBuildCodeGraph(session);
+  if (!graph) return { patches: [] };
+
+  const targetNode = graph.nodes.find(n => n.id === symbolId);
+  if (!targetNode) return { patches: [] };
+
+  const filePath = targetNode.filePath;
+  const fileContent = session.files[filePath];
+  if (!fileContent) return { patches: [] };
+
+  const lines = fileContent.split('\n');
+  const insertLine = (targetNode.meta?.endLine || targetNode.meta?.line || 1); // 1-indexed, insert AFTER this line
+
+  const codeLines = code.split('\n');
+  const newLines = [
+    ...lines.slice(0, insertLine),
+    ...codeLines,
+    ...lines.slice(insertLine)
+  ];
+
+  const newContent = newLines.join('\n');
+  return {
+    patches: [{
+      file: filePath,
+      oldContent: fileContent,
+      newContent: newContent,
+      description: `Insert after ${targetNode.name} (${codeLines.length} lines)`
+    }]
+  };
+}
+
+// ==================== SVERKLO HYBRID SEARCH + BLAST RADIUS (Batch 7.7) ====================
+
+// estimateTokens: rough token count estimation
+function estimateTokens(text) {
+  return Math.ceil(text.length / 4); // ~4 chars per token
+}
+
+// hybridSearch: keyword + symbol-rank (PageRank) + reference-count boost
+function hybridSearchInGraph(query) {
+  const session = getCurrentSession();
+  if (!session) return [];
+  const graph = getOrBuildCodeGraph(session);
+  if (!graph || graph.nodes.length === 0) return [];
+
+  const q = query.toLowerCase().trim();
+  const keywords = q.split(/\s+/).filter(w => w.length > 1);
+
+  // Get PageRank scores from Repo Map (7.1) if available
+  const pagerankScores = getPageRankScores(session) || {};
+
+  // Calculate reference counts for each node
+  const refCounts = {};
+  for (const edge of graph.edges) {
+    if (edge.type === EDGE_TYPES.REFERENCES || edge.type === EDGE_TYPES.CALLS || edge.type === EDGE_TYPES.IMPORTS) {
+      refCounts[edge.to] = (refCounts[edge.to] || 0) + 1;
+    }
+  }
+
+  const results = [];
+  for (const node of graph.nodes) {
+    if (node.type === NODE_TYPES.FILE) continue;
+
+    let score = 0;
+    const searchText = `${node.name} ${node.filePath} ${JSON.stringify(node.meta)}`.toLowerCase();
+
+    // Keyword match score
+    for (const kw of keywords) {
+      if (node.name.toLowerCase().includes(kw)) score += 10;
+      if (node.filePath.toLowerCase().includes(kw)) score += 5;
+      if (searchText.includes(kw)) score += 2;
+    }
+
+    // Symbol rank boost (PageRank from Repo Map 7.1)
+    const prScore = pagerankScores[node.id] || pagerankScores[node.name] || 0;
+    score += prScore * 50; // PageRank is typically 0-1, scale up
+
+    // Reference count boost
+    const refCount = refCounts[node.id] || 0;
+    score += Math.min(refCount * 2, 30); // Cap at 30
+
+    if (score > 0) {
+      results.push({
+        id: node.id,
+        name: node.name,
+        kind: node.type,
+        file: node.filePath,
+        line: node.meta?.line || 0,
+        signature: node.meta?.signature || '',
+        score: Math.round(score),
+        pagerank: prScore,
+        refCount
+      });
+    }
+  }
+
+  // Sort by score desc
+  results.sort((a, b) => b.score - a.score);
+
+  // Token budget: default 500 tokens, configurable via settings
+  const tokenBudget = appState.hybridSearchTokenBudget || 500;
+  let totalTokens = 0;
+  const limitedResults = [];
+
+  for (const r of results) {
+    const tokenEst = estimateTokens(JSON.stringify(r));
+    if (totalTokens + tokenEst <= tokenBudget) {
+      limitedResults.push(r);
+      totalTokens += tokenEst;
+    } else {
+      break;
+    }
+  }
+
+  // Attach token count to result for visibility
+  limitedResults.tokenCount = totalTokens;
+  limitedResults.tokenBudget = tokenBudget;
+
+  return limitedResults;
+}
+
+// blastRadius: walks reference edges outward (direct + transitive dependents)
+function blastRadiusInGraph(target, maxDepth = null) {
+  const session = getCurrentSession();
+  if (!session) return [];
+  const graph = getOrBuildCodeGraph(session);
+  if (!graph) return [];
+
+  // Allow target to be a symbolId or filePath
+  let startNodes = [];
+  // First try exact ID match
+  const nodeById = graph.nodes.find(n => n.id === target);
+  if (nodeById) {
+    startNodes = [nodeById];
+  } else if (target.includes(':')) {
+    // Looks like a node ID (legacy format)
+    const node = graph.nodes.find(n => n.id === target);
+    if (node) startNodes = [node];
+  } else {
+    // Treat as file path or symbol name
+    startNodes = graph.nodes.filter(n =>
+      n.filePath === target || n.name.toLowerCase().includes(target.toLowerCase())
+    );
+  }
+
+  if (startNodes.length === 0) return [];
+
+  const depth = maxDepth !== null ? maxDepth : (appState.blastRadiusDepth || 2);
+  const hops = [];
+  const visited = new Set();
+  const currentHopNodes = new Set(startNodes.map(n => n.id));
+
+  for (let d = 0; d < depth && currentHopNodes.size > 0; d++) {
+    const hopSymbols = [];
+    const nextHopNodes = new Set();
+
+    for (const nodeId of currentHopNodes) {
+      if (visited.has(nodeId)) continue;
+      visited.add(nodeId);
+
+      const node = graph.nodes.find(n => n.id === nodeId);
+      if (node && node.type !== NODE_TYPES.FILE) {
+        hopSymbols.push({
+          id: node.id,
+          name: node.name,
+          kind: node.type,
+          file: node.filePath,
+          line: node.meta?.line || 0
+        });
+      }
+
+      // Find INCOMING reference edges (dependents - things that depend on this node)
+      // Edge types where target is the destination: CALLS, REFERENCES, IMPORTS, USES
+      for (const edge of graph.edges) {
+        if (edge.to === nodeId &&
+            (edge.type === EDGE_TYPES.REFERENCES || edge.type === EDGE_TYPES.CALLS || edge.type === EDGE_TYPES.IMPORTS || edge.type === EDGE_TYPES.USES)) {
+          if (!visited.has(edge.from)) {
+            nextHopNodes.add(edge.from);
+          }
+        }
+      }
+    }
+
+    if (hopSymbols.length > 0) {
+      hops.push({
+        depth: d,
+        symbols: hopSymbols,
+        count: hopSymbols.length
+      });
+    }
+
+    currentHopNodes.clear();
+    for (const id of nextHopNodes) currentHopNodes.add(id);
+  }
+
+  return hops;
+}
+
+// fileDependencyGraph: imports + imported-by for a file
+function fileDependencyGraphInGraph(filePath) {
+  const session = getCurrentSession();
+  if (!session) return { imports: [], importedBy: [] };
+  const graph = getOrBuildCodeGraph(session);
+  if (!graph) return { imports: [], importedBy: [] };
+
+  // Find file node
+  const fileNode = graph.nodes.find(n => n.type === NODE_TYPES.FILE && n.filePath === filePath);
+  if (!fileNode) return { imports: [], importedBy: [] };
+
+  const imports = [];
+  const importedBy = [];
+  const seenImports = new Set();
+  const seenImportedBy = new Set();
+
+  // Dependency edge types: any edge that means "this code depends on that code".
+  // A file's dependencies are NOT only literal IMPORTS edges: the code graph
+  // records cross-file references as symbol-level CALLS / USES / REFERENCES
+  // edges (main.js calling a utils.js function IS an import of utils.js),
+  // while the indexer also resolves real import statements to file nodes.
+  const DEP_TYPES = [EDGE_TYPES.CALLS, EDGE_TYPES.USES, EDGE_TYPES.REFERENCES, EDGE_TYPES.IMPORTS, EDGE_TYPES.EXTENDS, EDGE_TYPES.IMPLEMENTS];
+
+  for (const edge of graph.edges) {
+    if (!DEP_TYPES.includes(edge.type)) continue;
+    const fromNode = graph.nodes.find(n => n.id === edge.from);
+    const toNode = graph.nodes.find(n => n.id === edge.to);
+    if (!fromNode || !toNode) continue;
+
+    // Imports: something in this file depends on something in another file
+    const fromInFile = fromNode.filePath === filePath || fromNode.id === fileNode.id;
+    const toInOtherFile = toNode.filePath && toNode.filePath !== filePath;
+    if (fromInFile && toInOtherFile) {
+      const key = toNode.id + '|' + edge.type;
+      if (!seenImports.has(key)) {
+        seenImports.add(key);
+        imports.push({
+          id: toNode.id,
+          name: toNode.name,
+          kind: toNode.type,
+          file: toNode.filePath,
+          line: toNode.meta?.line || 0
+        });
+      }
+    }
+
+    // Imported-by: something in another file depends on something in this file
+    const toInFile = toNode.filePath === filePath || toNode.id === fileNode.id;
+    const fromInOtherFile = fromNode.filePath && fromNode.filePath !== filePath;
+    if (fromInOtherFile && toInFile) {
+      const key = fromNode.id + '|' + edge.type;
+      if (!seenImportedBy.has(key)) {
+        seenImportedBy.add(key);
+        importedBy.push({
+          id: fromNode.id,
+          name: fromNode.name,
+          kind: fromNode.type,
+          file: fromNode.filePath,
+          line: fromNode.meta?.line || 0
+        });
+      }
+    }
+  }
+
+  return { imports, importedBy };
+}
+
+// riskScoredReview: blast radius × file criticality (Repo Map rank) × change size
+function riskScoredReviewInGraph(diff) {
+  const session = getCurrentSession();
+  if (!session) return [];
+  const graph = getOrBuildCodeGraph(session);
+  if (!graph) return [];
+
+  const pagerankScores = getPageRankScores(session) || {};
+
+  // diff should be an array of { file, oldContent, newContent } or similar
+  const changes = Array.isArray(diff) ? diff : [diff];
+  const results = [];
+
+  for (const change of changes) {
+    const filePath = change.file;
+    const oldContent = change.oldContent || '';
+    const newContent = change.newContent || '';
+
+    // Change size: lines added + removed
+    const oldLines = oldContent.split('\n').length;
+    const newLines = newContent.split('\n').length;
+    const changeSize = Math.abs(newLines - oldLines) + Math.min(oldLines, newLines); // rough estimate
+
+    // File criticality from Repo Map rank
+    const fileNode = graph.nodes.find(n => n.type === NODE_TYPES.FILE && n.filePath === filePath);
+    const fileRank = fileNode ? (pagerankScores[fileNode.id] || pagerankScores[fileNode.name] || 0) : 0;
+
+    // Blast radius: count dependents of symbols in this file
+    let blastRadiusCount = 0;
+    if (fileNode) {
+      // Get all symbol nodes in this file
+      const symbolsInFile = graph.nodes.filter(n => n.filePath === filePath && n.type !== NODE_TYPES.FILE);
+      for (const symbol of symbolsInFile) {
+        const blastResult = blastRadiusInGraph(symbol.id, 2);
+        blastRadiusCount += blastResult.flatMap(h => h.symbols).length;
+      }
+    }
+
+    // Risk score = blastRadius × (1 + fileRank) × (1 + log(changeSize))
+    const riskScore = blastRadiusCount * (1 + fileRank) * (1 + Math.log(1 + changeSize));
+
+    // Determine reason
+    const reasons = [];
+    if (blastRadiusCount > 10) reasons.push(`High blast radius (${blastRadiusCount} dependents)`);
+    if (fileRank > 0.01) reasons.push(`High centrality (PageRank: ${fileRank.toFixed(4)})`);
+    if (changeSize > 50) reasons.push(`Large change (${changeSize} lines)`);
+
+    results.push({
+      file: filePath,
+      riskScore: Math.round(riskScore * 100) / 100,
+      blastRadius: blastRadiusCount,
+      fileCriticality: fileRank,
+      changeSize,
+      reasons: reasons.length > 0 ? reasons : [`${blastRadiusCount} dependent${blastRadiusCount === 1 ? '' : 's'} in blast radius, ${changeSize}-line change`]
+    });
+  }
+
+  // Sort by risk score desc
+  results.sort((a, b) => b.riskScore - a.riskScore);
+  return results;
+}
+
+// gitPinnedMemory: note pinned to a git commit/branch
+let gitPinnedNotes = []; // In-memory store, could persist to appState
+
+function gitPinnedMemoryInGraph(params) {
+  const { commit, branch, note, action = 'set' } = params;
+
+  if (action === 'set') {
+    if (!commit || !note) {
+      return { success: false, message: 'git-pinned-memory: requires commit and note' };
+    }
+    // Remove any existing note for this commit
+    gitPinnedNotes = gitPinnedNotes.filter(n => n.commit !== commit);
+    gitPinnedNotes.push({ commit, branch: branch || '', note, createdAt: Date.now() });
+    return { success: true, message: `Pinned note to commit ${commit.substring(0, 7)}` };
+  }
+
+  if (action === 'get') {
+    if (!commit) {
+      return { success: false, message: 'git-pinned-memory: requires commit' };
+    }
+    const pinned = gitPinnedNotes.find(n => n.commit === commit);
+    if (pinned) {
+      return { success: true, note: pinned.note, commit: pinned.commit, message: 'Found pinned note' };
+    }
+    return { success: false, message: 'No pinned note for this commit' };
+  }
+
+  if (action === 'check') {
+    // Check if base commit has moved (called when branch updates)
+    const currentCommit = getCurrentGitCommit(); // Need to implement
+    const movedNotes = gitPinnedNotes.filter(n => n.commit !== currentCommit);
+    if (movedNotes.length > 0) {
+      return { success: true, message: `${movedNotes.length} pinned note(s) flagged: base moved — re-check`, flagged: movedNotes };
+    }
+    return { success: true, message: 'All pinned notes valid', flagged: [] };
+  }
+
+  if (action === 'list') {
+    return { success: true, notes: gitPinnedNotes, message: `${gitPinnedNotes.length} pinned note(s)` };
+  }
+
+  return { success: false, message: 'Unknown action: ' + action };
+}
+
+// Helper: get current git commit (simplified)
+function getCurrentGitCommit() {
+  // In a real implementation, this would run `git rev-parse HEAD`
+  // For now, return a placeholder
+  return 'HEAD';
+}
+
+// Helper: get PageRank scores from Repo Map (7.1)
+function getPageRankScores(session) {
+  // Try to get from appState or compute from repo map
+  if (appState.repoMapPageRank) return appState.repoMapPageRank;
+  if (session.repoMapPageRank) return session.repoMapPageRank;
+  return null;
+}
+
+// Helper: escape regex special chars
+function escapeRegExp(string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// Queue patches for A2 diff review
+function queueDiffReview(patches, description) {
+  if (!appState.diffReviewQueue) appState.diffReviewQueue = [];
+  for (const patch of patches) {
+    appState.diffReviewQueue.push({
+      ...patch,
+      id: 'patch_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
+      description,
+      status: 'pending',
+      createdAt: Date.now()
+    });
+  }
+  // Notify UI if diff review panel is open
+  if (typeof renderDiffReviewPanel === 'function') {
+    renderDiffReviewPanel();
+  }
+}
+
 // ==================== REPO MAP (Batch 7.1) ====================
 // Ranked, token-budgeted rendering of the Brain code graph for LLM context injection.
 // Uses PageRank over define/reference edges with personalization boost for session files
@@ -9535,13 +10207,334 @@ function hideGraphTooltip() {
 }
 
 function onGraphNodeClick(node) {
-  // Jump to file in editor
-  if (node.filePath && node.filePath !== node.name) {
-    openFile(node.filePath);
-    // Switch to agent pane to show file
-    switchPane('agent');
-    logActivity(`Opened ${node.filePath} from graph (${node.type}: ${node.name})`, 'info');
+  // Show context menu with semantic actions
+  showGraphNodeContextMenu(node, event);
+}
+
+function showGraphNodeContextMenu(node, clickEvent) {
+  // Remove existing menu
+  const existing = document.getElementById('graphNodeContextMenu');
+  if (existing) existing.remove();
+
+  const menu = document.createElement('div');
+  menu.id = 'graphNodeContextMenu';
+  menu.className = 'context-menu';
+  menu.style.cssText = `
+    position: fixed;
+    left: ${clickEvent.clientX}px;
+    top: ${clickEvent.clientY}px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    z-index: 10000;
+    min-width: 200px;
+    padding: 4px 0;
+  `;
+
+  const isSymbol = node.type !== NODE_TYPES.FILE;
+  const items = [];
+
+  // Open file (always available)
+  items.push({
+    label: '📄 Open file',
+    action: () => {
+      if (node.filePath && node.filePath !== node.name) {
+        openFile(node.filePath);
+        switchPane('agent');
+        logActivity(`Opened ${node.filePath} from graph`, 'info');
+      }
+      menu.remove();
+    }
+  });
+
+  if (isSymbol) {
+    items.push({ type: 'separator' });
+
+    // Find References
+    items.push({
+      label: '🔍 Find References',
+      action: () => {
+        const refs = findReferencesInGraph(node.id);
+        showGraphSearchResults('References to ' + node.name, refs);
+        menu.remove();
+      }
+    });
+
+    // Rename Symbol
+    items.push({
+      label: '✏️ Rename Symbol',
+      action: () => {
+        showRenameSymbolDialog(node);
+        menu.remove();
+      }
+    });
+
+    // Insert After Symbol
+    items.push({
+      label: '➕ Insert After',
+      action: () => {
+        showInsertAfterSymbolDialog(node);
+        menu.remove();
+      }
+    });
+
+    items.push({ type: 'separator' });
+
+    // Blast Radius
+    items.push({
+      label: '💥 Blast Radius',
+      action: () => {
+        const hops = blastRadiusInGraph(node.id);
+        showBlastRadiusDialog(node.name, hops);
+        menu.remove();
+      }
+    });
+
+    // File Dependency Graph
+    items.push({
+      label: '🔗 File Dependencies',
+      action: () => {
+        const dep = fileDependencyGraphInGraph(node.filePath);
+        showFileDependencyDialog(node.filePath, dep);
+        menu.remove();
+      }
+    });
+  } else {
+    // File node actions
+    items.push({ type: 'separator' });
+    items.push({
+      label: '🔗 File Dependencies',
+      action: () => {
+        const dep = fileDependencyGraphInGraph(node.filePath);
+        showFileDependencyDialog(node.filePath, dep);
+        menu.remove();
+      }
+    });
+    items.push({
+      label: '💥 Blast Radius (File)',
+      action: () => {
+        const hops = blastRadiusInGraph(node.id);
+        showBlastRadiusDialog(node.name, hops);
+        menu.remove();
+      }
+    });
   }
+
+  // Build menu
+  for (const item of items) {
+    if (item.type === 'separator') {
+      const sep = document.createElement('div');
+      sep.style.cssText = 'height: 1px; background: var(--border-color); margin: 4px 8px;';
+      menu.appendChild(sep);
+    } else {
+      const btn = document.createElement('button');
+      btn.textContent = item.label;
+      btn.style.cssText = `
+        width: 100%;
+        padding: 8px 12px;
+        text-align: left;
+        background: none;
+        border: none;
+        color: var(--text-main);
+        font: var(--font-sans);
+        font-size: 13px;
+        cursor: pointer;
+      `;
+      btn.onmouseover = () => btn.style.background = 'var(--bg-hover)';
+      btn.onmouseout = () => btn.style.background = 'none';
+      btn.onclick = item.action;
+      menu.appendChild(btn);
+    }
+  }
+
+  document.body.appendChild(menu);
+
+  // Close on outside click
+  const closeMenu = (e) => {
+    if (!menu.contains(e.target)) {
+      menu.remove();
+      document.removeEventListener('click', closeMenu);
+    }
+  };
+  setTimeout(() => document.addEventListener('click', closeMenu), 0);
+}
+
+function showRenameSymbolDialog(node) {
+  const newName = prompt(`Rename "${node.name}" to:`);
+  if (!newName || newName === node.name) return;
+
+  const result = renameSymbolInGraph(node.id, newName);
+
+  if (result.patches.length > 0) {
+    queueDiffReview(result.patches, `Rename ${node.name} → ${newName}`);
+    logActivity(`Rename queued for review: ${result.patches.length} file(s)`, 'info');
+    if (result.unresolved.length > 0) {
+      logActivity(`${result.unresolved.length} reference(s) unresolved — manual review needed`, 'warning');
+    }
+  } else {
+    logActivity('No references found to rename', 'warning');
+  }
+}
+
+function showInsertAfterSymbolDialog(node) {
+  const code = prompt(`Insert code after "${node.name}" (${node.filePath}):`);
+  if (!code) return;
+
+  const result = insertAfterSymbolInGraph(node.id, code);
+  if (result.patches.length > 0) {
+    queueDiffReview(result.patches, `Insert after ${node.name}`);
+    logActivity(`Insert queued for review: ${result.patches[0].description}`, 'info');
+  }
+}
+
+function showGraphSearchResults(title, results) {
+  // Reuse existing search results panel or create a modal
+  const modal = document.createElement('div');
+  modal.className = 'modal-overlay';
+  modal.style.cssText = `
+    position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+    display: flex; align-items: center; justify-content: center; z-index: 10001;
+  `;
+
+  const content = document.createElement('div');
+  content.style.cssText = `
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    max-width: 700px;
+    max-height: 80vh;
+    overflow: auto;
+    padding: 16px;
+  `;
+
+  content.innerHTML = `
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <h3 style="margin:0;">${escapeHtml(title)}</h3>
+      <button onclick="this.closest('.modal-overlay').remove()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--text-dim);">×</button>
+    </div>
+    <div style="font-size:12px;color:var(--text-dim);margin-bottom:8px;">
+      ${results.length} result(s)
+    </div>
+    <div style="max-height:60vh;overflow:auto;">
+      ${results.map(r => `
+        <div style="padding:8px;border-bottom:1px solid var(--border-color);cursor:pointer;"
+             onclick="openFile('${escapeHtml(r.file)}');this.closest('.modal-overlay').remove();">
+          <div style="font-weight:600;">${escapeHtml(r.name)} <span style="font-weight:normal;color:var(--text-dim);">(${r.kind})</span></div>
+          <div style="font-size:11px;color:var(--text-dim);">${escapeHtml(r.file)}:${r.line}</div>
+          ${r.edgeType ? `<div style="font-size:10px;color:var(--accent-blue);">${r.edgeType} (${r.confidence})</div>` : ''}
+        </div>
+      `).join('')}
+    </div>
+  `;
+
+  modal.appendChild(content);
+  document.body.appendChild(modal);
+}
+
+function showBlastRadiusDialog(symbolName, hops) {
+  const modal = document.createElement('div');
+  modal.className = 'modal-overlay';
+  modal.style.cssText = `
+    position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+    display: flex; align-items: center; justify-content: center; z-index: 10001;
+  `;
+
+  const content = document.createElement('div');
+  content.style.cssText = `
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    max-width: 700px;
+    max-height: 80vh;
+    overflow: auto;
+    padding: 16px;
+  `;
+
+  let totalSymbols = hops.flatMap(h => h.symbols).length;
+
+  content.innerHTML = `
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <h3 style="margin:0;">💥 Blast Radius: ${escapeHtml(symbolName)}</h3>
+      <button onclick="this.closest('.modal-overlay').remove()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--text-dim);">×</button>
+    </div>
+    <div style="font-size:12px;color:var(--text-dim);margin-bottom:8px;">
+      ${hops.length} hop(s), ${totalSymbols} symbol(s) affected
+    </div>
+    <div style="max-height:60vh;overflow:auto;">
+      ${hops.map(hop => `
+        <details style="margin-bottom:8px;">
+          <summary style="font-weight:600;cursor:pointer;">Hop ${hop.depth} (${hop.count} symbols)</summary>
+          ${hop.symbols.map(s => `
+            <div style="padding:6px 12px;border-bottom:1px solid var(--border-color);cursor:pointer;"
+                 onclick="openFile('${escapeHtml(s.file)}');this.closest('.modal-overlay').remove();">
+              ${escapeHtml(s.name)} <span style="color:var(--text-dim);font-size:11px;">(${s.kind})</span>
+              <div style="font-size:10px;color:var(--text-dim);">${escapeHtml(s.file)}:${s.line}</div>
+            </div>
+          `).join('')}
+        </details>
+      `).join('')}
+    </div>
+  `;
+
+  modal.appendChild(content);
+  document.body.appendChild(modal);
+}
+
+function showFileDependencyDialog(filePath, deps) {
+  const modal = document.createElement('div');
+  modal.className = 'modal-overlay';
+  modal.style.cssText = `
+    position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+    display: flex; align-items: center; justify-content: center; z-index: 10001;
+  `;
+
+  const content = document.createElement('div');
+  content.style.cssText = `
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    max-width: 700px;
+    max-height: 80vh;
+    overflow: auto;
+    padding: 16px;
+  `;
+
+  content.innerHTML = `
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <h3 style="margin:0;">🔗 File Dependencies: ${escapeHtml(filePath)}</h3>
+      <button onclick="this.closest('.modal-overlay').remove()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--text-dim);">×</button>
+    </div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+      <div>
+        <h4 style="margin:0 0 8px 0;color:var(--accent-blue);">Imports (${deps.imports.length})</h4>
+        <div style="max-height:60vh;overflow:auto;">
+          ${deps.imports.map(s => `
+            <div style="padding:6px;border-bottom:1px solid var(--border-color);cursor:pointer;"
+                 onclick="openFile('${escapeHtml(s.file)}');this.closest('.modal-overlay').remove();">
+              ${escapeHtml(s.name)} <span style="color:var(--text-dim);font-size:11px;">(${s.kind})</span>
+              <div style="font-size:10px;color:var(--text-dim);">${escapeHtml(s.file)}:${s.line}</div>
+            </div>
+          `).join('') || '<div style="padding:12px;color:var(--text-dim);">No imports</div>'}
+        </div>
+      </div>
+      <div>
+        <h4 style="margin:0 0 8px 0;color:var(--accent-orange);">Imported By (${deps.importedBy.length})</h4>
+        <div style="max-height:60vh;overflow:auto;">
+          ${deps.importedBy.map(s => `
+            <div style="padding:6px;border-bottom:1px solid var(--border-color);cursor:pointer;"
+                 onclick="openFile('${escapeHtml(s.file)}');this.closest('.modal-overlay').remove();">
+              ${escapeHtml(s.name)} <span style="color:var(--text-dim);font-size:11px;">(${s.kind})</span>
+              <div style="font-size:10px;color:var(--text-dim);">${escapeHtml(s.file)}:${s.line}</div>
+            </div>
+          `).join('') || '<div style="padding:12px;color:var(--text-dim);">Not imported by any file</div>'}
+        </div>
+      </div>
+    </div>
+  `;
+
+  modal.appendChild(content);
+  document.body.appendChild(modal);
 }
 
 function renderGraphPanel() {
@@ -11542,6 +12535,45 @@ Links: [[Brain Index]]
         };
       }
 
+      // Hybrid Search Token Budget (Batch 7.7)
+      const hybridSearchBudgetInput = document.getElementById('hybridSearchBudgetInput');
+      if (hybridSearchBudgetInput) {
+        hybridSearchBudgetInput.value = appState.hybridSearchTokenBudget ?? 500;
+        hybridSearchBudgetInput.onchange = (e) => {
+          const val = parseInt(e.target.value, 10);
+          if (!isNaN(val) && val >= 100 && val <= 5000) {
+            appState.hybridSearchTokenBudget = val;
+            saveAppState();
+            logActivity(`Hybrid search token budget set to ${val}`, 'info');
+          }
+        };
+      }
+
+      // Blast Radius Max Depth (Batch 7.7)
+      const blastRadiusDepthInput = document.getElementById('blastRadiusDepthInput');
+      if (blastRadiusDepthInput) {
+        blastRadiusDepthInput.value = appState.blastRadiusMaxDepth ?? 2;
+        blastRadiusDepthInput.onchange = (e) => {
+          const val = parseInt(e.target.value, 10);
+          if (!isNaN(val) && val >= 1 && val <= 5) {
+            appState.blastRadiusMaxDepth = val;
+            saveAppState();
+            logActivity(`Blast radius max depth set to ${val}`, 'info');
+          }
+        };
+      }
+
+      // Prefer Symbol Search Over Grep toggle (Batch 7.7)
+      const preferSymbolSearchToggle = document.getElementById('preferSymbolSearchToggleSettings');
+      if (preferSymbolSearchToggle) {
+        preferSymbolSearchToggle.checked = appState.preferSymbolSearchOverGrep !== false; // Default ON
+        preferSymbolSearchToggle.onchange = (e) => {
+          appState.preferSymbolSearchOverGrep = e.target.checked;
+          saveAppState();
+          logActivity(e.target.checked ? 'Prefer symbol search over grep ENABLED' : 'Prefer symbol search over grep DISABLED', 'info');
+        };
+      }
+
       // Render muted recommendations list
       renderMutedRecommendationsList();
     }
@@ -12062,6 +13094,17 @@ function validateRecipe(recipe) {
       'query-graph': { name: 'query-graph', type: 'builtin', trigger: 'Queries the code graph for symbols and relationships', description: 'Search the code graph for nodes matching a query. Returns relevant symbols, types, and file paths.' },
       'explain-graph': { name: 'explain-graph', type: 'builtin', trigger: 'Explains a code concept from the graph', description: 'Get a detailed explanation of a specific symbol/concept from the code graph, including its connections.' },
       'path-graph': { name: 'path-graph', type: 'builtin', trigger: 'Finds paths between two symbols in the code graph', description: 'Trace the shortest call/import/dependency path between two symbols in the codebase.' },
+      // Serena semantic navigation tools (Batch 7.7) — work on the code graph in-app
+      'find-symbol': { name: 'find-symbol', type: 'builtin', trigger: 'Find a symbol (function/class/variable) by name across the project', description: 'Exact + prefix + fuzzy match on code-graph nodes. Returns file, line, kind, signature. Use instead of grep for navigation.' },
+      'find-references': { name: 'find-references', type: 'builtin', trigger: 'Find all references to a symbol via code-graph edges', description: 'Returns callers, imports, usages with file + line. Uses reference edges from the graph.' },
+      'rename-symbol': { name: 'rename-symbol', type: 'builtin', trigger: 'Rename a symbol by SYMBOL (definition + all references) as diff patches', description: 'Applies rename to definition + every reference found via graph edges. Returns unified diff patches per file for A2 diff review. Unresolvable references listed as "unresolved — review manually".' },
+      'insert-after-symbol': { name: 'insert-after-symbol', type: 'builtin', trigger: 'Insert code right after a symbol definition', description: 'Generates a diff patch inserting code after the symbol definition. Reviewed in A2 diff review like any edit.' },
+      // Sverklo hybrid search + blast radius tools (Batch 7.7) — work on the code graph in-app
+      'hybrid-search': { name: 'hybrid-search', type: 'builtin', trigger: 'Ranked hybrid search: keyword + symbol-rank (PageRank) + reference-count boost', description: 'Combines keyword match over names+paths, symbol PageRank scores from Repo Map 7.1, and reference-count boost. Returns top 10 results within token budget (default 500). Shows token count of result.' },
+      'blast-radius': { name: 'blast-radius', type: 'builtin', trigger: 'What breaks if I change this: walks reference edges outward (direct + transitive dependents)', description: 'Walks graph reference edges outward up to configured depth (default 2 hops). Returns affected files/symbols grouped by hop with counts. Shown in diff review before rename/delete/signature change.' },
+      'file-dependency-graph': { name: 'file-dependency-graph', type: 'builtin', trigger: 'Dependency subgraph for one file (imports + imported-by)', description: 'Returns imports and imported-by for a file, rendered in the Graph panel.' },
+      'risk-scored-review': { name: 'risk-scored-review', type: 'builtin', trigger: 'Score a diff for review risk: blast radius × file criticality × change size', description: 'Each changed file gets a risk score from (blast radius × Repo Map rank × change size). Lists riskiest files first with reason. Wired into Senior diff review (Team Mode) and A2 diff review.' },
+      'git-pinned-memory': { name: 'git-pinned-memory', type: 'builtin', trigger: 'Note pinned to a git commit/branch — flagged when base moves', description: 'Store a decision note tied to a commit/branch. When the base changes, the pinned note is flagged as "base moved — re-check".' },
       // Git tools
       'git-status': { name: 'git-status', type: 'builtin', trigger: 'Shows git status of the virtual FS', description: 'Display modified, staged, and untracked files in the virtual filesystem.' },
       'git-commit': { name: 'git-commit', type: 'builtin', trigger: 'Commits changes in the virtual FS', description: 'Create a git commit with the current staged changes.' },
@@ -18942,7 +19985,7 @@ Only propose merges for skills that are genuinely overlapping or complementary. 
             }
 
             // Regex for fenced blocks: ```file:filename\ncontent```
-            const blockRegex = /```(file|delete|browse|brain-read|screenshot-to-app):([^\n]*)\n([\s\S]*?)```/g;
+            const blockRegex = /```(file|delete|browse|brain-read|screenshot-to-app|find-symbol|find-references|rename-symbol|insert-after-symbol|hybrid-search|blast-radius|file-dependency-graph|risk-scored-review|git-pinned-memory):([^\n]*)\n([\s\S]*?)```/g;
             let match;
 
             // Collect file operations for potential atomic batch summary (legacy path)
@@ -18970,6 +20013,33 @@ Only propose merges for skills that are genuinely overlapping or complementary. 
                             argsSummary = targetPath || blockContent.trim();
                           } else if (actionType === 'screenshot-to-app') {
                             toolName = 'screenshot-to-app';
+                            argsSummary = targetPath || blockContent.trim();
+                          } else if (actionType === 'find-symbol') {
+                            toolName = 'find-symbol';
+                            argsSummary = targetPath || blockContent.trim();
+                          } else if (actionType === 'find-references') {
+                            toolName = 'find-references';
+                            argsSummary = targetPath || blockContent.trim();
+                          } else if (actionType === 'rename-symbol') {
+                            toolName = 'rename-symbol';
+                            argsSummary = targetPath || blockContent.trim();
+                          } else if (actionType === 'insert-after-symbol') {
+                            toolName = 'insert-after-symbol';
+                            argsSummary = targetPath || blockContent.trim();
+                          } else if (actionType === 'hybrid-search') {
+                            toolName = 'hybrid-search';
+                            argsSummary = targetPath || blockContent.trim();
+                          } else if (actionType === 'blast-radius') {
+                            toolName = 'blast-radius';
+                            argsSummary = targetPath || blockContent.trim();
+                          } else if (actionType === 'file-dependency-graph') {
+                            toolName = 'file-dependency-graph';
+                            argsSummary = targetPath || blockContent.trim();
+                          } else if (actionType === 'risk-scored-review') {
+                            toolName = 'risk-scored-review';
+                            argsSummary = targetPath || blockContent.trim();
+                          } else if (actionType === 'git-pinned-memory') {
+                            toolName = 'git-pinned-memory';
                             argsSummary = targetPath || blockContent.trim();
                           }
 
@@ -19065,6 +20135,145 @@ Only propose merges for skills that are genuinely overlapping or complementary. 
                     logActivity('Screenshot-to-app error: ' + err.message, 'error');
                     toolsUsed.push({ name: 'screenshot-to-app', type: 'skill' });
                   });
+              } else if (actionType === 'find-symbol') {
+                // Serena: find symbol by name
+                const query = targetPath || blockContent.trim();
+                const results = findSymbolInGraph(query);
+                const resultText = results.length > 0
+                  ? results.map(r => `${r.file}:${r.line} (${r.kind}) ${r.signature || r.name}`).join('\n')
+                  : 'No symbols found matching: ' + query;
+                chips.push({ type: 'tool', label: `Found ${results.length} symbol(s) for "${query}"` });
+                logActivity(`find-symbol: "${query}" → ${results.length} result(s)`, 'info');
+                toolsUsed.push({ name: 'find-symbol', type: 'builtin' });
+                // Store results for follow-up (e.g., find-references)
+                window.lastFindSymbolResults = results;
+              } else if (actionType === 'find-references') {
+                // Serena: find references to a symbol
+                const symbolId = targetPath || blockContent.trim();
+                const results = findReferencesInGraph(symbolId);
+                const resultText = results.length > 0
+                  ? results.map(r => `${r.file}:${r.line} (${r.kind || 'reference'})`).join('\n')
+                  : 'No references found for symbol: ' + symbolId;
+                chips.push({ type: 'tool', label: `Found ${results.length} reference(s) for "${symbolId}"` });
+                logActivity(`find-references: "${symbolId}" → ${results.length} result(s)`, 'info');
+                toolsUsed.push({ name: 'find-references', type: 'builtin' });
+              } else if (actionType === 'rename-symbol') {
+                // Serena: rename symbol (definition + all references)
+                // Block content should be JSON: { "symbolId": "...", "newName": "..." }
+                let params;
+                try {
+                  params = JSON.parse(blockContent.trim());
+                } catch (e) {
+                  chips.push({ type: 'tool', label: `rename-symbol: invalid JSON params: ${e.message}` });
+                  logActivity('rename-symbol: invalid JSON params', 'error');
+                  toolsUsed.push({ name: 'rename-symbol', type: 'builtin' });
+                  continue;
+                }
+                const { symbolId, newName } = params;
+                if (!symbolId || !newName) {
+                  chips.push({ type: 'tool', label: 'rename-symbol: requires symbolId and newName in JSON' });
+                  logActivity('rename-symbol: missing symbolId or newName', 'error');
+                  toolsUsed.push({ name: 'rename-symbol', type: 'builtin' });
+                  continue;
+                }
+                const renameResult = renameSymbolInGraph(symbolId, newName);
+                if (renameResult.patches.length > 0) {
+                  // Queue patches for A2 diff review
+                  queueDiffReview(renameResult.patches, `Rename ${symbolId} → ${newName}`);
+                  chips.push({ type: 'tool', label: `Rename queued for review: ${renameResult.patches.length} file(s), ${renameResult.unresolved.length} unresolved` });
+                  logActivity(`rename-symbol: ${symbolId} → ${newName} (${renameResult.patches.length} patches, ${renameResult.unresolved.length} unresolved)`, 'info');
+                } else {
+                  chips.push({ type: 'tool', label: `Rename: no changes needed or symbol not found` });
+                  logActivity(`rename-symbol: no changes for ${symbolId}`, 'warning');
+                }
+                toolsUsed.push({ name: 'rename-symbol', type: 'builtin' });
+              } else if (actionType === 'insert-after-symbol') {
+                // Serena: insert code after symbol definition
+                // Block content should be JSON: { "symbolId": "...", "code": "..." }
+                let params;
+                try {
+                  params = JSON.parse(blockContent.trim());
+                } catch (e) {
+                  chips.push({ type: 'tool', label: `insert-after-symbol: invalid JSON params: ${e.message}` });
+                  logActivity('insert-after-symbol: invalid JSON params', 'error');
+                  toolsUsed.push({ name: 'insert-after-symbol', type: 'builtin' });
+                  continue;
+                }
+                const { symbolId: insertSymbolId, code } = params;
+                if (!insertSymbolId || !code) {
+                  chips.push({ type: 'tool', label: 'insert-after-symbol: requires symbolId and code in JSON' });
+                  logActivity('insert-after-symbol: missing symbolId or code', 'error');
+                  toolsUsed.push({ name: 'insert-after-symbol', type: 'builtin' });
+                  continue;
+                }
+                const insertResult = insertAfterSymbolInGraph(insertSymbolId, code);
+                if (insertResult.patches.length > 0) {
+                  queueDiffReview(insertResult.patches, `Insert after ${insertSymbolId}`);
+                  chips.push({ type: 'tool', label: `Insert queued for review: ${insertResult.patches.length} file(s)` });
+                  logActivity(`insert-after-symbol: after ${insertSymbolId} (${insertResult.patches.length} patches)`, 'info');
+                } else {
+                  chips.push({ type: 'tool', label: `Insert: symbol not found or no changes` });
+                  logActivity(`insert-after-symbol: no changes for ${insertSymbolId}`, 'warning');
+                }
+                toolsUsed.push({ name: 'insert-after-symbol', type: 'builtin' });
+              } else if (actionType === 'hybrid-search') {
+                // Sverklo: hybrid search
+                const query = targetPath || blockContent.trim();
+                const results = hybridSearchInGraph(query);
+                const tokenCount = estimateTokens(JSON.stringify(results));
+                chips.push({ type: 'tool', label: `Hybrid search: ${results.length} results (~${tokenCount} tokens)` });
+                logActivity(`hybrid-search: "${query}" → ${results.length} results, ~${tokenCount} tokens`, 'info');
+                toolsUsed.push({ name: 'hybrid-search', type: 'builtin' });
+                window.lastHybridSearchResults = results;
+              } else if (actionType === 'blast-radius') {
+                // Sverklo: blast radius analysis
+                const target = targetPath || blockContent.trim();
+                const results = blastRadiusInGraph(target);
+                const totalFiles = results.flatMap(hop => hop.symbols.map(s => s.file)).filter((v, i, a) => a.indexOf(v) === i).length;
+                const totalSymbols = results.flatMap(hop => hop.symbols).length;
+                chips.push({ type: 'tool', label: `Blast radius: ${totalFiles} files, ${totalSymbols} symbols (${results.length} hops)` });
+                logActivity(`blast-radius: "${target}" → ${totalFiles} files, ${totalSymbols} symbols`, 'info');
+                toolsUsed.push({ name: 'blast-radius', type: 'builtin' });
+                window.lastBlastRadiusResults = results;
+              } else if (actionType === 'file-dependency-graph') {
+                // Sverklo: file dependency graph
+                const filePath = targetPath || blockContent.trim();
+                const results = fileDependencyGraphInGraph(filePath);
+                chips.push({ type: 'tool', label: `File deps: ${results.imports.length} imports, ${results.importedBy.length} imported-by` });
+                logActivity(`file-dependency-graph: "${filePath}" → ${results.imports.length} imports, ${results.importedBy.length} imported-by`, 'info');
+                toolsUsed.push({ name: 'file-dependency-graph', type: 'builtin' });
+              } else if (actionType === 'risk-scored-review') {
+                // Sverklo: risk scored review
+                // Block content should be JSON diff
+                let diff;
+                try {
+                  diff = JSON.parse(blockContent.trim());
+                } catch (e) {
+                  chips.push({ type: 'tool', label: `risk-scored-review: invalid JSON diff: ${e.message}` });
+                  logActivity('risk-scored-review: invalid JSON diff', 'error');
+                  toolsUsed.push({ name: 'risk-scored-review', type: 'builtin' });
+                  continue;
+                }
+                const riskResults = riskScoredReviewInGraph(diff);
+                chips.push({ type: 'tool', label: `Risk review: ${riskResults.length} files scored, highest risk: ${riskResults[0]?.file || 'none'}` });
+                logActivity(`risk-scored-review: ${riskResults.length} files scored`, 'info');
+                toolsUsed.push({ name: 'risk-scored-review', type: 'builtin' });
+              } else if (actionType === 'git-pinned-memory') {
+                // Sverklo: git pinned memory
+                // Block content should be JSON: { "commit": "...", "note": "..." } or { "commit": "...", "action": "check" }
+                let params;
+                try {
+                  params = JSON.parse(blockContent.trim());
+                } catch (e) {
+                  chips.push({ type: 'tool', label: `git-pinned-memory: invalid JSON params: ${e.message}` });
+                  logActivity('git-pinned-memory: invalid JSON params', 'error');
+                  toolsUsed.push({ name: 'git-pinned-memory', type: 'builtin' });
+                  continue;
+                }
+                const pinResult = gitPinnedMemoryInGraph(params);
+                chips.push({ type: 'tool', label: `Git-pinned memory: ${pinResult.message}` });
+                logActivity(`git-pinned-memory: ${pinResult.message}`, 'info');
+                toolsUsed.push({ name: 'git-pinned-memory', type: 'builtin' });
               }
             }
 
@@ -19111,7 +20320,7 @@ Only propose merges for skills that are genuinely overlapping or complementary. 
       if (appState.teachMode && chips.length > 0) {
         // Build changes array from chips for explanation
         const teachChanges = [];
-        const blockRegex2 = /```(file|delete|browse|brain-read|screenshot-to-app):([^\n]*)\n([\s\S]*?)```/g;
+        const blockRegex2 = /```(file|delete|browse|brain-read|screenshot-to-app|find-symbol|find-references|rename-symbol|insert-after-symbol|hybrid-search|blast-radius|file-dependency-graph|risk-scored-review|git-pinned-memory):([^\n]*)\n([\s\S]*?)```/g;
         let match2;
         while ((match2 = blockRegex2.exec(responseText)) !== null) {
           const actionType = match2[1];
@@ -24552,6 +25761,7 @@ Format:
       };
       document.getElementById('btnOpenMcpRegistry').onclick = () => {
         renderMcpServerList();
+        renderMcpKnownServersList();
         document.getElementById('mcpRegistryModal').classList.add('active');
       };
     }
@@ -30265,6 +31475,167 @@ It integrates with the current user model (src/models/User.js) and JWT utility (
       modal.classList.remove('active');
       document.getElementById('mcpRegistryModal').classList.add('active');
       logActivity('MCP server deleted', 'warning');
+    }
+
+    // ==================== MCP KNOWN SERVERS CATALOG (Batch 7.7) ====================
+    // Pre-configured MCP servers that users can install with one click.
+    // Each entry has: id, name, repo, license, description, tools[], config template
+    const MCP_KNOWN_SERVERS = [
+      {
+        id: 'mcp_serena',
+        name: 'Serena',
+        repo: 'oraios/serena',
+        license: 'MIT',
+        description: 'Semantic code editing and navigation via language server. Provides find-symbol, find-references, rename, insert-after-symbol, and more.',
+        tools: [
+          { name: 'mcp_serena_find_symbol', trigger: 'Find a symbol (function/class/variable) by name across the project' },
+          { name: 'mcp_serena_find_references', trigger: 'Find all references to a symbol via the code graph' },
+          { name: 'mcp_serena_rename_symbol', trigger: 'Rename a symbol by SYMBOL (not line numbers) — updates definition + all references' },
+          { name: 'mcp_serena_insert_after_symbol', trigger: 'Insert code right after a symbol definition' },
+          { name: 'mcp_serena_get_symbol_overview', trigger: 'Get overview of a symbol: signature, docstring, location' },
+          { name: 'mcp_serena_search_for_pattern', trigger: 'Search for a code pattern across the project' },
+          { name: 'mcp_serena_replace_symbol_body', trigger: 'Replace the body of a function/method' },
+          { name: 'mcp_serena_replace_references', trigger: 'Replace all references to a symbol' },
+          { name: 'mcp_serena_create_file', trigger: 'Create a new file with content' },
+          { name: 'mcp_serena_delete_file', trigger: 'Delete a file' },
+          { name: 'mcp_serena_read_file', trigger: 'Read a file content' },
+          { name: 'mcp_serena_write_file', trigger: 'Write content to a file' },
+          { name: 'mcp_serena_list_dir', trigger: 'List directory contents' },
+          { name: 'mcp_serena_execute_shell', trigger: 'Execute a shell command' },
+          { name: 'mcp_serena_apply_patch', trigger: 'Apply a unified diff patch' }
+        ],
+        config: {
+          transport: 'stdio',
+          command: 'uvx --from git+https://github.com/oraios/serena serena-mcp-server',
+          env: {},
+          note: 'Runs on desktop — in the web app, the built-in tools below do the same job.'
+        }
+      },
+      {
+        id: 'mcp_sverklo',
+        name: 'Sverklo',
+        repo: 'sverklo/sverklo',
+        license: 'MIT',
+        description: 'Hybrid code search and blast-radius analysis. ~300–500 ranked tokens per query vs 5,000–15,000 lines of grep output (13.8× fewer tokens).',
+        tools: [
+          { name: 'mcp_sverklo_hybrid_search', trigger: 'Ranked hybrid search: keyword + symbol-rank + reference-count boost' },
+          { name: 'mcp_sverklo_blast_radius', trigger: 'What breaks if I change this: walks reference edges outward (direct + transitive dependents)' },
+          { name: 'mcp_sverklo_find_references', trigger: 'Find all references to a symbol' },
+          { name: 'mcp_sverklo_file_dependency_graph', trigger: 'Dependency subgraph for one file (imports + imported-by)' },
+          { name: 'mcp_sverklo_risk_scored_review', trigger: 'Score a diff for review risk: blast radius × file criticality × change size' },
+          { name: 'mcp_sverklo_git_pinned_memory', trigger: 'Note pinned to a git commit/branch — flagged when base moves' },
+          { name: 'mcp_sverklo_search_symbols', trigger: 'Search symbols by name with ranking' },
+          { name: 'mcp_sverklo_get_call_graph', trigger: 'Get call graph for a function' },
+          { name: 'mcp_sverklo_get_import_graph', trigger: 'Get import graph for a file' },
+          { name: 'mcp_sverklo_get_type_hierarchy', trigger: 'Get type hierarchy for a class/interface' },
+          { name: 'mcp_sverklo_find_implementations', trigger: 'Find implementations of an interface/abstract class' },
+          { name: 'mcp_sverklo_find_usages', trigger: 'Find usages of a symbol' },
+          { name: 'mcp_sverklo_analyze_complexity', trigger: 'Analyze cyclomatic complexity of a function' },
+          { name: 'mcp_sverklo_detect_dead_code', trigger: 'Detect dead/unused code' },
+          { name: 'mcp_sverklo_find_circular_deps', trigger: 'Find circular dependencies' },
+          { name: 'mcp_sverklo_estimate_refactor_impact', trigger: 'Estimate impact of a refactoring' },
+          { name: 'mcp_sverklo_get_file_metrics', trigger: 'Get file-level metrics (LOC, complexity, etc.)' },
+          { name: 'mcp_sverklo_get_project_overview', trigger: 'Get project overview with key metrics' },
+          { name: 'mcp_sverklo_search_by_type', trigger: 'Search symbols by type signature' },
+          { name: 'mcp_sverklo_find_similar_code', trigger: 'Find similar code patterns' },
+          { name: 'mcp_sverklo_get_change_history', trigger: 'Get git change history for a file/symbol' },
+          { name: 'mcp_sverklo_analyze_test_coverage', trigger: 'Analyze test coverage for a symbol' },
+          { name: 'mcp_sverklo_suggest_tests', trigger: 'Suggest tests for a function' },
+          { name: 'mcp_sverklo_find_security_issues', trigger: 'Find security issues in code' },
+          { name: 'mcp_sverklo_suggest_refactor', trigger: 'Suggest refactoring opportunities' },
+          { name: 'mcp_sverklo_analyze_dependencies', trigger: 'Analyze project dependencies' },
+          { name: 'mcp_sverklo_get_symbol_documentation', trigger: 'Get documentation for a symbol' },
+          { name: 'mcp_sverklo_find_todos', trigger: 'Find TODO/FIXME comments' },
+          { name: 'mcp_sverklo_analyze_git_history', trigger: 'Analyze git history for patterns' },
+          { name: 'mcp_sverklo_get_contributors', trigger: 'Get contributors for a file/symbol' },
+          { name: 'mcp_sverklo_find_hotspots', trigger: 'Find code hotspots (frequently changed)' },
+          { name: 'mcp_sverklo_estimate_effort', trigger: 'Estimate effort for a change' },
+          { name: 'mcp_sverklo_find_duplicates', trigger: 'Find duplicate code' },
+          { name: 'mcp_sverklo_analyze_architecture', trigger: 'Analyze architectural patterns' }
+        ],
+        config: {
+          transport: 'stdio',
+          command: 'npx -y @sverklo/mcp-server',
+          env: {},
+          note: 'Runs on desktop — in the web app, the built-in tools below do the same job.'
+        }
+      }
+    ];
+
+    // Expose globally for testing and external access
+    window.MCP_KNOWN_SERVERS = MCP_KNOWN_SERVERS;
+
+    // Render the known servers catalog in the MCP Registry modal
+
+    function renderMcpKnownServersList() {
+      const container = document.getElementById('mcpKnownServersList');
+      if (!container) return;
+
+      container.innerHTML = MCP_KNOWN_SERVERS.map(server => {
+        const isInstalled = appState.mcpServers?.[server.id];
+        return `
+          <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 10px; background:var(--bg-dark); border:1px solid var(--border-color); border-radius:5px;">
+            <div style="flex:1; min-width:0;">
+              <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                <div style="font-weight:600; font-size:12px;">${escapeHtml(server.name)}</div>
+                <span style="font-size:9px; padding:2px 6px; background:var(--success); color:var(--bg-dark); border-radius:3px;">${escapeHtml(server.license)}</span>
+                ${isInstalled ? '<span style="font-size:9px; padding:2px 6px; background:var(--accent); color:var(--bg-dark); border-radius:3px;">INSTALLED</span>' : ''}
+              </div>
+              <div style="font-size:10px; color:var(--text-dim); margin-top:2px;">${escapeHtml(server.description)}</div>
+              <div style="font-size:10px; color:var(--text-dim); margin-top:2px;">Repo: <a href="https://github.com/${escapeHtml(server.repo)}" target="_blank" style="color:var(--accent);">${escapeHtml(server.repo)}</a> | ${server.tools.length} tools</div>
+              <div style="font-size:9px; color:var(--text-dim); margin-top:2px;">Config: ${escapeHtml(server.config.transport)} — ${escapeHtml(server.config.command)}</div>
+            </div>
+            ${!isInstalled ? `
+              <button class="btn" onclick="installKnownMcpServer('${escapeHtml(server.id)}')" style="padding:4px 10px; font-size:11px;" data-i18n="Install">Install</button>
+            ` : `
+              <button class="btn btn-secondary" onclick="selectMcpServerForEdit('${escapeHtml(server.id)}')" style="padding:4px 10px; font-size:11px;" data-i18n="Configure">Configure</button>
+            `}
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Install a known MCP server from the catalog
+    function installKnownMcpServer(serverId) {
+      const server = MCP_KNOWN_SERVERS.find(s => s.id === serverId);
+      if (!server) return;
+
+      // Check if already installed
+      if (appState.mcpServers?.[serverId]) {
+        logActivity(`${server.name} is already installed`, 'warning');
+        return;
+      }
+
+      // Create the server entry with UNTRUSTED trust level (H5.5)
+      const newServer = {
+        id: server.id,
+        name: server.name,
+        transport: server.config.transport,
+        command: server.config.command,
+        url: server.config.url || '',
+        env: server.config.env || {},
+        description: server.description,
+        enabled: true,
+        trust: 'untrusted', // H5.5: starts UNTRUSTED
+        callLimit: null,
+        spendLimit: null,
+        enabledTools: server.tools.map(t => t.name), // All tools enabled by default
+        createdAt: Date.now()
+      };
+
+      if (!appState.mcpServers) appState.mcpServers = {};
+      appState.mcpServers[serverId] = newServer;
+      saveAppState();
+
+      // Rebuild MCP tool definitions
+      rebuildMcpToolDefinitions();
+
+      // Re-render both lists
+      renderMcpServerList();
+      renderMcpKnownServersList();
+      renderMcpServerSummary();
+
+      logActivity(`Installed ${server.name} (UNTRUSTED). Configure trust level and tool permissions in the registry.`, 'success');
     }
 
     function setupMcpRegistryHandlers() {
