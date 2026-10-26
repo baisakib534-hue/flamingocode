@@ -2419,6 +2419,21 @@ sudo *"></textarea>
         <button class="btn" id="btnImportBackup" style="padding: 8px 16px; font-size: 12px; background: var(--danger);" disabled data-i18n="Import Backup">📤 Import Backup</button>
         <div id="importBackupStatus" style="margin-top: 8px; font-size: 10px; color: var(--text-dim);"></div>
       </div>
+
+      <!-- Import from GitHub -->
+      <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; padding: 16px; margin-top: 16px;">
+        <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;" data-i18n="Import from GitHub">Import from GitHub</div>
+        <div style="font-size: 11px; color: var(--text-dim); margin-bottom: 12px;" data-i18n="Paste a GitHub repository URL to analyze and import it as a new project. Public repos work without a token.">Paste a GitHub repository URL to analyze and import it as a new project. Public repos work without a token.</div>
+        <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px;">
+          <input type="text" id="githubImportUrl" placeholder="https://github.com/owner/repo" style="background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 4px; padding: 8px 10px; color: var(--text-main); font-size: 11px;" data-i18n-placeholder="https://github.com/owner/repo" />
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <input type="text" id="githubImportBranch" placeholder="Branch (optional, default: main)" style="flex: 1; min-width: 150px; background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 4px; padding: 8px 10px; color: var(--text-main); font-size: 11px;" data-i18n-placeholder="Branch (optional, default: main)" />
+            <input type="password" id="githubImportToken" placeholder="Token (optional, for private repos)" style="flex: 1; min-width: 150px; background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 4px; padding: 8px 10px; color: var(--text-main); font-size: 11px;" data-i18n-placeholder="Token (optional, for private repos)" />
+          </div>
+        </div>
+        <button class="btn" id="btnImportGitHub" style="padding: 8px 16px; font-size: 12px;" data-i18n="Import from GitHub">📥 Import from GitHub</button>
+        <div id="githubImportStatus" style="margin-top: 8px; font-size: 10px; color: var(--text-dim);"></div>
+      </div>
     </div>
     <div style="border-top: 1px solid var(--border-color); padding-top: 12px;">
       <div style="display:flex; justify-content:flex-end; gap:8px;">
@@ -4370,6 +4385,13 @@ WORK STYLE:
         'Load Defaults': 'ডিফল্ট লোড',
         'Clear Rules': 'নিয়ম মুছুন',
         'Close': 'বন্ধ করুন',
+
+        // GitHub Import (B4.1)
+        'Import from GitHub': 'GitHub থেকে আমদানি',
+        'Paste a GitHub repository URL to analyze and import it as a new project. Public repos work without a token.': 'একটি GitHub রিপোজিটরি URL পেস্ট করুন যাতে তা বিশ্লেষণ করে একটি নতুন প্রজেক্ট হিসেবে আমদানি করা যায়। পাবলিক রিপো টোকেন ছাড়াই কাজ করে।',
+        'https://github.com/owner/repo': 'https://github.com/owner/repo',
+        'Branch (optional, default: main)': 'ব্রাঞ্চ (ঐচ্ছিক, ডিফল্ট: main)',
+        'Token (optional, for private repos)': 'টোকেন (ঐচ্ছিক, প্রাইভেট রিপোর জন্য)',
 
         // Welcome / Empty states
         'No files yet. Create one to get started.': 'এখনো কোনো ফাইল নেই। শুরু করতে একটি তৈরি করুন।',
@@ -9504,6 +9526,9 @@ Links: [[Brain Index]]
       const importFile = document.getElementById('importBackupFile');
       const exportStatus = document.getElementById('exportBackupStatus');
       const importStatus = document.getElementById('importBackupStatus');
+      const githubBtn = document.getElementById('btnImportGitHub');
+      const githubUrl = document.getElementById('githubImportUrl');
+      const githubStatus = document.getElementById('githubImportStatus');
 
       if (exportBtn) {
         exportBtn.onclick = () => exportBackup();
@@ -9517,8 +9542,19 @@ Links: [[Brain Index]]
           if (importStatus) importStatus.textContent = e.target.files.length ? 'File selected: ' + e.target.files[0].name : '';
         };
       }
+      if (githubBtn) {
+        githubBtn.onclick = () => importFromGitHub();
+      }
+      if (githubUrl) {
+        githubUrl.oninput = () => {
+          githubBtn.disabled = !githubUrl.value.trim();
+          if (githubStatus) githubStatus.textContent = '';
+        };
+        githubBtn.disabled = !githubUrl.value.trim();
+      }
       if (exportStatus) exportStatus.textContent = '';
       if (importStatus) importStatus.textContent = '';
+      if (githubStatus) githubStatus.textContent = '';
     }
 
     // Export all app state to a JSON file
@@ -9737,6 +9773,296 @@ Links: [[Brain Index]]
         if (btn) { btn.disabled = false; btn.textContent = '📤 Import Backup'; }
       };
       reader.readAsText(file);
+    }
+
+    // Import project from GitHub repository
+    async function importFromGitHub() {
+      const urlInput = document.getElementById('githubImportUrl');
+      const branchInput = document.getElementById('githubImportBranch');
+      const tokenInput = document.getElementById('githubImportToken');
+      const btn = document.getElementById('btnImportGitHub');
+      const status = document.getElementById('githubImportStatus');
+
+      const url = urlInput?.value?.trim();
+      const branch = branchInput?.value?.trim() || 'main';
+      const token = tokenInput?.value?.trim();
+
+      if (!url) {
+        if (status) { status.textContent = 'Please enter a GitHub repository URL.'; status.style.color = 'var(--warning)'; }
+        return;
+      }
+
+      // Parse GitHub URL
+      const match = url.match(/github\.com\/([^/]+)\/([^/]+)(?:\/.*)?$/);
+      if (!match) {
+        if (status) { status.textContent = 'Invalid GitHub URL format. Use: https://github.com/owner/repo'; status.style.color = 'var(--danger)'; }
+        return;
+      }
+
+      const [, owner, repo] = match;
+      const cleanRepo = repo.replace(/\.git$/, '');
+
+      if (btn) { btn.disabled = true; btn.textContent = 'Importing...'; }
+      if (status) { status.textContent = 'Fetching repository info...'; status.style.color = 'var(--accent-blue)'; }
+
+      try {
+        // Build headers for GitHub API
+        const headers = {
+          'Accept': 'application/vnd.github.v3+json',
+          'User-Agent': 'FlamingoCode/1.0'
+        };
+        if (token) {
+          headers['Authorization'] = 'token ' + token;
+        }
+
+        // Fetch repo metadata
+        if (status) { status.textContent = 'Fetching repository metadata...'; }
+        const repoRes = await fetch(`https://api.github.com/repos/${owner}/${cleanRepo}`, { headers });
+        if (!repoRes.ok) {
+          throw new Error(`Failed to fetch repo: ${repoRes.status} ${repoRes.statusText}`);
+        }
+        const repoData = await repoRes.json();
+
+        // Fetch file tree
+        if (status) { status.textContent = 'Fetching file tree...'; }
+        const treeRes = await fetch(`https://api.github.com/repos/${owner}/${cleanRepo}/git/trees/${branch}?recursive=1`, { headers });
+        if (!treeRes.ok) {
+          throw new Error(`Failed to fetch file tree: ${treeRes.status} ${treeRes.statusText}`);
+        }
+        const treeData = await treeRes.json();
+
+        if (treeData.truncated) {
+          logActivity('Warning: File tree truncated (repo too large)', 'warning');
+        }
+
+        // Filter for relevant files (code, config, docs)
+        const relevantExtensions = ['.js', '.ts', '.jsx', '.tsx', '.py', '.java', '.go', '.rs', '.cpp', '.c', '.h', '.cs', '.php', '.rb', '.swift', '.kt', '.scala', '.clj', '.hs', '.ml', '.fs', '.vue', '.svelte', '.html', '.css', '.scss', '.json', '.yaml', '.yml', '.toml', '.ini', '.cfg', '.conf', '.md', '.txt', '.rst', '.dockerfile', '.dockerignore', '.gitignore', '.env.example', 'Makefile', 'CMakeLists.txt', 'package.json', 'package-lock.json', 'yarn.lock', 'pnpm-lock.yaml', 'requirements.txt', 'pyproject.toml', 'setup.py', 'setup.cfg', 'Cargo.toml', 'go.mod', 'pom.xml', 'build.gradle', 'build.gradle.kts', 'composer.json', 'Gemfile', 'Rakefile'];
+        const relevantFiles = treeData.tree
+          .filter(item => item.type === 'blob')
+          .filter(item => {
+            const name = item.path.toLowerCase();
+            return relevantExtensions.some(ext => name.endsWith(ext.toLowerCase())) || 
+                   name === 'readme' || name === 'license' || name === 'changelog' || name === 'contributing' || name === 'authors' || name === 'makefile' || name === 'dockerfile';
+          })
+          .slice(0, 200); // Cap at 200 files to avoid overload
+
+        if (status) { status.textContent = `Fetching ${relevantFiles.length} files...`; }
+
+        // Fetch file contents in batches
+        const files = {};
+        const batchSize = 10;
+        for (let i = 0; i < relevantFiles.length; i += batchSize) {
+          const batch = relevantFiles.slice(i, i + batchSize);
+          await Promise.all(batch.map(async (item) => {
+            const fileRes = await fetch(`https://api.github.com/repos/${owner}/${cleanRepo}/contents/${item.path}?ref=${branch}`, { headers });
+            if (fileRes.ok) {
+              const fileData = await fileRes.json();
+              if (fileData.content && fileData.encoding === 'base64') {
+                try {
+                  const content = atob(fileData.content);
+                  files[item.path] = content;
+                } catch (e) {
+                  logActivity(`Failed to decode ${item.path}: ${e.message}`, 'warning');
+                }
+              }
+            }
+          }));
+          if (status) { status.textContent = `Fetched ${Math.min(i + batchSize, relevantFiles.length)}/${relevantFiles.length} files...`; }
+        }
+
+        // Run injection scan on all files
+        if (status) { status.textContent = 'Running security scan...'; }
+        const blockedFiles = [];
+        const scannedFiles = {};
+        for (const [path, content] of Object.entries(files)) {
+          const scan = scanForInjection(content, path);
+          if (!scan.clean) {
+            blockedFiles.push({ path, issues: scan.issues });
+          } else {
+            scannedFiles[path] = content;
+          }
+        }
+
+        if (blockedFiles.length > 0) {
+          const msg = `Blocked ${blockedFiles.length} file(s) with injection patterns: ${blockedFiles.map(f => f.path).join(', ')}`;
+          if (status) { status.textContent = msg; status.style.color = 'var(--danger)'; }
+          logActivity(msg, 'danger');
+          // Continue with clean files only
+        }
+
+        if (Object.keys(scannedFiles).length === 0) {
+          throw new Error('No safe files to import (all files blocked by security scan)');
+        }
+
+        // Create new session with imported files
+        if (status) { status.textContent = 'Creating project...'; }
+        const sessionName = `${owner}/${cleanRepo} (imported)`;
+        const sessionId = createNewSession(sessionName);
+        const session = appState.sessions[sessionId];
+
+        // Add imported files to session
+        session.files = { ...session.files, ...scannedFiles };
+
+        // Generate Brain overview note
+        if (status) { status.textContent = 'Generating project overview...'; }
+        const overview = generateGitHubOverview(owner, cleanRepo, repoData, branch, scannedFiles);
+        writeBrainNote(session, 'overview', overview);
+
+        // Track usage
+        trackUsage('github-import', { owner, repo: cleanRepo, files: Object.keys(scannedFiles).length, blocked: blockedFiles.length });
+
+        saveAppState();
+        switchSession(sessionId);
+
+        // Switch to code view
+        document.querySelector('.right-tab[data-pane="code"]').click();
+
+        const successMsg = `Imported ${Object.keys(scannedFiles).length} files from ${owner}/${cleanRepo}${blockedFiles.length ? ` (blocked ${blockedFiles.length} unsafe files)` : ''}`;
+        if (status) { status.textContent = successMsg; status.style.color = 'var(--success)'; }
+        logActivity(successMsg, 'success');
+
+        // Clear inputs
+        urlInput.value = '';
+        branchInput.value = '';
+        tokenInput.value = '';
+        btn.disabled = true;
+
+      } catch (err) {
+        if (status) { status.textContent = 'Import failed: ' + err.message; status.style.color = 'var(--danger)'; }
+        logActivity('GitHub import failed: ' + err.message, 'error');
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = '📥 Import from GitHub'; }
+      }
+    }
+
+    // Generate Brain overview note from GitHub repo data
+    function generateGitHubOverview(owner, repo, repoData, branch, files) {
+      const fileList = Object.keys(files).sort();
+      const keyFiles = fileList.filter(f => 
+        /readme/i.test(f) || /package\.json$/i.test(f) || /requirements\.txt$/i.test(f) || 
+        /pyproject\.toml$/i.test(f) || /Cargo\.toml$/i.test(f) || /go\.mod$/i.test(f) || 
+        /pom\.xml$/i.test(f) || /composer\.json$/i.test(f) || /\.csproj$/i.test(f) ||
+        /\.sln$/i.test(f) || /makefile$/i.test(f) || /dockerfile$/i.test(f) || 
+        /\.github\/workflows/i.test(f) || /\.gitlab-ci/i.test(f)
+      ).slice(0, 20);
+
+      // Detect stack from key files
+      const stack = detectStack(files, keyFiles);
+
+      let md = `# ${owner}/${repo} (Imported from GitHub)\n\n`;
+      md += `**Source:** https://github.com/${owner}/${repo}\n`;
+      md += `**Branch:** ${branch}\n`;
+      md += `**Stars:** ${repoData.stargazers_count || 0} | **Forks:** ${repoData.forks_count || 0} | **Language:** ${repoData.language || 'Unknown'}\n`;
+      md += `**Description:** ${repoData.description || 'No description provided'}\n`;
+      md += `**Imported:** ${new Date().toISOString().slice(0, 19).replace('T', ' ')}\n\n`;
+
+      md += `## Tech Stack\n\n`;
+      if (stack.length > 0) {
+        stack.forEach(s => md += `- ${s}\n`);
+      } else {
+        md += `- (Auto-detection found no standard config files)\n`;
+      }
+      md += `\n`;
+
+      md += `## Key Files\n\n`;
+      if (keyFiles.length > 0) {
+        keyFiles.forEach(f => md += `- \`${f}\`\n`);
+      } else {
+        md += `- (No standard config/entry files detected)\n`;
+      }
+      md += `\n`;
+
+      md += `## Project Structure (Top Level)\n\n`;
+      const topLevel = [...new Set(fileList.map(f => f.split('/')[0]))].slice(0, 30).sort();
+      md += '```\n';
+      topLevel.forEach(d => md += `${d}/\n`);
+      md += '```\n\n';
+
+      md += `## What's Done / What's Missing\n\n`;
+      md += `### ✅ Present\n`;
+      const hasReadme = fileList.some(f => /readme/i.test(f));
+      const hasTests = fileList.some(f => /\.(test|spec)\./i.test(f) || /test\//i.test(f) || /__tests__/i.test(f));
+      const hasCi = fileList.some(f => /.github\/workflows/i.test(f) || /.gitlab-ci/i.test(f) || /circleci/i.test(f) || /\.travis/i.test(f));
+      const hasDocker = fileList.some(f => /dockerfile/i.test(f) || /docker-compose/i.test(f));
+      const hasLint = fileList.some(f => /eslint|prettier|pylint|ruff|clippy|golangci/i.test(f));
+      const hasTypes = fileList.some(f => /tsconfig|pyright|mypy/i.test(f));
+
+      if (hasReadme) md += `- README/documentation\n`;
+      if (hasTests) md += `- Test suite\n`;
+      if (hasCi) md += `- CI/CD pipeline\n`;
+      if (hasDocker) md += `- Docker configuration\n`;
+      if (hasLint) md += `- Linting/formatting config\n`;
+      if (hasTypes) md += `- Type checking config\n`;
+
+      md += `\n### ⚠️ Missing / To Investigate\n`;
+      if (!hasReadme) md += `- README/documentation\n`;
+      if (!hasTests) md += `- Test suite\n`;
+      if (!hasCi) md += `- CI/CD pipeline\n`;
+      if (!hasDocker) md += `- Docker configuration\n`;
+      if (!hasLint) md += `- Linting/formatting config\n`;
+      if (!hasTypes) md += `- Type checking config\n`;
+
+      md += `\n---\n`;
+      md += `*This overview was auto-generated on import. Update it as you explore the codebase.*\n`;
+
+      return md;
+    }
+
+    // Detect tech stack from file contents
+    function detectStack(files, keyFiles) {
+      const stack = [];
+      const allContent = Object.values(files).join('\n').toLowerCase();
+      const fileNames = Object.keys(files).join('\n').toLowerCase();
+
+      if (/package\.json/.test(fileNames)) {
+        stack.push('Node.js / JavaScript');
+        if (/react/.test(allContent)) stack.push('React');
+        if (/vue/.test(allContent)) stack.push('Vue');
+        if (/svelte/.test(allContent)) stack.push('Svelte');
+        if (/next\.js|nextjs/.test(allContent)) stack.push('Next.js');
+        if (/express/.test(allContent)) stack.push('Express');
+        if (/typescript|tsconfig/.test(allContent)) stack.push('TypeScript');
+      }
+      if (/requirements\.txt|pyproject\.toml|setup\.py|setup\.cfg/.test(fileNames)) {
+        stack.push('Python');
+        if (/django/.test(allContent)) stack.push('Django');
+        if (/flask/.test(allContent)) stack.push('Flask');
+        if (/fastapi/.test(allContent)) stack.push('FastAPI');
+        if (/pydantic/.test(allContent)) stack.push('Pydantic');
+      }
+      if (/cargo\.toml/.test(fileNames)) {
+        stack.push('Rust');
+      }
+      if (/go\.mod/.test(fileNames)) {
+        stack.push('Go');
+      }
+      if (/pom\.xml|build\.gradle/.test(fileNames)) {
+        stack.push('Java / JVM');
+        if (/spring/.test(allContent)) stack.push('Spring Boot');
+      }
+      if (/composer\.json/.test(fileNames)) {
+        stack.push('PHP');
+        if (/laravel/.test(allContent)) stack.push('Laravel');
+      }
+      if (/\.csproj|\.sln/.test(fileNames)) {
+        stack.push('C# / .NET');
+      }
+      if (/gemfile/.test(fileNames)) {
+        stack.push('Ruby');
+        if (/rails/.test(allContent)) stack.push('Rails');
+      }
+      if (/dockerfile|docker-compose/.test(fileNames)) {
+        stack.push('Docker');
+      }
+      if (/\.github\/workflows/.test(fileNames)) {
+        stack.push('GitHub Actions');
+      }
+      if (/.gitlab-ci/.test(fileNames)) {
+        stack.push('GitLab CI');
+      }
+
+      // Deduplicate
+      return [...new Set(stack)];
     }
 
     // ==================== LANGUAGE TAB ====================
