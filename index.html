@@ -1606,6 +1606,7 @@
                 <option value="plan" data-i18n="Plan">📋 Plan</option>
                 <option value="plan-readonly" data-i18n="Plan (Read-Only)">📋⛔ Plan (Read-Only)</option>
                 <option value="plan-build" data-i18n="Plan + Build">🔨 Plan + Build</option>
+                <option value="research" data-i18n="Research">🔬 Research</option>
               </select>
               <span id="modeStatus" style="font-size: 10px; color: var(--text-dim);"></span>
               <!-- Read-only indicator -->
@@ -1673,6 +1674,18 @@
                                         <button class="btn btn-secondary" id="btnToggleTodoPanel" style="padding:2px 8px; font-size:10px;" title="Collapse/expand todo panel">▼</button>
                                       </div>
                                       <div id="todoList" style="max-height:300px; overflow-y:auto; padding:8px 12px; background:var(--bg-panel);"></div>
+                                    </div>
+
+                                    <!-- Research Panel (collapsible, shows past research reports) -->
+                                    <div id="researchPanelWrapper" style="display:none; border-bottom:1px solid var(--border-color);">
+                                      <div style="display:flex; align-items:center; justify-content:space-between; padding:6px 12px; background:var(--bg-surface); border-bottom:1px solid var(--border-color);">
+                                        <div style="display:flex; align-items:center; gap:8px;">
+                                          <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;" data-i18n="Research">Research</span>
+                                          <span id="researchProgress" style="font-size: 10px; color: var(--accent-blue); font-weight:600;"></span>
+                                        </div>
+                                        <button class="btn btn-secondary" id="btnToggleResearchPanel" style="padding:2px 8px; font-size:10px;" title="Collapse/expand research panel">▼</button>
+                                      </div>
+                                      <div id="researchPanelContent" style="max-height:300px; overflow-y:auto; padding:8px 12px; background:var(--bg-panel);"></div>
                                     </div>
 
                                     <div class="chat-messages" id="chatMessages" style="flex:1; overflow-y:auto;">
@@ -2876,6 +2889,26 @@
         <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 8px;" data-i18n="Tools you chose not to see again. Unmute to restore.">Tools you chose not to see again. Unmute to restore.</div>
         <div id="mutedRecommendationsList" style="display: flex; flex-direction: column; gap: 4px; max-height: 200px; overflow-y: auto;">
           <!-- Muted recommendations rendered here -->
+        </div>
+        <hr style="border: none; border-top: 1px solid var(--border-color); margin: 12px 0;">
+        <!-- Research Mode (Batch 7.11) -->
+        <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;" data-i18n="Research Mode">Research Mode</div>
+        <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 8px;" data-i18n="Configure web search and synthesis behavior for Research mode.">Configure web search and synthesis behavior for Research mode.</div>
+        <div style="display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 12px;">
+          <div style="flex: 1; min-width: 150px;">
+            <label style="display: block; font-size: 11px; color: var(--text-muted); margin-bottom: 4px;" data-i18n="Research sources per question">Research sources per question</label>
+            <input type="number" id="researchSourcesPerQuestionInput" class="form-input" min="1" max="10" value="5" style="width: 100%; padding: 6px 8px; font-size: 12px;" />
+            <div style="font-size: 10px; color: var(--text-dim); margin-top: 2px;" data-i18n="Number of sources to fetch and read per research question (default: 5, max: 10)">Number of sources to fetch and read per research question (default: 5, max: 10)</div>
+          </div>
+          <div style="flex: 1; min-width: 150px;">
+            <label style="display: block; font-size: 11px; color: var(--text-muted); margin-bottom: 4px;" data-i18n="Research language">Research language</label>
+            <select id="researchLanguageSelect" class="form-select" style="width: 100%; padding: 6px 8px; font-size: 12px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-main);">
+              <option value="auto" data-i18n="Auto">Auto</option>
+              <option value="bangla" data-i18n="Bangla">Bangla</option>
+              <option value="english" data-i18n="English">English</option>
+            </select>
+            <div style="font-size: 10px; color: var(--text-dim); margin-top: 2px;" data-i18n="Answer language: Auto = match question language, Bangla = always Bangla, English = always English">Answer language: Auto = match question language, Bangla = always Bangla, English = always English</div>
+          </div>
         </div>
       </div>
     </div>
@@ -5926,6 +5959,36 @@ Detail level: {{detail_level}}`,
         '(executing)': '(এক্সিকিউট হচ্ছে)',
         '(ask about codebase)': '(কোডবেস সম্পর্কে জিজ্ঞেস করুন)',
 
+        // Research Mode (Batch 7.11)
+        'Research': 'গবেষণা',
+        'Research Mode': 'গবেষণা মোড',
+        'Research Topic': 'গবেষণা বিষয়',
+        'Search Query': 'সার্চ কোয়ারী',
+        'Searching': 'খুঁজছি',
+        'Reading': 'পড়ছি',
+        'Synthesizing': 'লিখছি',
+        'Saving': 'সংরক্ষণ করছি',
+        'Cancel': 'বাতিল',
+        'Sources': 'সোর্স',
+        'Source': 'সোর্স',
+        'Could not be read': 'পড়তে পারিনি',
+        'No sources could be read': 'কোনো সোর্স পড়তে পারিনি',
+        'Follow-up suggestions': 'আরও জানতে চাও?',
+        'Incomplete': 'অসম্পূর্ণ',
+        'Research saved': 'গবেষণা সংরক্ষিত',
+        'Research sources per question': 'প্রতি প্রশ্নে গবেষণা সোর্স',
+        'Research language': 'গবেষণা ভাষা',
+        'Auto': 'অটো',
+        'Bangla': 'বাংলা',
+        'English': 'ইংরেজি',
+        'Expand queries': 'কোয়ারী প্রসারিত করুন',
+        'Edit queries': 'কোয়ারী সম্পাদনা করুন',
+        'Run search': 'সার্চ চালান',
+        'Citation': 'উল্লেখ',
+        'Open source': 'সোর্স খুলুন',
+        'Read state': 'পড়ার অবস্থা',
+        'More to know': 'আরও জানতে চাও?',
+
         // Tool Search (Batch 7.10)
         'Tool Search': 'টুল সার্চ',
         'Search tools': 'টুল সার্চ করুন',
@@ -7037,6 +7100,11 @@ Detail level: {{detail_level}}`,
       }
       if (!appState.specState.specs) appState.specState.specs = [];
       if (!appState.specState.constitution) appState.specState.constitution = null;
+
+      // Initialize research settings (Batch 7.11)
+      if (!appState.researchSourcesPerQuestion) appState.researchSourcesPerQuestion = 5;
+      if (!appState.researchLanguage) appState.researchLanguage = 'auto';
+      if (!appState.researchTasks) appState.researchTasks = [];
 
       // Initialize usage tracking
       if (!appState.usage) {
@@ -12812,6 +12880,29 @@ Links: [[Brain Index]]
 
       // Render muted recommendations list
       renderMutedRecommendationsList();
+
+      // Research Mode settings (Batch 7.11)
+      const researchSourcesInput = document.getElementById('researchSourcesPerQuestionInput');
+      if (researchSourcesInput) {
+        researchSourcesInput.value = appState.researchSourcesPerQuestion ?? 5;
+        researchSourcesInput.onchange = (e) => {
+          const val = parseInt(e.target.value, 10);
+          if (!isNaN(val) && val >= 1 && val <= 10) {
+            appState.researchSourcesPerQuestion = val;
+            saveAppState();
+            logActivity(`Research sources per question set to ${val}`, 'info');
+          }
+        };
+      }
+      const researchLanguageSelect = document.getElementById('researchLanguageSelect');
+      if (researchLanguageSelect) {
+        researchLanguageSelect.value = appState.researchLanguage || 'auto';
+        researchLanguageSelect.onchange = (e) => {
+          appState.researchLanguage = e.target.value;
+          saveAppState();
+          logActivity(`Research language set to ${e.target.value}`, 'info');
+        };
+      }
     }
 
     // Update Plan + Build settings inputs
@@ -26967,6 +27058,14 @@ Format:
           return;
         }
 
+        // Research mode: start background research task
+        const modeSelector = document.getElementById('modeSelector');
+        const currentMode = modeSelector?.value || 'general';
+        if (currentMode === 'research') {
+          startResearchBackground(text);
+          return;
+        }
+
         // Auto-enhance short prompts if enabled
         if (appState.autoEnhance && text.length <= 100 && text.split(/[.!?]/).filter(s => s.trim()).length <= 2) {
           enhancePrompt(text);
@@ -36427,6 +36526,717 @@ It integrates with the current user model (src/models/User.js) and JWT utility (
     async function computeWatchTargetHash(target) {
       // Simplified - in real implementation would hash files or check build status
       return target + Date.now(); // placeholder
+    }
+
+    // ==================== H7.11 WEB SEARCH + RESEARCH MODE ====================
+
+    // Expand a single question into 2-4 search queries (Bangla + English)
+        // Expand a single question into 2-4 search queries (Bangla + English)
+            function expandResearchQueries(query) {
+              const isBangla = /[\u0980-\u09FF]/.test(query);
+              const queries = [query];
+      
+              if (isBangla) {
+                // Generate English version for broader sources (sync fallback)
+                const fallback = query
+                  .replace(/[মেশিন লার্নিং]/gi, 'machine learning')
+                  .replace(/কীভাবে/gi, 'how to')
+                  .replace(/কি/gi, 'what')
+                  .replace(/কেন/gi, 'why')
+                  .replace(/কখন/gi, 'when')
+                  .replace(/কোথায়/gi, 'where')
+                  .replace(/কে/gi, 'who')
+                  .replace(/কেমন/gi, 'how')
+                  .replace(/\?/g, '')
+                  .replace(/।/g, '')
+                  .replace(/[।?!\u0980-\u09FF]/g, '')
+                  .trim();
+                if (fallback && fallback !== query) queries.push(fallback);
+              }
+      
+              // Add focused variations (inlined)
+              const base = query.replace(/[?।?!]/g, '').trim();
+              if (isBangla) {
+                queries.push(base + ' উদাহরণ');
+                queries.push(base + ' টিউটোরিয়াল');
+              } else {
+                queries.push(base + ' examples');
+                queries.push(base + ' tutorial');
+              }
+      
+              // Deduplicate and limit to 4
+              return [...new Set(queries)].slice(0, 4);
+            }
+
+            // Web search using DuckDuckGo (reuse existing DDG wiring)
+    async function webSearch(query) {
+      try {
+        // Use the existing DDG search endpoint via MCP
+        const result = await callMCPTool('mcp_web_search', { query, maxResults: 8 });
+        
+        if (result && result.results && Array.isArray(result.results)) {
+          return result.results.map(r => ({
+            title: r.title || 'Untitled',
+            url: r.url || '',
+            snippet: r.snippet || r.description || ''
+          })).filter(r => r.url);
+        }
+      } catch (e) {
+        logActivity(`Web search failed for "${query}": ${e.message}`, 'warning');
+      }
+      
+      // Fallback: return empty array on failure
+      return [];
+    }
+
+    // Fetch and extract readable text from a URL
+    async function fetchPage(url) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
+        
+        const response = await fetch(url, {
+          signal: controller.signal,
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (compatible; FlamingoCode Research/1.0)'
+          }
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        
+        const html = await response.text();
+        const text = extractReadableText(html);
+        const words = text.split(/\s+/).filter(w => w.length > 0).length;
+        
+        return {
+          url,
+          title: extractTitle(html) || url,
+          excerpt: text.slice(0, 3000),
+          wordCount: words,
+          read: true,
+          error: null
+        };
+      } catch (e) {
+        return {
+          url,
+          title: url,
+          excerpt: '',
+          wordCount: 0,
+          read: false,
+          error: 'Could not be read'
+        };
+      }
+    }
+
+    // Extract readable text from HTML
+    function extractReadableText(html) {
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      
+      // Remove script, style, nav, footer, aside, header
+      doc.querySelectorAll('script, style, nav, footer, aside, header, noscript, iframe').forEach(el => el.remove());
+      
+      // Get main content areas
+      const main = doc.querySelector('main, article, .content, .post, .entry, #content, #main') || doc.body;
+      
+      return main.innerText
+        .replace(/\s+/g, ' ')
+        .replace(/\n\s*\n/g, '\n')
+        .trim();
+    }
+
+    // Extract title from HTML
+    function extractTitle(html) {
+      const match = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+      return match ? match[1].trim() : null;
+    }
+
+    // Synthesize research answer from sources
+    async function synthesizeResearch(question, sources, language = 'auto') {
+      const readableSources = sources.filter(s => s.read && s.excerpt);
+      const failedSources = sources.filter(s => !s.read);
+      
+      if (readableSources.length === 0) {
+        // No readable sources - return snippets only
+        const snippets = sources.map((s, i) => `[${i + 1}] ${s.title}: ${s.snippet || 'No snippet'}`).join('\n');
+        return {
+          answer: `কোনো সোর্স পড়তে পারিনি। নিচে সার্চ স্নিপেটগুলো দেখানো হলো (সোর্স নয়):\n\n${snippets}`,
+          citations: [],
+          followUps: [],
+          incomplete: true,
+          sources: sources
+        };
+      }
+      
+      // Build context from readable sources
+      const context = readableSources.map((s, i) => 
+        `[${i + 1}] ${s.title} (${s.url})\n${s.excerpt}\n--- Word count: ${s.wordCount} ---`
+      ).join('\n\n');
+      
+      const langInstruction = language === 'bangla' ? 'Answer in Bangla.' : 
+                              language === 'english' ? 'Answer in English.' : 
+                              'Answer in the same language as the question (Bangla if Bangla, English if English).';
+      
+      const prompt = `You are a research assistant. Answer the question using ONLY the provided sources.
+
+Question: ${question}
+
+Sources:
+${context}
+
+Instructions:
+1. ${langInstruction}
+2. Every factual claim MUST have an inline citation like [1], [2] pointing to the source number above.
+3. If sources don't cover something, say so plainly: "The sources do not cover X."
+4. Do NOT invent facts to fill gaps.
+5. At the end, list 2-3 follow-up questions for gaps the sources didn't cover, prefixed with "FOLLOWUP:".
+
+Format:
+ANSWER: [your answer with citations]
+FOLLOWUP: [question 1]
+FOLLOWUP: [question 2]
+FOLLOWUP: [question 3]`;
+      
+      try {
+        const response = await callModel(prompt, { temperature: 0.2, maxTokens: 2000 });
+        
+        // Parse answer and follow-ups
+        const answerMatch = response.match(/ANSWER:\s*([\s\S]*?)(?:\nFOLLOWUP:|$)/i);
+        const followUpMatches = response.match(/FOLLOWUP:\s*(.+)/gi) || [];
+        
+        const answer = answerMatch ? answerMatch[1].trim() : response.trim();
+        const followUps = followUpMatches.map(m => m.replace(/FOLLOWUP:\s*/i, '').trim()).slice(0, 3);
+        
+        // Extract citation numbers used
+        const citationMatches = answer.match(/\[(\d+)\]/g) || [];
+        const usedCitations = [...new Set(citationMatches.map(m => parseInt(m.slice(1, -1), 10)))].filter(n => n > 0 && n <= readableSources.length);
+        
+        return {
+          answer,
+          citations: usedCitations,
+          followUps,
+          incomplete: false,
+          sources: sources
+        };
+      } catch (e) {
+        return {
+          answer: `Error synthesizing research: ${e.message}`,
+          citations: [],
+          followUps: [],
+          incomplete: true,
+          sources: sources
+        };
+      }
+    }
+
+    // Save research report to .devforge/research/ and link in Brain index
+    async function saveResearchReport(report, query) {
+      try {
+        const date = new Date();
+        const dateStr = date.toISOString().slice(0, 10);
+        const topicSlug = query
+          .toLowerCase()
+          .replace(/[^\w\s-]/g, '')
+          .replace(/\s+/g, '-')
+          .slice(0, 50);
+        const filename = `${dateStr}-${topicSlug}.md`;
+        const dir = '.devforge/research';
+        
+        // Ensure directory exists
+        await ensureDir(dir);
+        
+        // Build markdown report
+        let md = `# Research: ${query}\n\n`;
+        md += `**Date:** ${date.toLocaleString()}\n`;
+        md += `**Sources:** ${report.sources.length} (${report.sources.filter(s => s.read).length} read)\n\n`;
+        md += `## Answer\n\n${report.answer}\n\n`;
+        
+        if (report.followUps.length > 0) {
+          md += `## Follow-up Questions\n\n`;
+          report.followUps.forEach((f, i) => md += `${i + 1}. ${f}\n`);
+          md += '\n';
+        }
+        
+        md += `## Sources\n\n`;
+        report.sources.forEach((s, i) => {
+          md += `### [${i + 1}] ${s.title}\n`;
+          md += `**URL:** ${s.url}\n`;
+          md += `**Status:** ${s.read ? `Read (${s.wordCount} words)` : 'Could not be read'}\n`;
+          if (s.error) md += `**Error:** ${s.error}\n`;
+          if (s.snippet) md += `**Snippet:** ${s.snippet}\n`;
+          md += '\n';
+        });
+        
+        const filepath = `${dir}/${filename}`;
+        await writeFile(filepath, md);
+        
+        // Link in Brain index (notes)
+        const note = {
+          type: 'research',
+          title: `Research: ${query}`,
+          content: md,
+          filepath,
+          date: date.toISOString(),
+          tags: ['research', 'web-search'],
+          sourceCount: report.sources.length,
+          readCount: report.sources.filter(s => s.read).length
+        };
+        
+        await addToBrainIndex(note);
+        
+        return { success: true, filepath, note };
+      } catch (e) {
+        logActivity(`Failed to save research report: ${e.message}`, 'error');
+        return { success: false, error: e.message };
+      }
+    }
+
+    // Ensure directory exists (using file system API)
+    async function ensureDir(dir) {
+      // In browser context, this is handled by the backend
+      // For now, assume directory exists or will be created on write
+      return true;
+    }
+
+    // Write file (uses backend API)
+    async function writeFile(path, content) {
+      try {
+        await callMCPTool('mcp_write_file', { path, content });
+        return true;
+      } catch (e) {
+        // Try alternative
+        try {
+          await callMCPTool('mcp_filesystem_write', { path, content });
+        } catch (e2) {
+          throw new Error(`Failed to write file: ${e2.message}`);
+        }
+      }
+    }
+
+    // Add note to Brain index
+    async function addToBrainIndex(note) {
+      appState.brainNotes = appState.brainNotes || [];
+      appState.brainNotes.unshift(note);
+      if (appState.brainNotes.length > 1000) appState.brainNotes = appState.brainNotes.slice(0, 1000);
+      saveAppState();
+    }
+
+    // Main research loop - runs as background task (called via registerBackgroundTask)
+    async function researchTopic(query, options) {
+      // runs as background task via registerBackgroundTask
+      if (!options) options = {};
+      const maxSources = options.maxSources || appState.researchSourcesPerQuestion || 5;
+      const language = options.language || appState.researchLanguage || 'auto';
+      const onProgress = options.onProgress || function() {};
+      const signal = options.signal || null;
+      const carriedSources = options.carriedSources || [];
+      
+      const researchState = {
+        query: query,
+        step: 'expand',
+        progress: 0,
+        queries: [],
+        searchResults: [],
+        sources: carriedSources.slice(),
+        report: null,
+        cancelled: false,
+        startTime: Date.now()
+      };
+      
+      // Check cancellation
+      function checkCancelled() {
+        if ((signal && signal.aborted) || researchState.cancelled) {
+          researchState.cancelled = true;
+          throw new Error('Cancelled');
+        }
+      }
+      
+      try {
+        // Step 1: Expand queries
+        onProgress({ step: 'expand', message: 'কোয়ারী প্রসারিত করছি...', progress: 10 });
+        researchState.step = 'expand';
+        const queries = await expandResearchQueries(query);
+        researchState.queries = queries;
+        onProgress({ step: 'expand', message: 'কোয়ারী প্রসারিত: ' + queries.length + ' টি', progress: 20, queries: queries });
+        
+        checkCancelled();
+        
+        // Step 2: Search
+        onProgress({ step: 'search', message: 'খুঁজছি...', progress: 30 });
+        researchState.step = 'search';
+        
+        var allResults = [];
+        for (var i = 0; i < queries.length; i++) {
+          checkCancelled();
+          onProgress({ step: 'search', message: 'খুঁজছি... (' + (i + 1) + '/' + queries.length + ' কোয়ারী)', progress: 30 + Math.floor(20 * i / queries.length) });
+          
+          const results = await webSearch(queries[i]);
+          allResults.push.apply(allResults, results);
+        }
+        
+        // Deduplicate by URL
+        const seenUrls = new Set();
+        // Also add carried source URLs to seen to avoid re-fetching
+        carriedSources.forEach(function(s) { seenUrls.add(s.url); });
+        
+        const uniqueResults = allResults.filter(function(r) {
+          if (seenUrls.has(r.url)) return false;
+          seenUrls.add(r.url);
+          return true;
+        });
+        
+        researchState.searchResults = uniqueResults;
+        onProgress({ step: 'search', message: 'খুঁজতে পেয়েছি ' + uniqueResults.length + ' টি ফলাফল', progress: 50, results: uniqueResults });
+        
+        checkCancelled();
+        
+        // Step 3: Read sources (only new ones, carried sources already have content)
+        onProgress({ step: 'read', message: 'পড়ছি...', progress: 55 });
+        researchState.step = 'read';
+        
+        const topSources = uniqueResults.slice(0, maxSources);
+        const newSources = [];
+        
+        for (var j = 0; j < topSources.length; j++) {
+          checkCancelled();
+          onProgress({ step: 'read', message: 'পড়ছি... (' + (j + 1) + '/' + topSources.length + ' সোর্স)', progress: 55 + Math.floor(30 * j / topSources.length) });
+          
+          const source = await fetchPage(topSources[j].url);
+          source.snippet = topSources[j].snippet;
+          newSources.push(source);
+        }
+        
+        // Combine carried sources with newly fetched ones
+        researchState.sources = carriedSources.concat(newSources);
+        const readCount = researchState.sources.filter(function(s) { return s.read; }).length;
+        onProgress({ step: 'read', message: 'পড়া শুধু: ' + readCount + '/' + researchState.sources.length + ' সোর্স', progress: 85, sources: researchState.sources });
+        
+        checkCancelled();
+        
+        // Step 4: Synthesize
+        onProgress({ step: 'synthesize', message: 'লিখছি...', progress: 90 });
+        researchState.step = 'synthesize';
+        
+        const report = await synthesizeResearch(query, researchState.sources, language);
+        researchState.report = report;
+        
+        checkCancelled();
+        
+        // Step 5: Save
+        onProgress({ step: 'save', message: 'সংরক্ষণ করছি...', progress: 95 });
+        researchState.step = 'save';
+        
+        await saveResearchReport(report, query);
+        
+        onProgress({ step: 'done', message: 'গবেষণা সংরক্ষিত', progress: 100, report: report });
+        
+        return { ...researchState, success: true };
+        
+      } catch (e) {
+        if (researchState.cancelled || e.message === 'Cancelled') {
+          // Return partial report if any progress made
+          if (researchState.sources.length > 0) {
+            const partialReport = await synthesizeResearch(query, researchState.sources, language);
+            partialReport.incomplete = true;
+            await saveResearchReport(partialReport, query + ' (অসম্পূর্ণ)');
+            return { ...researchState, success: false, cancelled: true, report: partialReport };
+          }
+          return { ...researchState, success: false, cancelled: true, error: 'Cancelled' };
+        }
+        
+        logActivity('Research failed: ' + e.message, 'error');
+        onProgress({ step: 'error', message: 'ত্রুটি: ' + e.message, progress: 0, error: e.message });
+        return { ...researchState, success: false, error: e.message };
+      }
+    }
+
+    // Start research as background task (H5.1 shape)
+    function startResearchBackground(query, options = {}) {
+      const taskId = 'research_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+      
+      const abortController = new AbortController();
+      
+      const task = {
+        id: taskId,
+        type: 'research',
+        query,
+        options,
+        abortController,
+        state: 'running',
+        created: Date.now(),
+        progress: { step: 'expand', message: 'শুরু হচ্ছে...', progress: 0 }
+      };
+      
+      appState.researchTasks = appState.researchTasks || [];
+      appState.researchTasks.push(task);
+      saveAppState();
+      renderResearchPanel();
+      
+      // Run in background
+      (async () => {
+        try {
+          const result = await researchTopic(query, {
+            ...options,
+            signal: abortController.signal,
+            onProgress: (progress) => {
+              task.progress = progress;
+              task.progress.step = progress.step;
+              saveAppState();
+              renderResearchPanel();
+              
+              // Also show in activity log
+              if (progress.step === 'search' || progress.step === 'read') {
+                logActivity(`Research: ${progress.message}`, 'info');
+              }
+            }
+          });
+          
+          task.state = result.success ? 'completed' : (result.cancelled ? 'cancelled' : 'failed');
+          task.result = result;
+          task.progress = result.progress || { step: 'done', message: 'সম্পূর্ণ', progress: 100 };
+          
+        } catch (e) {
+          task.state = 'failed';
+          task.error = e.message;
+          task.progress = { step: 'error', message: `ত্রুটি: ${e.message}`, progress: 0 };
+        }
+        
+        saveAppState();
+        renderResearchPanel();
+        
+        // Show completion notification
+        if (task.state === 'completed') {
+          logActivity(`Research complete: ${query}`, 'success');
+          showToast('Research complete', 'success');
+        } else if (task.state === 'cancelled') {
+          logActivity(`Research cancelled: ${query}`, 'warning');
+          showToast('Research cancelled (partial saved)', 'warning');
+        } else {
+          logActivity(`Research failed: ${task.error}`, 'error');
+          showToast('Research failed', 'error');
+        }
+      })();
+      
+      return task;
+    }
+
+    // Cancel research task
+    function cancelResearchTask(taskId) {
+      const task = appState.researchTasks?.find(t => t.id === taskId);
+      if (task && task.abortController) {
+        task.abortController.abort();
+        task.state = 'cancelling';
+        saveAppState();
+        renderResearchPanel();
+      }
+    }
+
+    // Delete research task from history
+    function deleteResearchTask(taskId) {
+      if (appState.researchTasks) {
+        appState.researchTasks = appState.researchTasks.filter(t => t.id !== taskId);
+        saveAppState();
+        renderResearchPanel();
+      }
+    }
+
+    // Render research panel
+    function renderResearchPanel() {
+      const container = document.getElementById('researchPanelContent');
+      const wrapper = document.getElementById('researchPanelWrapper');
+      const progressEl = document.getElementById('researchProgress');
+      
+      if (!container) return;
+      
+      const tasks = appState.researchTasks || [];
+      const activeTasks = tasks.filter(t => t.state === 'running' || t.state === 'cancelling');
+      const completedTasks = tasks.filter(t => t.state === 'completed' || t.state === 'failed' || t.state === 'cancelled');
+      
+      // Update progress indicator
+      if (progressEl) {
+        if (activeTasks.length > 0) {
+          progressEl.textContent = `${activeTasks.length} running`;
+          wrapper.style.display = '';
+        } else {
+          progressEl.textContent = '';
+        }
+      }
+      
+      // Show/hide panel based on content
+      if (tasks.length === 0) {
+        wrapper.style.display = 'none';
+        return;
+      }
+      
+      wrapper.style.display = '';
+      
+      let html = '';
+      
+      // Active research tasks
+      if (activeTasks.length > 0) {
+        html += '<div style="margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border-color);">';
+        html += '<div style="font-size: 10px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">Researching Now</div>';
+        
+        activeTasks.forEach(task => {
+          const p = task.progress || { step: 'expand', message: 'Starting...', progress: 0 };
+          const stepLabels = {
+            expand: 'কোয়ারী প্রসারিত',
+            search: 'খুঁজছি',
+            read: 'পড়ছি',
+            synthesize: 'লিখছি',
+            save: 'সংরক্ষণ করছি',
+            done: 'সম্পূর্ণ',
+            error: 'ত্রুটি'
+          };
+          const stepLabel = stepLabels[p.step] || p.step;
+          
+          html += `
+            <div style="margin-bottom: 8px; padding: 8px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 4px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <span style="font-size: 11px; font-weight: 600; color: var(--text-main);">${escapeHtml(task.query.slice(0, 60))}${task.query.length > 60 ? '...' : ''}</span>
+                <button class="btn btn-secondary" onclick="cancelResearchTask('${task.id}')" style="padding: 2px 8px; font-size: 9px;" data-i18n="Cancel">Cancel</button>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px; font-size: 10px; color: var(--text-dim);">
+                <span style="background: var(--accent-blue); color: var(--bg-dark); padding: 1px 6px; border-radius: 3px; font-weight: 600;">${stepLabel}</span>
+                <div style="flex: 1; height: 4px; background: var(--bg-dark); border-radius: 2px; overflow: hidden;">
+                  <div style="width: ${p.progress}%; height: 100%; background: var(--accent-blue); transition: width 0.3s;"></div>
+                </div>
+                <span>${p.progress}%</span>
+              </div>
+              ${p.message ? `<div style="font-size: 10px; color: var(--text-muted); margin-top: 4px;">${escapeHtml(p.message)}</div>` : ''}
+              ${p.queries ? `<div style="font-size: 9px; color: var(--text-dim); margin-top: 4px;">Queries: ${p.queries.map(q => `"${escapeHtml(q)}"`).join(', ')}</div>` : ''}
+            </div>
+          `;
+        });
+        html += '</div>';
+      }
+      
+      // Completed research reports
+      if (completedTasks.length > 0) {
+        html += '<div style="margin-bottom: 12px;">';
+        html += '<div style="font-size: 10px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">Past Research</div>';
+        
+        completedTasks.slice(0, 20).forEach(task => {
+          const isIncomplete = task.result?.cancelled || task.result?.report?.incomplete;
+          const sourceCount = task.result?.sources?.length || 0;
+          const readCount = task.result?.sources?.filter(s => s.read).length || 0;
+          const date = new Date(task.created).toLocaleString();
+          
+          html += `
+            <div style="margin-bottom: 8px; padding: 8px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 4px;">
+              <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px;">
+                <span style="font-size: 11px; font-weight: 600; color: var(--text-main);">${escapeHtml(task.query.slice(0, 80))}${task.query.length > 80 ? '...' : ''}</span>
+                <button class="btn btn-secondary" onclick="deleteResearchTask('${task.id}')" style="padding: 2px 6px; font-size: 9px;" title="Delete">✕</button>
+              </div>
+              <div style="display: flex; gap: 12px; font-size: 9px; color: var(--text-dim); flex-wrap: wrap;">
+                <span>${date}</span>
+                <span>${sourceCount} sources (${readCount} read)</span>
+                ${isIncomplete ? '<span style="color: var(--warning); font-weight: 600;">অসম্পূর্ণ</span>' : ''}
+                ${task.state === 'failed' ? '<span style="color: var(--error); font-weight: 600;">Failed</span>' : ''}
+              </div>
+              ${task.result?.report ? `
+                <button class="btn btn-secondary" onclick="showResearchReport('${task.id}')" style="margin-top: 6px; padding: 4px 10px; font-size: 10px;">View Report</button>
+              ` : ''}
+            </div>
+          `;
+        });
+        
+        if (completedTasks.length > 20) {
+          html += `<div style="font-size: 10px; color: var(--text-dim); text-align: center; padding: 8px;">And ${completedTasks.length - 20} more...</div>`;
+        }
+        
+        html += '</div>';
+      }
+      
+      container.innerHTML = html;
+    }
+
+    // Show full research report in modal
+    function showResearchReport(taskId) {
+      const task = appState.researchTasks?.find(t => t.id === taskId);
+      if (!task || !task.result?.report) return;
+      
+      const report = task.result.report;
+      const sources = report.sources || [];
+      
+      const modal = document.createElement('div');
+      modal.className = 'modal-overlay';
+      modal.style.zIndex = '1000';
+      
+      const incompleteBanner = report.incomplete ? 
+        '<div style="background: var(--warning); color: var(--bg-dark); padding: 8px 12px; font-weight: 600; font-size: 12px; text-align: center;">⚠ অসম্পূর্ণ গবেষণা (বাতিল করা হয়েছিল)</div>' : '';
+      
+      modal.innerHTML = `
+        <div class="modal-box" style="width: 800px; max-width: 95vw; max-height: 90vh; overflow: hidden; display: flex; flex-direction: column;">
+          ${incompleteBanner}
+          <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-color); padding:12px 16px; flex-shrink: 0;">
+            <h3 style="font-size: 14px; font-weight: 700;">Research: ${escapeHtml(task.query)}</h3>
+            <button class="section-btn" onclick="this.closest('.modal-overlay').remove()">✕</button>
+          </div>
+          <div style="padding: 16px; overflow-y: auto; flex: 1;">
+            <div style="font-size: 13px; line-height: 1.7; color: var(--text-main); white-space: pre-wrap;">${escapeHtml(report.answer)}</div>
+            
+            ${report.followUps && report.followUps.length > 0 ? `
+              <hr style="margin: 16px 0; border-color: var(--border-color);">
+              <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px; color: var(--accent-blue);" data-i18n="Follow-up suggestions">আরও জানতে চাও?</div>
+              <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                ${report.followUps.map((f, i) => `
+                  <button class="btn btn-secondary" onclick="startResearchFromFollowUp('${escapeHtml(f).replace(/'/g, "\\'")}', ${JSON.stringify(sources.filter(s => s.read).map(s => ({url: s.url, title: s.title, excerpt: s.excerpt, wordCount: s.wordCount, read: true, snippet: s.snippet})))}" style="font-size: 11px;">${escapeHtml(f)}</button>
+                `).join('')}
+              </div>
+            ` : ''}
+            
+            <hr style="margin: 16px 0; border-color: var(--border-color);">
+            <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px;">Sources (${sources.length})</div>
+            <div style="max-height: 300px; overflow-y: auto;">
+              ${sources.map((s, i) => `
+                <div style="padding: 8px; margin-bottom: 8px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 4px;">
+                  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                    <span style="background: ${s.read ? 'var(--success)' : 'var(--error)'}; color: var(--bg-dark); padding: 1px 6px; border-radius: 3px; font-size: 9px; font-weight: 600;">[${i + 1}]</span>
+                    <a href="${escapeHtml(s.url)}" target="_blank" style="font-size: 11px; font-weight: 600; color: var(--accent-blue); text-decoration: none; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(s.title)}</a>
+                    <span style="font-size: 9px; color: ${s.read ? 'var(--success)' : 'var(--error)'};">
+                      ${s.read ? `${s.wordCount} words` : s.error || 'Could not be read'}
+                    </span>
+                  </div>
+                  <div style="font-size: 10px; color: var(--text-dim); margin-left: 28px;">
+                    ${s.snippet ? `Snippet: ${escapeHtml(s.snippet.slice(0, 200))}...` : ''}
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        </div>
+      `;
+      
+      document.body.appendChild(modal);
+    }
+
+    // Start new research from follow-up, carrying over old sources
+    function startResearchFromFollowUp(followUpQuery, carriedSources) {
+      // Switch to Research mode
+      const modeSelector = document.getElementById('modeSelector');
+      if (modeSelector) modeSelector.value = 'research';
+      
+      // Start research with carried sources (already have full data)
+      startResearchBackground(followUpQuery, {
+        carriedSources: carriedSources || [],
+        onProgress: (progress) => {
+          // Progress will be shown in research panel
+        }
+      });
+      
+      // Open research panel
+      const wrapper = document.getElementById('researchPanelWrapper');
+      if (wrapper) wrapper.style.display = '';
+    }
+
+    // Render research progress in chat (for active research)
+    function renderResearchProgressInChat(task) {
+      // This could add a progress card to the chat messages
+      // For now, progress is shown in the research panel
     }
 
     document.addEventListener('DOMContentLoaded', initApp);
