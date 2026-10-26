@@ -1587,6 +1587,7 @@
         <button class="right-tab" data-pane="publish" data-i18n="Publish">Publish</button>
         <button class="right-tab" data-pane="projectDoctor" data-i18n="Project Doctor">🏥 Project Doctor</button>
         <button class="right-tab" data-pane="companion" data-i18n="Companion">📱 Companion</button>
+        <button class="right-tab" data-pane="specs" data-i18n="Specs">📋 Specs</button>
       </div>
 
       <div class="right-content">
@@ -1612,6 +1613,13 @@
                               <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;" data-i18n="Teach">Teach</span>
                               <label class="toggle-switch" title="Teach Mode: explain changes in simple Bangla" style="cursor: pointer;">
                                 <input type="checkbox" id="teachModeToggle" style="display: none;" />
+                                <span class="toggle-slider"></span>
+                              </label>
+                            </div>
+                            <div style="display:flex; align-items:center; gap:8px;">
+                              <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;" data-i18n="Spec Mode">Spec</span>
+                              <label class="toggle-switch" title="Spec Mode: draft requirements → design → tasks before building" style="cursor: pointer;">
+                                <input type="checkbox" id="specModeToggle" style="display: none;" />
                                 <span class="toggle-slider"></span>
                               </label>
                             </div>
@@ -2262,9 +2270,101 @@
                       </div>
                     </div>
                   </div>
-                </div>
+                                  </div>
 
-                    </main>
+                                  <!-- Specs Pane (Batch 7.6) -->
+                                  <div class="pane-view" id="paneSpecs">
+                                    <div id="specsPanel" style="flex:1; overflow-y:auto; padding: 12px; display:flex; flex-direction:column; gap:12px;">
+                                      <!-- Specs Header -->
+                                      <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap;">
+                                        <div style="display:flex; align-items:center; gap:8px;">
+                                          <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;" data-i18n="Specs">Specs</span>
+                                          <span id="specCount" style="font-size: 10px; color: var(--text-dim); background: var(--bg-surface); padding: 2px 8px; border-radius: 4px;">0 specs</span>
+                                        </div>
+                                        <div style="display:flex; align-items:center; gap:6px;">
+                                          <button class="btn btn-primary" id="btnNewSpec" style="padding: 4px 10px; font-size: 10px;" data-i18n="New Spec">+ New Spec</button>
+                                        </div>
+                                      </div>
+
+                                      <!-- Spec List -->
+                                      <div style="background:var(--bg-surface); border:1px solid var(--border-color); border-radius:8px; flex:1; display:flex; flex-direction:column; min-height:0;">
+                                        <div style="padding: 8px 12px; border-bottom:1px solid var(--border-color); display:flex; align-items:center; justify-content:space-between; gap:8px;">
+                                          <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;" data-i18n="All Specs">All Specs</span>
+                                          <input type="text" id="specSearchInput" class="form-input" placeholder="Search specs..." style="font-size: 10px; padding: 4px 8px; width: 200px;" data-i18n-placeholder="Search specs..." />
+                                        </div>
+                                        <div id="specList" style="flex:1; overflow-y:auto; padding: 8px; display:flex; flex-direction:column; gap:4px;">
+                                          <div id="specEmptyState" style="font-size: 11px; color: var(--text-dim); text-align: center; padding: 20px; flex:1;" data-i18n="No specs yet. Click New Spec to create one.">No specs yet. Click New Spec to create one.</div>
+                                        </div>
+                                      </div>
+
+                                      <!-- Spec Viewer (shown when a spec is selected) -->
+                                      <div id="specViewer" style="display:none; background:var(--bg-surface); border:1px solid var(--border-color); border-radius:8px; flex:1; display:flex; flex-direction:column; min-height:0;">
+                                        <div style="padding: 8px 12px; border-bottom:1px solid var(--border-color); display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap;">
+                                          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                                            <span id="viewerSpecTitle" style="font-size: 12px; font-weight: 600; color: var(--text-main);"></span>
+                                            <span id="viewerSpecStatus" style="font-size: 9px; font-weight: 700; padding: 2px 8px; border-radius: 4px;"></span>
+                                          </div>
+                                          <button class="btn btn-secondary" id="btnCloseSpecViewer" style="padding: 3px 8px; font-size: 10px;" data-i18n="Close">Close</button>
+                                        </div>
+                                        <div style="flex:1; overflow-y:auto; padding: 12px; display:flex; flex-direction:column; gap:12px;">
+                                          <!-- Requirements Section -->
+                                          <div id="specRequirementsSection" style="display:none;">
+                                            <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap;">
+                                              <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;" data-i18n="Requirements">Requirements</span>
+                                              <div style="display:flex; gap:6px;">
+                                                <button class="btn btn-primary" id="btnApproveRequirements" style="padding: 3px 10px; font-size: 10px; display:none;" data-i18n="Approve">✅ Approve</button>
+                                                <button class="btn btn-secondary" id="btnReviseRequirements" style="padding: 3px 10px; font-size: 10px; display:none;" data-i18n="Revise">✏️ Revise</button>
+                                              </div>
+                                            </div>
+                                            <div id="specRequirementsContent" style="font-size: 11px; font-family: var(--font-mono); line-height: 1.6; white-space: pre-wrap; background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 4px; padding: 10px; max-height: 300px; overflow-y:auto;"></div>
+                                          </div>
+
+                                          <!-- Design Section -->
+                                          <div id="specDesignSection" style="display:none;">
+                                            <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap;">
+                                              <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;" data-i18n="Design">Design</span>
+                                              <div style="display:flex; gap:6px;">
+                                                <button class="btn btn-primary" id="btnApproveDesign" style="padding: 3px 10px; font-size: 10px; display:none;" data-i18n="Approve">✅ Approve</button>
+                                                <button class="btn btn-secondary" id="btnReviseDesign" style="padding: 3px 10px; font-size: 10px; display:none;" data-i18n="Revise">✏️ Revise</button>
+                                              </div>
+                                            </div>
+                                            <div id="specDesignContent" style="font-size: 11px; font-family: var(--font-mono); line-height: 1.6; white-space: pre-wrap; background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 4px; padding: 10px; max-height: 300px; overflow-y:auto;"></div>
+                                          </div>
+
+                                          <!-- Tasks Section -->
+                                          <div id="specTasksSection" style="display:none;">
+                                            <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap;">
+                                              <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;" data-i18n="Tasks">Tasks</span>
+                                              <div style="display:flex; gap:6px;">
+                                                <button class="btn btn-secondary" id="btnCheckDrift" style="padding: 3px 10px; font-size: 10px;" data-i18n="Check Drift">🔍 Check Drift</button>
+                                              </div>
+                                            </div>
+                                            <div id="specTasksContent" style="font-size: 11px; font-family: var(--font-mono); line-height: 1.6; background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 4px; padding: 10px; max-height: 300px; overflow-y:auto;"></div>
+                                          </div>
+
+                                          <!-- Constitution Section -->
+                                          <div id="specConstitutionSection" style="display:none;">
+                                            <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap;">
+                                              <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;" data-i18n="Constitution">Constitution</span>
+                                              <button class="btn btn-secondary" id="btnEditConstitution" style="padding: 3px 10px; font-size: 10px;" data-i18n="Edit">✏️ Edit</button>
+                                            </div>
+                                            <div id="specConstitutionContent" style="font-size: 11px; font-family: var(--font-mono); line-height: 1.6; background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 4px; padding: 10px; max-height: 200px; overflow-y:auto;"></div>
+                                          </div>
+
+                                          <!-- Drift Report Section -->
+                                          <div id="specDriftSection" style="display:none;">
+                                            <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap;">
+                                              <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;" data-i18n="Drift Report">Drift Report</span>
+                                              <button class="btn btn-primary" id="btnUpdateSpecFromDrift" style="padding: 3px 10px; font-size: 10px; display:none;" data-i18n="Update Spec">🔄 Update Spec</button>
+                                            </div>
+                                            <div id="specDriftContent" style="font-size: 11px; font-family: var(--font-mono); line-height: 1.6; background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 4px; padding: 10px; max-height: 200px; overflow-y:auto;"></div>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                </main>
 
   <!-- Mobile Bottom Tab Bar -->
   <nav class="mobile-nav" id="mobileNav">
@@ -2311,6 +2411,10 @@
     <button class="mobile-nav-btn" data-mobile-tab="companion">
       <span>📱</span>
       <span data-i18n="Companion">Companion</span>
+    </button>
+    <button class="mobile-nav-btn" data-mobile-tab="specs">
+      <span>📋</span>
+      <span data-i18n="Specs">Specs</span>
     </button>
   </nav>
 
@@ -6241,6 +6345,40 @@ Detail level: {{detail_level}}`,
         'Verification before completion': 'সমাপ্তির আগে যাচাই',
         'cost if wrong': 'ভুল হলে খরচ',
         'stale evidence': 'পুরনো বুদ্ধি',
+
+        // Specs (Batch 7.6)
+        'Specs': 'স্পেক',
+        'All Specs': 'সকল স্পেক',
+        'Requirements': 'প্রয়োজনীয়তা',
+        'Design': 'ডিজাইন',
+        'Tasks': 'কার্য',
+        'Constitution': 'বিধান',
+        'New Spec': 'নতুন স্পেক',
+        'Spec Mode': 'স্পেক মোড',
+        'Draft Requirements': 'প্রাক-প্রয়োজনীয়তা',
+        'Draft Design': 'প্রাক-ডিজাইন',
+        'Draft Tasks': 'প্রাক-কর্ম',
+        'Approved': 'অনুমোদিত',
+        'Building': 'নির্মাণাধীন',
+        'Done': 'সম্পন্ন',
+        'Drifted': 'ভ্রষ্ট',
+        'Approve': 'অনুমোদন',
+        'Revise': 'পরিবর্তন',
+        'Check Drift': 'ড্রিফট চেক',
+        'Drift Report': 'ড্রিফট রিপোর্ট',
+        'Update Spec': 'স্পেক আপডেট',
+        'Edit': 'সম্পাদনা',
+        'EARS': 'ইয়ারএস',
+        'Acceptance Criteria': 'গ্রহণের মানদণ্ড',
+        'Spec says': 'স্পেক বলে',
+        'Code does': 'কোড করে',
+        'Waiver': 'ছাড়',
+        'Principle': 'সিদ্ধান্ত',
+        'No specs yet. Click New Spec to create one.': 'এখনো কোনো স্পেক নেই। নতুন স্পেক তৈরি করতে New Spec ক্লিক করুন।',
+        'Search specs...': 'স্পেক খুঁজুন...',
+        'Close': 'বন্ধ করুন',
+        'Save': 'সংরক্ষণ',
+        'Cancel': 'বাতিল',
   }
 };
 
@@ -6520,6 +6658,12 @@ Detail level: {{detail_level}}`,
       pluginCatalog: { installed: {}, enabledForAgent: {} },  // installed: {packName: {version, installedAt}}, enabledForAgent: {agentId: [packNames]}
       // Recipes (Batch 7.5) — shareable workflow files
       recipes: [],  // Array of recipe objects {id, title, description, instructions, prompt, parameters, extensions, settings, retry, response, sub_recipes, createdAt, updatedAt, isBuiltin}
+      // Spec-driven flow (Batch 7.6) — living specs: requirements → design → tasks
+      specState: {
+        specs: [],           // Array of {id, feature, status, requirements, design, tasks, constitution, waivers, createdAt, updatedAt}
+        activeSpecId: null,  // Currently viewed/edited spec
+        constitution: null,  // Cached constitution.md content
+      },
     };
 
     function loadAppState() {
@@ -6614,7 +6758,19 @@ Detail level: {{detail_level}}`,
       if (!appState.checkpointCap) {
         appState.checkpointCap = 30;
       }
-      
+
+      // Initialize specState if not present (Batch 7.6)
+      if (!appState.specState) {
+        appState.specState = {
+          specs: [],
+          activeSpecId: null,
+          constitution: null,
+          specMode: false
+        };
+      }
+      if (!appState.specState.specs) appState.specState.specs = [];
+      if (!appState.specState.constitution) appState.specState.constitution = null;
+
       // Initialize usage tracking
       if (!appState.usage) {
         appState.usage = {
@@ -26860,6 +27016,7 @@ Requirements:
       setupAutoCreateAgentHandlers();
       setupPromptLibraryHandlers();
       setupRecipesHandlers();
+      setupSpecsPanel();
       setupTeamModeHandlers();
       setupPlanModeHandlers();
       setupCommandPalette();
@@ -28711,7 +28868,1140 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
       });
     }
 
-    // --- MCP Registry ---
+    // ==================== SPECS: UI HANDLERS (Batch 7.6) ====================
+    let specFilter = { q: '' };
+
+    // Entry point for spec-driven flow (Kiro + Spec Kit)
+    function startSpecFlow(prompt) {
+      // If no prompt provided, ask user
+      if (!prompt || !prompt.trim()) {
+        const feature = prompt('Enter feature name for the new spec (e.g., "user-authentication"):');
+        if (!feature || !feature.trim()) return;
+        prompt = feature.trim();
+      }
+
+      // Create new spec
+      const specId = generateSpecId();
+      const now = Date.now();
+      const spec = {
+        id: specId,
+        feature: prompt.toLowerCase().replace(/\s+/g, '-'),
+        status: 'draft-requirements',
+        requirements: '',
+        design: '',
+        tasks: '',
+        constitution: null,
+        waivers: [],
+        createdAt: now,
+        updatedAt: now
+      };
+
+      if (!appState.specState.specs) appState.specState.specs = [];
+      appState.specState.specs.push(spec);
+      appState.specState.activeSpecId = specId;
+      saveAppState();
+
+      // Create spec directory structure in VFS
+      createSpecDirectoryStructure(spec);
+
+      // Draft initial requirements
+      draftRequirements(specId);
+
+      renderSpecList();
+      openSpecViewer(specId);
+    }
+
+    function setupSpecsPanel() {
+      function on(id, handler) {
+        const el = document.getElementById(id);
+        if (el) el.onclick = handler;
+      }
+
+      // Spec mode toggle in chat input area
+      const specModeToggle = document.getElementById('specModeToggle');
+      if (specModeToggle) {
+        specModeToggle.checked = appState.specMode === true;
+        specModeToggle.onchange = (e) => {
+          appState.specMode = e.target.checked;
+          saveAppState();
+          logActivity(e.target.checked ? 'Spec Mode ON' : 'Spec Mode OFF', 'info');
+        };
+      }
+
+      // New Spec button
+      on('btnNewSpec', createNewSpec);
+      on('btnCloseSpecViewer', closeSpecViewer);
+      on('btnApproveRequirements', approveRequirements);
+      on('btnReviseRequirements', reviseRequirements);
+      on('btnApproveDesign', approveDesign);
+      on('btnReviseDesign', reviseDesign);
+      on('btnCheckDrift', () => checkSpecDrift(appState.specState.activeSpecId));
+      on('btnUpdateSpecFromDrift', updateSpecFromDrift);
+      on('btnEditConstitution', editConstitution);
+
+      // Search specs
+      document.getElementById('specSearchInput')?.addEventListener('input', (e) => {
+        specFilter.q = e.target.value;
+        renderSpecList();
+      });
+
+      // Load constitution if exists
+      loadConstitution();
+
+      // Initial render
+      renderSpecList();
+    }
+
+    // --- Spec Core Functions ---
+
+    function generateSpecId() {
+      return 'spec_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+    }
+
+    function createSpecDirectoryStructure(spec) {
+      const session = getCurrentSession();
+      if (!session) return;
+
+      const basePath = `.devforge/specs/${spec.feature}/`;
+      
+      // Create directory marker (empty file to ensure dir exists)
+      session.files[basePath + '.keep'] = '';
+      
+      // Save initial empty files
+      session.files[basePath + 'requirements.md'] = `# Requirements\n\n*Drafting...*\n`;
+      session.files[basePath + 'design.md'] = `# Design\n\n*Drafting...*\n`;
+      session.files[basePath + 'tasks.md'] = `# Tasks\n\n*Drafting...*\n`;
+      
+      // Save constitution if not exists
+      if (!session.files['.devforge/constitution.md']) {
+        session.files['.devforge/constitution.md'] = appState.specState.constitution || DEFAULT_CONSTITUTION;
+      }
+      
+      saveAppState();
+    }
+
+    function updateSpecFilesInVFS(spec) {
+      const session = getCurrentSession();
+      if (!session) return;
+
+      const basePath = `.devforge/specs/${spec.feature}/`;
+      
+      session.files[basePath + 'requirements.md'] = spec.requirements || '# Requirements\n\n*Drafting...*\n';
+      session.files[basePath + 'design.md'] = spec.design || '# Design\n\n*Drafting...*\n';
+      session.files[basePath + 'tasks.md'] = spec.tasks || '# Tasks\n\n*Drafting...*\n';
+      
+      saveAppState();
+    }
+
+    function createNewSpec() {
+      const feature = prompt('Enter feature name for the new spec (e.g., "user-authentication"):');
+      if (!feature || !feature.trim()) return;
+
+      const specId = generateSpecId();
+      const now = Date.now();
+      const spec = {
+        id: specId,
+        feature: feature.trim().toLowerCase().replace(/\s+/g, '-'),
+        status: 'draft-requirements',
+        requirements: '',
+        design: '',
+        tasks: '',
+        constitution: null,
+        waivers: [],
+        createdAt: now,
+        updatedAt: now
+      };
+
+      if (!appState.specState.specs) appState.specState.specs = [];
+      appState.specState.specs.push(spec);
+      appState.specState.activeSpecId = specId;
+      saveAppState();
+
+      // Draft initial requirements
+      draftRequirements(specId);
+
+      renderSpecList();
+      openSpecViewer(specId);
+    }
+
+    function draftRequirements(specId) {
+      const spec = appState.specState.specs.find(s => s.id === specId);
+      if (!spec) return;
+
+      // Use code graph / repo map to inform requirements
+      const session = getCurrentSession();
+      const graph = session ? getCodeGraph(session) : null;
+      const repoMap = graph ? buildRepoMapText(graph) : '';
+
+      const prompt = `You are drafting requirements.md for a new feature: "${spec.feature}".
+
+CONTEXT - Existing Codebase Analysis:
+${repoMap || 'No codebase context available.'}
+
+INSTRUCTIONS:
+1. Write user stories in EARS format: "WHEN <condition> THE SYSTEM SHALL <behaviour>"
+2. Each story must have acceptance criteria
+3. Each EARS line must have a one-line Bangla paraphrase next to it (// বাংলা: ...)
+4. Output ONLY the requirements.md content, no extra commentary.
+
+EXAMPLE FORMAT:
+## Requirements
+
+### Story 1: User Login
+WHEN user provides valid credentials THE SYSTEM SHALL authenticate and create a session
+// বাংলা: ব্যবহারকারী বৈধ শংসাপত্র দিলে সিস্টেম প্রমাণীকরণ করবে
+Acceptance Criteria:
+- Valid email/password creates session
+- Invalid credentials rejected with clear error
+- Session expires after 24 hours
+
+### Story 2: ...
+`;
+
+      // Send to agent to draft requirements
+      sendSpecPrompt(specId, prompt, 'requirements');
+    }
+
+    function draftDesign(specId) {
+      const spec = appState.specState.specs.find(s => s.id === specId);
+      if (!spec) return;
+
+      // Use code graph / repo map to inform design
+      const session = getCurrentSession();
+      const graph = session ? getCodeGraph(session) : null;
+      const repoMap = graph ? buildRepoMapText(graph) : '';
+
+      const prompt = `You are drafting design.md for feature: "${spec.feature}".
+
+REQUIREMENTS (approved):
+${spec.requirements}
+
+CONTEXT - Existing Codebase Analysis:
+${repoMap || 'No codebase context available.'}
+
+INSTRUCTIONS:
+1. Architecture: How this change fits the EXISTING codebase (reference specific files/components from repo map)
+2. Component List: New/modified components with responsibilities
+3. Tech Stack: Libraries, patterns used (match existing)
+4. Text diagram (boxes + arrows) if change touches >1 component
+5. Output ONLY the design.md content, no extra commentary.
+
+EXAMPLE FORMAT:
+## Design
+
+### Architecture
+This feature adds authentication to the existing Express.js API (src/server.js, src/routes/auth.js).
+It integrates with the current user model (src/models/User.js) and JWT utility (src/utils/jwt.js).
+
+### Components
+- src/middleware/auth.js (new) - JWT validation middleware
+- src/routes/auth.js (modified) - Login/register endpoints
+- src/utils/jwt.js (existing) - Token generation/verification
+
+### Tech Stack
+- Express.js (existing)
+- jsonwebtoken (existing)
+- bcrypt (existing)
+
+### Diagram
+[Client] --> [Auth Middleware] --> [Route Handlers]
+                |
+                v
+           [JWT Utils] --> [User Model]
+`;
+
+      sendSpecPrompt(specId, prompt, 'design');
+    }
+
+    function draftTasks(specId) {
+      const spec = appState.specState.specs.find(s => s.id === specId);
+      if (!spec) return;
+
+      const prompt = `You are drafting tasks.md for feature: "${spec.feature}".
+
+DESIGN (approved):
+${spec.design}
+
+INSTRUCTIONS:
+1. Create sequenced, checkable implementation tasks
+2. Each task ends in an independently testable deliverable (one action, one checkable result)
+3. Follow the Superpowers writing-plans shape
+4. Output ONLY the tasks.md content with checkboxes, no extra commentary.
+
+EXAMPLE FORMAT:
+## Tasks
+
+- [ ] Task 1: Create auth middleware (src/middleware/auth.js)
+  Deliverable: File exists and exports validateToken function
+  Test: unit test validates valid/invalid tokens
+
+- [ ] Task 2: Add login/register routes (src/routes/auth.js)
+  Deliverable: POST /login and POST /register endpoints work
+  Test: integration test returns 200 + token for valid creds
+`;
+
+      sendSpecPrompt(specId, prompt, 'tasks');
+    }
+
+    async function sendSpecPrompt(specId, prompt, phase) {
+      const spec = appState.specState.specs.find(s => s.id === specId);
+      if (!spec) return;
+
+      // Show drafting status
+      spec.status = `draft-${phase}`;
+      saveAppState();
+      renderSpecList();
+      if (appState.specState.activeSpecId === specId) renderSpecViewer(specId);
+
+      // Send to agent (reuse existing agent prompt mechanism)
+      const agentPrompt = `SPEC-DRIVEN FLOW (Kiro + Spec Kit) — ${phase.toUpperCase()} PHASE
+
+${prompt}
+
+IMPORTANT: This is a SPEC DRAFTING task. Output ONLY the ${phase}.md content.
+Credit: Kiro (sweep #14) + Spec Kit (sweep #26) — build ONCE, credit both.`;
+
+      // Use the existing agent prompt sending mechanism
+      await sendAgentPromptWithCallback(agentPrompt, (response) => {
+        handleSpecDraftResponse(specId, response, phase);
+      });
+    }
+
+    function handleSpecDraftResponse(specId, response, phase) {
+      const spec = appState.specState.specs.find(s => s.id === specId);
+      if (!spec) return;
+
+      // Extract markdown content from response
+      const content = extractMarkdownContent(response);
+      
+      if (phase === 'requirements') {
+        spec.requirements = content;
+        // Validate EARS format and Bangla paraphrases
+        validateRequirementsFormat(spec);
+      } else if (phase === 'design') {
+        spec.design = content;
+        // Validate design references codebase
+        validateDesignReferencesCodebase(spec);
+      } else if (phase === 'tasks') {
+        spec.tasks = content;
+      }
+
+      spec.updatedAt = Date.now();
+      
+      // Update VFS with latest spec documents
+      updateSpecFilesInVFS(spec);
+      
+      saveAppState();
+
+      // Update UI
+      if (phase === 'requirements') {
+        spec.status = 'draft-requirements';
+        showRequirementApprovalButtons(specId);
+      } else if (phase === 'design') {
+        spec.status = 'draft-design';
+        showDesignApprovalButtons(specId);
+      } else if (phase === 'tasks') {
+        spec.status = 'approved'; // Ready for building
+        hideApprovalButtons(specId);
+        // Auto-start execution if in plan-build mode
+        if (appState.planMode === 'plan-build') {
+          startSpecExecution(specId);
+        }
+      }
+
+      renderSpecList();
+      if (appState.specState.activeSpecId === specId) renderSpecViewer(specId);
+    }
+
+    function extractMarkdownContent(response) {
+      // Extract content between markdown fences or return as-is
+      const fenceMatch = response.match(/```(?:markdown|md)?\n([\s\S]*?)```/);
+      if (fenceMatch) return fenceMatch[1].trim();
+      return response.trim();
+    }
+
+    function validateRequirementsFormat(spec) {
+      const earsPattern = /WHEN\s+.+\s+THE SYSTEM SHALL\s+/i;
+      const banglaPattern = /\/\/ বাংলা:/;
+      
+      const hasEars = earsPattern.test(spec.requirements);
+      const hasBangla = banglaPattern.test(spec.requirements);
+      
+      if (!hasEars) {
+        logActivity('Warning: Requirements may not follow EARS format', 'warning');
+      }
+      if (!hasBangla) {
+        logActivity('Warning: Requirements missing Bangla paraphrases', 'warning');
+      }
+    }
+
+    function validateDesignReferencesCodebase(spec) {
+      const hasCodeRef = /src\/|lib\/|components\/|utils\/|\.js|\.ts|\.jsx|\.tsx/.test(spec.design);
+      if (!hasCodeRef) {
+        logActivity('Warning: Design may not reference existing codebase', 'warning');
+      }
+    }
+
+    function approveRequirements() {
+      const specId = appState.specState.activeSpecId;
+      const spec = appState.specState.specs.find(s => s.id === specId);
+      if (!spec) return;
+
+      // Check constitution before approving
+      const violations = checkConstitution(spec.requirements);
+      if (violations.length > 0 && !confirmConstitutionViolations(violations)) {
+        return; // User chose not to waive
+      }
+
+      spec.status = 'draft-design';
+      spec.updatedAt = Date.now();
+      saveAppState();
+
+      // Draft design next
+      draftDesign(specId);
+
+      renderSpecList();
+      renderSpecViewer(specId);
+    }
+
+    function reviseRequirements() {
+      const specId = appState.specState.activeSpecId;
+      const revision = prompt('What should be changed in the requirements?');
+      if (!revision) return;
+
+      const spec = appState.specState.specs.find(s => s.id === specId);
+      if (!spec) return;
+
+      const prompt = `Revise the requirements.md for feature "${spec.feature}" based on this feedback:
+
+${revision}
+
+Current requirements:
+${spec.requirements}
+
+Output ONLY the revised requirements.md content.`;
+
+      sendSpecPrompt(specId, prompt, 'requirements');
+    }
+
+    function approveDesign() {
+      const specId = appState.specState.activeSpecId;
+      const spec = appState.specState.specs.find(s => s.id === specId);
+      if (!spec) return;
+
+      // Check constitution before approving
+      const violations = checkConstitution(spec.design);
+      if (violations.length > 0 && !confirmConstitutionViolations(violations)) {
+        return;
+      }
+
+      spec.status = 'draft-tasks';
+      spec.updatedAt = Date.now();
+      saveAppState();
+
+      // Draft tasks next
+      draftTasks(specId);
+
+      renderSpecList();
+      renderSpecViewer(specId);
+    }
+
+    function reviseDesign() {
+      const specId = appState.specState.activeSpecId;
+      const revision = prompt('What should be changed in the design?');
+      if (!revision) return;
+
+      const spec = appState.specState.specs.find(s => s.id === specId);
+      if (!spec) return;
+
+      const prompt = `Revise the design.md for feature "${spec.feature}" based on this feedback:
+
+${revision}
+
+Current design:
+${spec.design}
+
+Output ONLY the revised design.md content.`;
+
+      sendSpecPrompt(specId, prompt, 'design');
+    }
+
+    function confirmConstitutionViolations(violations) {
+      const msg = 'Constitution violations found:\n\n' + violations.map(v => 
+        `- Principle: ${v.principle}\n  Issue: ${v.issue}\n  Suggestion: ${v.suggestion}`
+      ).join('\n\n') + '\n\nRecord waivers and continue?';
+      return confirm(msg);
+    }
+
+    // --- Constitution ---
+
+    const DEFAULT_CONSTITUTION = `# Constitution (Spec Kit principles — DevForge flavor)
+
+## Principles
+
+1. **No AI Slop** — Real content only. Never lorem ipsum, placeholder boxes, fake stats, or stock phrases. If content is needed, write specific, plausible, human content for the actual use case.
+
+2. **Quality Over Speed** — No deadline justifies shipping broken code. Every control must work. Empty states, error states, and loading states are designed, not forgotten.
+
+3. **Bangla UI + Bangla Voice** — Every user-facing string has a Bengali translation. Voice output speaks Bengali. The agent explains changes in simple Bangla when Teach Mode is on.
+
+4. **DuckDuckGo Free as Built-in AI** — No paid API keys required for core functionality. Free providers first, paid only when explicitly configured.
+
+5. **Electron + TypeScript for Desktop** — Desktop builds target Electron with TypeScript. No framework lock-in for web version.
+
+6. **Small Requests / One Step Per Request** — Break work into the smallest meaningful steps. One action, one checkable result per task.
+
+7. **Never Claim Done Without Fresh Evidence** — Require fresh test/build evidence (exit 0 + output read) before claiming completion. Stale evidence (any file change after run) is rejected.
+
+8. **Spec-Driven Development** — Requirements → Design → Tasks as living artifacts. No code before requirements AND design are approved. Spec updates itself as code changes.
+
+9. **Living Documentation** — Docs update automatically after each build. Rules guide the agent on every task.
+
+10. **Dedupe — Build ON Existing Systems** — No second plan system, no second checklist, no second approval flow. Spec approval IS the Plan+Build checkpoint. Spec execution IS plan execution with spec documents as source.
+`;
+
+    function loadConstitution() {
+      const session = getCurrentSession();
+      if (session && session.files['.devforge/constitution.md']) {
+        appState.specState.constitution = session.files['.devforge/constitution.md'];
+      } else {
+        // Seed default constitution
+        appState.specState.constitution = DEFAULT_CONSTITUTION;
+        if (session) {
+          session.files['.devforge/constitution.md'] = DEFAULT_CONSTITUTION;
+          saveAppState();
+        }
+      }
+    }
+
+    function checkConstitution(content) {
+      const constitution = appState.specState.constitution || DEFAULT_CONSTITUTION;
+      const violations = [];
+
+      // Check each principle
+      const principles = [
+        { id: 'no-ai-slop', name: 'No AI Slop', check: (c) => /lorem ipsum|placeholder|fake stat|stock phrase/i.test(c) },
+        { id: 'quality-over-speed', name: 'Quality Over Speed', check: (c) => /TODO|FIXME|HACK|quick fix/i.test(c) },
+        { id: 'bangla-ui', name: 'Bangla UI + Bangla Voice', check: (c) => false }, // Hard to auto-check
+        { id: 'duckduckgo-free', name: 'DuckDuckGo Free as Built-in AI', check: (c) => /require.*paid|api key.*required|premium only/i.test(c) },
+        { id: 'electron-ts', name: 'Electron + TypeScript for Desktop', check: (c) => false },
+        { id: 'small-requests', name: 'Small Requests / One Step Per Request', check: (c) => false },
+        { id: 'fresh-evidence', name: 'Never Claim Done Without Fresh Evidence', check: (c) => /claim done|mark complete|finished without test/i.test(c) },
+        { id: 'spec-driven', name: 'Spec-Driven Development', check: (c) => false },
+        { id: 'living-docs', name: 'Living Documentation', check: (c) => false },
+        { id: 'dedupe', name: 'Dedupe — Build ON Existing Systems', check: (c) => /new plan system|second checklist|second approval/i.test(c) },
+      ];
+
+      for (const principle of principles) {
+        if (principle.check(content)) {
+          violations.push({
+            principle: principle.name,
+            issue: `Content may violate "${principle.name}" principle`,
+            suggestion: `Review the "${principle.name}" principle in constitution.md`
+          });
+        }
+      }
+
+      return violations;
+    }
+
+    function editConstitution() {
+      const newContent = prompt('Edit constitution.md:', appState.specState.constitution || DEFAULT_CONSTITUTION);
+      if (newContent === null) return; // User cancelled
+
+      appState.specState.constitution = newContent;
+      const session = getCurrentSession();
+      if (session) {
+        session.files['.devforge/constitution.md'] = newContent;
+        saveAppState();
+      }
+      renderSpecViewer(appState.specState.activeSpecId);
+      logActivity('Constitution updated', 'success');
+    }
+
+    // --- Spec Execution ---
+
+    function startSpecExecution(specId) {
+      const spec = appState.specState.specs.find(s => s.id === specId);
+      if (!spec) return;
+
+      spec.status = 'building';
+      saveAppState();
+
+      // Parse tasks from tasks.md
+      const tasks = parseTasksFromMarkdown(spec.tasks);
+      if (tasks.length === 0) {
+        logActivity('No tasks found in tasks.md', 'warning');
+        return;
+      }
+
+      // Convert to plan format and execute
+      appState.currentPlan = tasks.map((task, index) => ({
+        id: task.id || 'task_' + Date.now() + '_' + index,
+        text: task.text,
+        done: false,
+        current: index === 0,
+        revised: false,
+        note: '',
+        specTaskId: task.id,
+        specId: specId
+      }));
+
+      savePlanToBrainFile();
+      renderPlanChecklist();
+      updatePlanControlsVisibility();
+
+      // Execute first step
+      executeNextPlanStep();
+    }
+
+    function parseTasksFromMarkdown(markdown) {
+      const tasks = [];
+      const lines = markdown.split('\n');
+      let taskId = 0;
+      
+      for (const line of lines) {
+        const match = line.match(/^[\s*-]\s*\[([ x])\]\s*(.+)$/);
+        if (match) {
+          const [, status, text] = match;
+          tasks.push({
+            id: 'spec_task_' + taskId++,
+            text: text.trim(),
+            done: status === 'x'
+          });
+        }
+      }
+      return tasks;
+    }
+
+    // Override executeNextPlanStep to handle spec tasks
+    const originalExecuteNextPlanStep = window.executeNextPlanStep;
+    window.executeNextPlanStep = async function() {
+      const specId = appState.specState.activeSpecId;
+      const spec = specId ? appState.specState.specs.find(s => s.id === specId) : null;
+      
+      if (spec && spec.status === 'building' && appState.currentPlan.length > 0) {
+        const currentStepIndex = appState.currentPlan.findIndex(s => s.current);
+        if (currentStepIndex >= 0) {
+          const step = appState.currentPlan[currentStepIndex];
+          
+          // Check if this is a spec task
+          if (step.specTaskId && step.specId) {
+            // Send spec-aware prompt to agent
+            const specPrompt = `SPEC EXECUTION — Task ${currentStepIndex + 1}/${appState.currentPlan.length}
+
+SPEC: ${spec.feature} (${spec.status})
+CURRENT TASK: ${step.text}
+
+REQUIREMENTS:
+${spec.requirements}
+
+DESIGN:
+${spec.design}
+
+TASKS:
+${spec.tasks}
+
+Execute this specific task. Output file changes as fenced blocks with file:path.
+After completing, the system will auto-tick this task and check for drift.`;
+
+            await sendAgentPromptWithCallback(specPrompt, (response) => {
+              handleSpecTaskResponse(specId, currentStepIndex, response);
+            });
+            return;
+          }
+        }
+      }
+      
+      // Fall back to original
+      if (originalExecuteNextPlanStep) {
+        return originalExecuteNextPlanStep.apply(this, arguments);
+      }
+    };
+
+    function handleSpecTaskResponse(specId, stepIndex, response) {
+      const spec = appState.specState.specs.find(s => s.id === specId);
+      if (!spec) return;
+
+      const step = appState.currentPlan[stepIndex];
+      if (!step) return;
+
+      // Apply file changes from response (reuse existing logic)
+      applyAgentResponse(response);
+
+      // Mark task as done
+      step.done = true;
+      step.current = false;
+      step.note = (step.note ? step.note + '; ' : '') + 'Completed at ' + new Date().toLocaleTimeString();
+
+      // Update spec tasks.md - tick the matching item
+      spec.tasks = tickTaskInMarkdown(spec.tasks, step.specTaskId || stepIndex);
+      spec.updatedAt = Date.now();
+
+      // Update VFS with latest spec documents
+      updateSpecFilesInVFS(spec);
+
+      // Check for drift after each task
+      checkSpecDrift(specId);
+
+      // Move to next step
+      const nextIndex = stepIndex + 1;
+      if (nextIndex < appState.currentPlan.length) {
+        appState.currentPlan[nextIndex].current = true;
+      } else {
+        // All tasks done
+        spec.status = 'done';
+        logActivity(`Spec "${spec.feature}" completed!`, 'success');
+      }
+
+      savePlanToBrainFile();
+      saveAppState();
+      renderPlanChecklist();
+      renderSpecList();
+      if (appState.specState.activeSpecId === specId) renderSpecViewer(specId);
+
+      // Continue to next step if in plan-build mode
+      if (appState.planMode === 'plan-build' && nextIndex < appState.currentPlan.length) {
+        setTimeout(() => executeNextPlanStep(), 500);
+      }
+    }
+
+    function tickTaskInMarkdown(markdown, taskIdOrIndex) {
+      const lines = markdown.split('\n');
+      let taskCount = 0;
+      
+      for (let i = 0; i < lines.length; i++) {
+        const match = lines[i].match(/^([\s*-]\s*\[)([ x])(\]\s*.+)$/);
+        if (match) {
+          if (taskCount === taskIdOrIndex || lines[i].includes(taskIdOrIndex)) {
+            lines[i] = match[1] + 'x' + match[3];
+            break;
+          }
+          taskCount++;
+        }
+      }
+      return lines.join('\n');
+    }
+
+    // --- Drift Checking ---
+
+    function checkSpecDrift(specId) {
+      const spec = appState.specState.specs.find(s => s.id === specId);
+      if (!spec) return null;
+
+      // Compare code changes against spec
+      // For now, do a basic check - in real implementation this would analyze actual code changes
+      const session = getCurrentSession();
+      if (!session || !session.files) return null;
+
+      const driftReport = {
+        specId: specId,
+        timestamp: Date.now(),
+        drifts: [],
+        specSays: [],
+        codeDoes: []
+      };
+
+      // Check if tasks.md items are all ticked but status is not done
+      const tasks = parseTasksFromMarkdown(spec.tasks);
+      const allTicked = tasks.length > 0 && tasks.every(t => t.done);
+      if (allTicked && spec.status !== 'done') {
+        driftReport.drifts.push({
+          type: 'status-mismatch',
+          message: 'All tasks completed but spec status is not "done"',
+          severity: 'warning'
+        });
+      }
+
+      // Check for untracked files that might be part of the spec
+      const specFiles = extractFilePathsFromSpec(spec);
+      for (const filePath of specFiles) {
+        if (session.files[filePath] && !spec.tasks.includes(filePath)) {
+          driftReport.drifts.push({
+            type: 'untracked-file',
+            message: `File "${filePath}" exists in codebase but not tracked in spec tasks`,
+            severity: 'info',
+            filePath: filePath
+          });
+        }
+      }
+
+      // Generate drift report content
+      let reportContent = `# Drift Report for ${spec.feature}\n\n`;
+      reportContent += `Generated: ${new Date().toLocaleString()}\n\n`;
+      
+      if (driftReport.drifts.length === 0) {
+        reportContent += '✅ No drift detected. Spec matches codebase.\n';
+      } else {
+        reportContent += '## Drifts Found\n\n';
+        for (const drift of driftReport.drifts) {
+          reportContent += `### ${drift.type}\n`;
+          reportContent += `**Severity:** ${drift.severity}\n\n`;
+          reportContent += `${drift.message}\n\n`;
+          if (drift.filePath) {
+            reportContent += `**File:** \`${drift.filePath}\`\n\n`;
+          }
+          reportContent += '---\n\n';
+        }
+      }
+
+      // Show drift report in viewer
+      showDriftReport(specId, reportContent);
+      
+      // Update spec status if drifted
+      if (driftReport.drifts.some(d => d.severity === 'warning' || d.severity === 'error')) {
+        spec.status = 'drifted';
+        saveAppState();
+        renderSpecList();
+      }
+
+      return driftReport;
+    }
+
+    function extractFilePathsFromSpec(spec) {
+      const paths = [];
+      const filePattern = /([a-zA-Z0-9_\-]+\/)*[a-zA-Z0-9_\-]+\.(js|ts|jsx|tsx|html|css|json|md|py|rs|go|java)/g;
+      const allContent = spec.requirements + '\n' + spec.design + '\n' + spec.tasks;
+      let match;
+      while ((match = filePattern.exec(allContent)) !== null) {
+        paths.push(match[0]);
+      }
+      return [...new Set(paths)];
+    }
+
+    function showDriftReport(specId, content) {
+      const driftSection = document.getElementById('specDriftSection');
+      const driftContent = document.getElementById('specDriftContent');
+      const updateBtn = document.getElementById('btnUpdateSpecFromDrift');
+      
+      if (driftSection && driftContent) {
+        driftSection.style.display = 'block';
+        driftContent.textContent = content;
+        if (updateBtn) updateBtn.style.display = 'inline-flex';
+      }
+    }
+
+    function updateSpecFromDrift() {
+      const specId = appState.specState.activeSpecId;
+      const spec = appState.specState.specs.find(s => s.id === specId);
+      if (!spec) return;
+
+      // Re-run drift check and update spec accordingly
+      const driftReport = checkSpecDrift(specId);
+      if (driftReport && driftReport.drifts.length > 0) {
+        // Update tasks.md to include untracked files
+        for (const drift of driftReport.drifts) {
+          if (drift.type === 'untracked-file' && drift.filePath) {
+            // Add task for this file
+            const newTask = `\n- [ ] Task: Handle ${drift.filePath}\n  Deliverable: File properly integrated per spec\n  Test: Verify ${drift.filePath} works as specified`;
+            spec.tasks += newTask;
+          }
+        }
+        spec.updatedAt = Date.now();
+        spec.status = 'approved'; // Back to approved after update
+        saveAppState();
+        logActivity('Spec updated from drift report', 'success');
+        renderSpecList();
+        renderSpecViewer(specId);
+      }
+    }
+
+    // --- Specs Panel Rendering ---
+
+    function renderSpecList() {
+      const container = document.getElementById('specList');
+      const emptyState = document.getElementById('specEmptyState');
+      const countEl = document.getElementById('specCount');
+      if (!container) return;
+
+      const specs = appState.specState.specs || [];
+      const filtered = specs.filter(s => 
+        s.feature.toLowerCase().includes(specFilter.q.toLowerCase())
+      );
+
+      if (countEl) {
+        countEl.textContent = `${filtered.length} spec${filtered.length !== 1 ? 's' : ''}`;
+      }
+
+      if (filtered.length === 0) {
+        container.innerHTML = '';
+        if (emptyState) {
+          emptyState.style.display = 'flex';
+          container.appendChild(emptyState);
+        }
+        return;
+      }
+
+      if (emptyState) emptyState.style.display = 'none';
+      container.innerHTML = '';
+
+      filtered.forEach(spec => {
+        const item = document.createElement('div');
+        const isActive = appState.specState.activeSpecId === spec.id;
+        const statusColors = {
+          'draft-requirements': 'var(--warning)',
+          'draft-design': 'var(--accent-blue)',
+          'draft-tasks': 'var(--accent-purple)',
+          'approved': 'var(--success)',
+          'building': 'var(--accent-blue)',
+          'done': 'var(--success)',
+          'drifted': 'var(--danger)'
+        };
+        const statusColor = statusColors[spec.status] || 'var(--text-dim)';
+        const statusLabel = t(spec.status.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())) || spec.status;
+
+        item.style.cssText = `padding:8px 10px; background:var(--bg-surface); border:1px solid ${isActive ? 'var(--accent-blue)' : 'var(--border-color)'}; border-radius:5px; cursor:pointer;${isActive ? ' box-shadow:0 0 0 1px var(--accent-blue);' : ''}`;
+        item.onclick = () => openSpecViewer(spec.id);
+        item.innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:6px;">
+            <div style="flex:1; min-width:0;">
+              <div style="font-weight:600; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(spec.feature)}</div>
+              <div style="font-size:10px; color:var(--text-dim); margin-top:2px;">Updated: ${new Date(spec.updatedAt).toLocaleString()}</div>
+            </div>
+            <span style="font-size:9px; font-weight:700; padding:2px 8px; border-radius:4px; background:${statusColor}; color:var(--bg-dark); white-space:nowrap; flex-shrink:0;">${statusLabel}</span>
+          </div>
+        `;
+        container.appendChild(item);
+      });
+    }
+
+    function openSpecViewer(specId) {
+      const spec = appState.specState.specs.find(s => s.id === specId);
+      if (!spec) return;
+
+      appState.specState.activeSpecId = specId;
+      saveAppState();
+
+      const specList = document.getElementById('specList');
+      const specViewer = document.getElementById('specViewer');
+      
+      if (specList) specList.style.display = 'none';
+      if (specViewer) specViewer.style.display = 'flex';
+
+      renderSpecViewer(specId);
+    }
+
+    function closeSpecViewer() {
+      const specList = document.getElementById('specList');
+      const specViewer = document.getElementById('specViewer');
+      
+      if (specList) specList.style.display = 'flex';
+      if (specViewer) specViewer.style.display = 'none';
+      
+      appState.specState.activeSpecId = null;
+      saveAppState();
+    }
+
+    function renderSpecViewer(specId) {
+      const spec = appState.specState.specs.find(s => s.id === specId);
+      if (!spec) return;
+
+      const titleEl = document.getElementById('viewerSpecTitle');
+      const statusEl = document.getElementById('viewerSpecStatus');
+      
+      if (titleEl) titleEl.textContent = spec.feature;
+      if (statusEl) {
+        const statusColors = {
+          'draft-requirements': 'var(--warning)',
+          'draft-design': 'var(--accent-blue)',
+          'draft-tasks': 'var(--accent-purple)',
+          'approved': 'var(--success)',
+          'building': 'var(--accent-blue)',
+          'done': 'var(--success)',
+          'drifted': 'var(--danger)'
+        };
+        const statusLabels = {
+          'draft-requirements': t('Draft Requirements'),
+          'draft-design': t('Draft Design'),
+          'draft-tasks': t('Draft Tasks'),
+          'approved': t('Approved'),
+          'building': t('Building'),
+          'done': t('Done'),
+          'drifted': t('Drifted')
+        };
+        const statusColor = statusColors[spec.status] || 'var(--text-dim)';
+        const statusLabel = statusLabels[spec.status] || spec.status;
+        statusEl.textContent = statusLabel;
+        statusEl.style.background = statusColor;
+        statusEl.style.color = 'var(--bg-dark)';
+      }
+
+      // Show/hide sections based on status
+      const reqSection = document.getElementById('specRequirementsSection');
+      const designSection = document.getElementById('specDesignSection');
+      const tasksSection = document.getElementById('specTasksSection');
+      const constitutionSection = document.getElementById('specConstitutionSection');
+      const driftSection = document.getElementById('specDriftSection');
+
+      // Requirements
+      const reqContent = document.getElementById('specRequirementsContent');
+      const approveReqBtn = document.getElementById('btnApproveRequirements');
+      const reviseReqBtn = document.getElementById('btnReviseRequirements');
+      
+      if (spec.status === 'draft-requirements' || spec.status === 'draft-design' || spec.status === 'draft-tasks' || spec.status === 'approved' || spec.status === 'building' || spec.status === 'done' || spec.status === 'drifted') {
+        if (reqSection) reqSection.style.display = 'block';
+        if (reqContent) reqContent.textContent = spec.requirements || '(drafting...)';
+        if (approveReqBtn) approveReqBtn.style.display = spec.status === 'draft-requirements' ? 'inline-flex' : 'none';
+        if (reviseReqBtn) reviseReqBtn.style.display = spec.status === 'draft-requirements' ? 'inline-flex' : 'none';
+      } else {
+        if (reqSection) reqSection.style.display = 'none';
+      }
+
+      // Design
+      const designContent = document.getElementById('specDesignContent');
+      const approveDesignBtn = document.getElementById('btnApproveDesign');
+      const reviseDesignBtn = document.getElementById('btnReviseDesign');
+      
+      if (spec.status === 'draft-design' || spec.status === 'draft-tasks' || spec.status === 'approved' || spec.status === 'building' || spec.status === 'done' || spec.status === 'drifted') {
+        if (designSection) designSection.style.display = 'block';
+        if (designContent) designContent.textContent = spec.design || '(drafting...)';
+        if (approveDesignBtn) approveDesignBtn.style.display = spec.status === 'draft-design' ? 'inline-flex' : 'none';
+        if (reviseDesignBtn) reviseDesignBtn.style.display = spec.status === 'draft-design' ? 'inline-flex' : 'none';
+      } else {
+        if (designSection) designSection.style.display = 'none';
+      }
+
+      // Tasks
+      const tasksContent = document.getElementById('specTasksContent');
+      const checkDriftBtn = document.getElementById('btnCheckDrift');
+      
+      if (spec.status === 'draft-tasks' || spec.status === 'approved' || spec.status === 'building' || spec.status === 'done' || spec.status === 'drifted') {
+        if (tasksSection) tasksSection.style.display = 'block';
+        if (tasksContent) tasksContent.textContent = spec.tasks || '(drafting...)';
+        if (checkDriftBtn) checkDriftBtn.style.display = 'inline-flex';
+      } else {
+        if (tasksSection) tasksSection.style.display = 'none';
+      }
+
+      // Constitution
+      const constitutionContent = document.getElementById('specConstitutionContent');
+      if (constitutionSection) constitutionSection.style.display = 'block';
+      if (constitutionContent) constitutionContent.textContent = appState.specState.constitution || DEFAULT_CONSTITUTION;
+
+      // Hide drift section initially
+      if (driftSection) driftSection.style.display = 'none';
+    }
+
+    function showRequirementApprovalButtons(specId) {
+      const approveBtn = document.getElementById('btnApproveRequirements');
+      const reviseBtn = document.getElementById('btnReviseRequirements');
+      if (approveBtn) approveBtn.style.display = 'inline-flex';
+      if (reviseBtn) reviseBtn.style.display = 'inline-flex';
+    }
+
+    function showDesignApprovalButtons(specId) {
+      const approveBtn = document.getElementById('btnApproveDesign');
+      const reviseBtn = document.getElementById('btnReviseDesign');
+      if (approveBtn) approveBtn.style.display = 'inline-flex';
+      if (reviseBtn) reviseBtn.style.display = 'inline-flex';
+    }
+
+    function hideApprovalButtons(specId) {
+      const btns = ['btnApproveRequirements', 'btnReviseRequirements', 'btnApproveDesign', 'btnReviseDesign'];
+      for (const id of btns) {
+        const btn = document.getElementById(id);
+        if (btn) btn.style.display = 'none';
+      }
+    }
+
+    // --- Helpers ---
+
+    function getCodeGraph(session) {
+      if (typeof buildCodeGraph === 'function') {
+        return buildCodeGraph(session);
+      }
+      return null;
+    }
+
+    function buildRepoMapText(graph) {
+      if (!graph || !graph.nodes) return '';
+      const files = graph.nodes.filter(n => n.type === 'file').map(n => n.name).join(', ');
+      const functions = graph.nodes.filter(n => n.type === 'function').map(n => n.name).slice(0, 20).join(', ');
+      const classes = graph.nodes.filter(n => n.type === 'class').map(n => n.name).slice(0, 10).join(', ');
+      return `Files: ${files}\nFunctions: ${functions}\nClasses: ${classes}`;
+    }
+
+    // Wrapper for sending agent prompt with callback (reuse existing mechanism)
+    function sendAgentPromptWithCallback(prompt, callback) {
+      // This uses the existing agent prompt mechanism
+      // We'll simulate by appending to chat and triggering agent response
+      appendChatMessage('user', prompt);
+      
+      // The actual agent response handling is done elsewhere
+      // For now, we'll store the callback to be invoked when agent responds
+      window._specDraftCallback = callback;
+      
+      // Trigger agent response (this would normally be done by the chat system)
+      // For spec drafting, we simulate with a timeout for testing
+      setTimeout(() => {
+        if (window._specDraftCallback) {
+          // In real implementation, this would be the actual agent response
+          const mockResponse = generateMockSpecResponse(prompt);
+          window._specDraftCallback(mockResponse);
+          window._specDraftCallback = null;
+        }
+      }, 100);
+    }
+
+    function generateMockSpecResponse(prompt) {
+      // Mock response for testing - in production this comes from the actual LLM
+      if (prompt.includes('requirements.md')) {
+        return `# Requirements
+
+### Story 1: User Login
+WHEN user provides valid credentials THE SYSTEM SHALL authenticate and create a session
+// বাংলা: ব্যবহারকারী বৈধ শংসাপত্র দিলে সিস্টেম প্রমাণীকরণ করবে
+Acceptance Criteria:
+- Valid email/password creates session
+- Invalid credentials rejected with clear error
+- Session expires after 24 hours
+
+### Story 2: User Registration
+WHEN user submits registration form THE SYSTEM SHALL create new account
+// বাংলা: ব্যবহারকারী নিবন্ধন ফর্ম জমা দিলে সিস্টেম নতুন অ্যাকাউন্ট তৈরি করবে
+Acceptance Criteria:
+- Email must be unique
+- Password minimum 8 characters
+- Confirmation email sent`;
+      } else if (prompt.includes('design.md')) {
+        return `# Design
+
+### Architecture
+This feature adds authentication to the existing Express.js API (src/server.js, src/routes/auth.js).
+It integrates with the current user model (src/models/User.js) and JWT utility (src/utils/jwt.js).
+
+### Components
+- src/middleware/auth.js (new) - JWT validation middleware
+- src/routes/auth.js (modified) - Login/register endpoints
+- src/utils/jwt.js (existing) - Token generation/verification
+
+### Tech Stack
+- Express.js (existing)
+- jsonwebtoken (existing)
+- bcrypt (existing)
+
+### Diagram
+[Client] --> [Auth Middleware] --> [Route Handlers]
+                |
+                v
+           [JWT Utils] --> [User Model]`;
+      } else if (prompt.includes('tasks.md')) {
+        return `# Tasks
+
+- [ ] Task 1: Create auth middleware (src/middleware/auth.js)
+  Deliverable: File exists and exports validateToken function
+  Test: unit test validates valid/invalid tokens
+
+- [ ] Task 2: Add login/register routes (src/routes/auth.js)
+  Deliverable: POST /login and POST /register endpoints work
+  Test: integration test returns 200 + token for valid creds
+
+- [ ] Task 3: Integrate with existing user model
+  Deliverable: User model has password hash and JWT methods
+  Test: User creation and login flow works end-to-end`;
+      }
+      return '';
+    }
     function renderMcpServerList() {
       const container = document.getElementById('mcpServerList');
       const empty = document.getElementById('mcpServerEmpty');
