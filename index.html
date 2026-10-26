@@ -20096,7 +20096,7 @@ Format:
             item.style.display = label.includes(query) ? 'flex' : 'none';
           });
           attachPickerSelectedIndex = 0;
-          updateAttachPickerSelection(Array.from(document.querySelectorAll('.attach-picker-item:not([style*="display: none"])'));
+          updateAttachPickerSelection(Array.from(document.querySelectorAll('.attach-picker-item:not([style*="display: none"])')));
         };
       }
 
@@ -20105,7 +20105,7 @@ Format:
         document.querySelectorAll('.attach-picker-tab').forEach(t => t.style.display = 'none');
         document.getElementById('attach' + tab.charAt(0).toUpperCase() + tab.slice(1) + 'Tab').style.display = 'flex';
         attachPickerSelectedIndex = 0;
-        updateAttachPickerSelection(Array.from(document.querySelectorAll('.attach-picker-item:not([style*="display: none"])'));
+        updateAttachPickerSelection(Array.from(document.querySelectorAll('.attach-picker-item:not([style*="display: none"])')));
       }
 
       function updateAttachPickerSelection(items) {
