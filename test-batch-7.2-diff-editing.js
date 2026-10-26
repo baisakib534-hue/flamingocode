@@ -391,6 +391,7 @@ function foo(x, y) {
   if (failCount > 0) {
     process.exit(1);
   }
+  process.exit(0);
 }
 
 runTests().catch(e => { console.error(e); process.exit(1); });
