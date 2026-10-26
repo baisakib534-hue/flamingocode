@@ -1874,6 +1874,20 @@
               </div>
               <div id="vercelOutput" style="display:none; margin-top:12px; padding:10px; background:var(--bg-dark); border:1px solid var(--border-color); border-radius:4px; font-family:var(--font-mono); font-size:10px; max-height:150px; overflow-y:auto;"></div>
             </div>
+
+            <!-- Share Link -->
+            <div style="background:var(--bg-surface); border:1px solid var(--border-color); border-radius:6px; padding:16px;">
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 8px;">
+                <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;" data-i18n="Share Link">Share Link</div>
+                <span style="font-size: 9px; color: var(--accent-blue); font-weight:600;">Copy URL</span>
+              </div>
+              <div style="font-size: 12px; color: var(--text-dim); margin-bottom: 12px;" data-i18n="Share link opens the built app (not the editor). If not deployed yet, prepares deployment first.">Share link opens the built app (not the editor). If not deployed yet, prepares deployment first.</div>
+              <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                <button class="btn" id="btnCopyShareLink">🔗 Copy Share Link</button>
+                <button class="btn btn-secondary" id="btnOpenShareLink">🌐 Open Share Link</button>
+              </div>
+              <div id="shareLinkOutput" style="display:none; margin-top:12px; padding:10px; background:var(--bg-dark); border:1px solid var(--border-color); border-radius:4px; font-family:var(--font-mono); font-size:10px; max-height:150px; overflow-y:auto;"></div>
+            </div>
           </div>
         </div>
       </div>
@@ -4431,6 +4445,10 @@ WORK STYLE:
         'Documentation is stale — files changed since last generation': 'ডকুমেন্টেশন পুরনো — লাস্ট জেনারেশনের পর ফাইল পরিবর্তন হয়েছে',
         'Documentation generated': 'ডকুমেন্টেশন জেনারেটেড',
         'Documentation generation failed': 'ডকুমেন্টেশন জেনারেশন ব্যর্থ',
+
+        // Share Link (B4.3)
+        'Share Link': 'শেয়ার লিংক',
+        'Share link opens the built app (not the editor). If not deployed yet, prepares deployment first.': 'শেয়ার লিংক বিল্ট অ্যাপ খোলে (এডিটর নয়)। যদি এখনও ডিপ্লয় করা না থাকে, তবে প্রথমে ডিপ্লয়মেন্ট প্রস্তুত করে।',
 
         // Welcome / Empty states
         'No files yet. Create one to get started.': 'এখনো কোনো ফাইল নেই। শুরু করতে একটি তৈরি করুন।',
@@ -8062,6 +8080,196 @@ function initPublishPanel() {
   if (btnOpenVercelNew) {
     btnOpenVercelNew.onclick = () => {
       window.open('https://vercel.com/new', '_blank');
+    };
+  }
+
+  // Share Link buttons
+  const btnCopyShareLink = document.getElementById('btnCopyShareLink');
+  const btnOpenShareLink = document.getElementById('btnOpenShareLink');
+  const shareLinkOutput = document.getElementById('shareLinkOutput');
+
+  function generateShareLink(session) {
+    // Check if project has been prepared for any deployment
+    // We store the last prepared deployment type in session
+    const deployType = session.lastDeployType || 'none';
+    const projectName = session.name || 'flamingocode-project';
+    const safeName = projectName.replace(/[^a-z0-9-_]/gi, '-').toLowerCase();
+
+    // Build the expected live URL based on deployment type
+    let liveUrl = '';
+    let deployGuide = '';
+
+    if (deployType === 'gh-pages') {
+      // GitHub Pages URL pattern: https://<username>.github.io/<repo>/
+      liveUrl = `https://<username>.github.io/${safeName}/`;
+      deployGuide = 'GitHub Pages';
+    } else if (deployType === 'netlify') {
+      // Netlify URL pattern: https://<random-name>.netlify.app/
+      liveUrl = `https://${safeName}.netlify.app/`;
+      deployGuide = 'Netlify';
+    } else if (deployType === 'vercel') {
+      // Vercel URL pattern: https://<project-name>.vercel.app/
+      liveUrl = `https://${safeName}.vercel.app/`;
+      deployGuide = 'Vercel';
+    } else {
+      // Not deployed yet - return null to indicate needs deployment first
+      return { needsDeploy: true, projectName: safeName };
+    }
+
+    return { liveUrl, deployGuide, projectName: safeName };
+  }
+
+  function prepareDeploymentForShare(session, deployType) {
+    // Prepare the deployment package for the given type
+    let files, zipBytes, blob, fileName;
+    
+    if (deployType === 'gh-pages') {
+      files = prepareGhPagesExport(session);
+    } else if (deployType === 'netlify') {
+      files = prepareNetlifyExport(session);
+    } else if (deployType === 'vercel') {
+      files = prepareVercelExport(session);
+    } else {
+      throw new Error('Unknown deployment type');
+    }
+    
+    zipBytes = createZipFromVFS(files);
+    blob = new Blob([zipBytes], { type: 'application/zip' });
+    fileName = `${session.name || 'flamingocode-project'.replace(/[^a-z0-9-_]/gi, '-').toLowerCase()}-${deployType}.zip`;
+    downloadBlob(blob, fileName);
+    
+    // Mark session as having this deployment type prepared
+    session.lastDeployType = deployType;
+    saveAppState();
+    
+    return { files, fileCount: Object.keys(files).length, sizeKB: (zipBytes.length / 1024).toFixed(1) };
+  }
+
+  if (btnCopyShareLink) {
+    btnCopyShareLink.onclick = async () => {
+      const session = getCurrentSession();
+      if (!session) {
+        alert('No active session');
+        return;
+      }
+
+      const result = generateShareLink(session);
+      
+      if (result.needsDeploy) {
+        // Not deployed yet - ask user which platform to prepare for
+        const choice = prompt(
+          'Project not deployed yet. Choose deployment platform to prepare:\\n' +
+          '1. GitHub Pages (https://<username>.github.io/' + result.projectName + '/)\\n' +
+          '2. Netlify (https://' + result.projectName + '.netlify.app/)\\n' +
+          '3. Vercel (https://' + result.projectName + '.vercel.app/)\\n' +
+          'Enter 1, 2, or 3:'
+        );
+        
+        let deployType = '';
+        if (choice === '1') deployType = 'gh-pages';
+        else if (choice === '2') deployType = 'netlify';
+        else if (choice === '3') deployType = 'vercel';
+        else {
+          alert('Cancelled');
+          return;
+        }
+
+        publishStatus.textContent = `Preparing ${deployType} deployment...`;
+        
+        try {
+          const deployResult = prepareDeploymentForShare(session, deployType);
+          
+          // Generate the share link after preparation
+          const newResult = generateShareLink(session);
+          const shareText = `Share Link for "${session.name || 'Untitled Project'}"\\n\\n` +
+            `Built app URL: ${newResult.liveUrl}\\n` +
+            `Deployed via: ${newResult.deployGuide}\\n\\n` +
+            `Note: This link opens the BUILT APP (not the FlamingoCode editor).\\n` +
+            `The viewer sees your running application.\\n\\n` +
+            `Deployment package has been downloaded. Follow the platform's guide to publish.`;
+
+          await navigator.clipboard.writeText(newResult.liveUrl);
+          showOutput('shareLinkOutput', shareText);
+          publishStatus.textContent = 'Share link copied to clipboard';
+          logActivity(`Share link copied for ${deployType}: ${newResult.liveUrl}`, 'success');
+        } catch (e) {
+          publishStatus.textContent = 'Error preparing deployment';
+          logActivity('Share link deployment prep failed: ' + e.message, 'error');
+          alert('Error: ' + e.message);
+        }
+      } else {
+        // Already has deployment type prepared
+        const shareText = `Share Link for "${session.name || 'Untitled Project'}"\\n\\n` +
+          `Built app URL: ${result.liveUrl}\\n` +
+          `Deployed via: ${result.deployGuide}\\n\\n` +
+          `Note: This link opens the BUILT APP (not the FlamingoCode editor).\\n` +
+          `The viewer sees your running application.`;
+
+        await navigator.clipboard.writeText(result.liveUrl);
+        showOutput('shareLinkOutput', shareText);
+        publishStatus.textContent = 'Share link copied to clipboard';
+        logActivity(`Share link copied: ${result.liveUrl}`, 'success');
+      }
+    };
+  }
+
+  if (btnOpenShareLink) {
+    btnOpenShareLink.onclick = () => {
+      const session = getCurrentSession();
+      if (!session) {
+        alert('No active session');
+        return;
+      }
+
+      const result = generateShareLink(session);
+      
+      if (result.needsDeploy) {
+        // Not deployed yet - ask user which platform to prepare for
+        const choice = prompt(
+          'Project not deployed yet. Choose deployment platform to prepare:\\n' +
+          '1. GitHub Pages (https://<username>.github.io/' + result.projectName + '/)\\n' +
+          '2. Netlify (https://' + result.projectName + '.netlify.app/)\\n' +
+          '3. Vercel (https://' + result.projectName + '.vercel.app/)\\n' +
+          'Enter 1, 2, or 3:'
+        );
+        
+        let deployType = '';
+        if (choice === '1') deployType = 'gh-pages';
+        else if (choice === '2') deployType = 'netlify';
+        else if (choice === '3') deployType = 'vercel';
+        else {
+          alert('Cancelled');
+          return;
+        }
+
+        publishStatus.textContent = `Preparing ${deployType} deployment...`;
+        
+        try {
+          const deployResult = prepareDeploymentForShare(session, deployType);
+          
+          // Generate the share link after preparation
+          const newResult = generateShareLink(session);
+          showOutput('shareLinkOutput', `Deployment package for ${newResult.deployGuide} downloaded!\\n\\n` +
+            `Expected live URL: ${newResult.liveUrl}\\n\\n` +
+            `Next steps:\\n` +
+            `1. Extract the downloaded ZIP\\n` +
+            `2. Follow the ${newResult.deployGuide} deployment guide\\n` +
+            `3. Once deployed, your app will be live at: ${newResult.liveUrl}\\n\\n` +
+            `Note: This link opens the BUILT APP (not the FlamingoCode editor).`);
+          
+          publishStatus.textContent = `${deployType} package prepared`;
+          logActivity(`Share link deployment prep for ${deployType}: ${deployResult.fileCount} files`, 'success');
+        } catch (e) {
+          publishStatus.textContent = 'Error preparing deployment';
+          logActivity('Share link deployment prep failed: ' + e.message, 'error');
+          alert('Error: ' + e.message);
+        }
+      } else {
+        // Open the live URL
+        window.open(result.liveUrl, '_blank');
+        publishStatus.textContent = `Opened ${result.deployGuide} live app`;
+        logActivity(`Opened share link: ${result.liveUrl}`, 'success');
+      }
     };
   }
 }
