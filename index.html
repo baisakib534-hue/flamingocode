@@ -2371,23 +2371,27 @@
       </div>
 
       <!-- Skill Packs Tab -->
-      <div class="settings-pane" id="settingsPaneSkills" style="display: none; flex-direction: column;">
-        <div style="max-height: 40vh; overflow-y: auto; margin-bottom: 12px;">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
-            <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;" data-i18n="Skill Packs">Skill Packs</span>
-            <button class="btn" id="btnOpenSkillPackLibrary" style="padding: 4px 10px; font-size: 11px;" data-i18n="Open Library">📚 Open Library</button>
-          </div>
-          <div id="builtinSkillPackList" style="display: flex; flex-direction: column; gap: 6px;">
-            <!-- Built-in skill packs rendered here -->
-          </div>
-        </div>
-        <div style="border-top: 1px solid var(--border-color); padding-top: 12px;">
-          <div style="font-size: 11px; color: var(--text-dim); margin-bottom: 8px;">Built-in packs are read-only. Use the library to create custom packs.</div>
-          <div style="display:flex; justify-content:flex-end; gap:8px;">
-            <button class="btn btn-secondary" id="btnCancelSettings" data-i18n="Close">Close</button>
-          </div>
-        </div>
-      </div>
+            <div class="settings-pane" id="settingsPaneSkills" style="display: none; flex-direction: column;">
+              <div style="max-height: 40vh; overflow-y: auto; margin-bottom: 12px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
+                  <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;" data-i18n="Skill Packs">Skill Packs</span>
+                  <button class="btn" id="btnOpenSkillPackLibrary" style="padding: 4px 10px; font-size: 11px;" data-i18n="Open Library">📚 Open Library</button>
+                </div>
+                <div id="builtinSkillPackList" style="display: flex; flex-direction: column; gap: 6px;">
+                  <!-- Built-in skill packs rendered here -->
+                </div>
+              </div>
+              <!-- Tool Recommendations Section (Batch 7.2b) -->
+              <div id="skills-recommendations-section" style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border-color);">
+                <!-- Skill recommendations rendered here -->
+              </div>
+              <div style="border-top: 1px solid var(--border-color); padding-top: 12px;">
+                <div style="font-size: 11px; color: var(--text-dim); margin-bottom: 8px;">Built-in packs are read-only. Use the library to create custom packs.</div>
+                <div style="display:flex; justify-content:flex-end; gap:8px;">
+                  <button class="btn btn-secondary" id="btnCancelSettings" data-i18n="Close">Close</button>
+                </div>
+              </div>
+            </div>
 
       <!-- Plugin Packs Tab -->
       <div class="settings-pane" id="settingsPanePlugins" style="display: none; flex-direction: column;">
@@ -2418,6 +2422,9 @@
           <div id="mcpServerSummaryList" style="display: flex; flex-direction: column; gap: 6px;">
             <!-- MCP server summary rendered here -->
           </div>
+        <!-- Tool Recommendations Section (Batch 7.2b) -->
+        <div id="mcp-recommendations-section" style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border-color);">
+          <!-- MCP recommendations rendered here -->
         </div>
         <div style="border-top: 1px solid var(--border-color); padding-top: 12px;">
           <div style="font-size: 11px; color: var(--text-dim); margin-bottom: 8px;">MCP servers are global. Assign them to agents in the Agent Library.</div>
@@ -2621,6 +2628,26 @@
             <input type="checkbox" id="autocompleteToggleSettings" style="display: none;" />
             <span class="toggle-slider"></span>
           </label>
+        </div>
+        <hr style="border: none; border-top: 1px solid var(--border-color); margin: 12px 0;">
+        <!-- Tool Recommendations (Batch 7.2b) -->
+        <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;" data-i18n="Tool Recommendations">Tool Recommendations</div>
+        <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 8px;" data-i18n="When ON, suggests relevant skills, MCPs, or plugins for your task">When ON, suggests relevant skills, MCPs, or plugins for your task</div>
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+          <div style="flex: 1; min-width: 0;">
+            <div style="font-weight: 600; font-size: 12px; color: var(--text-main);" data-i18n="Enable tool recommendations">Enable tool recommendations</div>
+            <div style="font-size: 10px; color: var(--text-dim); margin-top: 2px;" data-i18n="When ON, suggests relevant skills, MCPs, or plugins for your task">When ON, suggests relevant skills, MCPs, or plugins for your task</div>
+          </div>
+          <label class="toggle-switch" style="cursor: pointer; flex-shrink: 0;">
+            <input type="checkbox" id="toolRecommendationsToggleSettings" style="display: none;" checked />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <hr style="border: none; border-top: 1px solid var(--border-color); margin: 12px 0;">
+        <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;" data-i18n="Muted Recommendations">Muted Recommendations</div>
+        <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 8px;" data-i18n="Tools you chose not to see again. Unmute to restore.">Tools you chose not to see again. Unmute to restore.</div>
+        <div id="mutedRecommendationsList" style="display: flex; flex-direction: column; gap: 4px; max-height: 200px; overflow-y: auto;">
+          <!-- Muted recommendations rendered here -->
         </div>
       </div>
     </div>
@@ -3060,11 +3087,17 @@ sudo *"></textarea>
           <div style="max-height: 40vh; overflow-y: auto; margin-bottom: 12px;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
               <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;" data-i18n="Plugin Catalog">Plugin Catalog</span>
-              <button class="btn" id="btnOpenPluginCatalogModal" style="padding: 4px 10px; font-size: 11px;" data-i18n="Browse Catalog">📦 Browse Catalog</button>
+              <div style="display: flex; gap: 8px;">
+                <button class="btn" id="btnSuggestForTask" style="padding: 4px 10px; font-size: 11px;" data-i18n="Suggest for current task">💡 Suggest for current task</button>
+                <button class="btn" id="btnOpenPluginCatalogModal" style="padding: 4px 10px; font-size: 11px;" data-i18n="Browse Catalog">📦 Browse Catalog</button>
+              </div>
             </div>
             <div id="pluginCatalogList" style="display: flex; flex-direction: column; gap: 6px;">
               <!-- Installed plugin packs rendered here -->
             </div>
+          <!-- Tool Recommendations Section (Batch 7.2b) -->
+          <div id="plugin-recommendations-section" style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border-color);">
+            <!-- Plugin recommendations rendered here -->
           </div>
           <div style="border-top: 1px solid var(--border-color); padding-top: 12px;">
             <div style="display:flex; justify-content:flex-end; gap:8px;">
@@ -4656,6 +4689,284 @@ WORK STYLE:
       }
     };
 
+    // ==================== TOOL RECOMMENDER REGISTRY (Batch 7.2b) ====================
+    // Single in-code index over tools the app already knows about.
+    // Each entry points to existing install path (enable skill / add MCP server / install plugin from catalog).
+    // NEVER a second catalog — just an index for matching.
+    const RECOMMENDATION_SCORE_THRESHOLD = 2;
+    const MAX_RECOMMENDATIONS = 3;
+    const TOOL_RECOMMENDATIONS = [
+      // --- Built-in Skills (15: 9 jcode pack + 6 new) ---
+      {
+        id: 'skill_no-ai-slop',
+        kind: 'skill',
+        name: 'no-ai-slop',
+        whatItDoes: 'Produces real content, consistent design, no placeholder UI or AI clichés',
+        triggers: ['design', 'ui', 'landing', 'portfolio', 'frontend', 'style', 'css', 'placeholder', 'lorem', 'real content', 'consistent design', 'ডিজাইন', 'ইউআই', 'স্টাইল', 'সিএসএস', 'প্রেসট', 'বাস্তব কন্টেন্ট'],
+        install: { how: 'enable-skill', skillId: 'skill_no-ai-slop' },
+        scoreBoost: 0
+      },
+      {
+        id: 'skill_senior-frontend',
+        kind: 'skill',
+        name: 'senior-frontend',
+        whatItDoes: 'Semantic HTML, token-based CSS, accessible responsive web apps',
+        triggers: ['html', 'css', 'javascript', 'frontend', 'responsive', 'accessible', 'semantic', 'web app', 'react', 'vue', 'dom', 'এইচটিএমএল', 'সিএসএস', 'জাভাস্ক্রিপ্ট', 'রেসপন্সিভ', 'অ্যাক্সেসিবল', 'সিম্যান্টিক'],
+        install: { how: 'enable-skill', skillId: 'skill_senior-frontend' },
+        scoreBoost: 0
+      },
+      {
+        id: 'skill_testing-qa',
+        kind: 'skill',
+        name: 'testing-qa',
+        whatItDoes: 'Tests like a hostile user: clicks everything, breaks inputs, reads console errors',
+        triggers: ['test', 'testing', 'qa', 'quality', 'bug', 'console error', 'click', 'input', 'edge case', 'jest', 'vitest', 'টেস্ট', 'টেস্টিং', 'কোয়ালিটি', 'বাগ', 'কনসোল এরর', 'এজ কেস'],
+        install: { how: 'enable-skill', skillId: 'skill_testing-qa' },
+        scoreBoost: 0
+      },
+      {
+        id: 'skill_api-design',
+        kind: 'skill',
+        name: 'api-design',
+        whatItDoes: 'Clean API interfaces, handles all error cases: timeouts, 429, 401, streaming failures',
+        triggers: ['api', 'rest', 'graphql', 'endpoint', 'request', 'response', 'timeout', 'retry', '429', '401', 'streaming', 'এপিআই', 'ইন্ডপয়েন্ট', 'রিকোয়েস্ট', 'রেসপন্স', 'টাইমআউট', 'রিট্রাই', 'স্ট্রিমিং'],
+        install: { how: 'enable-skill', skillId: 'skill_api-design' },
+        scoreBoost: 0
+      },
+      {
+        id: 'skill_debugging-discipline',
+        kind: 'skill',
+        name: 'debugging-discipline',
+        whatItDoes: 'Root-cause debugging: reproduce, read real error, change one thing, verify fix',
+        triggers: ['debug', 'debugging', 'error', 'bug', 'fix', 'reproduce', 'root cause', 'stack trace', 'ডিবাগ', 'ডিবাগিং', 'এরর', 'বাগ', 'ফিক্স', 'রুট কজ', 'স্ট্যাক ট্রেস'],
+        install: { how: 'enable-skill', skillId: 'skill_debugging-discipline' },
+        scoreBoost: 0
+      },
+      {
+        id: 'skill_git-workflow',
+        kind: 'skill',
+        name: 'git-workflow',
+        whatItDoes: 'Clean commits, meaningful messages, staged workflow, no force push',
+        triggers: ['git', 'commit', 'push', 'branch', 'merge', 'pull request', 'workflow', 'staged', 'গিট', 'কমিট', 'পুশ', 'ব্রাঞ্চ', 'মার্জ', 'পুল রিকোয়েস্ট', 'ওয়ার্কফ্লো'],
+        install: { how: 'enable-skill', skillId: 'skill_git-workflow' },
+        scoreBoost: 0
+      },
+      {
+        id: 'skill_security-review',
+        kind: 'skill',
+        name: 'security-review',
+        whatItDoes: 'Checks XSS, CSRF, injection, auth bypass, validates all inputs',
+        triggers: ['security', 'xss', 'csrf', 'injection', 'auth', 'bypass', 'validate', 'input', 'vulnerability', 'সিকিউরিটি', 'এক্সএসএস', 'সিআরএসএফ', 'ইনজেকশন', 'অথ', 'ভ্যালিডেট', 'ভালনারেবিলিটি'],
+        install: { how: 'enable-skill', skillId: 'skill_security-review' },
+        scoreBoost: 0
+      },
+      {
+        id: 'skill_accessibility',
+        kind: 'skill',
+        name: 'accessibility',
+        whatItDoes: 'Semantic HTML, ARIA labels, keyboard nav, color contrast, screen reader support',
+        triggers: ['accessibility', 'a11y', 'aria', 'screen reader', 'keyboard', 'contrast', 'semantic', ' 장애', 'অ্যাক্সেসিবিলিটি', 'এরিয়া', 'স্ক্রিন রিডার', 'কিবোর্ড', 'কন্ট্রাস্ট', 'সিম্যান্টিক'],
+        install: { how: 'enable-skill', skillId: 'skill_accessibility' },
+        scoreBoost: 0
+      },
+      {
+        id: 'skill_performance',
+        kind: 'skill',
+        name: 'performance',
+        whatItDoes: 'Minimizes bundle, lazy loads, efficient algorithms, strategic caching',
+        triggers: ['performance', 'optimize', 'bundle', 'lazy load', 'cache', 'speed', 'fast', 'latency', 'memory', 'পারফরম্যান্স', 'অপ্টিমাইজ', 'বান্ডল', 'লেজি লোড', 'ক্যাশ', 'স্পিড', 'লেটেন্সি'],
+        install: { how: 'enable-skill', skillId: 'skill_performance' },
+        scoreBoost: 0
+      },
+      // 6 new built-in skills from the app
+      {
+        id: 'skill_no-ai-slop',
+        kind: 'skill',
+        name: 'no-ai-slop',
+        whatItDoes: 'Produces real content, consistent design, no placeholder UI or AI clichés',
+        triggers: ['no ai slop', 'ai slop', 'placeholder', 'lorem ipsum', 'generic', 'বাস্তব', 'প্লেসহোল্ডার', 'জেনেরিক'],
+        install: { how: 'enable-skill', skillId: 'skill_no-ai-slop' },
+        scoreBoost: 0
+      },
+      {
+        id: 'skill_api-design',
+        kind: 'skill',
+        name: 'api-design',
+        whatItDoes: 'Clean API interfaces, handles all error cases',
+        triggers: ['api design', 'api-design', 'interface design', 'error handling', 'এপিআই ডিজাইন', 'ইন্টারফেস ডিজাইন'],
+        install: { how: 'enable-skill', skillId: 'skill_api-design' },
+        scoreBoost: 0
+      },
+      {
+        id: 'skill_debugging-discipline',
+        kind: 'skill',
+        name: 'debugging-discipline',
+        whatItDoes: 'Root-cause debugging methodology',
+        triggers: ['debugging discipline', 'debugging-discipline', 'root cause', 'reproduce bug', 'ডিবাগিং ডিসিপ্লিন', 'রুট কজ'],
+        install: { how: 'enable-skill', skillId: 'skill_debugging-discipline' },
+        scoreBoost: 0
+      },
+      {
+        id: 'skill_git-workflow',
+        kind: 'skill',
+        name: 'git-workflow',
+        whatItDoes: 'Clean git habits, meaningful commits',
+        triggers: ['git workflow', 'git-workflow', 'commit message', 'staged', 'গিট ওয়ার্কফ্লো', 'কমিট মেসেজ'],
+        install: { how: 'enable-skill', skillId: 'skill_git-workflow' },
+        scoreBoost: 0
+      },
+      {
+        id: 'skill_security-review',
+        kind: 'skill',
+        name: 'security-review',
+        whatItDoes: 'Security checklist for client-side apps and APIs',
+        triggers: ['security review', 'security-review', 'xss', 'csrf', 'injection', 'সিকিউরিটি রিভিউ', 'এক্সএসএস', 'সিআরএসএফ'],
+        install: { how: 'enable-skill', skillId: 'skill_security-review' },
+        scoreBoost: 0
+      },
+      {
+        id: 'skill_accessibility',
+        kind: 'skill',
+        name: 'accessibility',
+        whatItDoes: 'Accessibility essentials for IDE-style web apps',
+        triggers: ['accessibility', 'a11y', 'aria', 'screen reader', 'অ্যাক্সেসিবিলিটি', 'এরিয়া', 'স্ক্রিন রিডার'],
+        install: { how: 'enable-skill', skillId: 'skill_accessibility' },
+        scoreBoost: 0
+      },
+
+      // --- Built-in Plugin Packs (6) ---
+      {
+        id: 'plugin_console-error-sweep',
+        kind: 'plugin',
+        name: 'console-error-sweep',
+        whatItDoes: 'Captures and reports all console errors from preview iframe as test failures',
+        triggers: ['console error', 'console.error', 'iframe', 'preview', 'test failure', 'error sweep', 'কনসোল এরর', 'আইফ্রেম', 'প্রিভিউ', 'টেস্ট ফেইল'],
+        install: { how: 'install-plugin', packName: 'console-error-sweep' },
+        scoreBoost: 0
+      },
+      {
+        id: 'plugin_auto-test-after-build',
+        kind: 'plugin',
+        name: 'auto-test-after-build',
+        whatItDoes: 'Automatically runs test suite after successful build',
+        triggers: ['auto test', 'test after build', 'post build', 'ci', 'continuous integration', 'অটো টেস্ট', 'বিল্ড পরে টেস্ট', 'পোস্ট বিল্ড', 'সিআই'],
+        install: { how: 'install-plugin', packName: 'auto-test-after-build' },
+        scoreBoost: 0
+      },
+      {
+        id: 'plugin_changelog-writer',
+        kind: 'plugin',
+        name: 'changelog-writer',
+        whatItDoes: 'Generates changelog entries from commit messages',
+        triggers: ['changelog', 'change log', 'commit message', 'release notes', 'চেঞ্জলগ', 'চেঞ্জ লগ', 'কমিট মেসেজ', 'রিলিজ নোট'],
+        install: { how: 'install-plugin', packName: 'changelog-writer' },
+        scoreBoost: 0
+      },
+      {
+        id: 'plugin_format-tidy',
+        kind: 'plugin',
+        name: 'format-tidy',
+        whatItDoes: 'Auto-formats code using configured formatter (Prettier, etc.)',
+        triggers: ['format', 'formatter', 'prettier', 'tidy', 'code style', 'lint', 'ফরম্যাট', 'ফরম্যাটার', 'প্রিটিয়ার', 'লিন্ট', 'কোড স্টাইল'],
+        install: { how: 'install-plugin', packName: 'format-tidy' },
+        scoreBoost: 0
+      },
+      {
+        id: 'plugin_no-ai-slop',
+        kind: 'plugin',
+        name: 'no-ai-slop',
+        whatItDoes: 'Enforces real content, no placeholder UI or AI clichés in generated output',
+        triggers: ['no ai slop', 'ai slop', 'placeholder', 'lorem ipsum', 'real content', 'বাস্তব কন্টেন্ট', 'প্লেসহোল্ডার', 'জেনেরিক'],
+        install: { how: 'install-plugin', packName: 'no-ai-slop' },
+        scoreBoost: 0
+      },
+      {
+        id: 'plugin_senior-frontend',
+        kind: 'plugin',
+        name: 'senior-frontend',
+        whatItDoes: 'Enforces semantic HTML, token-based CSS, accessibility in generated frontend code',
+        triggers: ['senior frontend', 'semantic html', 'token css', 'accessible', 'সিম্যান্টিক এইচটিএমএল', 'টোকেন সিএসএস', 'অ্যাক্সেসিবল'],
+        install: { how: 'install-plugin', packName: 'senior-frontend' },
+        scoreBoost: 0
+      },
+
+      // --- Standard MCP Servers (6) ---
+      {
+        id: 'mcp_context7',
+        kind: 'mcp',
+        name: 'context7',
+        whatItDoes: 'Up-to-date documentation and code examples for any library/framework',
+        triggers: ['documentation', 'docs', 'library', 'framework', 'example', 'context7', 'up to date', 'ডকুমেন্টেশন', 'ডকস', 'লাইব্রেরি', 'ফ্রেমওয়ার্ক', 'উদাহরণ', 'আপ টু ডেট'],
+        install: { how: 'add-mcp', serverId: 'mcp_context7', command: 'npx @modelcontextprotocol/server-context7', transport: 'stdio', note: 'Install via MCP Registry → Add Server' },
+        scoreBoost: 0
+      },
+      {
+        id: 'mcp_playwright',
+        kind: 'mcp',
+        name: 'playwright',
+        whatItDoes: 'Browser automation: click, type, navigate, screenshot, test web apps',
+        triggers: ['browser', 'playwright', 'automation', 'click', 'screenshot', 'test web', 'e2e', 'web test', 'ব্রাউজার', 'প্লেয়রাইট', 'অটোমেশন', 'স্ক্রিনশট', 'ইটুই', 'ওয়েব টেস্ট'],
+        install: { how: 'add-mcp', serverId: 'mcp_playwright', command: 'npx @modelcontextprotocol/server-playwright', transport: 'stdio', note: 'Install via MCP Registry → Add Server' },
+        scoreBoost: 0
+      },
+      {
+        id: 'mcp_sequential-thinking',
+        kind: 'mcp',
+        name: 'sequential-thinking',
+        whatItDoes: 'Structured multi-step reasoning for complex problems',
+        triggers: ['reasoning', 'thinking', 'step by step', 'complex', 'problem solving', 'sequential', 'sequential thinking', 'রিজনিং', 'থিংকিং', 'স্টেপ বাই স্টেপ', 'জটিল', 'সমস্যা সমাধান'],
+        install: { how: 'add-mcp', serverId: 'mcp_sequential-thinking', command: 'npx @modelcontextprotocol/server-sequential-thinking', transport: 'stdio', note: 'Install via MCP Registry → Add Server' },
+        scoreBoost: 0
+      },
+      {
+        id: 'mcp_github',
+        kind: 'mcp',
+        name: 'github',
+        whatItDoes: 'GitHub repository operations: issues, PRs, repos, files, search',
+        triggers: ['github', 'git hub', 'repository', 'repo', 'issue', 'pull request', 'pr', 'file', 'search', 'গিটহাব', 'রিপোজিটরি', 'ইস্যু', 'পুল রিকোয়েস্ট', 'ফাইল', 'সার্চ'],
+        install: { how: 'add-mcp', serverId: 'mcp_github', command: 'npx @modelcontextprotocol/server-github', transport: 'stdio', note: 'Pre-installed (trusted). Enable in MCP Registry.' },
+        scoreBoost: 0
+      },
+      {
+        id: 'mcp_memory',
+        kind: 'mcp',
+        name: 'memory',
+        whatItDoes: 'Persistent knowledge graph for agents across sessions',
+        triggers: ['memory', 'knowledge graph', 'persistent', 'remember', 'recall', 'brain', 'মেমরি', 'নলেজ গ্রাফ', 'পারসিস্টেন্ট', 'রিমেম্বার', 'রিকল', 'ব্রেন'],
+        install: { how: 'add-mcp', serverId: 'mcp_memory', command: 'npx @modelcontextprotocol/server-memory', transport: 'stdio', note: 'Pre-installed (trusted). Enable in MCP Registry.' },
+        scoreBoost: 0
+      },
+      {
+        id: 'mcp_fetch',
+        kind: 'mcp',
+        name: 'fetch',
+        whatItDoes: 'Web fetching and content extraction from URLs',
+        triggers: ['fetch', 'web', 'url', 'scrape', 'extract', 'download', 'content', 'ফেচ', 'ওয়েব', 'ইউআরএল', 'স্ক্রেপ', 'এক্সট্র্যাক্ট', 'ডাউনলোড', 'কন্টেন্ট'],
+        install: { how: 'add-mcp', serverId: 'mcp_fetch', command: 'npx @modelcontextprotocol/server-fetch', transport: 'stdio', note: 'Pre-installed (trusted). Enable in MCP Registry.' },
+        scoreBoost: 0
+      },
+
+      // --- Research-sweep MCP Servers (reuse sweep list) ---
+      {
+        id: 'mcp_serena',
+        kind: 'mcp',
+        name: 'serena',
+        whatItDoes: 'Semantic code editing and navigation via language server',
+        triggers: ['serena', 'semantic', 'code editing', 'language server', 'lsp', 'navigate', 'refactor', 'সেরিনা', 'সিম্যান্টিক', 'কোড এডিটিং', 'ল্যাঙ্গুয়েজ সার্ভার', 'নেভিগেট', 'রিফ্যাক্টর'],
+        install: { how: 'manual', note: 'Manual install: see Serena docs. No stdio package in registry yet.' },
+        scoreBoost: 0
+      },
+      {
+        id: 'mcp_sverklo',
+        kind: 'mcp',
+        name: 'sverklo',
+        whatItDoes: 'Code search and analysis across repositories',
+        triggers: ['sverklo', 'code search', 'analysis', 'repository', 'search code', 'সভার্ক্লো', 'কোড সার্চ', 'অ্যানালাইসিস', 'রিপোজিটরি', 'কোড খুঁজুন'],
+        install: { how: 'manual', note: 'Manual install: see Sverklo docs. No stdio package in registry yet.' },
+        scoreBoost: 0
+      }
+    ];
+
     // Built-in starter prompts (read-only, ship with the app).
     // Custom prompts live in appState.prompts; these merge with them in the library.
     const BUILTIN_PROMPTS = [
@@ -5286,6 +5597,29 @@ WORK STYLE:
         'Allow approximate matches for SEARCH blocks (typos, indentation differences).': 'SEARCH ব্লকে আনুমানিক ম্যাচ অনুমতি দিন (টাইপো, ইন্ডেন্টেশন পার্থক্য)।',
         'Similarity Threshold': 'সাদৃশ্য থ্রেশহোল্ড',
         'Minimum similarity for fuzzy match (0.5-1.0, default: 0.85). Higher = stricter.': 'ফাজি ম্যাচের জন্য নূনতম সাদৃশ্য (০.৫-১.০, ডিফল্ট: ০.৮৫)। বেশি = কঠোর।',
+
+        // Tool Recommender (Batch 7.2b)
+        'Tool Recommendations': 'টুল সুপারিশ',
+        'Enable tool recommendations': 'টুল সুপারিশ সক্রিয় করুন',
+        'When ON, suggests relevant skills, MCPs, or plugins for your task': 'চালু থাকলে, আপনার কাজের জন্য প্রাসঙ্গিক স্কিল, এমসিপি, বা প্লাগিন সুপারিশ করে',
+        'Muted Recommendations': 'মিউট করা সুপারিশ',
+        'Tools you chose not to see again. Unmute to restore.': 'আপনি যেসব টুল tekrar দেখতে চাননি। আনমিউট করে ফিরিয়ে আনুন।',
+        'Unmute': 'আনমিউট',
+        'Recommendations': 'সুপারিশসমূহ',
+        'Recommended for this task': 'এই কাজের জন্য সুপারিশ করা হয়েছে',
+        'Why this helps': 'এটি কেন সাহায্য করে',
+        'Install': 'ইনস্টল করুন',
+        'Dismiss': 'হাইড করুন',
+        "Don't suggest again": 'আর সুপারিশ করবেন না',
+        'Installed ✓': 'ইনস্টল করা ✓',
+        'Newly installed MCPs start UNTRUSTED (per H5.5 rule)': 'নতুন ইনস্টল করা এমসিপি UNTRUSTED থেকে শুরু হয় (H5.5 নিয়ম)',
+        'Skill': 'স্কিল',
+        'MCP': 'এমসিপি',
+        'Plugin': 'প্লাগিন',
+        'Suggest for current task': 'বর্তমান কাজের জন্য সুপারিশ করুন',
+        'No recommendations for this task': 'এই কাজের জন্য কোনো সুপারিশ নেই',
+        'Accumulated recommendations across tasks': 'বিভিন্ন কাজ থেকে জমা সুপারিশ',
+        'Install from here anytime': 'এখান থেকে যেকোনো সময় ইনস্টল করুন',
   }
 };
 
@@ -5475,6 +5809,11 @@ WORK STYLE:
       // Diff-based Editing state (Batch 7.2)
       fuzzyPatchMatching: true,   // Enable fuzzy matching for SEARCH/REPLACE patches
       fuzzyPatchThreshold: 0.85,  // Similarity threshold for fuzzy matching (0.5-1.0)
+      // Tool Recommender state (Batch 7.2b)
+      toolRecommendationsEnabled: true,  // Master toggle for tool recommendations
+      mutedRecommendations: {},          // { [toolId]: true } — tools user said "Don't suggest again"
+      recommendationHistory: [],         // [{ taskId, toolId, timestamp, dismissed, muted, installed }] — per-task recommendations
+      currentTaskRecommendations: [],    // Recommendations for current task (for chat card + page sections)
       // Language state
       language: 'en',           // 'en' | 'bn'
       // Skill Librarian state
@@ -10302,6 +10641,20 @@ Links: [[Brain Index]]
           }
         };
       }
+
+      // Tool Recommendations toggle (Batch 7.2b)
+      const toolRecToggle = document.getElementById('toolRecommendationsToggleSettings');
+      if (toolRecToggle) {
+        toolRecToggle.checked = appState.toolRecommendationsEnabled !== false; // Default ON
+        toolRecToggle.onchange = (e) => {
+          appState.toolRecommendationsEnabled = e.target.checked;
+          saveAppState();
+          logActivity(e.target.checked ? 'Tool recommendations enabled' : 'Tool recommendations disabled', 'info');
+        };
+      }
+
+      // Render muted recommendations list
+      renderMutedRecommendationsList();
     }
 
     // Update Plan + Build settings inputs
@@ -12376,6 +12729,31 @@ Links: [[Brain Index]]
       // Browse catalog button
       if (browseBtn) {
         browseBtn.onclick = () => openPluginCatalogModal();
+      }
+
+      // Add "Suggest for current task" button next to Browse Catalog
+      const suggestBtn = document.getElementById('btnSuggestForTask');
+      if (suggestBtn) {
+        suggestBtn.onclick = () => {
+          if (!appState.toolRecommendationsEnabled) return;
+          const session = getCurrentSession();
+          if (!session?.chatHistory?.length) {
+            alert(t('No recommendations for this task'));
+            return;
+          }
+          // Get the last user message
+          const lastUserMsg = [...session.chatHistory].reverse().find(m => m.role === 'user');
+          if (!lastUserMsg) return;
+          const recommendations = recommendToolsForTask(lastUserMsg.content);
+          if (recommendations.length > 0) {
+            appState.currentTaskRecommendations = recommendations;
+            saveAppState();
+            renderRecommendationCard();
+            renderRecommendationSections();
+          } else {
+            alert(t('No recommendations for this task'));
+          }
+        };
       }
     }
 
@@ -17767,6 +18145,579 @@ function updateTokenMeter(session) {
   if (tokensSavedEl) tokensSavedEl.textContent = savedTokens > 0 ? `+${savedTokens.toLocaleString()} saved` : '+0 saved';
 }
 
+// ==================== TOOL RECOMMENDER FUNCTIONS (Batch 7.2b) ====================
+
+// Score a tool entry against prompt text based on trigger matches
+function scoreToolForPrompt(tool, promptText) {
+  const text = promptText.toLowerCase();
+  let score = 0;
+  let matchedTriggers = [];
+  
+  for (const trigger of tool.triggers) {
+    const triggerLower = trigger.toLowerCase();
+    if (text.includes(triggerLower)) {
+      score += 1;
+      matchedTriggers.push(trigger);
+    }
+  }
+  
+  // Apply score boost from learning
+  score += (tool.scoreBoost || 0) * 0.5;
+  
+  return { score, matchedTriggers };
+}
+
+// Check if a tool is already installed/enabled
+function isToolInstalled(tool) {
+  if (tool.kind === 'skill') {
+    // Check if skill is enabled in appState.enabledSkills
+    return appState.enabledSkills?.includes(tool.id) || false;
+  } else if (tool.kind === 'mcp') {
+    // Check if MCP server is in appState.mcpServers
+    return appState.mcpServers?.some(s => s.id === tool.id) || false;
+  } else if (tool.kind === 'plugin') {
+    // Check if plugin is in appState.installedPlugins
+    return appState.installedPlugins?.some(p => p.id === tool.id || p.name === tool.name) || false;
+  }
+  return false;
+}
+
+// Check if a tool is muted
+function isToolMuted(tool) {
+  return !!appState.mutedRecommendations?.[tool.id];
+}
+
+// Main matcher: returns top 3 recommendations above threshold
+function recommendToolsForTask(promptText) {
+  if (!appState.toolRecommendationsEnabled) return [];
+  
+  const scored = TOOL_RECOMMENDATIONS
+    .filter(tool => !isToolInstalled(tool) && !isToolMuted(tool))
+    .map(tool => {
+      const { score, matchedTriggers } = scoreToolForPrompt(tool, promptText);
+      return { tool, score, matchedTriggers };
+    })
+    .filter(r => r.score >= RECOMMENDATION_SCORE_THRESHOLD)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, MAX_RECOMMENDATIONS);
+  
+  return scored.map(r => ({
+    id: r.tool.id,
+    kind: r.tool.kind,
+    name: r.tool.name,
+    whatItDoes: r.tool.whatItDoes,
+    install: r.tool.install,
+    matchedTriggers: r.matchedTriggers,
+    score: r.score,
+    // For MCP trust warning
+    showsUntrustedWarning: r.tool.kind === 'mcp' && r.tool.install.how === 'add-mcp'
+  }));
+}
+
+// Record task -> tool link for learning (local, no model call)
+function recordToolInstalledForTask(taskText, toolId) {
+  const tool = TOOL_RECOMMENDATIONS.find(t => t.id === toolId);
+  if (tool) {
+    tool.scoreBoost = (tool.scoreBoost || 0) + 1;
+    // Persist to appState
+    saveAppState();
+  }
+}
+
+// Mute a tool (Don't suggest again)
+function muteTool(toolId) {
+  if (!appState.mutedRecommendations) appState.mutedRecommendations = {};
+  appState.mutedRecommendations[toolId] = true;
+  saveAppState();
+}
+
+// Unmute a tool
+function unmuteTool(toolId) {
+  if (appState.mutedRecommendations) {
+    delete appState.mutedRecommendations[toolId];
+    saveAppState();
+  }
+}
+
+// Get install path for a tool
+function getInstallPath(tool) {
+  if (!tool) return { how: 'unknown' };
+  return tool.install || { how: 'unknown' };
+}
+
+// Handle recommendation install from chat card
+function handleRecommendationInstall(toolId) {
+  installRecommendedTool(toolId);
+}
+
+// Handle recommendation dismiss from chat card
+function handleRecommendationDismiss(toolId) {
+  dismissRecommendation(toolId);
+}
+
+// Handle recommendation mute from chat card
+function handleRecommendationMute(toolId) {
+  muteTool(toolId);
+  renderRecommendationSections();
+}
+
+// Dismiss a recommendation for current task (hides chat card, keeps page section)
+function dismissRecommendation(toolId) {
+  appState.currentTaskRecommendations = appState.currentTaskRecommendations.filter(
+    r => r.id !== toolId
+  );
+  // Also record in history
+  if (!appState.recommendationHistory) appState.recommendationHistory = [];
+  appState.recommendationHistory.push({
+    taskId: getCurrentTaskId(),
+    toolId,
+    timestamp: Date.now(),
+    dismissed: true,
+    muted: false,
+    installed: false
+  });
+  saveAppState();
+  renderRecommendationCard();
+  renderRecommendationSections();
+}
+
+// Get current task ID (use session + turn number)
+function getCurrentTaskId() {
+  const session = getCurrentSession();
+  if (!session) return 'no-session';
+  return `${session.id}-turn-${session.chatHistory?.filter(m => m.role === 'user').length || 0}`;
+}
+
+// Save current task recommendations to history (when task finishes)
+function finalizeTaskRecommendations() {
+  if (!appState.currentTaskRecommendations?.length) return;
+  if (!appState.recommendationHistory) appState.recommendationHistory = [];
+  
+  const taskId = getCurrentTaskId();
+  appState.currentTaskRecommendations.forEach(rec => {
+    appState.recommendationHistory.push({
+      taskId,
+      toolId: rec.id,
+      timestamp: Date.now(),
+      dismissed: false,
+      muted: false,
+      installed: false
+    });
+  });
+  appState.currentTaskRecommendations = [];
+  saveAppState();
+}
+
+// Get all accumulated recommendations for a kind (for page sections)
+function getAccumulatedRecommendations(kind) {
+  if (!appState.recommendationHistory) return [];
+  
+  // Get unique toolIds from history that are not installed, not muted, not dismissed on page
+  const toolIds = [...new Set(
+    appState.recommendationHistory
+      .filter(h => h.kind === kind || TOOL_RECOMMENDATIONS.find(t => t.id === h.toolId)?.kind === kind)
+      .filter(h => !h.installed && !h.dismissed) // Keep if not installed, not dismissed from page
+      .map(h => h.toolId)
+  )];
+  
+  return toolIds.map(id => {
+    const tool = TOOL_RECOMMENDATIONS.find(t => t.id === id);
+    if (!tool) return null;
+    const history = appState.recommendationHistory.find(h => h.toolId === id);
+    return {
+      ...tool,
+      muted: history?.muted || false,
+      dismissed: history?.dismissed || false
+    };
+  }).filter(Boolean);
+}
+
+// Render the recommendation card in chat area
+function renderRecommendationCard() {
+  const chatMessages = document.getElementById('chat-messages');
+  if (!chatMessages) return;
+  
+  // Remove existing recommendation card
+  const existingCard = chatMessages.querySelector('.tool-recommendation-card');
+  if (existingCard) existingCard.remove();
+  
+  if (!appState.currentTaskRecommendations?.length) return;
+  
+  // Show only the top recommendation in chat card
+  const rec = appState.currentTaskRecommendations[0];
+  
+  const card = document.createElement('div');
+  card.className = 'tool-recommendation-card';
+  card.style.cssText = `
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin: 8px 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    align-items: center;
+    font-size: 13px;
+    animation: slideDown 0.2s ease;
+  `;
+  
+  const kindLabels = { skill: t('Skill'), mcp: t('MCP'), plugin: t('Plugin') };
+  const kindColors = { skill: 'var(--accent-green)', mcp: 'var(--accent-orange)', plugin: 'var(--accent-purple)' };
+  
+  let html = `
+    <span style="font-weight: 600; color: var(--text);">${rec.name}</span>
+    <span class="kind-chip" style="
+      background: ${kindColors[rec.kind]};
+      color: white;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+    ">${kindLabels[rec.kind]}</span>
+    <span style="color: var(--text-muted); flex: 1 1 100%; font-size: 12px;">
+      ${t('Why this helps')}: ${rec.whatItDoes}
+    </span>
+  `;
+  
+  // MCP untrusted warning
+  if (rec.showsUntrustedWarning) {
+    html += `<span style="color: var(--warning); font-size: 11px; flex: 1 1 100%;">⚠ ${t('Newly installed MCPs start UNTRUSTED (per H5.5 rule)')}</span>`;
+  }
+  
+  // Buttons
+  html += `
+    <button class="rec-install-btn" data-tool-id="${rec.id}" style="
+      background: var(--accent-blue);
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 500;
+    ">${t('Install')}</button>
+    <button class="rec-dismiss-btn" data-tool-id="${rec.id}" style="
+      background: transparent;
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+    ">${t('Dismiss')}</button>
+    <button class="rec-mute-btn" data-tool-id="${rec.id}" style="
+      background: transparent;
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+    ">${t("Don't suggest again")}</button>
+  `;
+  
+  card.innerHTML = html;
+  
+  // Insert at the top of chat messages (before first assistant message)
+  const firstAssistantMsg = chatMessages.querySelector('.message.assistant');
+  if (firstAssistantMsg) {
+    chatMessages.insertBefore(card, firstAssistantMsg);
+  } else {
+    chatMessages.prepend(card);
+  }
+  
+  // Add event listeners
+  card.querySelector('.rec-install-btn').addEventListener('click', (e) => {
+    const toolId = e.target.dataset.toolId;
+    installRecommendedTool(toolId);
+  });
+  card.querySelector('.rec-dismiss-btn').addEventListener('click', (e) => {
+    const toolId = e.target.dataset.toolId;
+    dismissRecommendation(toolId);
+  });
+  card.querySelector('.rec-mute-btn').addEventListener('click', (e) => {
+    const toolId = e.target.dataset.toolId;
+    muteTool(toolId);
+    dismissRecommendation(toolId); // Also hide the card
+  });
+  
+  // Add animation keyframes if not exists
+  if (!document.getElementById('rec-card-styles')) {
+    const style = document.createElement('style');
+    style.id = 'rec-card-styles';
+    style.textContent = `
+      @keyframes slideDown {
+        from { opacity: 0; transform: translateY(-10px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      .tool-recommendation-card.installed .rec-install-btn {
+        background: var(--accent-green) !important;
+        cursor: default !important;
+      }
+      .tool-recommendation-card.installed .rec-install-btn::after {
+        content: ' ✓';
+      }
+    `;
+    document.head.appendChild(style);
+  }
+}
+
+// Install a recommended tool (calls existing install path)
+async function installRecommendedTool(toolId) {
+  const tool = TOOL_RECOMMENDATIONS.find(t => t.id === toolId);
+  if (!tool) return;
+  
+  const chatMessages = document.getElementById('chat-messages');
+  const card = chatMessages?.querySelector('.tool-recommendation-card');
+  
+  try {
+    if (tool.kind === 'skill') {
+      // Enable skill
+      if (!appState.enabledSkills) appState.enabledSkills = [];
+      if (!appState.enabledSkills.includes(tool.id)) {
+        appState.enabledSkills.push(tool.id);
+      }
+    } else if (tool.kind === 'mcp') {
+      // Add MCP server - navigate to MCP page and trigger add
+      if (tool.install.how === 'add-mcp') {
+        // The existing MCP manager handles this - we just add to mcpServers
+        if (!appState.mcpServers) appState.mcpServers = [];
+        const newServer = {
+          id: tool.id,
+          name: tool.name,
+          command: tool.install.command,
+          args: [],
+          transport: tool.install.transport,
+          trust: 'untrusted',  // H5.5 rule: newly installed starts UNTRUSTED
+          enabled: true,
+          tools: []
+        };
+        appState.mcpServers.push(newServer);
+      }
+    } else if (tool.kind === 'plugin') {
+      // Install plugin from catalog
+      if (!appState.installedPlugins) appState.installedPlugins = [];
+      if (!appState.installedPlugins.some(p => p.id === tool.id)) {
+        appState.installedPlugins.push({
+          id: tool.id,
+          name: tool.name,
+          enabled: true,
+          packName: tool.install.packName
+        });
+      }
+    }
+    
+    // Record learning
+    recordToolInstalledForTask(getCurrentTaskId(), toolId);
+    
+    // Update history
+    if (!appState.recommendationHistory) appState.recommendationHistory = [];
+    const hist = appState.recommendationHistory.find(h => h.toolId === toolId);
+    if (hist) hist.installed = true;
+    
+    // Remove from current task recommendations
+    appState.currentTaskRecommendations = appState.currentTaskRecommendations.filter(r => r.id !== toolId);
+    
+    saveAppState();
+    renderRecommendationCard();
+    renderRecommendationSections();
+    refreshUI();
+    
+  } catch (err) {
+    logActivity(`Failed to install ${tool.name}: ${err.message}`, 'error');
+  }
+}
+
+// Render Recommendations sections on MCP/Skills/Plugin pages
+function renderRecommendationSections() {
+  // MCP page recommendations
+  const mcpSection = document.getElementById('mcp-recommendations-section');
+  if (mcpSection) {
+    mcpSection.innerHTML = renderRecommendationSection('mcp');
+  }
+  
+  // Skills page recommendations
+  const skillsSection = document.getElementById('skills-recommendations-section');
+  if (skillsSection) {
+    skillsSection.innerHTML = renderRecommendationSection('skill');
+  }
+  
+  // Plugin Catalog recommendations
+  const pluginSection = document.getElementById('plugin-recommendations-section');
+  if (pluginSection) {
+    pluginSection.innerHTML = renderRecommendationSection('plugin');
+  }
+
+  // Attach event listeners to page recommendation buttons
+  attachPageRecommendationListeners();
+}
+
+function renderRecommendationSection(kind) {
+  const recs = getAccumulatedRecommendations(kind);
+  if (!recs.length) return '';
+  
+  const kindLabels = { skill: t('Skill'), mcp: t('MCP'), plugin: t('Plugin') };
+  const kindColors = { skill: 'var(--accent-green)', mcp: 'var(--accent-orange)', plugin: 'var(--accent-purple)' };
+  
+  let html = `
+    <div class="recommendations-section" style="margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border);">
+      <h3 style="margin: 0 0 12px; display: flex; align-items: center; gap: 8px;">
+        <span style="background: ${kindColors[kind]}; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;">${kindLabels[kind]}</span>
+        ${t('Recommendations')}
+      </h3>
+      <p style="color: var(--text-muted); font-size: 12px; margin-bottom: 12px;">${t('Accumulated recommendations across tasks')}</p>
+  `;
+  
+  for (const tool of recs) {
+    const installed = isToolInstalled(tool);
+    const muted = tool.muted || isToolMuted(tool);
+    
+    html += `
+      <div class="recommendation-entry" data-tool-id="${tool.id}" style="
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 8px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 12px;
+        align-items: center;
+        ${muted ? 'opacity: 0.5;' : ''}
+      ">
+        <span style="font-weight: 600; color: var(--text);">${tool.name}</span>
+        <span class="kind-chip" style="
+          background: ${kindColors[kind]};
+          color: white;
+          padding: 2px 8px;
+          border-radius: 4px;
+          font-size: 11px;
+          font-weight: 600;
+          text-transform: uppercase;
+        ">${kindLabels[kind]}</span>
+        <span style="color: var(--text-muted); flex: 1 1 100%; font-size: 12px;">${tool.whatItDoes}</span>
+    `;
+    
+    if (tool.kind === 'mcp' && tool.install.how === 'add-mcp') {
+      html += `<span style="color: var(--warning); font-size: 11px; flex: 1 1 100%;">⚠ ${t('Newly installed MCPs start UNTRUSTED (per H5.5 rule)')}</span>`;
+    }
+    
+    if (!installed) {
+      html += `
+        <button class="page-rec-install-btn" data-tool-id="${tool.id}" data-kind="${tool.kind}" style="
+          background: var(--accent-blue);
+          color: white;
+          border: none;
+          padding: 6px 12px;
+          border-radius: 4px;
+          cursor: pointer;
+          font-size: 12px;
+          font-weight: 500;
+        ">${t('Install')}</button>
+        <button class="page-rec-dismiss-btn" data-tool-id="${tool.id}" data-kind="${tool.kind}" style="
+          background: transparent;
+          color: var(--text-muted);
+          border: 1px solid var(--border);
+          padding: 6px 12px;
+          border-radius: 4px;
+          cursor: pointer;
+          font-size: 12px;
+        ">${t('Dismiss')}</button>
+        <button class="page-rec-mute-btn" data-tool-id="${tool.id}" data-kind="${tool.kind}" style="
+          background: transparent;
+          color: var(--text-muted);
+          border: 1px solid var(--border);
+          padding: 6px 12px;
+          border-radius: 4px;
+          cursor: pointer;
+          font-size: 12px;
+        ">${t("Don't suggest again")}</button>
+      `;
+    } else {
+      html += `<span style="color: var(--accent-green); font-size: 12px;">${t('Installed ✓')}</span>`;
+    }
+    
+    html += `</div>`;
+  }
+  
+  html += `</div>`;
+  return html;
+}
+
+// Attach event listeners to page recommendation buttons (call after render)
+function attachPageRecommendationListeners() {
+  document.querySelectorAll('.page-rec-install-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const toolId = e.target.dataset.toolId;
+      installRecommendedTool(toolId);
+    });
+  });
+  document.querySelectorAll('.page-rec-dismiss-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const toolId = e.target.dataset.toolId;
+      // Mark as dismissed in history
+      if (!appState.recommendationHistory) return;
+      const hist = appState.recommendationHistory.find(h => h.toolId === toolId);
+      if (hist) hist.dismissed = true;
+      saveAppState();
+      renderRecommendationSections();
+    });
+  });
+  document.querySelectorAll('.page-rec-mute-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const toolId = e.target.dataset.toolId;
+      muteTool(toolId);
+      // Also mark as dismissed
+      if (!appState.recommendationHistory) return;
+      const hist = appState.recommendationHistory.find(h => h.toolId === toolId);
+      if (hist) hist.dismissed = true;
+      saveAppState();
+      renderRecommendationSections();
+    });
+  });
+}
+
+// Hook into sendAgentPrompt: run matcher on first turn
+// We'll add this inside sendAgentPrompt after the user prompt is processed
+
+// Render muted recommendations list in Behavior tab
+function renderMutedRecommendationsList() {
+  const container = document.getElementById('mutedRecommendationsList');
+  if (!container) return;
+  
+  const mutedIds = Object.keys(appState.mutedRecommendations || {});
+  if (!mutedIds.length) {
+    container.innerHTML = '<div style="font-size: 11px; color: var(--text-dim); padding: 8px;">No muted recommendations</div>';
+    return;
+  }
+  
+  container.innerHTML = mutedIds.map(toolId => {
+    const tool = TOOL_RECOMMENDATIONS.find(t => t.id === toolId);
+    if (!tool) return '';
+    const kindLabels = { skill: t('Skill'), mcp: t('MCP'), plugin: t('Plugin') };
+    const kindColors = { skill: 'var(--accent-green)', mcp: 'var(--accent-orange)', plugin: 'var(--accent-purple)' };
+    return `
+      <div style="display: flex; align-items: center; gap: 8px; padding: 6px 8px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px;">
+        <span style="font-weight: 600; color: var(--text); flex: 1;">${tool.name}</span>
+        <span style="background: ${kindColors[tool.kind]}; color: white; padding: 1px 6px; border-radius: 3px; font-size: 9px; font-weight: 600; text-transform: uppercase;">${kindLabels[tool.kind]}</span>
+        <button class="unmute-btn" data-tool-id="${toolId}" style="padding: 3px 8px; background: var(--accent-blue); color: white; border: none; border-radius: 3px; font-size: 10px; cursor: pointer;">${t('Unmute')}</button>
+      </div>
+    `;
+  }).join('');
+  
+  // Attach unmute listeners
+  container.querySelectorAll('.unmute-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const toolId = e.target.dataset.toolId;
+      unmuteTool(toolId);
+      renderMutedRecommendationsList();
+      renderRecommendationSections();
+    });
+  });
+}
+
 async function sendAgentPrompt(userPrompt, autoTurn = 0) {
       // Track latest user prompt for Repo Map personalization (Batch 7.1)
       if (autoTurn === 0) _lastUserPrompt = userPrompt;
@@ -17812,6 +18763,20 @@ async function sendAgentPrompt(userPrompt, autoTurn = 0) {
           } catch (e) {
             logActivity(`Auto-title failed: ${e.message}`, 'warning');
           }
+        }
+      }
+
+      // Tool Recommender: run matcher on first user turn (Batch 7.2b)
+      if (autoTurn === 0 && appState.toolRecommendationsEnabled) {
+        const recommendations = recommendToolsForTask(userPrompt);
+        if (recommendations.length > 0) {
+          appState.currentTaskRecommendations = recommendations;
+          saveAppState();
+          // Small delay to let chat render first
+          setTimeout(() => {
+            renderRecommendationCard();
+            renderRecommendationSections();
+          }, 0);
         }
       }
 
@@ -21575,20 +22540,52 @@ Format:
             renderProviderList();
             renderProviderFallbackChain();
           }
-          if (tabName === 'skills') renderBuiltinSkillPacks();
-          if (tabName === 'plugins') renderBuiltinPluginPacks();
-          if (tabName === 'mcp') renderMcpServerSummary();
-          if (tabName === 'behavior') renderUncensoredBehaviorTab();
-          if (tabName === 'autonomy') renderAutonomyTab();
-          if (tabName === 'rules') renderRulesTab();
-          if (tabName === 'backup') renderBackupTab();
-          if (tabName === 'usage') renderUsageDashboard();
-          if (tabName === 'language') renderLanguageTab();
-          if (tabName === 'skillLibrarian') renderSkillLibrarian();
-          if (tabName === 'scheduled') renderScheduledTasksTab();
-          if (tabName === 'importTools') renderImportToolsTab();
-          if (tabName === 'hooks') renderHooksTab();
-          if (tabName === 'pluginCatalog') renderPluginCatalogTab();
+          if (tabName === 'mcp') {
+            renderMcpServerSummary();
+            renderRecommendationSections();
+          }
+          if (tabName === 'skills') {
+            renderBuiltinSkillPacks();
+            renderRecommendationSections();
+          }
+          if (tabName === 'plugins') {
+            renderBuiltinPluginPacks();
+            renderRecommendationSections();
+          }
+          if (tabName === 'behavior') {
+            renderUncensoredBehaviorTab();
+          }
+          if (tabName === 'autonomy') {
+            renderAutonomyTab();
+          }
+          if (tabName === 'rules') {
+            renderRulesTab();
+          }
+          if (tabName === 'backup') {
+            renderBackupTab();
+          }
+          if (tabName === 'usage') {
+            renderUsageDashboard();
+          }
+          if (tabName === 'language') {
+            renderLanguageTab();
+          }
+          if (tabName === 'skillLibrarian') {
+            renderSkillLibrarian();
+          }
+          if (tabName === 'scheduled') {
+            renderScheduledTasksTab();
+          }
+          if (tabName === 'importTools') {
+            renderImportToolsTab();
+          }
+          if (tabName === 'hooks') {
+            renderHooksTab();
+          }
+          if (tabName === 'pluginCatalog') {
+            renderPluginCatalogTab();
+            renderRecommendationSections();
+          }
         });
       });
 
