@@ -2544,6 +2544,26 @@
           </label>
         </div>
         <hr style="border: none; border-top: 1px solid var(--border-color); margin: 12px 0;">
+        <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;" data-i18n="Fuzzy Patch Matching">Fuzzy Patch Matching</div>
+        <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 8px;" data-i18n="When ON, SEARCH/REPLACE patches use fuzzy matching to handle typos and indentation drift. When OFF, only exact matches apply.">When ON, SEARCH/REPLACE patches use fuzzy matching to handle typos and indentation drift. When OFF, only exact matches apply.</div>
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+          <div style="flex: 1; min-width: 0;">
+            <div style="font-weight: 600; font-size: 12px; color: var(--text-main);" data-i18n="Enable fuzzy patch matching">Enable fuzzy patch matching</div>
+            <div style="font-size: 10px; color: var(--text-dim); margin-top: 2px;" data-i18n="Allow approximate matches for SEARCH blocks (typos, indentation differences).">Allow approximate matches for SEARCH blocks (typos, indentation differences).</div>
+          </div>
+          <label class="toggle-switch" style="cursor: pointer; flex-shrink: 0;">
+            <input type="checkbox" id="fuzzyPatchToggleSettings" style="display: none;" checked />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div style="display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 8px;">
+          <div style="flex: 1; min-width: 150px;">
+            <label style="display: block; font-size: 11px; color: var(--text-muted); margin-bottom: 4px;" data-i18n="Similarity Threshold">Similarity Threshold</label>
+            <input type="number" id="fuzzyPatchThresholdInput" class="form-input" min="0.5" max="1.0" step="0.05" value="0.85" style="width: 100%; padding: 6px 8px; font-size: 12px;" />
+            <div style="font-size: 10px; color: var(--text-dim); margin-top: 2px;" data-i18n="Minimum similarity for fuzzy match (0.5-1.0, default: 0.85). Higher = stricter.">Minimum similarity for fuzzy match (0.5-1.0, default: 0.85). Higher = stricter.</div>
+          </div>
+        </div>
+        <hr style="border: none; border-top: 1px solid var(--border-color); margin: 12px 0;">
         <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;" data-i18n="Prompt Enhancer">Prompt Enhancer</div>
         <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 8px;" data-i18n="When ON, short prompts are automatically expanded into full build specs before sending. When OFF, use the ✨ button manually.">When ON, short prompts are automatically expanded into full build specs before sending. When OFF, use the ✨ button manually.</div>
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
@@ -5258,6 +5278,14 @@ WORK STYLE:
         'Manage': 'ম্যানেজ করুন',
         'No hooks yet. Click "Add Hook" to create one.': 'এখনো কোনো হুক নেই। "হুক যোগ করুন" ক্লিক করুন।',
         'No plugin packs installed. Click "Browse Catalog" to install.': 'কোনো প্লাগিন প্যাক ইনস্টল নেই। "ক্যাটালগ ব্রাউজ করুন" ক্লিক করুন।',
+
+        // Fuzzy Patch Matching (Batch 7.2)
+        'Fuzzy Patch Matching': 'ফাজি প্যাচ ম্যাচিং',
+        'When ON, SEARCH/REPLACE patches use fuzzy matching to handle typos and indentation drift. When OFF, only exact matches apply.': 'চালু থাকলে, SEARCH/REPLACE প্যাচ টাইপো এবং ইন্ডেন্টেশন ড্রিফট হ্যান্ডল করতে ফাজি ম্যাচিং ব্যবহার করে। বন্ধ থাকলে, শুধু এক্সাক্ট ম্যাচ কাজ করে।',
+        'Enable fuzzy patch matching': 'ফাজি প্যাচ ম্যাচিং সক্রিয় করুন',
+        'Allow approximate matches for SEARCH blocks (typos, indentation differences).': 'SEARCH ব্লকে আনুমানিক ম্যাচ অনুমতি দিন (টাইপো, ইন্ডেন্টেশন পার্থক্য)।',
+        'Similarity Threshold': 'সাদৃশ্য থ্রেশহোল্ড',
+        'Minimum similarity for fuzzy match (0.5-1.0, default: 0.85). Higher = stricter.': 'ফাজি ম্যাচের জন্য নূনতম সাদৃশ্য (০.৫-১.০, ডিফল্ট: ০.৮৫)। বেশি = কঠোর।',
   }
 };
 
@@ -5444,6 +5472,9 @@ WORK STYLE:
       // Repo Map state (Batch 7.1)
       repoMapBudget: 1024,        // Token budget for Repo Map (0 = off, default 1024)
       repoMapEnabled: true,       // Per-session toggle for Repo Map
+      // Diff-based Editing state (Batch 7.2)
+      fuzzyPatchMatching: true,   // Enable fuzzy matching for SEARCH/REPLACE patches
+      fuzzyPatchThreshold: 0.85,  // Similarity threshold for fuzzy matching (0.5-1.0)
       // Language state
       language: 'en',           // 'en' | 'bn'
       // Skill Librarian state
@@ -10183,6 +10214,31 @@ Links: [[Brain Index]]
           appState.atomicBatchMode = e.target.checked;
           saveAppState();
           logActivity(e.target.checked ? 'Atomic batches (compact summary) enabled' : 'Atomic batches disabled', 'info');
+        };
+      }
+
+      // Fuzzy Patch Matching toggle
+      const fuzzyPatchToggle = document.getElementById('fuzzyPatchToggleSettings');
+      if (fuzzyPatchToggle) {
+        fuzzyPatchToggle.checked = appState.fuzzyPatchMatching !== false; // Default ON
+        fuzzyPatchToggle.onchange = (e) => {
+          appState.fuzzyPatchMatching = e.target.checked;
+          saveAppState();
+          logActivity(e.target.checked ? 'Fuzzy patch matching enabled' : 'Fuzzy patch matching disabled (exact-only)', 'info');
+        };
+      }
+
+      // Fuzzy Patch Threshold input
+      const fuzzyPatchThresholdInput = document.getElementById('fuzzyPatchThresholdInput');
+      if (fuzzyPatchThresholdInput) {
+        fuzzyPatchThresholdInput.value = appState.fuzzyPatchThreshold ?? 0.85;
+        fuzzyPatchThresholdInput.onchange = (e) => {
+          const val = parseFloat(e.target.value);
+          if (!isNaN(val) && val >= 0.5 && val <= 1.0) {
+            appState.fuzzyPatchThreshold = val;
+            saveAppState();
+            logActivity(`Fuzzy patch similarity threshold set to ${val}`, 'info');
+          }
         };
       }
 
@@ -15991,46 +16047,56 @@ Only propose merges for skills that are genuinely overlapping or complementary. 
     }
 
     function buildSystemContext() {
-      const session = getCurrentSession();
-      let context = `You are FlamingoCode AI, an expert software developer in a browser IDE.
-You edit the user's project by returning code blocks using this EXACT syntax:
+          const session = getCurrentSession();
+          let context = `You are FlamingoCode AI, an expert software developer in a browser IDE.
+    You edit the user's project by returning code blocks using this EXACT syntax:
 
-To create or overwrite a file:
-\`\`\`file:path/to/file.ext
-[full file content here]
-\`\`\`
+    To create or overwrite a file:
+    \`\`\`file:path/to/file.ext
+    [full file content here]
+    \`\`\`
 
-To delete a file:
-\`\`\`delete:path/to/file.ext
-\`\`\`
+    To delete a file:
+    \`\`\`delete:path/to/file.ext
+    \`\`\`
 
-To navigate the browser pane:
-\`\`\`browse:https://example.com
-\`\`\`
+    To navigate the browser pane:
+    \`\`\`browse:https://example.com
+    \`\`\`
 
-RULES:
-1. Always write COMPLETE file contents inside file: blocks. Never use comments like "// rest of code remains the same".
-2. Keep text explanation brief and concise.
-3. Use modern, clean, self-contained HTML/CSS/JavaScript.
+    To make targeted edits (PREFERRED for small changes):
+    \`\`\`searchreplace:path/to/file.ext
+    <<<<<<< SEARCH
+    [exact lines to find]
+    =======
+    [replacement lines]
+    >>>>>>> REPLACE
+    \`\`\`
 
-CURRENT VIRTUAL FILES:
-`;
+    RULES:
+    1. PATCH FIRST: For small changes, use searchreplace blocks. Never rewrite a whole file for a 5-line fix.
+    2. Always write COMPLETE file contents inside file: blocks. Never use comments like "// rest of code remains the same".
+    3. Keep text explanation brief and concise.
+    4. Use modern, clean, self-contained HTML/CSS/JavaScript.
 
-      let totalBytes = 0;
-      const MAX_BYTES = 60000;
+    CURRENT VIRTUAL FILES:
+    `;
 
-      for (const [path, content] of Object.entries(session.files)) {
-        const fileBlock = `\n--- FILE: ${path} ---\n${content}\n`;
-        if (totalBytes + fileBlock.length > MAX_BYTES) {
-          context += `\n[... Remaining files truncated due to size limit ...]`;
-          break;
+          let totalBytes = 0;
+          const MAX_BYTES = 60000;
+
+          for (const [path, content] of Object.entries(session.files)) {
+            const fileBlock = `\n--- FILE: ${path} ---\n${content}\n`;
+            if (totalBytes + fileBlock.length > MAX_BYTES) {
+              context += `\n[... Remaining files truncated due to size limit ...]`;
+              break;
+            }
+            context += fileBlock;
+            totalBytes += fileBlock.length;
+          }
+
+          return context;
         }
-        context += fileBlock;
-        totalBytes += fileBlock.length;
-      }
-
-      return context;
-    }
 
     function appendChatMessage(role, content, chips = [], toolsUsed = [], isCodebaseChat = false) {
           const chat = document.getElementById('chatMessages');
@@ -16218,6 +16284,477 @@ CURRENT VIRTUAL FILES:
       return html;
     }
 
+    // ==================== BATCH 7.2: DIFF-BASED EDITING (PATCH APPLICATION) ====================
+
+    // Compute Levenshtein similarity between two strings (0-1)
+    function computeLevenshteinSimilarity(a, b) {
+      if (a === b) return 1;
+      if (!a.length || !b.length) return 0;
+      const m = a.length, n = b.length;
+      const dp = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
+      for (let i = 0; i <= m; i++) dp[i][0] = i;
+      for (let j = 0; j <= n; j++) dp[0][j] = j;
+      for (let i = 1; i <= m; i++) {
+        for (let j = 1; j <= n; j++) {
+          if (a[i - 1] === b[j - 1]) dp[i][j] = dp[i - 1][j - 1];
+          else dp[i][j] = 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+        }
+      }
+      const maxLen = Math.max(m, n);
+      return 1 - dp[m][n] / maxLen;
+    }
+
+    // Parse SEARCH/REPLACE blocks from response text
+    // Returns array of { filePath, searchText, replaceText, rawBlock }
+    function parseSearchReplaceBlocks(responseText) {
+      const blocks = [];
+      // Match ```searchreplace:filepath\nSEARCH/REPLACE block```
+      const regex = /```searchreplace:([^\n]+)\n([\s\S]*?)```/g;
+      let match;
+      while ((match = regex.exec(responseText)) !== null) {
+        const filePath = match[1].trim();
+        const blockContent = match[2];
+        // Parse SEARCH/REPLACE within the block
+        const srMatch = blockContent.match(/<<<<<<< SEARCH\n([\s\S]*?)\n=======\n([\s\S]*?)\n>>>>>>> REPLACE/);
+        if (srMatch) {
+          blocks.push({
+            filePath,
+            searchText: srMatch[1],
+            replaceText: srMatch[2],
+            rawBlock: match[0]
+          });
+        }
+      }
+      return blocks;
+    }
+
+    // Apply a single SEARCH/REPLACE patch to file content
+    // Returns { success: true, newContent } or { success: false, error }
+    function applySearchReplacePatchToContent(fileContent, searchText, replaceText, options = {}) {
+      const { fuzzy = true, threshold = 0.85, activeLine = 0 } = options;
+      const fileLines = fileContent.split('\n');
+      const searchLines = searchText.split('\n');
+
+      // Helper: try exact match at a specific position
+      function tryExactMatch(startLine) {
+        if (startLine < 0 || startLine + searchLines.length > fileLines.length) return null;
+        for (let i = 0; i < searchLines.length; i++) {
+          if (fileLines[startLine + i] !== searchLines[i]) return null;
+        }
+        return startLine;
+      }
+
+      // Helper: compute similarity between search block and file region
+      function computeRegionSimilarity(startLine) {
+        if (startLine < 0 || startLine + searchLines.length > fileLines.length) return 0;
+        let totalSim = 0;
+        for (let i = 0; i < searchLines.length; i++) {
+          totalSim += computeLevenshteinSimilarity(searchLines[i], fileLines[startLine + i]);
+        }
+        return totalSim / searchLines.length;
+      }
+
+      // Helper: detect indentation of a line
+      function getIndent(line) {
+        const match = line.match(/^(\s*)/);
+        return match ? match[1] : '';
+      }
+
+      // Helper: compute base indentation of a block (minimum non-zero indent of non-empty lines)
+      function getBaseIndent(lines) {
+        let minIndent = null;
+        for (const line of lines) {
+          if (line.trim()) {
+            const indent = getIndent(line);
+            if (indent.length > 0 && (minIndent === null || indent.length < minIndent.length)) {
+              minIndent = indent;
+            }
+          }
+        }
+        return minIndent || '';
+      }
+
+      // Helper: compute minimum indentation including zero (for block-level lines)
+      function getMinIndent(lines) {
+        let minIndent = null;
+        for (const line of lines) {
+          if (line.trim()) {
+            const indent = getIndent(line);
+            if (minIndent === null || indent.length < minIndent.length) {
+              minIndent = indent;
+            }
+          }
+        }
+        return minIndent || '';
+      }
+
+      // Helper: re-indent replacement to match target indentation
+      function reIndentReplacement(replaceLines, targetBodyIndent, searchBodyIndent, targetBlockIndent, searchBlockIndent) {
+        if (!searchBodyIndent && !searchBlockIndent) return replaceLines;
+        
+        return replaceLines.map(line => {
+          if (!line.trim()) return line;
+          const lineIndent = getIndent(line);
+          
+          // Determine if this line is at block level or body level
+          const isBodyLine = searchBodyIndent && lineIndent.startsWith(searchBodyIndent);
+          const isBlockLine = searchBlockIndent && lineIndent.startsWith(searchBlockIndent) && !isBodyLine;
+          
+          if (isBodyLine) {
+            // Body line: preserve relative indentation from search body
+            const relativeIndent = lineIndent.slice(searchBodyIndent.length);
+            return targetBodyIndent + relativeIndent + line.trimStart();
+          } else if (isBlockLine) {
+            // Block level line: preserve relative indentation from search block
+            const relativeIndent = lineIndent.slice(searchBlockIndent.length);
+            return targetBlockIndent + relativeIndent + line.trimStart();
+          } else {
+            // Line doesn't match either pattern - use target block indent
+            return targetBlockIndent + line.trimStart();
+          }
+        });
+      }
+
+      // 1. Try exact match first
+      const exactMatches = [];
+      for (let i = 0; i <= fileLines.length - searchLines.length; i++) {
+        const matchPos = tryExactMatch(i);
+        if (matchPos !== null) exactMatches.push(matchPos);
+      }
+
+      if (exactMatches.length === 1) {
+        // Unique exact match - apply it
+        const matchLine = exactMatches[0];
+        const matchedFileLines = fileLines.slice(matchLine, matchLine + searchLines.length);
+        const targetBodyIndent = getBaseIndent(matchedFileLines);
+        const targetBlockIndent = getMinIndent(matchedFileLines);
+        const searchBodyIndent = getBaseIndent(searchLines);
+        const searchBlockIndent = getMinIndent(searchLines);
+        const newReplaceLines = reIndentReplacement(replaceText.split('\n'), targetBodyIndent, searchBodyIndent, targetBlockIndent, searchBlockIndent);
+        const newContent = [
+          ...fileLines.slice(0, matchLine),
+          ...newReplaceLines,
+          ...fileLines.slice(matchLine + searchLines.length)
+        ].join('\n');
+        return { success: true, newContent, matchLine, method: 'exact' };
+      }
+
+      if (exactMatches.length > 1) {
+        // Multiple exact matches - use middle-out strategy
+        // Sort by distance from activeLine, pick closest
+        exactMatches.sort((a, b) => Math.abs(a - activeLine) - Math.abs(b - activeLine));
+        const matchLine = exactMatches[0];
+        const matchedFileLines = fileLines.slice(matchLine, matchLine + searchLines.length);
+        const targetBodyIndent = getBaseIndent(matchedFileLines);
+        const targetBlockIndent = getMinIndent(matchedFileLines);
+        const searchBodyIndent = getBaseIndent(searchLines);
+        const searchBlockIndent = getMinIndent(searchLines);
+        const newReplaceLines = reIndentReplacement(replaceText.split('\n'), targetBodyIndent, searchBodyIndent, targetBlockIndent, searchBlockIndent);
+        const newContent = [
+          ...fileLines.slice(0, matchLine),
+          ...newReplaceLines,
+          ...fileLines.slice(matchLine + searchLines.length)
+        ].join('\n');
+        return { success: true, newContent, matchLine, method: 'middle-out-exact' };
+      }
+
+      // 2. No exact match - try fuzzy if enabled
+      let bestMatch = null;
+      let bestScore = 0;
+      if (fuzzy) {
+        for (let i = 0; i <= fileLines.length - searchLines.length; i++) {
+          const score = computeRegionSimilarity(i);
+          if (score > bestScore) {
+            bestScore = score;
+            bestMatch = i;
+          }
+        }
+        if (bestMatch !== null && bestScore >= threshold) {
+          const matchedFileLines = fileLines.slice(bestMatch, bestMatch + searchLines.length);
+          const targetBodyIndent = getBaseIndent(matchedFileLines);
+          const targetBlockIndent = getMinIndent(matchedFileLines);
+          const searchBodyIndent = getBaseIndent(searchLines);
+          const searchBlockIndent = getMinIndent(searchLines);
+          const newReplaceLines = reIndentReplacement(replaceText.split('\n'), targetBodyIndent, searchBodyIndent, targetBlockIndent, searchBlockIndent);
+          const newContent = [
+            ...fileLines.slice(0, bestMatch),
+            ...newReplaceLines,
+            ...fileLines.slice(bestMatch + searchLines.length)
+          ].join('\n');
+          return { success: true, newContent, matchLine: bestMatch, method: 'fuzzy', score: bestScore };
+        }
+      }
+
+      // 3. No match found
+      return {
+        success: false,
+        error: fuzzy
+          ? `No match found (best similarity: ${bestScore?.toFixed(2) || 0}, threshold: ${threshold})`
+          : 'No exact match found and fuzzy matching is disabled'
+      };
+    }
+
+    // Apply SEARCH/REPLACE patches from response text
+    // Returns { success, changes: [{filePath, oldContent, newContent, method}], error }
+    async function applySearchReplacePatch(responseText, session) {
+      const blocks = parseSearchReplaceBlocks(responseText);
+      if (blocks.length === 0) return { success: false, error: 'No SEARCH/REPLACE blocks found' };
+
+      const changes = [];
+      const originalFiles = {};
+
+      // Snapshot original files for potential rollback
+      for (const block of blocks) {
+        if (session.files[block.filePath] !== undefined) {
+          originalFiles[block.filePath] = session.files[block.filePath];
+        }
+      }
+
+      const activeLine = session.activeFile && session.files[session.activeFile]
+        ? session.files[session.activeFile].split('\n').length / 2 // rough middle
+        : 0;
+
+      for (const block of blocks) {
+        const fileContent = session.files[block.filePath] || '';
+        // Use session.appState if available, else global appState
+        const patchState = session.appState || appState;
+        const result = applySearchReplacePatchToContent(fileContent, block.searchText, block.replaceText, {
+          fuzzy: patchState.fuzzyPatchMatching !== false,
+          threshold: patchState.fuzzyPatchThreshold ?? 0.85,
+          activeLine
+        });
+
+        if (!result.success) {
+          // Rollback all changes from this message
+          for (const [path, content] of Object.entries(originalFiles)) {
+            session.files[path] = content;
+          }
+          return { success: false, error: `Block for ${block.filePath} failed: ${result.error}`, changes };
+        }
+
+        session.files[block.filePath] = result.newContent;
+        changes.push({
+          filePath: block.filePath,
+          oldContent: fileContent,
+          newContent: result.newContent,
+          method: result.method,
+          matchLine: result.matchLine,
+          score: result.score
+        });
+        markGraphDirty();
+        if (!session.fileMeta) session.fileMeta = {};
+        session.fileMeta[block.filePath] = { lastModifiedBy: 'agent', timestamp: Date.now() };
+      }
+
+      return { success: true, changes };
+    }
+
+    // Parse unified diff format
+    function parseUnifiedDiff(diffText) {
+      const files = [];
+      
+      // First, split the diff into file sections
+      const fileSections = [];
+      const fileHeaderRegex = /^--- [^\n]+\n\+\+\+ [^\n]+/gm;
+      let headerMatch;
+      const headers = [];
+      while ((headerMatch = fileHeaderRegex.exec(diffText)) !== null) {
+        headers.push({ index: headerMatch.index, match: headerMatch[0] });
+      }
+      
+      for (let i = 0; i < headers.length; i++) {
+        const start = headers[i].index;
+        const end = i + 1 < headers.length ? headers[i + 1].index : diffText.length;
+        const section = diffText.slice(start, end);
+        fileSections.push(section);
+      }
+      
+      // If no file headers found, treat entire diff as one file
+      if (fileSections.length === 0 && diffText.trim()) {
+        fileSections.push(diffText);
+      }
+      
+      for (const section of fileSections) {
+        // Parse file header
+        const headerMatch = section.match(/^--- (?:a\/)?(.+)\n\+\+\+ (?:b\/)?(.+)/);
+        if (!headerMatch) continue;
+        
+        const oldFile = headerMatch[1];
+        const newFile = headerMatch[2];
+        const filePath = oldFile === '/dev/null' ? newFile : oldFile;
+        
+        // Find hunks for this file
+        const hunkRegex = /@@ -(\d+),?(\d*) \+(\d+),?(\d*) @@([\s\S]*?)(?=@@|$)/g;
+        const hunks = [];
+        let hunkMatch;
+        while ((hunkMatch = hunkRegex.exec(section)) !== null) {
+          const oldStart = parseInt(hunkMatch[1], 10);
+          const oldLines = parseInt(hunkMatch[2] || '1', 10);
+          const newStart = parseInt(hunkMatch[3], 10);
+          const newLines = parseInt(hunkMatch[4] || '1', 10);
+          const hunkContent = hunkMatch[5].trim();
+          
+          // Parse hunk lines
+          const hunkLines = hunkContent.split('\n').map(line => {
+            if (line.startsWith(' ')) return { type: 'context', content: line.slice(1) };
+            if (line.startsWith('-')) return { type: 'remove', content: line.slice(1) };
+            if (line.startsWith('+')) return { type: 'add', content: line.slice(1) };
+            return { type: 'context', content: line }; // fallback
+          });
+          
+          hunks.push({ oldStart, oldLines, newStart, newLines, lines: hunkLines });
+        }
+        
+        files.push({ filePath, hunks });
+      }
+      
+      return files;
+    }
+
+    // Apply unified diff to file content
+    function applyUnifiedDiffToContent(fileContent, hunks, options = {}) {
+      const { fuzzy = true, threshold = 0.85 } = options;
+      const fileLines = fileContent.split('\n');
+      let newLines = [...fileLines];
+      let lineOffset = 0; // Track line shifts from previous hunks
+
+      for (const hunk of hunks) {
+        const targetStart = hunk.oldStart - 1 + lineOffset; // 0-indexed
+        
+        // Extract context lines (non-removed) to find match position
+        const contextLines = hunk.lines.filter(l => l.type === 'context' || l.type === 'remove').map(l => l.content);
+        const expectedLength = contextLines.length;
+        
+        // Try exact match at expected position
+        let matchPos = -1;
+        if (targetStart >= 0 && targetStart + expectedLength <= newLines.length) {
+          let exact = true;
+          for (let i = 0; i < expectedLength; i++) {
+            if (newLines[targetStart + i] !== contextLines[i]) { exact = false; break; }
+          }
+          if (exact) matchPos = targetStart;
+        }
+
+        // If exact match fails, search nearby (middle-out from targetStart)
+        if (matchPos === -1) {
+          const searchRadius = 50;
+          const searchStart = Math.max(0, targetStart - searchRadius);
+          const searchEnd = Math.min(newLines.length - expectedLength, targetStart + searchRadius);
+          for (let i = searchStart; i <= searchEnd; i++) {
+            let match = true;
+            for (let j = 0; j < expectedLength; j++) {
+              if (newLines[i + j] !== contextLines[j]) { match = false; break; }
+            }
+            if (match) { matchPos = i; break; }
+          }
+        }
+
+        // If still no match, try fuzzy
+        if (matchPos === -1 && fuzzy) {
+          let bestScore = 0;
+          for (let i = 0; i <= newLines.length - expectedLength; i++) {
+            let totalSim = 0;
+            for (let j = 0; j < expectedLength; j++) {
+              totalSim += computeLevenshteinSimilarity(contextLines[j], newLines[i + j]);
+            }
+            const avgSim = totalSim / expectedLength;
+            if (avgSim > bestScore) {
+              bestScore = avgSim;
+              matchPos = i;
+            }
+          }
+          if (bestScore < threshold) matchPos = -1;
+        }
+
+        if (matchPos === -1) {
+          return { success: false, error: `Hunk at line ${hunk.oldStart} failed to apply` };
+        }
+
+        // Apply the hunk
+        const newHunkLines = hunk.lines
+          .filter(l => l.type !== 'remove')
+          .map(l => l.content);
+        
+        newLines = [
+          ...newLines.slice(0, matchPos),
+          ...newHunkLines,
+          ...newLines.slice(matchPos + expectedLength)
+        ];
+        
+        lineOffset += newHunkLines.length - expectedLength;
+      }
+
+      return { success: true, newContent: newLines.join('\n') };
+    }
+
+    // Apply unified diff from response text
+    async function applyUnifiedDiff(responseText, session) {
+      // Extract unified diff blocks (```diff\n...``` or raw unified diff)
+      const diffRegex = /```diff\n([\s\S]*?)```/g;
+      const diffMatches = [];
+      let match;
+      while ((match = diffRegex.exec(responseText)) !== null) {
+        diffMatches.push(match[1]);
+      }
+      
+      // Also try raw unified diff format (starting with --- or +++)
+      if (diffMatches.length === 0) {
+        // If responseText looks like a unified diff (starts with ---), use it directly
+        const trimmed = responseText.trim();
+        if (trimmed.startsWith('--- ')) {
+          diffMatches.push(trimmed);
+        } else {
+          // Try to extract from markdown code blocks without language spec
+          const genericDiffRegex = /```\n(--- [\s\S]*?)```/g;
+          while ((match = genericDiffRegex.exec(responseText)) !== null) {
+            diffMatches.push(match[1]);
+          }
+        }
+      }
+      
+      if (diffMatches.length === 0) return { success: false, error: 'No unified diff blocks found' };
+
+      const allChanges = [];
+      const originalFiles = {};
+
+      for (const diffText of diffMatches) {
+        const parsedFiles = parseUnifiedDiff(diffText);
+        for (const { filePath, hunks } of parsedFiles) {
+          if (session.files[filePath] === undefined) continue;
+          
+          if (originalFiles[filePath] === undefined) {
+            originalFiles[filePath] = session.files[filePath];
+          }
+          
+          const result = applyUnifiedDiffToContent(session.files[filePath], hunks, {
+            fuzzy: appState.fuzzyPatchMatching !== false,
+            threshold: appState.fuzzyPatchThreshold ?? 0.85
+          });
+
+          if (!result.success) {
+            // Rollback
+            for (const [path, content] of Object.entries(originalFiles)) {
+              session.files[path] = content;
+            }
+            return { success: false, error: `File ${filePath}: ${result.error}`, changes: allChanges };
+          }
+
+          session.files[filePath] = result.newContent;
+          allChanges.push({
+            filePath,
+            oldContent: originalFiles[filePath],
+            newContent: result.newContent,
+            method: 'unified-diff'
+          });
+          markGraphDirty();
+          if (!session.fileMeta) session.fileMeta = {};
+          session.fileMeta[filePath] = { lastModifiedBy: 'agent', timestamp: Date.now() };
+        }
+      }
+
+      return { success: true, changes: allChanges };
+    }
+
     async function parseAndApplyBlocks(responseText) {
           const session = getCurrentSession();
 
@@ -16281,11 +16818,106 @@ CURRENT VIRTUAL FILES:
         }
         
         // No file changes, apply browse/brain-read immediately
-        const { chips: otherChips, toolsUsed: otherTools } = parseAndCollectChanges(responseText);
-        return { chips: otherChips, fileModified: false, toolsUsed: otherTools, noteReads };
-      }
-  
-            // Legacy behavior: apply immediately
+                const { chips: otherChips, toolsUsed: otherTools } = parseAndCollectChanges(responseText);
+                return { chips: otherChips, fileModified: false, toolsUsed: otherTools, noteReads };
+              }
+
+              // ==================== BATCH 7.2: TRY PATCH STRATEGIES FIRST ====================
+              // Try SEARCH/REPLACE patches first
+              const srResult = await applySearchReplacePatch(responseText, session);
+              if (srResult.success) {
+                fileModified = true;
+                // Convert changes to fileOps for atomic batch summary
+                const fileOps = srResult.changes.map(c => ({
+                  type: 'modify',
+                  path: c.filePath,
+                  lineCount: c.newContent.split('\n').length,
+                  method: c.method // 'exact' | 'middle-out-exact' | 'fuzzy' | 'unified-diff'
+                }));
+                logActivity(`Applied ${srResult.changes.length} SEARCH/REPLACE patch(es)`, 'success');
+                toolsUsed.push({ name: 'search-replace-patch', type: 'skill' });
+
+                // Atomic Batches (H2.5): compact summary chip instead of per-file chips
+                if (appState.atomicBatchMode && fileOps.length > 1) {
+                  const fileCount = fileOps.length;
+                  const totalLines = fileOps.reduce((sum, op) => sum + op.lineCount, 0);
+                  const creates = fileOps.filter(op => op.type === 'create').length;
+                  const modifies = fileOps.filter(op => op.type === 'modify').length;
+                  const deletes = fileOps.filter(op => op.type === 'delete').length;
+
+                  let summaryLabel = `📦 Atomic batch: ${fileCount} file${fileCount > 1 ? 's' : ''} changed`;
+                  if (creates > 0) summaryLabel += `, ${creates} created`;
+                  if (modifies > 0) summaryLabel += `, ${modifies} modified`;
+                  if (deletes > 0) summaryLabel += `, ${deletes} deleted`;
+                  summaryLabel += `, ${totalLines} lines`;
+
+                  chips.push({ type: 'batch', label: summaryLabel, detail: fileOps });
+                } else {
+                  fileOps.forEach(op => {
+                    chips.push({ type: 'file', label: `Updated ${op.path} (${op.lineCount} lines) via ${op.method}` });
+                  });
+                }
+
+                if (session.activeFile && session.files[session.activeFile] !== undefined) {
+                  document.getElementById('editorTextarea').value = session.files[session.activeFile];
+                  updateLineNumbers();
+                }
+                renderFileTree();
+                renderTabs();
+                refreshPreview();
+                saveAppState();
+                return { chips, fileModified, toolsUsed, noteReads };
+              }
+
+              // Try unified diff patches
+              const udResult = await applyUnifiedDiff(responseText, session);
+              if (udResult.success) {
+                fileModified = true;
+                const fileOps = udResult.changes.map(c => ({
+                  type: 'modify',
+                  path: c.filePath,
+                  lineCount: c.newContent.split('\n').length,
+                  method: c.method
+                }));
+                logActivity(`Applied unified diff with ${udResult.changes.length} file(s)`, 'success');
+                toolsUsed.push({ name: 'unified-diff-patch', type: 'skill' });
+
+                if (appState.atomicBatchMode && fileOps.length > 1) {
+                  const fileCount = fileOps.length;
+                  const totalLines = fileOps.reduce((sum, op) => sum + op.lineCount, 0);
+                  const creates = fileOps.filter(op => op.type === 'create').length;
+                  const modifies = fileOps.filter(op => op.type === 'modify').length;
+                  const deletes = fileOps.filter(op => op.type === 'delete').length;
+
+                  let summaryLabel = `📦 Atomic batch: ${fileCount} file${fileCount > 1 ? 's' : ''} changed`;
+                  if (creates > 0) summaryLabel += `, ${creates} created`;
+                  if (modifies > 0) summaryLabel += `, ${modifies} modified`;
+                  if (deletes > 0) summaryLabel += `, ${deletes} deleted`;
+                  summaryLabel += `, ${totalLines} lines`;
+
+                  chips.push({ type: 'batch', label: summaryLabel, detail: fileOps });
+                } else {
+                  fileOps.forEach(op => {
+                    chips.push({ type: 'file', label: `Updated ${op.path} (${op.lineCount} lines) via ${op.method}` });
+                  });
+                }
+
+                if (session.activeFile && session.files[session.activeFile] !== undefined) {
+                  document.getElementById('editorTextarea').value = session.files[session.activeFile];
+                  updateLineNumbers();
+                }
+                renderFileTree();
+                renderTabs();
+                refreshPreview();
+                saveAppState();
+                return { chips, fileModified, toolsUsed, noteReads };
+              }
+
+              // Fall back to legacy full-file write path
+              logActivity('Patch strategies failed, falling back to full-file write', 'info');
+              toolsUsed.push({ name: 'full-file-write-fallback', type: 'skill' });
+
+                    // Legacy behavior: apply immediately
             const chips = [];
             const toolsUsed = [];
             let fileModified = false;
@@ -16542,61 +17174,67 @@ CURRENT VIRTUAL FILES:
     }
 
     // Render a single file diff as HTML
-    function renderFileDiff(change) {
-      const { path, oldContent, newContent, action } = change;
+        function renderFileDiff(change) {
+          const { path, oldContent, newContent, action, method } = change;
       
-      let diffHtml = '';
+          let diffHtml = '';
       
-      if (action === 'delete') {
-        // Show deleted file
-        const diff = computeDiff(oldContent, '');
-        diffHtml = diff.map(d => {
-          const cls = d.type === 'removed' ? 'diff-removed' : d.type === 'added' ? 'diff-added' : 'diff-unchanged';
-          const prefix = d.type === 'removed' ? '-' : d.type === 'added' ? '+' : ' ';
-          return `<div class="diff-line ${cls}"><span class="diff-prefix">${prefix}</span><span class="diff-content">${escapeHtml(d.line)}</span></div>`;
-        }).join('');
-      } else if (action === 'create') {
-        // Show new file
-        const diff = computeDiff('', newContent);
-        diffHtml = diff.map(d => {
-          const cls = d.type === 'removed' ? 'diff-removed' : d.type === 'added' ? 'diff-added' : 'diff-unchanged';
-          const prefix = d.type === 'removed' ? '-' : d.type === 'added' ? '+' : ' ';
-          return `<div class="diff-line ${cls}"><span class="diff-prefix">${prefix}</span><span class="diff-content">${escapeHtml(d.line)}</span></div>`;
-        }).join('');
-      } else {
-        // Modify - show unified diff
-        const diff = computeDiff(oldContent, newContent);
-        diffHtml = diff.map(d => {
-          const cls = d.type === 'removed' ? 'diff-removed' : d.type === 'added' ? 'diff-added' : 'diff-unchanged';
-          const prefix = d.type === 'removed' ? '-' : d.type === 'added' ? '+' : ' ';
-          return `<div class="diff-line ${cls}"><span class="diff-prefix">${prefix}</span><span class="diff-content">${escapeHtml(d.line)}</span></div>`;
-        }).join('');
-      }
+          if (action === 'delete') {
+            // Show deleted file
+            const diff = computeDiff(oldContent, '');
+            diffHtml = diff.map(d => {
+              const cls = d.type === 'removed' ? 'diff-removed' : d.type === 'added' ? 'diff-added' : 'diff-unchanged';
+              const prefix = d.type === 'removed' ? '-' : d.type === 'added' ? '+' : ' ';
+              return `<div class="diff-line ${cls}"><span class="diff-prefix">${prefix}</span><span class="diff-content">${escapeHtml(d.line)}</span></div>`;
+            }).join('');
+          } else if (action === 'create') {
+            // Show new file
+            const diff = computeDiff('', newContent);
+            diffHtml = diff.map(d => {
+              const cls = d.type === 'removed' ? 'diff-removed' : d.type === 'added' ? 'diff-added' : 'diff-unchanged';
+              const prefix = d.type === 'removed' ? '-' : d.type === 'added' ? '+' : ' ';
+              return `<div class="diff-line ${cls}"><span class="diff-prefix">${prefix}</span><span class="diff-content">${escapeHtml(d.line)}</span></div>`;
+            }).join('');
+          } else {
+            // Modify - show unified diff
+            const diff = computeDiff(oldContent, newContent);
+            diffHtml = diff.map(d => {
+              const cls = d.type === 'removed' ? 'diff-removed' : d.type === 'added' ? 'diff-added' : 'diff-unchanged';
+              const prefix = d.type === 'removed' ? '-' : d.type === 'added' ? '+' : ' ';
+              return `<div class="diff-line ${cls}"><span class="diff-prefix">${prefix}</span><span class="diff-content">${escapeHtml(d.line)}</span></div>`;
+            }).join('');
+          }
       
-      const actionBadge = action === 'delete' 
-        ? '<span style="background:rgba(239,68,68,0.2); color:var(--danger); padding:2px 6px; border-radius:3px; font-size:9px; font-weight:600;">DELETE</span>'
-        : action === 'create'
-          ? '<span style="background:rgba(16,185,129,0.2); color:var(--success); padding:2px 6px; border-radius:3px; font-size:9px; font-weight:600;">NEW</span>'
-          : '<span style="background:rgba(59,130,246,0.2); color:var(--accent-blue); padding:2px 6px; border-radius:3px; font-size:9px; font-weight:600;">MODIFY</span>';
+          const actionBadge = action === 'delete'
+            ? '<span style="background:rgba(239,68,68,0.2); color:var(--danger); padding:2px 6px; border-radius:3px; font-size:9px; font-weight:600;">DELETE</span>'
+            : action === 'create'
+              ? '<span style="background:rgba(16,185,129,0.2); color:var(--success); padding:2px 6px; border-radius:3px; font-size:9px; font-weight:600;">NEW</span>'
+              : '<span style="background:rgba(59,130,246,0.2); color:var(--accent-blue); padding:2px 6px; border-radius:3px; font-size:9px; font-weight:600;">MODIFY</span>';
       
-      return `
-        <div class="diff-file" data-path="${escapeHtml(path)}" style="background:var(--bg-surface); border:1px solid var(--border-color); border-radius:6px; overflow:hidden;">
-          <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:var(--bg-panel); border-bottom:1px solid var(--border-color);">
-            <div style="display:flex; align-items:center; gap:8px;">
-              <span style="font-family:var(--font-mono); font-size:12px; color:var(--text-main);">${escapeHtml(path)}</span>
-              ${actionBadge}
+          // Method badge: shows how the change was applied (patch vs full rewrite)
+          const methodBadge = method
+            ? `<span style="background:rgba(139,92,246,0.15); color:var(--accent-purple); padding:2px 6px; border-radius:3px; font-size:9px; font-weight:600; margin-left:6px;">via ${escapeHtml(method)}</span>`
+            : '';
+      
+          return `
+            <div class="diff-file" data-path="${escapeHtml(path)}" style="background:var(--bg-surface); border:1px solid var(--border-color); border-radius:6px; overflow:hidden;">
+              <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:var(--bg-panel); border-bottom:1px solid var(--border-color);">
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <span style="font-family:var(--font-mono); font-size:12px; color:var(--text-main);">${escapeHtml(path)}</span>
+                  ${actionBadge}
+                  ${methodBadge}
+                </div>
+                <div style="display:flex; gap:6px;">
+                  <button class="btn btn-secondary btn-accept-file" data-path="${escapeHtml(path)}" style="padding:4px 10px; font-size:10px;">Accept</button>
+                  <button class="btn btn-secondary btn-reject-file" data-path="${escapeHtml(path)}" style="padding:4px 10px; font-size:10px; color:var(--danger); border-color:var(--danger);">Reject</button>
+                </div>
+              </div>
+              <div class="diff-content" style="max-height:300px; overflow:auto; font-family:var(--font-mono); font-size:11px; line-height:1.6; padding:8px;">
+                ${diffHtml}
+              </div>
             </div>
-            <div style="display:flex; gap:6px;">
-              <button class="btn btn-secondary btn-accept-file" data-path="${escapeHtml(path)}" style="padding:4px 10px; font-size:10px;">Accept</button>
-              <button class="btn btn-secondary btn-reject-file" data-path="${escapeHtml(path)}" style="padding:4px 10px; font-size:10px; color:var(--danger); border-color:var(--danger);">Reject</button>
-            </div>
-          </div>
-          <div class="diff-content" style="max-height:300px; overflow:auto; font-family:var(--font-mono); font-size:11px; line-height:1.6; padding:8px;">
-            ${diffHtml}
-          </div>
-        </div>
-      `;
-    }
+          `;
+        }
 
     // Render the diff review panel
     function renderDiffReviewPanel() {
