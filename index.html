@@ -2434,6 +2434,31 @@ sudo *"></textarea>
         <button class="btn" id="btnImportGitHub" style="padding: 8px 16px; font-size: 12px;" data-i18n="Import from GitHub">📥 Import from GitHub</button>
         <div id="githubImportStatus" style="margin-top: 8px; font-size: 10px; color: var(--text-dim);"></div>
       </div>
+
+      <!-- Auto-docs (B4.2) -->
+      <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; padding: 16px; margin-top: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;" data-i18n="Auto-generate documentation">Auto-generate documentation</span>
+          <span id="docsStaleIndicator" style="display: none; background: var(--warning); color: var(--bg-dark); padding: 2px 8px; border-radius: 3px; font-size: 10px; font-weight: 600;" data-i18n="Documentation is stale — files changed since last generation">⚠ Documentation is stale — files changed since last generation</span>
+        </div>
+        <div style="font-size: 11px; color: var(--text-dim); margin-bottom: 12px;" data-i18n="Generate and maintain project documentation (README.md + user guide in .devforge/docs/). Docs update automatically after each build.">Generate and maintain project documentation (README.md + user guide in .devforge/docs/). Docs update automatically after each build.</div>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px;">
+          <button class="btn" id="btnGenerateReadme" style="padding: 8px 16px; font-size: 11px;" data-i18n="Generate README">📄 Generate README</button>
+          <button class="btn" id="btnGenerateUserGuide" style="padding: 8px 16px; font-size: 11px;" data-i18n="Generate User Guide">📚 Generate User Guide</button>
+          <button class="btn" id="btnGenerateAllDocs" style="padding: 8px 16px; font-size: 11px;" data-i18n="Generate All Docs">📦 Generate All</button>
+          <button class="btn btn-secondary" id="btnForceRefreshDocs" style="padding: 8px 16px; font-size: 11px;" data-i18n="Force Refresh Docs">🔄 Force Refresh</button>
+        </div>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;">
+          <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 11px; color: var(--text-muted);">
+            <input type="checkbox" id="autoDocsEnabled" checked /> <span data-i18n="Auto-generate docs after builds">Auto-generate docs after builds</span>
+          </label>
+          <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 11px; color: var(--text-muted);">
+            <input type="checkbox" id="autoDocsStaleCheck" checked /> <span data-i18n="Show stale docs indicator">Show stale docs indicator</span>
+          </label>
+        </div>
+        <div id="autoDocsStatus" style="margin-top: 8px; font-size: 10px; color: var(--text-dim);"></div>
+        <div id="autoDocsLastUpdated" style="margin-top: 4px; font-size: 10px; color: var(--text-dim);"></div>
+      </div>
     </div>
     <div style="border-top: 1px solid var(--border-color); padding-top: 12px;">
       <div style="display:flex; justify-content:flex-end; gap:8px;">
@@ -4393,6 +4418,20 @@ WORK STYLE:
         'Branch (optional, default: main)': 'ব্রাঞ্চ (ঐচ্ছিক, ডিফল্ট: main)',
         'Token (optional, for private repos)': 'টোকেন (ঐচ্ছিক, প্রাইভেট রিপোর জন্য)',
 
+        // Auto-docs (B4.2)
+        'Auto-generate documentation': 'অটো-জেনারেট ডকুমেন্টেশন',
+        'Generate and maintain project documentation (README.md + user guide in .devforge/docs/). Docs update automatically after each build.': 'প্রজেক্ট ডকুমেন্টেশন জেনারেট ও মেইনটেইন করুন (README.md + .devforge/docs/ তে ইউজার গাইড)। প্রতিটি বিল্ডের পর ডক্স স্বয়ংক্রিয়ভাবে আপডেট হয়।',
+        'Generate README': 'README জেনারেট করুন',
+        'Generate User Guide': 'ইউজার গাইড জেনারেট করুন',
+        'Generate All Docs': 'সব ডক্স জেনারেট করুন',
+        'Force Refresh Docs': 'জোরপূর্বক রিফ্রেশ ডক্স',
+        'Auto-generate docs after builds': 'বিল্ডের পর অটো-জেনারেট ডক্স',
+        'Show stale docs indicator': 'পুরনো ডক্স ইন্ডিকেটর দেখান',
+        'Documentation is up to date': 'ডকুমেন্টেশন আপ-টু-ডেট',
+        'Documentation is stale — files changed since last generation': 'ডকুমেন্টেশন পুরনো — লাস্ট জেনারেশনের পর ফাইল পরিবর্তন হয়েছে',
+        'Documentation generated': 'ডকুমেন্টেশন জেনারেটেড',
+        'Documentation generation failed': 'ডকুমেন্টেশন জেনারেশন ব্যর্থ',
+
         // Welcome / Empty states
         'No files yet. Create one to get started.': 'এখনো কোনো ফাইল নেই। শুরু করতে একটি তৈরি করুন।',
         'No checkpoints yet. Checkpoints are created automatically before agent changes.': 'এখনো কোনো চেকপয়েন্ট নেই। এজেন্ট পরিবর্তনের আগে চেকপয়েন্ট স্বয়ংক্রিয়ভাবে তৈরি হয়।',
@@ -4614,6 +4653,14 @@ WORK STYLE:
         cooldowns: {},
         // Cooldown duration in ms (default 60s)
         cooldownMs: 60000
+      },
+      // Auto-docs (B4.2) - documentation generation and staleness tracking
+      autoDocs: {
+        enabled: true,              // Auto-regenerate docs after builds
+        showStaleIndicator: true,   // Show warning when docs are outdated
+        lastGenerated: null,        // Timestamp of last docs generation
+        lastFileHash: null,         // Hash of project files at last generation
+        stale: false                // Whether docs are considered stale
       }
     };
 
@@ -9529,6 +9576,16 @@ Links: [[Brain Index]]
       const githubBtn = document.getElementById('btnImportGitHub');
       const githubUrl = document.getElementById('githubImportUrl');
       const githubStatus = document.getElementById('githubImportStatus');
+      // Auto-docs (B4.2)
+      const genReadmeBtn = document.getElementById('btnGenerateReadme');
+      const genUserGuideBtn = document.getElementById('btnGenerateUserGuide');
+      const genAllDocsBtn = document.getElementById('btnGenerateAllDocs');
+      const forceRefreshBtn = document.getElementById('btnForceRefreshDocs');
+      const autoDocsEnabledCb = document.getElementById('autoDocsEnabled');
+      const autoDocsStaleCheckCb = document.getElementById('autoDocsStaleCheck');
+      const autoDocsStatus = document.getElementById('autoDocsStatus');
+      const autoDocsLastUpdated = document.getElementById('autoDocsLastUpdated');
+      const docsStaleIndicator = document.getElementById('docsStaleIndicator');
 
       if (exportBtn) {
         exportBtn.onclick = () => exportBackup();
@@ -9552,6 +9609,45 @@ Links: [[Brain Index]]
         };
         githubBtn.disabled = !githubUrl.value.trim();
       }
+      // Auto-docs handlers
+      if (genReadmeBtn) {
+        genReadmeBtn.onclick = () => generateReadme();
+      }
+      if (genUserGuideBtn) {
+        genUserGuideBtn.onclick = () => generateUserGuide();
+      }
+      if (genAllDocsBtn) {
+        genAllDocsBtn.onclick = () => generateAllDocs();
+      }
+      if (forceRefreshBtn) {
+        forceRefreshBtn.onclick = () => forceRefreshDocs();
+      }
+      if (autoDocsEnabledCb) {
+        autoDocsEnabledCb.checked = appState.autoDocs?.enabled ?? true;
+        autoDocsEnabledCb.onchange = () => {
+          appState.autoDocs.enabled = autoDocsEnabledCb.checked;
+          saveAppState();
+          if (autoDocsStatus) { autoDocsStatus.textContent = 'Auto-update ' + (autoDocsEnabledCb.checked ? 'enabled' : 'disabled'); autoDocsStatus.style.color = 'var(--accent-blue)'; }
+        };
+      }
+      if (autoDocsStaleCheckCb) {
+        autoDocsStaleCheckCb.checked = appState.autoDocs?.showStaleIndicator ?? true;
+        autoDocsStaleCheckCb.onchange = () => {
+          appState.autoDocs.showStaleIndicator = autoDocsStaleCheckCb.checked;
+          saveAppState();
+          updateDocsStaleIndicator();
+        };
+      }
+      // Initialize status display
+      if (autoDocsLastUpdated) {
+        const lastGen = appState.autoDocs?.lastGenerated;
+        if (lastGen) {
+          autoDocsLastUpdated.textContent = 'Last generated: ' + new Date(lastGen).toLocaleString();
+        } else {
+          autoDocsLastUpdated.textContent = 'Docs never generated';
+        }
+      }
+      updateDocsStaleIndicator();
       if (exportStatus) exportStatus.textContent = '';
       if (importStatus) importStatus.textContent = '';
       if (githubStatus) githubStatus.textContent = '';
@@ -10063,6 +10159,443 @@ Links: [[Brain Index]]
 
       // Deduplicate
       return [...new Set(stack)];
+    }
+
+    // ==================== AUTO-DOCS (B4.2) ====================
+    // Compute hash of project files to detect changes
+    function computeProjectFileHash() {
+      const session = getCurrentSession();
+      if (!session || !session.files) return null;
+      const fileContents = Object.values(session.files).sort().join('|');
+      // Simple hash function
+      let hash = 0;
+      for (let i = 0; i < fileContents.length; i++) {
+        const char = fileContents.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash; // Convert to 32bit integer
+      }
+      return hash.toString(16);
+    }
+
+    // Check if docs are stale (files changed since last generation)
+    function checkDocsStale() {
+      if (!appState.autoDocs) return false;
+      const currentHash = computeProjectFileHash();
+      const lastHash = appState.autoDocs.lastFileHash;
+      return currentHash !== null && lastHash !== null && currentHash !== lastHash;
+    }
+
+    // Update the stale indicator UI
+    function updateDocsStaleIndicator() {
+      const indicator = document.getElementById('docsStaleIndicator');
+      if (!indicator) return;
+      const stale = checkDocsStale();
+      appState.autoDocs.stale = stale;
+      if (stale && appState.autoDocs.showStaleIndicator) {
+        indicator.style.display = 'inline-block';
+      } else {
+        indicator.style.display = 'none';
+      }
+    }
+
+    // Generate README.md content
+    function generateReadmeContent() {
+      const session = getCurrentSession();
+      if (!session) return '';
+      const files = session.files || {};
+      const fileList = Object.keys(files).sort();
+      const brainNotes = session.brainNotes || {};
+
+      // Detect stack
+      const stack = detectStack(files, fileList);
+
+      // Get project name from session
+      const projectName = session.name || 'Untitled Project';
+
+      let md = `# ${projectName}\n\n`;
+
+      // Description from brain notes overview if available
+      if (brainNotes.overview) {
+        // Extract first paragraph as description
+        const overviewLines = brainNotes.overview.split('\n');
+        const descLine = overviewLines.find(l => l.trim() && !l.startsWith('#') && !l.startsWith('**'));
+        if (descLine) {
+          md += `${descLine.trim()}\n\n`;
+        }
+      }
+
+      md += `## Features\n\n`;
+      md += `- Auto-generated documentation via FlamingoCode Auto-docs (B4.2)\n`;
+      md += `- Live in VFS + Brain (no separate index)\n`;
+      md += `- Auto-updates after each build\n`;
+      md += `- Staleness detection with visual indicator\n\n`;
+
+      md += `## Tech Stack\n\n`;
+      if (stack.length > 0) {
+        stack.forEach(s => md += `- ${s}\n`);
+      } else {
+        md += `- (Auto-detection found no standard config files)\n`;
+      }
+      md += `\n`;
+
+      md += `## Project Structure\n\n`;
+      const topLevel = [...new Set(fileList.map(f => f.split('/')[0]))].slice(0, 30).sort();
+      md += '```\n';
+      topLevel.forEach(d => md += `${d}/\n`);
+      md += '```\n\n';
+
+      md += `## Key Files\n\n`;
+      const keyFiles = fileList.filter(f =>
+        /readme/i.test(f) || /package\.json$/i.test(f) || /requirements\.txt$/i.test(f) ||
+        /pyproject\.toml$/i.test(f) || /Cargo\.toml$/i.test(f) || /go\.mod$/i.test(f) ||
+        /pom\.xml$/i.test(f) || /composer\.json$/i.test(f) || /\.csproj$/i.test(f) ||
+        /\.sln$/i.test(f) || /makefile$/i.test(f) || /dockerfile$/i.test(f) ||
+        /\/.github\/workflows/i.test(f) || /.gitlab-ci/i.test(f)
+      ).slice(0, 20);
+      if (keyFiles.length > 0) {
+        keyFiles.forEach(f => md += `- \`${f}\`\n`);
+      } else {
+        md += `- (No standard config/entry files detected)\n`;
+      }
+      md += `\n`;
+
+      // Add Brain notes sections if available
+      if (brainNotes.architecture) {
+        md += `## Architecture\n\n${brainNotes.architecture}\n\n`;
+      }
+      if (brainNotes.decisions) {
+        md += `## Key Decisions\n\n${brainNotes.decisions}\n\n`;
+      }
+      if (brainNotes.gotchas) {
+        md += `## Gotchas & Notes\n\n${brainNotes.gotchas}\n\n`;
+      }
+
+      md += `## Getting Started\n\n`;
+      md += `\`\`\`bash\n`;
+      md += `# Install dependencies\n`;
+      if (fileList.some(f => /package\.json$/i.test(f))) {
+        md += `npm install\n`;
+      } else if (fileList.some(f => /requirements\.txt$/i.test(f))) {
+        md += `pip install -r requirements.txt\n`;
+      } else if (fileList.some(f => /pyproject\.toml$/i.test(f))) {
+        md += `pip install -e .\n`;
+      } else if (fileList.some(f => /Cargo\.toml$/i.test(f))) {
+        md += `cargo build\n`;
+      } else if (fileList.some(f => /go\.mod$/i.test(f))) {
+        md += `go mod download\n`;
+      } else if (fileList.some(f => /pom\.xml$/i.test(f))) {
+        md += `mvn install\n`;
+      } else if (fileList.some(f => /composer\.json$/i.test(f))) {
+        md += `composer install\n`;
+      } else {
+        md += `# (Add project-specific install commands)\n`;
+      }
+      md += `\`\`\`\n\n`;
+
+      md += `## Development\n\n`;
+      md += `\`\`\`bash\n`;
+      md += `# Run development server\n`;
+      if (stack.some(s => /React|Vue|Svelte|Next\.js/.test(s))) {
+        md += `npm run dev\n`;
+      } else if (stack.some(s => /Express|FastAPI|Flask|Django/.test(s))) {
+        md += `# (Add project-specific dev command)\n`;
+      } else {
+        md += `# (Add project-specific dev command)\n`;
+      }
+      md += `\`\`\`\n\n`;
+
+      md += `## Testing\n\n`;
+      md += `\`\`\`bash\n`;
+      if (fileList.some(f => /\.(test|spec)\./i.test(f) || /test\//i.test(f) || /__tests__/i.test(f))) {
+        md += `npm test\n`;
+      } else {
+        md += `# (Add project-specific test command)\n`;
+      }
+      md += `\`\`\`\n\n`;
+
+      md += `---\n`;
+      md += `*This README was auto-generated by FlamingoCode Auto-docs on ${new Date().toISOString().slice(0, 19).replace('T', ' ')}. `;
+      md += `It updates automatically after each build. `;
+      md += `If this doc is stale, click "Force Refresh" in Settings → Backup → Auto-docs.*\n`;
+
+      return md;
+    }
+
+    // Generate User Guide (.devforge/docs/)
+    function generateUserGuideContent() {
+      const session = getCurrentSession();
+      if (!session) return {};
+      const files = session.files || {};
+      const fileList = Object.keys(files).sort();
+      const brainNotes = session.brainNotes || {};
+
+      const guides = {};
+
+      // Main user guide index
+      guides['index.md'] = `# User Guide\n\nWelcome to the user guide for **${session.name || 'this project'}**. This guide is auto-generated and kept up-to-date by FlamingoCode Auto-docs.\n\n## Table of Contents\n\n1. [Project Overview](overview.md)\n2. [Architecture](architecture.md)\n3. [Key Files](key-files.md)\n4. [Development Workflow](development.md)\n5. [Testing](testing.md)\n6. [Deployment](deployment.md)\n7. [Troubleshooting](troubleshooting.md)\n\n---\n*Auto-generated on ${new Date().toISOString().slice(0, 19).replace('T', ' ')}*`;
+
+      // Overview
+      guides['overview.md'] = `# Project Overview\n\n## What is this project?\n\n${brainNotes.overview || 'This project was imported/created in FlamingoCode. Add a description in the Brain "overview" note to populate this section.'}\n\n## Tech Stack\n\n${detectStack(files, fileList).map(s => `- ${s}`).join('\n') || '- (Auto-detection found no standard config files)'}\n\n## Project Structure\n\n\`\`\`\n${[...new Set(fileList.map(f => f.split('/')[0]))].slice(0, 30).sort().map(d => `${d}/`).join('\n')}\n\`\`\``;
+
+      // Architecture
+      guides['architecture.md'] = `# Architecture\n\n${brainNotes.architecture || 'No architecture documentation yet. Add notes in the Brain "architecture" note.'}\n\n## File Map\n\n| File | Purpose |\n|------|---------|\n${fileList.slice(0, 50).map(f => `| \`${f}\` | ${guessFilePurpose(f)} |`).join('\n')}`;
+
+      // Key Files
+      guides['key-files.md'] = `# Key Files\n\n| File | Type | Description |\n|------|------|-------------|\n${fileList.filter(f => /\.(js|ts|jsx|tsx|py|java|go|rs|cpp|c|h|cs|php|rb|swift|kt|scala|clj|hs|ml|fs|vue|svelte|html|css|scss|json|yaml|yml|toml|ini|cfg|conf|md|txt|rst|dockerfile|dockerignore|gitignore|env\.example|makefile|cmakelists\.txt|package\.json|package-lock\.json|yarn\.lock|pnpm-lock\.yaml|requirements\.txt|pyproject\.toml|setup\.py|setup\.cfg|cargo\.toml|go\.mod|pom\.xml|build\.gradle|build\.gradle\.kts|composer\.json|gemfile|rakefile)$/i.test(f)).slice(0, 50).map(f => `| \`${f}\` | ${getFileType(f)} | ${guessFilePurpose(f)} |`).join('\n')}`;
+
+      // Development
+      guides['development.md'] = `# Development Workflow\n\n## Setup\n\n\`\`\`bash\n${getInstallCommands(fileList)}\n\`\`\`\n\n## Running Locally\n\n\`\`\`bash\n${getDevCommands(fileList, detectStack(files, fileList))}\n\`\`\`\n\n## Code Style\n\n${brainNotes.style || 'No code style guide documented. Add notes in the Brain "style" note.'}\n\n## Git Workflow\n\n${brainNotes.git || 'Standard Git workflow. Add project-specific rules in the Brain "git" note.'}`;
+
+      // Testing
+      guides['testing.md'] = `# Testing\n\n## Test Suite\n\n${fileList.some(f => /\.(test|spec)\./i.test(f) || /test\//i.test(f) || /__tests__/i.test(f)) ? 'Tests detected in project.' : 'No test files detected.'}\n\n## Running Tests\n\n\`\`\`bash\n${getTestCommands(fileList)}\n\`\`\`\n\n## Test Coverage\n\n${brainNotes.testing || 'No test coverage info documented. Add notes in the Brain "testing" note.'}`;
+
+      // Deployment
+      guides['deployment.md'] = `# Deployment\n\n## Build\n\n\`\`\`bash\n${getBuildCommands(fileList, detectStack(files, fileList))}\n\`\`\`\n\n## Deploy Targets\n\n${brainNotes.deploy || 'No deployment info documented. Add notes in the Brain "deploy" note.'}\n\n## Environment Variables\n\n${brainNotes.env || 'No environment variables documented. Add notes in the Brain "env" note.'}`;
+
+      // Troubleshooting
+      guides['troubleshooting.md'] = `# Troubleshooting\n\n## Common Issues\n\n${brainNotes.troubleshooting || 'No troubleshooting info documented. Add notes in the Brain "troubleshooting" note.'}\n\n## FAQ\n\n${brainNotes.faq || 'No FAQ documented. Add notes in the Brain "faq" note.'}`;
+
+      return guides;
+    }
+
+    function getFileType(filename) {
+      const ext = filename.split('.').pop()?.toLowerCase();
+      const types = {
+        'js': 'JavaScript', 'ts': 'TypeScript', 'jsx': 'React', 'tsx': 'React TS',
+        'py': 'Python', 'java': 'Java', 'go': 'Go', 'rs': 'Rust', 'cpp': 'C++', 'c': 'C', 'h': 'C Header',
+        'cs': 'C#', 'php': 'PHP', 'rb': 'Ruby', 'swift': 'Swift', 'kt': 'Kotlin',
+        'scala': 'Scala', 'clj': 'Clojure', 'hs': 'Haskell', 'ml': 'OCaml', 'fs': 'F#',
+        'vue': 'Vue', 'svelte': 'Svelte', 'html': 'HTML', 'css': 'CSS', 'scss': 'SCSS',
+        'json': 'JSON', 'yaml': 'YAML', 'yml': 'YAML', 'toml': 'TOML', 'ini': 'INI',
+        'cfg': 'Config', 'conf': 'Config', 'md': 'Markdown', 'txt': 'Text', 'rst': 'RST',
+        'dockerfile': 'Docker', 'dockerignore': 'Docker', 'gitignore': 'Git',
+        'makefile': 'Make', 'cmakelists.txt': 'CMake',
+      };
+      if (filename.toLowerCase() === 'package.json') return 'NPM Config';
+      if (filename.toLowerCase() === 'cargo.toml') return 'Cargo Config';
+      if (filename.toLowerCase() === 'go.mod') return 'Go Module';
+      if (filename.toLowerCase() === 'pom.xml') return 'Maven Config';
+      if (filename.toLowerCase() === 'composer.json') return 'Composer Config';
+      return types[ext] || 'File';
+    }
+
+    function guessFilePurpose(filename) {
+      const name = filename.toLowerCase();
+      if (/readme/.test(name)) return 'Project documentation';
+      if (/package\.json$/.test(name)) return 'NPM package config & scripts';
+      if (/requirements\.txt$/.test(name)) return 'Python dependencies';
+      if (/pyproject\.toml$/.test(name)) return 'Python project config';
+      if (/cargo\.toml$/.test(name)) return 'Rust project config';
+      if (/go\.mod$/.test(name)) return 'Go module definition';
+      if (/pom\.xml$/.test(name)) return 'Maven project config';
+      if (/composer\.json$/.test(name)) return 'PHP Composer config';
+      if (/\.csproj$/.test(name)) return 'C# project file';
+      if (/\.sln$/.test(name)) return 'Visual Studio solution';
+      if (/makefile$/.test(name)) return 'Build automation';
+      if (/dockerfile$/.test(name)) return 'Docker image definition';
+      if (/\.github\/workflows/.test(name)) return 'GitHub Actions CI/CD';
+      if (/.gitlab-ci/.test(name)) return 'GitLab CI/CD';
+      if (/\.(test|spec)\./.test(name)) return 'Test file';
+      if (/test\//.test(name) || /__tests__/.test(name)) return 'Test directory';
+      if (/\.config\./.test(name) || /config\./.test(name)) return 'Configuration';
+      return 'Source file';
+    }
+
+    function getInstallCommands(fileList) {
+      if (fileList.some(f => /package\.json$/i.test(f))) return 'npm install';
+      if (fileList.some(f => /requirements\.txt$/i.test(f))) return 'pip install -r requirements.txt';
+      if (fileList.some(f => /pyproject\.toml$/i.test(f))) return 'pip install -e .';
+      if (fileList.some(f => /Cargo\.toml$/i.test(f))) return 'cargo build';
+      if (fileList.some(f => /go\.mod$/i.test(f))) return 'go mod download';
+      if (fileList.some(f => /pom\.xml$/i.test(f))) return 'mvn install';
+      if (fileList.some(f => /composer\.json$/i.test(f))) return 'composer install';
+      if (fileList.some(f => /gemfile$/i.test(f))) return 'bundle install';
+      return '# (Add project-specific install commands)';
+    }
+
+    function getDevCommands(fileList, stack) {
+      if (stack.some(s => /React|Vue|Svelte|Next\.js/.test(s))) return 'npm run dev';
+      if (stack.some(s => /Express|FastAPI|Flask|Django|Spring|Laravel|Rails/.test(s))) return '# (Add project-specific dev command)';
+      return '# (Add project-specific dev command)';
+    }
+
+    function getTestCommands(fileList) {
+      if (fileList.some(f => /package\.json$/i.test(f))) return 'npm test';
+      if (fileList.some(f => /pyproject\.toml$|requirements\.txt$/i.test(f))) return 'pytest';
+      if (fileList.some(f => /Cargo\.toml$/i.test(f))) return 'cargo test';
+      if (fileList.some(f => /go\.mod$/i.test(f))) return 'go test ./...';
+      if (fileList.some(f => /pom\.xml$/i.test(f))) return 'mvn test';
+      if (fileList.some(f => /composer\.json$/i.test(f))) return 'phpunit';
+      return '# (Add project-specific test command)';
+    }
+
+    function getBuildCommands(fileList, stack) {
+      if (fileList.some(f => /package\.json$/i.test(f))) return 'npm run build';
+      if (fileList.some(f => /Cargo\.toml$/i.test(f))) return 'cargo build --release';
+      if (fileList.some(f => /go\.mod$/i.test(f))) return 'go build ./...';
+      if (fileList.some(f => /pom\.xml$/i.test(f))) return 'mvn package';
+      if (fileList.some(f => /pyproject\.toml$/i.test(f))) return 'python -m build';
+      return '# (Add project-specific build command)';
+    }
+
+    // Write docs to VFS (virtual file system)
+    function writeDocsToVFS(readmeContent, userGuides) {
+      const session = getCurrentSession();
+      if (!session) return false;
+
+      // Write README.md
+      session.files['README.md'] = readmeContent;
+
+      // Write user guide files to .devforge/docs/
+      Object.entries(userGuides).forEach(([filename, content]) => {
+        session.files[`.devforge/docs/${filename}`] = content;
+      });
+
+      saveAppState();
+      renderFileTree();
+      return true;
+    }
+
+    // Generate README
+    function generateReadme() {
+      const status = document.getElementById('autoDocsStatus');
+      if (status) { status.textContent = 'Generating README...'; status.style.color = 'var(--accent-blue)'; }
+
+      try {
+        const readmeContent = generateReadmeContent();
+        const session = getCurrentSession();
+        if (!session) throw new Error('No active session');
+
+        session.files['README.md'] = readmeContent;
+        saveAppState();
+        renderFileTree();
+
+        // Update auto-docs state
+        appState.autoDocs.lastGenerated = Date.now();
+        appState.autoDocs.lastFileHash = computeProjectFileHash();
+        appState.autoDocs.stale = false;
+        saveAppState();
+
+        if (status) { status.textContent = 'README.md generated successfully!'; status.style.color = 'var(--success)'; }
+        updateDocsStaleIndicator();
+        updateLastUpdatedDisplay();
+        logActivity('README.md generated via Auto-docs', 'success');
+      } catch (err) {
+        if (status) { status.textContent = 'Failed: ' + err.message; status.style.color = 'var(--danger)'; }
+        logActivity('Auto-docs README generation failed: ' + err.message, 'error');
+      }
+    }
+
+    // Generate User Guide
+    function generateUserGuide() {
+      const status = document.getElementById('autoDocsStatus');
+      if (status) { status.textContent = 'Generating User Guide...'; status.style.color = 'var(--accent-blue)'; }
+
+      try {
+        const userGuides = generateUserGuideContent();
+        const session = getCurrentSession();
+        if (!session) throw new Error('No active session');
+
+        // Write user guide files
+        Object.entries(userGuides).forEach(([filename, content]) => {
+          session.files[`.devforge/docs/${filename}`] = content;
+        });
+        saveAppState();
+        renderFileTree();
+
+        // Update auto-docs state
+        appState.autoDocs.lastGenerated = Date.now();
+        appState.autoDocs.lastFileHash = computeProjectFileHash();
+        appState.autoDocs.stale = false;
+        saveAppState();
+
+        if (status) { status.textContent = 'User Guide generated successfully! (' + Object.keys(userGuides).length + ' files)'; status.style.color = 'var(--success)'; }
+        updateDocsStaleIndicator();
+        updateLastUpdatedDisplay();
+        logActivity('User Guide generated via Auto-docs (' + Object.keys(userGuides).length + ' files)', 'success');
+      } catch (err) {
+        if (status) { status.textContent = 'Failed: ' + err.message; status.style.color = 'var(--danger)'; }
+        logActivity('Auto-docs User Guide generation failed: ' + err.message, 'error');
+      }
+    }
+
+    // Generate All Docs
+    function generateAllDocs() {
+      const status = document.getElementById('autoDocsStatus');
+      if (status) { status.textContent = 'Generating all documentation...'; status.style.color = 'var(--accent-blue)'; }
+
+      try {
+        const readmeContent = generateReadmeContent();
+        const userGuides = generateUserGuideContent();
+
+        const success = writeDocsToVFS(readmeContent, userGuides);
+        if (!success) throw new Error('Failed to write docs to VFS');
+
+        // Update auto-docs state
+        appState.autoDocs.lastGenerated = Date.now();
+        appState.autoDocs.lastFileHash = computeProjectFileHash();
+        appState.autoDocs.stale = false;
+        saveAppState();
+
+        if (status) { status.textContent = 'All documentation generated successfully!'; status.style.color = 'var(--success)'; }
+        updateDocsStaleIndicator();
+        updateLastUpdatedDisplay();
+        logActivity('All Auto-docs generated (README + User Guide)', 'success');
+      } catch (err) {
+        if (status) { status.textContent = 'Failed: ' + err.message; status.style.color = 'var(--danger)'; }
+        logActivity('Auto-docs full generation failed: ' + err.message, 'error');
+      }
+    }
+
+    // Force refresh docs (ignore staleness check)
+    function forceRefreshDocs() {
+      const status = document.getElementById('autoDocsStatus');
+      if (status) { status.textContent = 'Force refreshing all docs...'; status.style.color = 'var(--accent-blue)'; }
+
+      // Reset the file hash to force regeneration
+      appState.autoDocs.lastFileHash = null;
+      saveAppState();
+
+      generateAllDocs();
+    }
+
+    // Update last updated display
+    function updateLastUpdatedDisplay() {
+      const el = document.getElementById('autoDocsLastUpdated');
+      if (!el) return;
+      const lastGen = appState.autoDocs?.lastGenerated;
+      if (lastGen) {
+        el.textContent = 'Last generated: ' + new Date(lastGen).toLocaleString();
+      } else {
+        el.textContent = 'Docs never generated';
+      }
+    }
+
+    // Auto-generate docs after build (called from agent completion)
+    function autoGenerateDocsAfterBuild() {
+      if (!appState.autoDocs?.enabled) return;
+      const session = getCurrentSession();
+      if (!session) return;
+
+      // Check if there are actual file changes
+      const currentHash = computeProjectFileHash();
+      if (currentHash === appState.autoDocs.lastFileHash) return; // No changes
+
+      // Generate in background
+      try {
+        const readmeContent = generateReadmeContent();
+        const userGuides = generateUserGuideContent();
+        writeDocsToVFS(readmeContent, userGuides);
+
+        appState.autoDocs.lastGenerated = Date.now();
+        appState.autoDocs.lastFileHash = currentHash;
+        appState.autoDocs.stale = false;
+        saveAppState();
+
+        logActivity('Auto-docs updated after build', 'info');
+      } catch (err) {
+        logActivity('Auto-docs post-build update failed: ' + err.message, 'warning');
+      }
     }
 
     // ==================== LANGUAGE TAB ====================
@@ -13190,6 +13723,11 @@ CURRENT VIRTUAL FILES:
         }
       }
 
+      // Auto-generate docs after build if enabled
+      if (fileModified && typeof autoGenerateDocsAfterBuild === 'function') {
+        autoGenerateDocsAfterBuild();
+      }
+
       return { chips, fileModified, toolsUsed, noteReads };
     }
 
@@ -13442,96 +13980,101 @@ CURRENT VIRTUAL FILES:
     }
 
     // Accept all pending changes
-    async function acceptAllChanges() {
-      if (!appState.pendingChanges) return;
-      
-      const session = getCurrentSession();
-      if (!session) return;
+        async function acceptAllChanges() {
+          if (!appState.pendingChanges) return;
 
-      // Safe Mode v2: Run approval ladder for all changes
-      // We need to check each change and apply only approved ones
-      const approvedChanges = [];
-      const blockedChanges = [];
-      
-      for (const change of appState.pendingChanges.changes) {
-        const actionDesc = change.action === 'delete' 
-          ? `Delete file: ${change.path}`
-          : change.action === 'create'
-            ? `Create file: ${change.path}`
-            : `Modify file: ${change.path}`;
-        
-        const approval = await runApprovalLadder(actionDesc, change.action === 'delete' ? 'delete' : 'file');
-        if (!approval.allowed) {
-          const msg = `🛑 BLOCKED by Safe Mode (${approval.decision.level}): ${approval.reason}`;
-          logActivity(msg, 'error');
-          blockedChanges.push({ path: change.path, reason: approval.reason });
-          continue;
-        }
-        if (approval.requiresUserInput && !approval.decision.approved) {
-          const msg = `🛑 DENIED by user: ${actionDesc}`;
-          logActivity(msg, 'warning');
-          blockedChanges.push({ path: change.path, reason: 'User denied' });
-          continue;
-        }
-        if (approval.decision.level !== 'yolo') {
-          logActivity(`✅ Safe Mode approval: ${approval.decision.level} — ${actionDesc}`, 'info');
-        }
-        approvedChanges.push(change);
-      }
+          const session = getCurrentSession();
+          if (!session) return;
 
-      if (blockedChanges.length > 0) {
-        alert(`Safe Mode blocked ${blockedChanges.length} change(s):\n` + 
-          blockedChanges.map(b => `  ${b.path}: ${b.reason}`).join('\n'));
-      }
+          // Safe Mode v2: Run approval ladder for all changes
+          // We need to check each change and apply only approved ones
+          const approvedChanges = [];
+          const blockedChanges = [];
 
-      if (approvedChanges.length === 0) {
-        logActivity('No changes approved by Safe Mode', 'warning');
-        return;
-      }
+          for (const change of appState.pendingChanges.changes) {
+            const actionDesc = change.action === 'delete'
+              ? `Delete file: ${change.path}`
+              : change.action === 'create'
+                ? `Create file: ${change.path}`
+                : `Modify file: ${change.path}`;
 
-      // Apply approved changes
-      approvedChanges.forEach(change => {
-        if (change.action === 'delete') {
-          delete session.files[change.path];
-          if (isBrainNotePath(change.path)) rebuildBrainIndex(session);
-          // Gap 4 Fix: Mark graph dirty on file changes
-          markGraphDirty();
-        } else if (change.action === 'create') {
-          session.files[change.path] = change.newContent;
-          if (isBrainNotePath(change.path)) writeBrainNote(session, change.path, change.newContent);
-          // Gap 4 Fix: Mark graph dirty on file changes
-          markGraphDirty();
-        } else {
-          session.files[change.path] = change.newContent;
-          if (isBrainNotePath(change.path)) writeBrainNote(session, change.path, change.newContent);
-          // Gap 4 Fix: Mark graph dirty on file changes
-          markGraphDirty();
-        }
-      });
-      
-      logActivity(`Accepted ${approvedChanges.length} of ${appState.pendingChanges.changes.length} changes (${blockedChanges.length} blocked)`, 'success');
-      
-      // Teach Mode: generate Bangla explanation for accepted changes
-      if (appState.teachMode && approvedChanges.length > 0) {
-        const explanationHtml = generateBanglaExplanation(approvedChanges);
-        if (explanationHtml) {
-          setTimeout(() => {
-            const contentEl = document.getElementById('teachContent');
-            if (contentEl) {
-              contentEl.innerHTML = explanationHtml;
-              contentEl.scrollTop = 0;
+            const approval = await runApprovalLadder(actionDesc, change.action === 'delete' ? 'delete' : 'file');
+            if (!approval.allowed) {
+              const msg = `🛑 BLOCKED by Safe Mode (${approval.decision.level}): ${approval.reason}`;
+              logActivity(msg, 'error');
+              blockedChanges.push({ path: change.path, reason: approval.reason });
+              continue;
             }
-          }, 0);
+            if (approval.requiresUserInput && !approval.decision.approved) {
+              const msg = `🛑 DENIED by user: ${actionDesc}`;
+              logActivity(msg, 'warning');
+              blockedChanges.push({ path: change.path, reason: 'User denied' });
+              continue;
+            }
+            if (approval.decision.level !== 'yolo') {
+              logActivity(`✅ Safe Mode approval: ${approval.decision.level} — ${actionDesc}`, 'info');
+            }
+            approvedChanges.push(change);
+          }
+
+          if (blockedChanges.length > 0) {
+            alert(`Safe Mode blocked ${blockedChanges.length} change(s):\n` +
+              blockedChanges.map(b => `  ${b.path}: ${b.reason}`).join('\n'));
+          }
+
+          if (approvedChanges.length === 0) {
+            logActivity('No changes approved by Safe Mode', 'warning');
+            return;
+          }
+
+          // Apply approved changes
+          approvedChanges.forEach(change => {
+            if (change.action === 'delete') {
+              delete session.files[change.path];
+              if (isBrainNotePath(change.path)) rebuildBrainIndex(session);
+              // Gap 4 Fix: Mark graph dirty on file changes
+              markGraphDirty();
+            } else if (change.action === 'create') {
+              session.files[change.path] = change.newContent;
+              if (isBrainNotePath(change.path)) writeBrainNote(session, change.path, change.newContent);
+              // Gap 4 Fix: Mark graph dirty on file changes
+              markGraphDirty();
+            } else {
+              session.files[change.path] = change.newContent;
+              if (isBrainNotePath(change.path)) writeBrainNote(session, change.path, change.newContent);
+              // Gap 4 Fix: Mark graph dirty on file changes
+              markGraphDirty();
+            }
+          });
+
+          logActivity(`Accepted ${approvedChanges.length} of ${appState.pendingChanges.changes.length} changes (${blockedChanges.length} blocked)`, 'success');
+
+          // Teach Mode: generate Bangla explanation for accepted changes
+          if (appState.teachMode && approvedChanges.length > 0) {
+            const explanationHtml = generateBanglaExplanation(approvedChanges);
+            if (explanationHtml) {
+              setTimeout(() => {
+                const contentEl = document.getElementById('teachContent');
+                if (contentEl) {
+                  contentEl.innerHTML = explanationHtml;
+                  contentEl.scrollTop = 0;
+                }
+              }, 0);
+            }
+          }
+
+          // Auto-generate docs after accepting changes if enabled
+          if (typeof autoGenerateDocsAfterBuild === 'function') {
+            autoGenerateDocsAfterBuild();
+          }
+
+          finalizePendingChanges();
         }
-      }
-      
-      finalizePendingChanges();
-    }
 
     // Reject all pending changes
     function rejectAllChanges() {
       if (!appState.pendingChanges) return;
-      
+
       const count = appState.pendingChanges.changes.length;
       logActivity(`Rejected all ${count} changes`, 'warning');
       finalizePendingChanges();
