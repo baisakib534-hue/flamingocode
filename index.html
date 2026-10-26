@@ -1113,6 +1113,58 @@
       .app-main.show-preview .panel-right { display: flex; }
       .app-main.show-browser .panel-right { display: flex; }
       .app-main.show-templates .panel-right { display: flex; }
+      .app-main.show-publish .panel-right { display: flex; }
+      .app-main.show-projectDoctor .panel-right { display: flex; }
+      .app-main.show-companion .panel-right { display: flex; }
+    }
+
+    /* Mobile Companion View - Touch-friendly styles */
+    @media (max-width: 768px) {
+      #paneCompanion .companion-section {
+        padding: 12px;
+        margin-bottom: 12px;
+      }
+      #paneCompanion .companion-section h4 {
+        font-size: 14px;
+        margin-bottom: 8px;
+      }
+      #paneCompanion .companion-section .status-value {
+        font-size: 16px;
+        padding: 8px 12px;
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+      }
+      #paneCompanion .companion-section .step-text {
+        font-size: 14px;
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+        padding: 8px 12px;
+      }
+      #paneCompanion .companion-section .chat-message {
+        font-size: 13px;
+        padding: 8px 12px;
+        min-height: 44px;
+      }
+      #paneCompanion .companion-section .checkpoint-item {
+        padding: 12px;
+      }
+      #paneCompanion .companion-section .checkpoint-message {
+        font-size: 13px;
+        margin-bottom: 10px;
+      }
+      #paneCompanion .companion-section .checkpoint-buttons {
+        display: flex;
+        gap: 8px;
+      }
+      #paneCompanion .companion-section .checkpoint-buttons button {
+        flex: 1;
+        min-height: 48px;
+        font-size: 14px;
+        padding: 10px 16px;
+        font-weight: 600;
+      }
     }
 
     /* Diff Review Styles */
@@ -1404,6 +1456,7 @@
         <button class="right-tab" data-pane="templates" data-i18n="Templates">Templates</button>
         <button class="right-tab" data-pane="publish" data-i18n="Publish">Publish</button>
         <button class="right-tab" data-pane="projectDoctor" data-i18n="Project Doctor">🏥 Project Doctor</button>
+        <button class="right-tab" data-pane="companion" data-i18n="Companion">📱 Companion</button>
       </div>
 
       <div class="right-content">
@@ -1910,10 +1963,46 @@
         <div id="doctorResults" style="flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:8px;">
           <div style="font-size: 11px; color: var(--text-dim); text-align: center; padding: 20px;" data-i18n="Click Scan Project to start diagnosis">Click "Scan Project" to start diagnosis</div>
         </div>
-      </div>
-    </div>
+          </div>
+        </div>
 
-  </main>
+        <!-- Mobile Companion Pane -->
+        <div class="pane-view" id="paneCompanion">
+          <div style="flex:1; overflow-y:auto; padding: 12px; display:flex; flex-direction:column; gap:12px;">
+            <!-- Build Status -->
+            <div style="background:var(--bg-surface); border:1px solid var(--border-color); border-radius:8px; padding:12px;">
+              <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom:8px;" data-i18n="Build Status">Build Status</div>
+              <div id="companionBuildStatus" style="display:flex; align-items:center; gap:10px; min-height:48px;">
+                <div class="spinner" style="width:20px; height:20px; display:none;"></div>
+                <span id="companionBuildStatusText" style="font-size:14px; font-weight:600; color:var(--text-main);" data-i18n="No active build">No active build</span>
+              </div>
+            </div>
+
+            <!-- Current Step -->
+            <div style="background:var(--bg-surface); border:1px solid var(--border-color); border-radius:8px; padding:12px;">
+              <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom:8px;" data-i18n="Current Step">Current Step</div>
+              <div id="companionCurrentStep" style="font-size:13px; color:var(--text-main); min-height:48px; font-family:var(--font-mono);" data-i18n="No current step">No current step</div>
+            </div>
+
+            <!-- Team Chat (compact, read-only) -->
+            <div style="background:var(--bg-surface); border:1px solid var(--border-color); border-radius:8px; padding:12px; flex:1; min-height:150px; display:flex; flex-direction:column;">
+              <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom:8px;" data-i18n="Team Chat">Team Chat</div>
+              <div id="companionTeamChat" style="flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:6px; min-height:120px;">
+                <div style="font-size: 11px; color: var(--text-dim); text-align: center; padding: 20px;" data-i18n="No team chat yet">No team chat yet</div>
+              </div>
+            </div>
+
+            <!-- Checkpoints (with approve/reject) -->
+            <div style="background:var(--bg-surface); border:1px solid var(--border-color); border-radius:8px; padding:12px;">
+              <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom:8px;" data-i18n="Checkpoints">Checkpoints</div>
+              <div id="companionCheckpoints" style="display:flex; flex-direction:column; gap:6px; min-height:48px;">
+                <div style="font-size: 11px; color: var(--text-dim); text-align: center; padding: 10px;" data-i18n="No checkpoints">No checkpoints</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        </main>
 
   <!-- Mobile Bottom Tab Bar -->
   <nav class="mobile-nav" id="mobileNav">
@@ -1955,7 +2044,11 @@
     </button>
     <button class="mobile-nav-btn" data-mobile-tab="publish">
       <span>📦</span>
-      <span>Publish</span>
+      <span data-i18n="Publish">Publish</span>
+    </button>
+    <button class="mobile-nav-btn" data-mobile-tab="companion">
+      <span>📱</span>
+      <span data-i18n="Companion">Companion</span>
     </button>
   </nav>
 
@@ -4449,6 +4542,23 @@ WORK STYLE:
         // Share Link (B4.3)
         'Share Link': 'শেয়ার লিংক',
         'Share link opens the built app (not the editor). If not deployed yet, prepares deployment first.': 'শেয়ার লিংক বিল্ট অ্যাপ খোলে (এডিটর নয়)। যদি এখনও ডিপ্লয় করা না থাকে, তবে প্রথমে ডিপ্লয়মেন্ট প্রস্তুত করে।',
+
+        // Mobile Companion View (B4.4)
+        'Companion': 'সঙ্গী',
+        'Build Status': 'বিল্ড স্ট্যাটাস',
+        'Current Step': 'বর্তমান ধাপ',
+        'Team Chat': 'টিম চ্যাট',
+        'Checkpoints': 'চেকপয়েন্ট',
+        'No active build': 'কোনো সক্রিয় বিল্ড নেই',
+        'Building...': 'বিল্ড হচ্ছে...',
+        'Build successful': 'বিল্ড সফল',
+        'Build failed': 'বিল্ড ব্যর্থ',
+        'Idle': 'নিষ্ক্রিয়',
+        'No current step': 'কোনো বর্তমান ধাপ নেই',
+        'No team chat yet': 'এখনো কোনো টিম চ্যাট নেই',
+        'No checkpoints': 'কোনো চেকপয়েন্ট নেই',
+        'Approve': 'অনুমোদন',
+        'Reject': 'প্রত্যাখ্যান',
 
         // Welcome / Empty states
         'No files yet. Create one to get started.': 'এখনো কোনো ফাইল নেই। শুরু করতে একটি তৈরি করুন।',
@@ -8273,6 +8383,173 @@ function initPublishPanel() {
     };
   }
 }
+
+// ==================== MOBILE COMPANION VIEW ====================
+function renderCompanionView() {
+  const session = getCurrentSession();
+  if (!session) return;
+
+  // Build Status
+  const buildStatusEl = document.getElementById('companionBuildStatusText');
+  const spinnerEl = document.getElementById('companionBuildStatus').querySelector('.spinner');
+  if (buildStatusEl && spinnerEl) {
+    const status = session.buildStatus || 'idle';
+    const statusLabels = {
+      idle: 'No active build',
+      working: 'Building...',
+      success: 'Build successful',
+      error: 'Build failed'
+    };
+    const statusColors = {
+      idle: 'var(--text-dim)',
+      working: 'var(--accent-blue)',
+      success: 'var(--success)',
+      error: 'var(--error)'
+    };
+    buildStatusEl.textContent = statusLabels[status] || 'No active build';
+    buildStatusEl.style.color = statusColors[status] || 'var(--text-dim)';
+    spinnerEl.style.display = status === 'working' ? 'block' : 'none';
+    // Add touch-friendly class
+    buildStatusEl.classList.add('status-value');
+  }
+
+  // Current Step
+  const stepEl = document.getElementById('companionCurrentStep');
+  if (stepEl) {
+    let stepText = 'No current step';
+    if (session.plan && session.plan.steps && session.plan.steps.length > 0) {
+      const idx = session.planStepIndex || 0;
+      if (idx < session.plan.steps.length) {
+        const step = session.plan.steps[idx];
+        stepText = `Step ${idx + 1}/${session.plan.steps.length}: ${step.description || step.action || 'Unknown'}`;
+      }
+    } else if (session.taoCurrentStep) {
+      stepText = session.taoCurrentStep;
+    }
+    stepEl.textContent = stepText;
+    // Add touch-friendly class
+    stepEl.classList.add('step-text');
+  }
+
+  // Team Chat (compact, read-only)
+  const chatEl = document.getElementById('companionTeamChat');
+  if (chatEl) {
+    const teamChat = session.teamChat || [];
+    if (teamChat.length === 0) {
+      chatEl.innerHTML = '<div style="font-size: 11px; color: var(--text-dim); text-align: center; padding: 20px;" data-i18n="No team chat yet">No team chat yet</div>';
+    } else {
+      // Show last 10 messages for compact view
+      const recent = teamChat.slice(-10);
+      chatEl.innerHTML = recent.map(msg => {
+        const agent = msg.agent || 'agent';
+        const emoji = agent === 'architect' ? '🏗' : agent === 'builder' ? '🔨' : agent === 'reviewer' ? '👁' : agent === 'tester' ? '🧪' : '🤖';
+        const name = msg.name || agent;
+        const time = msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString() : '';
+        const content = (msg.content || '').substring(0, 200);
+        return `<div class="chat-message" style="font-size:11px; padding:6px 8px; background:var(--bg-panel); border-radius:4px; border:1px solid var(--border-color);">
+          <div style="display:flex; align-items:center; gap:6px; margin-bottom:2px;">
+            <span>${emoji}</span>
+            <span style="font-weight:600; color:var(--text-main);">${name}</span>
+            <span style="font-size:9px; color:var(--text-dim); margin-left:auto;">${time}</span>
+          </div>
+          <div style="color:var(--text-main); white-space:pre-wrap; word-break:break-word;">${content}</div>
+        </div>`;
+      }).join('');
+      chatEl.scrollTop = chatEl.scrollHeight;
+    }
+  }
+
+  // Checkpoints (with approve/reject)
+  const checkpointsEl = document.getElementById('companionCheckpoints');
+  if (checkpointsEl) {
+    const companionBtnStyle = 'flex:1; min-height:48px; padding:10px 16px; font-size:13px; font-weight:600;';
+    // Time-travel checkpoints (session.checkpoints)
+    const sessionCheckpoints = session.checkpoints || [];
+    const pendingSession = sessionCheckpoints.filter(c => c.status === 'pending');
+    
+    // Team Mode v2 human checkpoints (appState.teamV2.checkpoints)
+    const teamV2 = appState.teamV2 || { checkpoints: [] };
+    const pendingTeamV2 = (teamV2.checkpoints || []).filter(c => c.answer === null);
+
+    const allPending = [
+      ...pendingSession.map(cp => ({ ...cp, type: 'session', id: cp.id })),
+      ...pendingTeamV2.map(cp => ({ ...cp, type: 'teamv2', id: cp.at + '_' + cp.reason.substring(0, 10) }))
+    ];
+
+    if (allPending.length === 0) {
+      checkpointsEl.innerHTML = '<div style="font-size: 11px; color: var(--text-dim); text-align: center; padding: 10px;" data-i18n="No checkpoints">No checkpoints</div>';
+    } else {
+      checkpointsEl.innerHTML = allPending.map(cp => {
+        const id = cp.id || cp.at + '_' + cp.reason.substring(0, 10);
+        const msg = cp.reason || cp.message || cp.label || 'Checkpoint';
+        const type = cp.type || 'session';
+        return `<div class="checkpoint-item" style="padding:10px; background:var(--bg-panel); border-radius:6px; border:1px solid var(--border-color);">
+          <div class="checkpoint-message" style="font-size:12px; font-weight:600; color:var(--text-main); margin-bottom:8px; white-space:pre-wrap; word-break:break-word;">${msg}</div>
+          <div class="checkpoint-buttons" style="display:flex; gap:8px;">
+            <button class="btn" onclick="${type === 'session' ? `approveCheckpoint('${id}')` : `approveTeamV2Checkpoint('${id}')`}" style="${companionBtnStyle}" data-i18n="Approve">✅ Approve</button>
+            <button class="btn btn-secondary" onclick="${type === 'session' ? `rejectCheckpoint('${id}')` : `rejectTeamV2Checkpoint('${id}')`}" style="${companionBtnStyle}" data-i18n="Reject">❌ Reject</button>
+          </div>
+        </div>`;
+      }).join('');
+    }
+  }
+}
+
+// Expose approve/reject globally for onclick handlers
+window.approveCheckpoint = function(checkpointId) {
+  const session = getCurrentSession();
+  if (!session) return;
+  const cp = (session.checkpoints || []).find(c => c.id === checkpointId);
+  if (cp) {
+    cp.status = 'approved';
+    cp.resolvedAt = Date.now();
+    logActivity('Checkpoint approved: ' + checkpointId, 'success');
+    renderCompanionView();
+    // Resume agent if paused
+    if (session.isPaused) {
+      session.isPaused = false;
+      executeNextPlanStep();
+    }
+  }
+};
+
+window.rejectCheckpoint = function(checkpointId) {
+  const session = getCurrentSession();
+  if (!session) return;
+  const cp = (session.checkpoints || []).find(c => c.id === checkpointId);
+  if (cp) {
+    cp.status = 'rejected';
+    cp.resolvedAt = Date.now();
+    logActivity('Checkpoint rejected: ' + checkpointId, 'warning');
+    renderCompanionView();
+    // Resume agent if paused
+    if (session.isPaused) {
+      session.isPaused = false;
+      executeNextPlanStep();
+    }
+  }
+};
+
+// Team Mode v2 checkpoint handlers
+window.approveTeamV2Checkpoint = function(checkpointId) {
+  const teamV2 = getTeamV2();
+  const cp = (teamV2.checkpoints || []).find(c => (c.at + '_' + c.reason.substring(0, 10)) === checkpointId);
+  if (cp) {
+    cp.answer = true;
+    logActivity('Team v2 checkpoint approved: ' + checkpointId, 'success');
+    renderCompanionView();
+  }
+};
+
+window.rejectTeamV2Checkpoint = function(checkpointId) {
+  const teamV2 = getTeamV2();
+  const cp = (teamV2.checkpoints || []).find(c => (c.at + '_' + c.reason.substring(0, 10)) === checkpointId);
+  if (cp) {
+    cp.answer = false;
+    logActivity('Team v2 checkpoint rejected: ' + checkpointId, 'warning');
+    renderCompanionView();
+  }
+};
 
 // ==================== TEMPLATES GALLERY ====================
 // Template metadata for display (global so loadTemplate can access it)
@@ -15607,6 +15884,14 @@ CURRENT VIRTUAL FILES (outlines):
             updateThinkActObserveState('idle');
             agentWorking = false;
             stopTimer();
+            // Update build status for companion view
+            const session = getCurrentSession();
+            if (session) {
+              session.buildStatus = 'success';
+              if (document.getElementById('paneCompanion')?.classList.contains('active')) {
+                renderCompanionView();
+              }
+            }
             return;
           }
 
@@ -15640,6 +15925,14 @@ CURRENT VIRTUAL FILES (outlines):
           updatePlanControlsVisibility();
 
           const session = getCurrentSession();
+
+          // Update build status for companion view
+          if (session) {
+            session.buildStatus = 'working';
+            if (document.getElementById('paneCompanion')?.classList.contains('active')) {
+              renderCompanionView();
+            }
+          }
 
           // Get execution mode for current plan mode
           const execMode = getPlanExecutionMode();
@@ -15795,6 +16088,14 @@ CURRENT VIRTUAL FILES (outlines):
             agentWorking = false;
             stopTimer();
             saveAppState();
+            // Update build status for companion view
+            const session = getCurrentSession();
+            if (session) {
+              session.buildStatus = 'error';
+              if (document.getElementById('paneCompanion')?.classList.contains('active')) {
+                renderCompanionView();
+              }
+            }
           }
         }
 
@@ -18325,6 +18626,10 @@ Format:
                       document.getElementById('paneProjectDoctor').classList.add('active');
                       initProjectDoctorPanel();
                     }
+                    if (paneName === 'companion') {
+                      document.getElementById('paneCompanion').classList.add('active');
+                      renderCompanionView();
+                    }
 
                     // Clean up graph render loop when leaving graph tab
           if (paneName !== 'graph' && graphViewState.animationFrame) {
@@ -18359,7 +18664,8 @@ Format:
                 'diffReview': 'show-agent',
                 'templates': 'show-agent',
                 'publish': 'show-agent',
-                'projectDoctor': 'show-agent'
+                'projectDoctor': 'show-agent',
+                'companion': 'show-companion'
               };
 
               appMain.className = `app-main ${tabToClass[tab] || 'show-agent'}`;
@@ -18382,6 +18688,8 @@ Format:
                 document.querySelector('.right-tab[data-pane="publish"]').click();
               } else if (tab === 'projectDoctor') {
                 document.querySelector('.right-tab[data-pane="projectDoctor"]').click();
+              } else if (tab === 'companion') {
+                document.querySelector('.right-tab[data-pane="companion"]').click();
               }
             });
           });
@@ -21849,6 +22157,10 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
 
       appState.teamChat.push({ role, agentId, content, timestamp: Date.now() });
       saveAppState();
+      // Update companion view if visible
+      if (document.getElementById('paneCompanion')?.classList.contains('active')) {
+        renderCompanionView();
+      }
     }
 
     // Append team chat message with action buttons (for task completion, etc.)
@@ -23631,6 +23943,10 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
           resolve({ approved: true, userNote: null });
         }
         recordSessionEvent('checkpoint', 'HUMAN CHECKPOINT requested: ' + reason);
+        // Update companion view
+        if (document.getElementById('paneCompanion')?.classList.contains('active')) {
+          renderCompanionView();
+        }
       });
     }
 
