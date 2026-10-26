@@ -3306,11 +3306,30 @@ sudo *"></textarea>
       /MAN\s+mode/i
     ];
 
-    // Scans content for prompt injection patterns
-    // Returns { safe: boolean, matches: Array<{pattern: string, match: string, index: number}> }
-    function scanForInjection(content, filePath) {
-      const matches = [];
-      for (const pattern of INJECTION_PATTERNS) {
+// H1.3 + H1.4: single shared injection scanner - prompt injection / exfiltration patterns
+// Returns { safe: boolean, clean: boolean, matches: Array<{pattern: string, match: string, index: number}>, issues: string[], filePath: string }
+// H1.3 contract: clean/issues (writeBrainNote). H1.4 contract: safe/matches/filePath (context-file loading).
+function scanForInjection(content, filePath) {
+  if (content == null || typeof content !== 'string') return { safe: true, clean: true, matches: [], issues: [], filePath: filePath || 'unknown' };
+  const matches = [];
+  const issues = [];
+  const patterns = [
+        { re: /ignore\s+previous\s+instructions/i, desc: 'Ignore previous instructions' },
+        { re: /system\s*[::]/i, desc: 'System prompt injection' },
+        { re: /###\s*instruction/i, desc: 'Markdown instruction header' },
+        { re: /<script/i, desc: 'Script tag' },
+        { re: /\{\{.*\}\}/, desc: 'Template injection' },
+        { re: /eval\s*\(/i, desc: 'Eval call' },
+        { re: /document\.cookie/i, desc: 'Cookie exfiltration' },
+        { re: /localStorage|sessionStorage/i, desc: 'Storage access' },
+        { re: /fetch\s*\(|XMLHttpRequest/i, desc: 'Network request' },
+        { re: /password|secret|token|api[_-]?key/i, desc: 'Credential leakage' },
+      ];
+  for (const { re, desc } of patterns) {
+    const x = re.exec(content);
+    if (x) { issues.push(desc); matches.push({ pattern: re.source, match: x[0], index: x.index }); }
+  }
+  for (const pattern of INJECTION_PATTERNS) {
         let match;
         // Reset lastIndex for global regexes
         if (pattern.global) pattern.lastIndex = 0;
@@ -3323,12 +3342,10 @@ sudo *"></textarea>
           if (!pattern.global) break;
         }
       }
-      return {
-        safe: matches.length === 0,
-        matches: matches,
-        filePath: filePath
-      };
-    }
+      const safe = issues.length === 0 && matches.length === 0;
+  return { safe: safe, clean: safe, matches: matches, issues: issues, filePath: filePath || 'unknown' };
+}
+
 
     // Builds the priority chain of context files for a given working directory
     // Returns array of { path, content, priority, source } sorted by priority (highest first)
@@ -5273,25 +5290,8 @@ project-root/
       return session.workingMemory;
     }
 
-    // H1.3 + H1.4: Injection scan — detect prompt injection / exfiltration patterns
-    // Returns { safe: boolean, matches: Array<{pattern: string, match: string, index: number}>, filePath: string }
-    function scanForInjection(text, filePath) {
-      if (!text || typeof text !== 'string') return { safe: true, matches: [], filePath: filePath || 'unknown' };
-      const matches = [];
-      for (const pattern of INJECTION_PATTERNS) {
-        let match;
-        if (pattern.global) pattern.lastIndex = 0;
-        while ((match = pattern.exec(text)) !== null) {
-          matches.push({
-            pattern: pattern.source,
-            match: match[0],
-            index: match.index
-          });
-          if (!pattern.global) break;
-        }
-      }
-      return { safe: matches.length === 0, matches, filePath: filePath || 'unknown' };
-    }
+// H1.3 + H1.4 injection scan: the single scanForInjection() lives with INJECTION_PATTERNS (H1.4 context files) - do not add a second copy here.
+
 
     // Map note: every note by name + one-line summary + its [[links]]
     function buildBrainIndexContent(session) {
