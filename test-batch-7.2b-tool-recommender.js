@@ -296,3 +296,4 @@ assertExists('scoreBoost', 'Score boost for learning');
 assertExists('task', 'Task field in recommendation history');
 
 console.log('\n✓ All Batch 7.2b Tool Recommender assertions passed');
+process.exit(0);
