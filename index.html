@@ -1952,6 +1952,25 @@
               <span id="graphEdgeCount">0 edges</span>
               <span id="graphSummary">Click "Build Graph" to index the codebase</span>
             </div>
+            
+            <!-- Repo Map Section (Batch 7.1) -->
+            <div style="border-top:1px solid var(--border-color); background:var(--bg-surface);">
+              <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:var(--bg-panel); border-bottom:1px solid var(--border-color); cursor:pointer;" onclick="toggleRepoMapSection()">
+                <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Repo Map</span>
+                <span id="repoMapToggleIcon" style="font-size:10px; color:var(--text-dim);">▼</span>
+              </div>
+              <div id="repoMapSection" style="padding:8px 12px; display:none; max-height:200px; overflow:auto;">
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px; flex-wrap:wrap;">
+                  <label style="font-size:10px; color:var(--text-dim);">Budget:</label>
+                  <input type="number" id="repoMapBudgetInputPanel" min="0" max="4096" step="64" style="width:80px; background:var(--bg-hover); border:1px solid var(--border-color); border-radius:4px; color:var(--text-main); font-size:10px; padding:3px 6px;" />
+                  <span id="repoMapBudgetMeter" style="font-size:10px; color:var(--text-dim);">0 / 1024 tokens</span>
+                  <label style="font-size:10px; color:var(--text-dim); margin-left:auto;">
+                    <input type="checkbox" id="repoMapTogglePanel" style="margin-right:4px;" /> Enable
+                  </label>
+                </div>
+                <pre id="repoMapText" style="font-size:10px; font-family:monospace; color:var(--text-main); white-space:pre-wrap; word-break:break-word; line-height:1.4;"></pre>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -2549,6 +2568,26 @@
             <input type="checkbox" id="teachModeToggleSettings" style="display: none;" />
             <span class="toggle-slider"></span>
           </label>
+        </div>
+        <hr style="border: none; border-top: 1px solid var(--border-color); margin: 12px 0;">
+        <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;" data-i18n="Repo Map">Repo Map</div>
+        <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 8px;" data-i18n="Ranked, token-budgeted code map for LLM context. Built from the Brain code graph using PageRank over define/reference edges.">Ranked, token-budgeted code map for LLM context. Built from the Brain code graph using PageRank over define/reference edges.</div>
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+          <div style="flex: 1; min-width: 0;">
+            <div style="font-weight: 600; font-size: 12px; color: var(--text-main);" data-i18n="Enable Repo Map in context">Enable Repo Map in context</div>
+            <div style="font-size: 10px; color: var(--text-dim); margin-top: 2px;" data-i18n="When ON, the ranked code map is appended to the agent context (inside the 1500-token Brain digest cap).">When ON, the ranked code map is appended to the agent context (inside the 1500-token Brain digest cap).</div>
+          </div>
+          <label class="toggle-switch" style="cursor: pointer; flex-shrink: 0;">
+            <input type="checkbox" id="repoMapToggleSettings" style="display: none;" checked />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div style="display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 8px;">
+          <div style="flex: 1; min-width: 150px;">
+            <label style="display: block; font-size: 11px; color: var(--text-muted); margin-bottom: 4px;" data-i18n="Repo Map Token Budget">Repo Map Token Budget</label>
+            <input type="number" id="repoMapBudgetInput" class="form-input" min="0" max="4096" value="1024" style="width: 100%; padding: 6px 8px; font-size: 12px;" />
+            <div style="font-size: 10px; color: var(--text-dim); margin-top: 2px;" data-i18n="Token budget for the ranked code map (0 = disabled, default: 1024, max: 4096). Part of the 1500-token Brain digest cap.">Token budget for the ranked code map (0 = disabled, default: 1024, max: 4096). Part of the 1500-token Brain digest cap.</div>
+          </div>
         </div>
         <hr style="border: none; border-top: 1px solid var(--border-color); margin: 12px 0;">
         <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;" data-i18n="Inline Autocomplete">Inline Autocomplete</div>
@@ -5402,6 +5441,9 @@ WORK STYLE:
       teachMode: false,         // Explain agent changes in simple Bangla
       // Inline Autocomplete state
       autocompleteEnabled: true,  // Ghost-text code completions
+      // Repo Map state (Batch 7.1)
+      repoMapBudget: 1024,        // Token budget for Repo Map (0 = off, default 1024)
+      repoMapEnabled: true,       // Per-session toggle for Repo Map
       // Language state
       language: 'en',           // 'en' | 'bn'
       // Skill Librarian state
@@ -6150,9 +6192,11 @@ project-root/
 `
     };
 
-    // Add code graph summary to brain digest (inside 1500-token cap)
-    function addGraphSummaryToDigest(digest, totalTokens) {
+    // Add code graph summary and Repo Map to brain digest (inside 1500-token cap)
+    function addGraphSummaryToDigest(digest, totalTokens, session, latestPrompt) {
       const MAX_TOKENS = 1500;
+      
+      // First, add Code Graph Summary
       const graphSummary = getGraphSummary();
       const graphSummaryHeader = '\n## Code Graph Summary\n\n';
       const graphTokens = estimateTokens(graphSummaryHeader + graphSummary);
@@ -6169,6 +6213,29 @@ project-root/
           totalTokens = estimateTokens(digest);
         }
       }
+      
+      // Then, add Repo Map (Batch 7.1) - replaces least-useful digest lines when both are on
+      // The Repo Map budget is part of, not on top of, the 1500-token cap
+      const { rendered: repoMapText, tokens: repoMapTokens } = getOrBuildRepoMap(session, latestPrompt);
+      if (repoMapText && repoMapTokens > 0) {
+        const repoMapHeader = '\n## Repo Map (ranked)\n\n';
+        const mapTokens = estimateTokens(repoMapHeader + repoMapText);
+        
+        if (totalTokens + mapTokens <= MAX_TOKENS) {
+          digest += repoMapHeader + repoMapText + '\n';
+          totalTokens = estimateTokens(digest);
+        } else if (totalTokens < MAX_TOKENS - 50) {
+          // Truncate repo map to fit remaining budget
+          const availableTokens = MAX_TOKENS - totalTokens - estimateTokens(repoMapHeader);
+          const charsPerToken = 4;
+          const maxChars = availableTokens * charsPerToken;
+          if (maxChars > 50) {
+            digest += repoMapHeader + repoMapText.slice(0, maxChars) + '\n[...truncated...]\n';
+            totalTokens = estimateTokens(digest);
+          }
+        }
+      }
+      
       return { digest, totalTokens };
     }
 
@@ -6248,8 +6315,8 @@ project-root/
         }
       }
       
-      // Add code graph summary (inside 1500-token cap)
-      const result = addGraphSummaryToDigest(digest, totalTokens);
+      // Add code graph summary and Repo Map (inside 1500-token cap)
+      const result = addGraphSummaryToDigest(digest, totalTokens, session, _lastUserPrompt || '');
       digest = result.digest;
       totalTokens = result.totalTokens;
       
@@ -6863,6 +6930,7 @@ function getOrBuildCodeGraph(session) {
 
 function markGraphDirty() {
   codeGraphDirty = true;
+  invalidateRepoMapCache(); // Invalidate Repo Map cache (Batch 7.1)
   if (graphRebuildTimer) clearTimeout(graphRebuildTimer);
   graphRebuildTimer = setTimeout(() => {
     const session = getCurrentSession();
@@ -7074,6 +7142,245 @@ function getGraphSummary() {
     });
   
   return `Code Graph: ${graph.nodes.length} nodes (${Object.entries(byType).map(([t,c])=>`${t}:${c}`).join(', ')}), ${graph.edges.length} edges (${byConfidence.EXTRACTED} extracted, ${byConfidence.INFERRED} inferred). Hubs: ${topNodes.join(', ')}. Updated: ${new Date(graph.updatedAt).toLocaleTimeString()}`;
+}
+
+// ==================== REPO MAP (Batch 7.1) ====================
+// Ranked, token-budgeted rendering of the Brain code graph for LLM context injection.
+// Uses PageRank over define/reference edges with personalization boost for session files
+// and user-mentioned identifiers. No second index — reads the existing graph.json only.
+
+// Cached rendered repo map (invalidated by markGraphDirty)
+let _repoMapCache = { rendered: '', ranked: [], tokens: 0, graphVersion: 0 };
+
+// PageRank implementation (~30 lines, damping 0.85, ~20 iterations)
+// Runs over the code graph's define/reference edges (DEFINES, CALLS, IMPORTS, EXTENDS, IMPLEMENTS, USES)
+// Personalization boost for (a) files in current chat/session and (b) identifiers mentioned in latest prompt
+// Weight: 100/len(files) per file (Aider-style), distributed across that file's definition nodes
+function computePageRank(graph, personalization) {
+  if (!graph || graph.nodes.length === 0) return new Map();
+  
+  const DAMPING = 0.85;
+  const ITERATIONS = 20;
+  const nodeCount = graph.nodes.length;
+  
+  // Build adjacency list (outgoing edges for PageRank)
+  const outEdges = new Map();
+  const inEdges = new Map();
+  graph.nodes.forEach(n => { outEdges.set(n.id, []); inEdges.set(n.id, []); });
+  
+  for (const edge of graph.edges) {
+    // Only follow define/reference edges for ranking
+    const relevantTypes = ['DEFINES', 'CALLS', 'IMPORTS', 'EXTENDS', 'IMPLEMENTS', 'USES'];
+    if (relevantTypes.includes(edge.type)) {
+      if (outEdges.has(edge.from)) outEdges.get(edge.from).push(edge.to);
+      if (inEdges.has(edge.to)) inEdges.get(edge.to).push(edge.from);
+    }
+  }
+  
+  // Personalization vector (teleport distribution)
+  // Base: uniform. Boost: session files + mentioned identifiers
+  const personalizationVec = new Map();
+  let personalizationSum = 0;
+  graph.nodes.forEach(n => { personalizationVec.set(n.id, 1); personalizationSum += 1; });
+  
+  if (personalization) {
+    const { sessionFiles, mentionedNames } = personalization;
+    const fileBoost = sessionFiles && sessionFiles.length > 0 ? 100 / sessionFiles.length : 0;
+    const mentionBoost = 50; // Flat boost per mentioned identifier
+    
+    // Boost definitions in session files
+    if (sessionFiles && sessionFiles.length > 0) {
+      for (const node of graph.nodes) {
+        if ((node.type === 'FUNCTION' || node.type === 'CLASS' || node.type === 'CONCEPT') && 
+            sessionFiles.includes(node.filePath)) {
+          const current = personalizationVec.get(node.id) || 0;
+          personalizationVec.set(node.id, current + fileBoost);
+          personalizationSum += fileBoost;
+        }
+      }
+    }
+    
+    // Boost mentioned identifiers
+    if (mentionedNames && mentionedNames.length > 0) {
+      for (const node of graph.nodes) {
+        if ((node.type === 'FUNCTION' || node.type === 'CLASS' || node.type === 'CONCEPT' || node.type === 'VARIABLE') &&
+            mentionedNames.some(m => node.name.toLowerCase().includes(m.toLowerCase()))) {
+          const current = personalizationVec.get(node.id) || 0;
+          personalizationVec.set(node.id, current + mentionBoost);
+          personalizationSum += mentionBoost;
+        }
+      }
+    }
+    
+    // Normalize
+    for (const [id, val] of personalizationVec) {
+      personalizationVec.set(id, val / personalizationSum);
+    }
+  } else {
+    // Uniform
+    for (const [id] of personalizationVec) {
+      personalizationVec.set(id, 1 / nodeCount);
+    }
+  }
+  
+  // Initialize ranks
+  const ranks = new Map();
+  graph.nodes.forEach(n => ranks.set(n.id, 1 / nodeCount));
+  
+  // Power iteration
+  for (let iter = 0; iter < ITERATIONS; iter++) {
+    const newRanks = new Map();
+    
+    // Compute new ranks
+    for (const node of graph.nodes) {
+      let rank = (1 - DAMPING) * personalizationVec.get(node.id);
+      
+      // Sum contributions from incoming neighbors
+      const incoming = inEdges.get(node.id) || [];
+      for (const fromId of incoming) {
+        const fromRank = ranks.get(fromId) || 0;
+        const outDegree = (outEdges.get(fromId) || []).length;
+        if (outDegree > 0) {
+          rank += DAMPING * fromRank / outDegree;
+        }
+      }
+      newRanks.set(node.id, rank);
+    }
+    
+    ranks.clear();
+    for (const [id, val] of newRanks) ranks.set(id, val);
+  }
+  
+  return ranks;
+}
+
+// Build the Repo Map: rank definitions, fill token budget, return ranked list
+function buildRepoMap(session, latestPrompt) {
+  if (!session) return { ranked: [], tokens: 0 };
+  
+  const graph = getOrBuildCodeGraph(session);
+  if (!graph || graph.nodes.length === 0) return { ranked: [], tokens: 0 };
+  
+  // Personalization: session files + mentioned identifiers in latest prompt
+  const sessionFiles = [];
+  // Active file + recent files in session
+  if (session.activeFile) sessionFiles.push(session.activeFile);
+  const recentFiles = Object.keys(session.files || {}).slice(-5);
+  for (const f of recentFiles) if (!sessionFiles.includes(f)) sessionFiles.push(f);
+  
+  // Extract mentioned identifiers from latest prompt (simple heuristic: camelCase, snake_case, PascalCase words)
+  const mentionedNames = [];
+  if (latestPrompt) {
+    const words = latestPrompt.match(/[A-Za-z_][A-Za-z0-9_]*/g) || [];
+    for (const w of words) {
+      if (w.length >= 3 && /[A-Z]/.test(w) || w.includes('_')) {
+        mentionedNames.push(w);
+      }
+    }
+  }
+  
+  const personalization = { sessionFiles, mentionedNames: mentionedNames.slice(0, 20) };
+  
+  // Run PageRank
+  const ranks = computePageRank(graph, personalization);
+  
+  // Collect definition nodes (functions, classes, concepts) with their ranks
+  const defNodes = graph.nodes
+    .filter(n => n.type === 'FUNCTION' || n.type === 'CLASS' || n.type === 'CONCEPT')
+    .map(n => ({ node: n, rank: ranks.get(n.id) || 0 }))
+    .sort((a, b) => b.rank - a.rank);
+  
+  return { ranked: defNodes, graphVersion: graph.updatedAt || Date.now() };
+}
+
+// Render Repo Map as tree text within token budget
+// Format: filename:\n  ├─ def foo(...)\n  └─ class Bar\n Each line truncated to ~100 chars
+function renderRepoMapText(ranked, budget) {
+  if (budget <= 0 || !ranked || ranked.length === 0) return { text: '', tokens: 0 };
+  
+  const MAX_LINE_CHARS = 100;
+  const lines = [];
+  let usedTokens = 0;
+  const charsPerToken = 4;
+  
+  // Group by file
+  const byFile = new Map();
+  for (const { node, rank } of ranked) {
+    if (!byFile.has(node.filePath)) byFile.set(node.filePath, []);
+    byFile.get(node.filePath).push({ node, rank });
+  }
+  
+  // Sort files by their highest-ranked definition
+  const sortedFiles = Array.from(byFile.entries())
+    .map(([file, defs]) => ({ file, defs: defs.sort((a,b) => b.rank - a.rank), topRank: defs[0].rank }))
+    .sort((a, b) => b.topRank - a.topRank);
+  
+  for (const { file, defs } of sortedFiles) {
+    const fileHeader = `${file}:\n`;
+    const headerTokens = Math.ceil(fileHeader.length / charsPerToken);
+    
+    if (usedTokens + headerTokens > budget) break;
+    
+    lines.push(fileHeader);
+    usedTokens += headerTokens;
+    
+    for (let i = 0; i < defs.length; i++) {
+      const { node } = defs[i];
+      const isLast = i === defs.length - 1;
+      const prefix = isLast ? '  └─ ' : '  ├─ ';
+      
+      // Build signature: def foo(...) or class Bar or concept Baz
+      let sig = '';
+      if (node.type === 'FUNCTION') {
+        const params = node.meta?.params ? node.meta.params.join(', ') : '...';
+        sig = `def ${node.name}(${params})`;
+      } else if (node.type === 'CLASS') {
+        sig = `class ${node.name}`;
+      } else {
+        sig = node.name;
+      }
+      
+      const line = prefix + sig.slice(0, MAX_LINE_CHARS - prefix.length) + '\n';
+      const lineTokens = Math.ceil(line.length / charsPerToken);
+      
+      if (usedTokens + lineTokens > budget) break;
+      
+      lines.push(line);
+      usedTokens += lineTokens;
+    }
+    
+    if (usedTokens >= budget) break;
+  }
+  
+  return { text: lines.join(''), tokens: usedTokens };
+}
+
+// Get or build cached Repo Map
+function getOrBuildRepoMap(session, latestPrompt) {
+  if (!session) return { rendered: '', tokens: 0 };
+  
+  const budget = appState.repoMapBudget ?? 1024;
+  if (!appState.repoMapEnabled || budget <= 0) return { rendered: '', tokens: 0 };
+  
+  const graph = getOrBuildCodeGraph(session);
+  const graphVersion = graph?.updatedAt || 0;
+  
+  // Return cache if valid
+  if (_repoMapCache.rendered && _repoMapCache.graphVersion === graphVersion) {
+    return { rendered: _repoMapCache.rendered, tokens: _repoMapCache.tokens };
+  }
+  
+  // Build new map
+  const { ranked } = buildRepoMap(session, latestPrompt);
+  const { text, tokens } = renderRepoMapText(ranked, budget);
+  
+  _repoMapCache = { rendered: text, ranked, tokens, graphVersion };
+  return { rendered: text, tokens };
+}
+
+// Invalidate Repo Map cache (called by markGraphDirty)
+function invalidateRepoMapCache() {
+  _repoMapCache = { rendered: '', ranked: [], tokens: 0, graphVersion: 0 };
 }
 
 // ==================== PROJECT DOCTOR ====================
@@ -8383,6 +8690,73 @@ function updateGraphInfoBar() {
     }
   }
 }
+
+// Repo Map panel functions (Batch 7.1)
+function toggleRepoMapSection() {
+  const section = document.getElementById('repoMapSection');
+  const icon = document.getElementById('repoMapToggleIcon');
+  if (!section || !icon) return;
+  
+  const isHidden = section.style.display === 'none';
+  section.style.display = isHidden ? 'block' : 'none';
+  icon.textContent = isHidden ? '▲' : '▼';
+  
+  if (isHidden) {
+    updateRepoMapPanel();
+  }
+}
+
+function updateRepoMapPanel() {
+  const session = getCurrentSession();
+  if (!session) return;
+  
+  const budget = appState.repoMapBudget ?? 1024;
+  const enabled = appState.repoMapEnabled !== false;
+  
+  const budgetInput = document.getElementById('repoMapBudgetInputPanel');
+  const toggle = document.getElementById('repoMapTogglePanel');
+  const meter = document.getElementById('repoMapBudgetMeter');
+  const textEl = document.getElementById('repoMapText');
+  
+  if (budgetInput) budgetInput.value = budget;
+  if (toggle) toggle.checked = enabled;
+  if (meter) meter.textContent = `Repo Map ${budget} / ${budget} tokens`;
+  
+  // Build and display repo map
+  const { rendered, tokens } = getOrBuildRepoMap(session, _lastUserPrompt || '');
+  if (meter) meter.textContent = `Repo Map ${tokens} / ${budget} tokens`;
+  if (textEl) textEl.textContent = rendered || (enabled ? '(empty — build graph first)' : '(disabled)');
+  
+  // Sync panel inputs to appState
+  if (budgetInput) {
+    budgetInput.onchange = (e) => {
+      const val = parseInt(e.target.value, 10);
+      if (!isNaN(val) && val >= 0 && val <= 4096) {
+        appState.repoMapBudget = val;
+        saveAppState();
+        updateRepoMapPanel();
+        markGraphDirty();
+      }
+    };
+  }
+  if (toggle) {
+    toggle.onchange = (e) => {
+      appState.repoMapEnabled = e.target.checked;
+      saveAppState();
+      updateRepoMapPanel();
+      markGraphDirty();
+    };
+  }
+}
+
+// Also call updateRepoMapPanel when graph panel is shown
+const originalSwitchPane = window.switchPane;
+window.switchPane = function(pane) {
+  originalSwitchPane(pane);
+  if (pane === 'graph') {
+    setTimeout(updateRepoMapPanel, 50);
+  }
+};
 
 function resetGraphView() {
   const canvas = document.getElementById('graphCanvas');
@@ -9843,6 +10217,33 @@ Links: [[Brain Index]]
           appState.autocompleteEnabled = e.target.checked;
           saveAppState();
           logActivity(e.target.checked ? 'Inline autocomplete enabled' : 'Inline autocomplete disabled', 'info');
+        };
+      }
+
+      // Repo Map toggle (settings)
+      const repoMapToggleSettings = document.getElementById('repoMapToggleSettings');
+      if (repoMapToggleSettings) {
+        repoMapToggleSettings.checked = appState.repoMapEnabled !== false; // Default ON
+        repoMapToggleSettings.onchange = (e) => {
+          appState.repoMapEnabled = e.target.checked;
+          saveAppState();
+          logActivity(e.target.checked ? 'Repo Map enabled in context' : 'Repo Map disabled in context', 'info');
+          markGraphDirty(); // Rebuild context with/without map
+        };
+      }
+
+      // Repo Map budget input (settings)
+      const repoMapBudgetInput = document.getElementById('repoMapBudgetInput');
+      if (repoMapBudgetInput) {
+        repoMapBudgetInput.value = appState.repoMapBudget ?? 1024;
+        repoMapBudgetInput.onchange = (e) => {
+          const val = parseInt(e.target.value, 10);
+          if (!isNaN(val) && val >= 0 && val <= 4096) {
+            appState.repoMapBudget = val;
+            saveAppState();
+            logActivity(`Repo Map token budget set to ${val}`, 'info');
+            markGraphDirty(); // Rebuild with new budget
+          }
         };
       }
     }
@@ -13705,6 +14106,7 @@ Only propose merges for skills that are genuinely overlapping or complementary. 
     // The digest is keyed by a turn counter that increments each user interaction
     let _frozenBrainDigestCache = { turn: -1, digest: '' };
     let _turnCounter = 0;
+    let _lastUserPrompt = '';  // Track latest user prompt for Repo Map personalization (Batch 7.1)
 
     function incrementTurn() {
       _turnCounter++;
@@ -16728,6 +17130,9 @@ function updateTokenMeter(session) {
 }
 
 async function sendAgentPrompt(userPrompt, autoTurn = 0) {
+      // Track latest user prompt for Repo Map personalization (Batch 7.1)
+      if (autoTurn === 0) _lastUserPrompt = userPrompt;
+      
       if (agentWorking) return;
       agentWorking = true;
       const session = getCurrentSession();
