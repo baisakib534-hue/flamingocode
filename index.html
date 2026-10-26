@@ -4850,6 +4850,10 @@ project-root/
     const BRAIN_NOTES_DIR = '.devforge/notes/';
     const BRAIN_INDEX_PATH = '.devforge/index.md';
 
+    // H1.3: Bounded Memory Discipline — hard cap on working memory block
+    // Frozen snapshot: brain digest built once per turn, never re-injected mid-turn
+    const WORKING_MEMORY_CAP = 2200; // chars (≈550 tokens), mirrors Hermes MEMORY.md cap
+
     function isBrainNotePath(path) {
       return typeof path === 'string' && path.startsWith(BRAIN_NOTES_DIR) && path.endsWith('.md') && path !== BRAIN_INDEX_PATH;
     }
@@ -4901,8 +4905,18 @@ project-root/
     }
 
     // Create/update one atomic note, then auto-update the index map
+    // H1.3: injection scan on anything written into Brain notes from imported files
     function writeBrainNote(session, name, content) {
       if (!session || !name || typeof content !== 'string') return null;
+      
+      // H1.3: injection scan — block writes that contain injection patterns
+      const scan = scanForInjection(content);
+      if (!scan.clean) {
+        const msg = `Injection scan blocked write to "${name}": ${scan.issues.join(', ')}`;
+        logActivity(msg, 'danger');
+        throw new Error(msg);
+      }
+      
       const path = brainNotePath(name);
       const isNew = !session.files[path];
       session.files[path] = content;
@@ -4910,6 +4924,60 @@ project-root/
       const links = parseBrainLinks(content);
       logActivity(`${isNew ? 'Created' : 'Updated'} brain note "${name}" (${content.length} chars${links.length ? ", links: " + links.map(l => '[[' + l + ']]').join(', ') : ''})`, 'success');
       return path;
+    }
+
+    // H1.3: Bounded Memory Discipline — working memory with hard cap
+    // Throws on overflow (no silent truncation); caller must consolidate first.
+    function writeWorkingMemory(session, text) {
+      if (!session || typeof text !== 'string') return false;
+      const current = session.workingMemory || '';
+      const combined = current + (current ? '\n' : '') + text;
+      if (combined.length > WORKING_MEMORY_CAP) {
+        throw new Error(`Working memory cap exceeded (${combined.length}/${WORKING_MEMORY_CAP} chars). Call consolidateWorkingMemory() before writing more.`);
+      }
+      session.workingMemory = combined;
+      return true;
+    }
+
+    // H1.3: Consolidate working memory — summarize and compress to fit under cap
+    // Returns the consolidated text; caller should assign to session.workingMemory
+    function consolidateWorkingMemory(session) {
+      if (!session || !session.workingMemory) return '';
+      const content = session.workingMemory;
+      // Simple consolidation: keep last 60% of content (most recent entries)
+      // In a real implementation, this would use LLM summarization
+      const targetLen = Math.floor(WORKING_MEMORY_CAP * 0.6);
+      if (content.length <= targetLen) return content;
+      const start = content.length - targetLen;
+      // Find a newline boundary to avoid cutting mid-entry
+      const boundary = content.indexOf('\n', start);
+      const consolidated = (boundary >= 0 ? content.slice(boundary + 1) : content.slice(start));
+      session.workingMemory = '[Consolidated...]\n' + consolidated;
+      logActivity(`Working memory consolidated: ${content.length} → ${session.workingMemory.length} chars`, 'info');
+      return session.workingMemory;
+    }
+
+    // H1.3: Injection scan — detect prompt injection / exfiltration patterns
+    // Returns { clean: boolean, issues: string[] }
+    function scanForInjection(text) {
+      if (!text || typeof text !== 'string') return { clean: true, issues: [] };
+      const issues = [];
+      const patterns = [
+        { re: /ignore\s+previous\s+instructions/i, desc: 'Ignore previous instructions' },
+        { re: /system\s*[::]/i, desc: 'System prompt injection' },
+        { re: /###\s*instruction/i, desc: 'Markdown instruction header' },
+        { re: /<script/i, desc: 'Script tag' },
+        { re: /\{\{.*\}\}/, desc: 'Template injection' },
+        { re: /eval\s*\(/i, desc: 'Eval call' },
+        { re: /document\.cookie/i, desc: 'Cookie exfiltration' },
+        { re: /localStorage|sessionStorage/i, desc: 'Storage access' },
+        { re: /fetch\s*\(|XMLHttpRequest/i, desc: 'Network request' },
+        { re: /password|secret|token|api[_-]?key/i, desc: 'Credential leakage' },
+      ];
+      for (const { re, desc } of patterns) {
+        if (re.test(text)) issues.push(desc);
+      }
+      return { clean: issues.length === 0, issues };
     }
 
     // Map note: every note by name + one-line summary + its [[links]]
@@ -7804,7 +7872,8 @@ Links: [[Brain Index]]
         fileMeta: {},  // { [filePath]: { lastModifiedBy: 'agent'|'user', timestamp: number } }
         activeFile: 'index.html',
         openTabs: ['index.html', 'style.css', 'script.js'],
-        chatHistory: []
+        chatHistory: [],
+        workingMemory: ''  // H1.3: bounded working memory block (hard cap: WORKING_MEMORY_CAP chars)
       };
       appState.activeSessionId = id;
       saveAppState();
@@ -9905,14 +9974,28 @@ Only propose merges for skills that are genuinely overlapping or complementary. 
       return Math.ceil(text.length / 4);
     }
 
+    // H1.3: Frozen snapshot — brain digest built once per turn, cached
+    // The digest is keyed by a turn counter that increments each user interaction
+    let _frozenBrainDigestCache = { turn: -1, digest: '' };
+    let _turnCounter = 0;
+
+    function incrementTurn() {
+      _turnCounter++;
+    }
+
     function buildSystemContextWithGuard() {
       const session = getCurrentSession();
       const provider = appState.providers[appState.activeProviderId];
       const contextWindow = provider?.contextWindow || 128000;
       const maxContextTokens = Math.floor(contextWindow * 0.75);
       
-      // 1. Start with brain digest (replaces full history replay)
-      const brainDigest = buildBrainDigest(session);
+      // H1.3: Frozen snapshot — use cached brain digest for this turn
+      // Build only if turn has advanced (new user interaction)
+      if (_frozenBrainDigestCache.turn !== _turnCounter) {
+        _frozenBrainDigestCache.digest = buildBrainDigest(session);
+        _frozenBrainDigestCache.turn = _turnCounter;
+      }
+      const brainDigest = _frozenBrainDigestCache.digest;
       let context = brainDigest + '\n\n---\n\n';
       
       context += 'You are FlamingoCode AI, an expert software developer in a browser IDE.\nYou edit the user\'s project by returning code blocks using this EXACT syntax:\n\nTo create or overwrite a file:\n```file:path/to/file.ext\n[full file content here]\n```\n\nTo delete a file:\n```delete:path/to/file.ext\n```\n\nTo navigate the browser pane:\n```browse:https://example.com\n```\n\nRULES:\n1. Always write COMPLETE file contents inside file: blocks. Never use comments like "// rest of code remains the same".\n2. Keep text explanation brief and concise.\n3. Use modern, clean, self-contained HTML/CSS/JavaScript.\n4. MAINTAIN THE BRAIN: After each step, update .devforge/progress.md with what was done. When making a real architectural decision, append to .devforge/decisions.md with date, decision, and rationale.\n5. ATOMIC NOTES (Brain v2): For each significant topic/decision, create a SMALL note file under .devforge/notes/ (one topic per file, plain markdown, e.g. .devforge/notes/2026-10-24-auth-choice.md). Link related notes with [[wikilinks]] inside the note. A one-line summary and links are auto-written to the map note .devforge/index.md, which the brain digest carries instead of full note contents.\n6. RETRIEVAL BY NAME: To read a note\'s full content, request it on demand with a block like:\n\`\`\`brain-read:2026-10-24-auth-choice\n\`\`\`\nNEVER rewrite whole notes from memory — read the map first, fetch the named note only.\n\nCURRENT VIRTUAL FILES (outlines for unchanged, full for active):\n';
@@ -15465,6 +15548,7 @@ Format:
       const chatInput = document.getElementById('chatInput');
 
       const handleSend = () => {
+        incrementTurn(); // H1.3: advance turn for frozen snapshot
         const text = chatInput.value.trim();
         if (!text) return;
         chatInput.value = '';
