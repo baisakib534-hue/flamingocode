@@ -5110,6 +5110,20 @@ WORK STYLE:
         category: 'accessibility',
         isBuiltin: true
       },
+      'frontend-design': {
+        id: 'skill_frontend-design',
+        name: 'frontend-design',
+        instructions: 'Enforce design taste: one font family for UI + one for display (max 2), fixed type scale with tied line-height, single spacing scale (4/8/16/24/32...), defined colour palette (max 3 accents), real layout rhythm (no generic hero+3-cards), consistent component states (hover/focus/disabled/loading), motion with purpose only, responsive by default. Use design tokens from appState.designTokens. Auto-activates on UI tasks (build page, change layout, style component, preview).',
+        category: 'frontend',
+        isBuiltin: true
+      },
+      'webapp-testing': {
+        id: 'skill_webapp-testing',
+        name: 'webapp-testing',
+        instructions: 'Playwright-based UI testing for the preview: click, type, drag, scroll, assert visible state, screenshot on failure. In web app, checks run as preview-health checks. At desktop/sandbox stage, runs real browser automation. Default ON alongside frontend-design. Use for verifying UI behaviour, not just static HTML.',
+        category: 'testing',
+        isBuiltin: true
+      },
       'performance': {
         id: 'skill_performance',
         name: 'performance',
@@ -5328,6 +5342,24 @@ WORK STYLE:
         whatItDoes: 'Accessibility essentials for IDE-style web apps',
         triggers: ['accessibility', 'a11y', 'aria', 'screen reader', 'অ্যাক্সেসিবিলিটি', 'এরিয়া', 'স্ক্রিন রিডার'],
         install: { how: 'enable-skill', skillId: 'skill_accessibility' },
+        scoreBoost: 0
+      },
+      {
+        id: 'skill_frontend-design',
+        kind: 'skill',
+        name: 'frontend-design',
+        whatItDoes: 'Design taste enforcement: typography scale, spacing scale, colour palette, component consistency, motion purpose, responsive by default. Auto-activates on UI tasks.',
+        triggers: ['design', 'frontend', 'ui', 'style', 'css', 'typography', 'spacing', 'color', 'colour', 'component', 'responsive', 'motion', 'animation', 'accessible', 'contrast', 'tokens', 'design system', 'ডিজাইন', 'ফ্রন্টএন্ড', 'ইউআই', 'স্টাইল', 'টাইপোগ্রাফি', 'স্পেসিং', 'কলার', 'কম্পোনেন্ট', 'রেসপন্সিভ', 'মোশন', 'এনিমেশন', 'টোকেন', 'ডিজাইন সিস্টেম'],
+        install: { how: 'enable-skill', skillId: 'skill_frontend-design' },
+        scoreBoost: 0
+      },
+      {
+        id: 'skill_webapp-testing',
+        kind: 'skill',
+        name: 'webapp-testing',
+        whatItDoes: 'Playwright-based UI testing: click, type, drag, scroll, assert visible state, screenshot on failure. Runs as preview-health checks in web app; real browser at desktop stage.',
+        triggers: ['testing', 'ui test', 'playwright', 'browser test', 'e2e', 'click', 'type', 'screenshot', 'assert', 'preview health', 'টেস্টিং', 'ইউআই টেস্ট', 'প্লেয়রাইট', 'ব্রাউজার টেস্ট', 'ইটুই', 'স্ক্রিনশট', 'অসার্ট', 'প্রিভিউ হেলথ'],
+        install: { how: 'enable-skill', skillId: 'skill_webapp-testing' },
         scoreBoost: 0
       },
 
@@ -6459,6 +6491,55 @@ Detail level: {{detail_level}}`,
         'file-dependency-graph': 'ফাইল-ডিপেন্ডেন্সি-গ্রাফ',
         'risk-scored-review': 'রিস্ক-স্কোয়ার্ড-রিভিউ',
         'git-pinned-memory': 'গিট-পিনড-মেমরি',
+
+        // Frontend Design (Batch 7.8)
+        'Design Tokens': 'ডিজাইন টোকেন',
+        'Design tokens define the visual language: colors, spacing, typography, radius, fonts. Used by the agent for all new UI.': 'ডিজাইন টোকেন ভিজ্যুয়াল ভাষা নির্ধারণ করে: রঙ, স্পেসিং, টাইপোগ্রাফি, রেডিয়াস, ফন্ট। এজেন্ট সব নতুন UI-তে এগুলো ব্যবহার করে।',
+        'Colors': 'রঙ',
+        'Spacing': 'স্পেসিং',
+        'Typography': 'টাইপোগ্রাফি',
+        'Radius': 'রেডিয়াস',
+        'Fonts': 'ফন্ট',
+        'Background': 'ব্যাকগ্রাউন্ড',
+        'Surface': 'সারফেস',
+        'Text': 'টেক্সট',
+        'Muted': 'মিউটেড',
+        'Accent': 'অ্যাকসেন্ট',
+        'Accent 2': 'অ্যাকসেন্ট ২',
+        'Danger': 'ডেঞ্জার',
+        'Warning': 'সতর্কতা',
+        'Success': 'সফলতা',
+        'Border': 'বর্ডার',
+        'Type Scale': 'টাইপ স্কেল',
+        'Font Family (UI)': 'ফন্ট ফ্যামিলি (UI)',
+        'Font Family (Display)': 'ফন্ট ফ্যামিলি (ডিসপ্লে)',
+        'Design Review': 'ডিজাইন রিভিউ',
+        'Design: check preview': 'ডিজাইন: প্রিভিউ চেক করুন',
+        'Design ✓': 'ডিজাইন ✓',
+        'Design: 1 issue': 'ডিজাইন: ১টি সমস্যা',
+        'Design: 2 issues': 'ডিজাইন: ২টি সমস্যা',
+        'Design: 3 issues': 'ডিজাইন: ৩টি সমস্যা',
+        'Design: 4 issues': 'ডিজাইন: ৪টি সমস্যা',
+        'Design: 5 issues': 'ডিজাইন: ৫টি সমস্যা',
+        'Contrast': 'কন্ট্রাস্ট',
+        'Font Families': 'ফন্ট ফ্যামিলি',
+        'Accent Colours': 'অ্যাকসেন্ট রঙ',
+        'Spacing Scale': 'স্পেসিং স্কেল',
+        'Generic Cards': 'জেনেরিক কার্ড',
+        'Interactive States': 'ইন্টারেক্টিভ স্টেট',
+        'Text Overflow Mobile': 'টেক্সট ওভারফ্লো মোবাইল',
+        'WCAG AA': 'WCAG AA',
+        'Reduce font families to 2 max (UI + display). Use appState.designTokens.fontFamily and fontDisplay.': 'ফন্ট ফ্যামিলি সর্বোচ্চ ২ (UI + ডিসপ্লে)। appState.designTokens.fontFamily এবং fontDisplay ব্যবহার করুন।',
+        'Limit accent colours to 3 max. Use design token palette: accent, accent2, danger, warning, success.': 'অ্যাকসেন্ট রঙ সর্বোচ্চ ৩। ডিজাইন টোকেন প্যালেট ব্যবহার করুন: accent, accent2, danger, warning, success।',
+        'Use spacing scale values: 4, 8, 16, 24, 32, 48, 64px. Avoid magic numbers.': 'স্পেসিং স্কেল মান ব্যবহার করুন: 4, 8, 16, 24, 32, 48, 64px। ম্যাজিক নম্বর এড়িয়ে চলুন।',
+        'Avoid generic "hero + 3 identical cards" pattern. Vary layout rhythm, use real content, not placeholder emoji/icons.': 'জেনেরিক "hero + 3 identical cards" প্যাটার্ন এড়িয়ে চলুন। লে আউট রिदম ভিন্ন রাখুন, বাস্তব কন্টেন্ট ব্যবহার করুন, প্লেসহোল্ডার ইমোজি/আইকন না।',
+        'Add :hover, :focus-visible, :disabled, and .loading states. Use design token colours for consistency.': ':hover, :focus-visible, :disabled, এবং .loading স্টেট যোগ করুন। কনসিস্টেন্সির জন্য ডিজাইন টোকেন রঙ ব্যবহার করুন।',
+        'Add text-overflow: ellipsis; white-space: nowrap; overflow: hidden; for constrained containers at mobile width.': 'মোবাইল প্রস্থে সীমাবদ্ধ কন্টেইনারের জন্য text-overflow: ellipsis; white-space: nowrap; overflow: hidden; যোগ করুন।',
+        'Increase text/background contrast to meet WCAG AA (4.5:1). Use design token colors.': 'টেক্সট/ব্যাকগ্রাউন্ড কন্ট্রাস্ট বাড়ান WCAG AA (4.5:1) মিট করার জন্য। ডিজাইন টোকেন রঙ ব্যবহার করুন।',
+        'Webapp Testing': 'ওয়েবঅ্যাপ টেস্টিং',
+        'Playwright-based UI testing: click, type, drag, scroll, assert visible state, screenshot on failure.': 'প্লেয়রাইট-ভিত্তিক UI টেস্টিং: ক্লিক, টাইপ, ড্র্যাগ, স্ক্রল, দৃশ্যমান স্টেট দাবি, ব্যর্থ হলে স্ক্রিনশট।',
+        'Runs as preview-health checks in web app; real browser at desktop stage.': 'ওয়েব অ্যাপে প্রিভিউ-হেলথ চেক হিসেবে চলে; ডেস্কটপ স্টেজে রিয়েল ব্রাউজার।',
+        'Default ON alongside frontend-design.': 'ফ্রন্টএন্ড-ডিজাইনের পাশে ডিফল্ট ON।',
   }
 };
 
@@ -6655,6 +6736,26 @@ Detail level: {{detail_level}}`,
       currentTaskRecommendations: [],    // Recommendations for current task (for chat card + page sections)
       // Language state
       language: 'en',           // 'en' | 'bn'
+      // Design tokens (Batch 7.8) - single source of truth for UI styling
+      designTokens: {
+        colors: {
+          background: '#0d0d0d',
+          surface: '#161616',
+          text: '#e8e8e8',
+          muted: '#888888',
+          accent: '#f0513b',       // coral from flamingo logo
+          accent2: '#f5a623',      // warm amber
+          danger: '#e03e3e',
+          warning: '#f5a623',
+          success: '#38a169',
+          border: '#2a2a2a'
+        },
+        spacing: [4, 8, 16, 24, 32, 48, 64],
+        typeScale: [12, 14, 16, 20, 24, 32, 40, 48, 64],
+        radius: 6,
+        fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+        fontDisplay: '"Playfair Display", Georgia, serif'
+      },
       // Skill Librarian state
       skillUsage: {},           // { [skillId]: { count, lastUsed, pinned, status: 'active'|'stale'|'archived' } }
       skillAuditLog: [],        // Append-only log of librarian actions
@@ -12622,7 +12723,9 @@ Links: [[Brain Index]]
         { name: 'accessibility', desc: 'Accessibility essentials for IDE-style web apps used on phones and desktops.' },
         { name: 'api-design', desc: 'Hardened client design for calling heterogeneous LLM/provider APIs.' },
         { name: 'debugging-discipline', desc: 'Systematic debugging methodology.' },
-        { name: 'git-workflow', desc: 'Clean git habits for staged agent-built projects.' }
+        { name: 'git-workflow', desc: 'Clean git habits for staged agent-built projects.' },
+        { name: 'frontend-design', desc: 'Design taste enforcement: typography scale, spacing scale, colour palette, component consistency, motion purpose, responsive by default. Auto-activates on UI tasks.' },
+        { name: 'webapp-testing', desc: 'Playwright-based UI testing: click, type, drag, scroll, assert visible state, screenshot on failure. Runs as preview-health checks in web app; real browser at desktop stage.' }
       ],
       superpowers: [
         { name: 'brainstorming', desc: 'Lay out 2–3 approaches in plain language, get human to pick one, write a short design doc, get approval, THEN plan. Never build first.' },
@@ -20471,6 +20574,13 @@ Only propose merges for skills that are genuinely overlapping or complementary. 
                       }
                     }
 
+                    // Design review badge (Batch 7.8) — for UI files (html, css, js)
+                    let designBadgeHtml = '';
+                    const isUiFile = /\.(html?|css|js|jsx|tsx?|vue|svelte)$/i.test(path);
+                    if (isUiFile) {
+                      designBadgeHtml = '<span style="background:rgba(245,158,11,0.15); color:var(--warning); padding:2px 6px; border-radius:3px; font-size:9px; font-weight:600; margin-left:6px;">Design: check preview</span>';
+                    }
+
                     return `
                       <div class="diff-file" data-path="${escapeHtml(path)}" style="background:var(--bg-surface); border:1px solid var(--border-color); border-radius:6px; overflow:hidden;">
                         <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:var(--bg-panel); border-bottom:1px solid var(--border-color);">
@@ -20479,6 +20589,7 @@ Only propose merges for skills that are genuinely overlapping or complementary. 
                             ${actionBadge}
                             ${methodBadge}
                             ${tddBadgeHtml}
+                            ${designBadgeHtml}
                           </div>
                           <div style="display:flex; gap:6px;">
                             <button class="btn btn-secondary btn-accept-file" data-path="${escapeHtml(path)}" style="padding:4px 10px; font-size:10px;">Accept</button>
@@ -22556,22 +22667,57 @@ Original request: ${appState.lastEnhancedSpec?.originalPrompt || ''}`;
     function previewHealthRenderErrors() {
       const list = document.getElementById('previewErrorList');
       if (!list) return;
-      if (previewHealth.errors.length === 0) {
+
+      // Separate design violations from regular errors
+      const designErrors = previewHealth.errors.filter(e => e.kind === 'design');
+      const regularErrors = previewHealth.errors.filter(e => e.kind !== 'design');
+
+      let html = '';
+
+      // Design summary banner
+      if (designErrors.length > 0) {
+        html += `<div style="background:rgba(245,158,11,0.12);border:1px solid var(--warning);border-radius:6px;padding:8px 10px;margin-bottom:8px;font-size:11px;color:var(--warning);font-weight:600;">
+          Design: ${designErrors.length} issue${designErrors.length > 1 ? 's' : ''} — click Check Now to re-run design review
+        </div>`;
+      }
+
+      if (regularErrors.length === 0 && designErrors.length === 0) {
         list.innerHTML = '<div style="font-size:11px;color:var(--text-dim);text-align:center;padding:20px;">No errors detected. Load a preview and click "Check Now" or enable auto-fix.</div>';
         return;
       }
-      list.innerHTML = previewHealth.errors.map((err) => {
-        const where = err.file ? err.file + (err.lineno ? ':' + err.lineno : '') : (err.filename || 'inline') + (err.lineno ? ':' + err.lineno : '');
-        const stack = err.stack ? String(err.stack).split('\n').slice(0, 3).map(l => '    ' + l).join('\n') : '';
-        return `<div style="border:1px solid var(--border-color);border-radius:6px;padding:8px 10px;background:var(--bg-surface);">
-          <div style="display:flex;justify-content:space-between;gap:8px;font-size:11px;">
-            <span style="color:var(--danger);font-weight:600;">${escapeHtml(err.message)}</span>
-            <span style="color:var(--text-dim);font-family:var(--font-mono);font-size:10px;white-space:nowrap;">${escapeHtml(where)}</span>
-          </div>
-          <div style="font-size:9px;color:var(--text-dim);margin-top:2px;">${escapeHtml(err.kind || 'error')}</div>
-          ${stack ? `<div style="font-family:var(--font-mono);font-size:9px;color:var(--text-muted);white-space:pre-wrap;margin-top:4px;">${escapeHtml(stack)}</div>` : ''}
-        </div>`;
-      }).join('');
+
+      // Regular errors
+      if (regularErrors.length > 0) {
+        html += regularErrors.map((err) => {
+          const where = err.file ? err.file + (err.lineno ? ':' + err.lineno : '') : (err.filename || 'inline') + (err.lineno ? ':' + err.lineno : '');
+          const stack = err.stack ? String(err.stack).split('\n').slice(0, 3).map(l => '    ' + l).join('\n') : '';
+          return `<div style="border:1px solid var(--border-color);border-radius:6px;padding:8px 10px;background:var(--bg-surface);margin-bottom:6px;">
+            <div style="display:flex;justify-content:space-between;gap:8px;font-size:11px;">
+              <span style="color:var(--danger);font-weight:600;">${escapeHtml(err.message)}</span>
+              <span style="color:var(--text-dim);font-family:var(--font-mono);font-size:10px;white-space:nowrap;">${escapeHtml(where)}</span>
+            </div>
+            <div style="font-size:9px;color:var(--text-dim);margin-top:2px;">${escapeHtml(err.kind || 'error')}</div>
+            ${stack ? `<div style="font-family:var(--font-mono);font-size:9px;color:var(--text-muted);white-space:pre-wrap;margin-top:4px;">${escapeHtml(stack)}</div>` : ''}
+          </div>`;
+        }).join('');
+      }
+
+      // Design violations (shown separately with warning styling)
+      if (designErrors.length > 0) {
+        html += designErrors.map((err) => {
+          const severity = err.designSeverity || 'warning';
+          const sevColor = severity === 'error' ? 'var(--danger)' : 'var(--warning)';
+          return `<div style="border:1px solid ${sevColor};border-radius:6px;padding:8px 10px;background:var(--bg-surface);margin-bottom:6px;">
+            <div style="display:flex;justify-content:space-between;gap:8px;font-size:11px;">
+              <span style="color:${sevColor};font-weight:600;">${escapeHtml(err.message)}</span>
+              <span style="color:var(--text-dim);font-family:var(--font-mono);font-size:10px;white-space:nowrap;">${escapeHtml(err.designElement || 'preview')}</span>
+            </div>
+            <div style="font-size:9px;color:var(--text-dim);margin-top:2px;">Design / ${escapeHtml(err.designRule || 'unknown')}</div>
+          </div>`;
+        }).join('');
+      }
+
+      list.innerHTML = html;
     }
 
     // Capture one preview error (deduped); called from the PREVIEW_ERROR listener
@@ -22681,10 +22827,226 @@ Original request: ${appState.lastEnhancedSpec?.originalPrompt || ''}`;
           if (blank) push({ kind: 'render', message: 'Preview rendered blank (no visible content)', file: 'index.html', lineno: 0, time: Date.now() });
         }
       } catch (e) { /* cross-origin srcdoc edge */ }
+
+      // Batch 7.8: Run design review and add violations as errors
+      try {
+        const design = await designReview();
+        if (!design.ok && design.violations) {
+          design.violations.forEach(v => {
+            push({
+              kind: 'design',
+              message: 'Design: ' + v.rule + ' — ' + v.fix,
+              file: 'preview',
+              lineno: 0,
+              time: Date.now(),
+              designRule: v.rule,
+              designSeverity: v.severity,
+              designElement: v.element
+            });
+          });
+        }
+      } catch (e) {
+        // Design review failed silently
+      }
+
       previewHealth.errors = errors;
       previewHealthRenderErrors();
       previewHealthSetStatus(errors.length ? errors.length + ' preview error(s)' : 'Preview healthy', errors.length ? 'bad' : 'ok');
       return { ok: errors.length === 0, errors };
+    }
+
+    // ==================== BATCH 7.8: DESIGN REVIEW GATE ====================
+    // Runs after every preview render and before Senior signs off UI changes.
+    // Checks live preview DOM against design rules from frontend-design skill.
+    // Returns violations as { rule, element, severity, fix }.
+    // Violations become fix tasks in B3 self-healing loop (same shape as preview errors).
+    async function designReview() {
+      const violations = [];
+      try {
+        const iframe = document.getElementById('previewIframe');
+        const doc = iframe && iframe.contentWindow && iframe.contentWindow.document;
+        if (!doc || !doc.body) return { ok: true, violations: [] };
+
+        const tokens = appState.designTokens || {};
+        const spacingScale = tokens.spacing || [4, 8, 16, 24, 32, 48, 64];
+        const typeScale = tokens.typeScale || [12, 14, 16, 20, 24, 32, 40, 48, 64];
+        const allowedColors = tokens.colors ? Object.values(tokens.colors) : [];
+        const allowedFontFamilies = [tokens.fontFamily, tokens.fontDisplay].filter(Boolean);
+
+        // Helper: get computed style for an element
+        const getStyle = (el) => doc.defaultView.getComputedStyle(el);
+
+        // Helper: check if a color value is in the allowed palette (approximate match)
+        const isColorAllowed = (colorStr) => {
+          if (!colorStr || colorStr === 'transparent' || colorStr === 'rgba(0, 0, 0, 0)') return true;
+          // Normalize: strip spaces, lowercase
+          const norm = colorStr.replace(/\s+/g, '').toLowerCase();
+          return allowedColors.some(c => c.toLowerCase() === norm || norm.includes(c.toLowerCase()));
+        };
+
+        // Helper: check if a font-family is allowed
+        const isFontAllowed = (fontStr) => {
+          if (!fontStr) return true;
+          const fonts = fontStr.split(',').map(f => f.trim().replace(/['"]/g, '').toLowerCase());
+          return fonts.every(f => allowedFontFamilies.some(allowed => allowed.toLowerCase().includes(f) || f.includes(allowed.toLowerCase())));
+        };
+
+        // Helper: check if a spacing value is on the scale
+        const isSpacingOnScale = (pxValue) => {
+          const num = parseFloat(pxValue);
+          if (isNaN(num)) return true;
+          return spacingScale.some(s => Math.abs(s - num) < 1);
+        };
+
+        // 1. Contrast check (WCAG AA) - simplified: check text vs background
+        const textElements = doc.querySelectorAll('p, span, h1, h2, h3, h4, h5, h6, a, button, label, li, td, th, div');
+        textElements.forEach(el => {
+          const style = getStyle(el);
+          const color = style.color;
+          const bgColor = style.backgroundColor;
+          // Simple heuristic: if text is very light on light bg or dark on dark, flag
+          // This is a simplified check; real WCAG AA needs luminance calculation
+          if (color && bgColor && bgColor !== 'rgba(0, 0, 0, 0)' && bgColor !== 'transparent') {
+            // Quick RGB parse for rough contrast
+            const parseRgb = (str) => {
+              const m = str.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+              if (m) return [parseInt(m[1]), parseInt(m[2]), parseInt(m[3])];
+              return null;
+            };
+            const fg = parseRgb(color);
+            const bg = parseRgb(bgColor);
+            if (fg && bg) {
+              const lum = (rgb) => (0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]) / 255;
+              const contrast = (lum(fg) + 0.05) / (lum(bg) + 0.05);
+              const ratio = contrast > 1 ? contrast : 1 / contrast;
+              if (ratio < 4.5) { // WCAG AA for normal text
+                violations.push({
+                  rule: 'contrast',
+                  element: el.tagName.toLowerCase() + (el.id ? '#' + el.id : '') + (el.className ? '.' + el.className.split(' ')[0] : ''),
+                  severity: 'error',
+                  fix: 'Increase text/background contrast to meet WCAG AA (4.5:1). Use design token colors.'
+                });
+              }
+            }
+          }
+        });
+
+        // 2. More than 2 font families in use
+        const fontFamiliesInUse = new Set();
+        doc.querySelectorAll('*').forEach(el => {
+          const ff = getStyle(el).fontFamily;
+          if (ff) fontFamiliesInUse.add(ff.split(',')[0].trim().replace(/['"]/g, ''));
+        });
+        if (fontFamiliesInUse.size > 2) {
+          violations.push({
+            rule: 'font-families',
+            element: 'document',
+            severity: 'warning',
+            fix: 'Reduce font families to 2 max (UI + display). Use appState.designTokens.fontFamily and fontDisplay.'
+          });
+        }
+
+        // 3. More than 3 accent colours on screen
+        const accentColorsInUse = new Set();
+        doc.querySelectorAll('*').forEach(el => {
+          const style = getStyle(el);
+          [style.color, style.backgroundColor, style.borderColor].forEach(c => {
+            if (c && c !== 'rgba(0, 0, 0, 0)' && c !== 'transparent' && !isColorAllowed(c)) {
+              accentColorsInUse.add(c.replace(/\s+/g, '').toLowerCase());
+            }
+          });
+        });
+        if (accentColorsInUse.size > 3) {
+          violations.push({
+            rule: 'accent-colours',
+            element: 'document',
+            severity: 'warning',
+            fix: 'Limit accent colours to 3 max. Use design token palette: accent, accent2, danger, warning, success.'
+          });
+        }
+
+        // 4. Spacing values outside the scale
+        doc.querySelectorAll('*').forEach(el => {
+          const style = getStyle(el);
+          ['marginTop', 'marginRight', 'marginBottom', 'marginLeft', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft', 'gap'].forEach(prop => {
+            const val = style[prop];
+            if (val && val !== '0px' && !isSpacingOnScale(val)) {
+              violations.push({
+                rule: 'spacing-scale',
+                element: el.tagName.toLowerCase() + (el.id ? '#' + el.id : '') + (el.className ? '.' + el.className.split(' ')[0] : ''),
+                severity: 'warning',
+                fix: 'Use spacing scale values: ' + spacingScale.join(', ') + 'px. Avoid magic numbers.'
+              });
+            }
+          });
+        });
+
+        // 5. Generic 3-identical-cards pattern detection
+        const cardCandidates = doc.querySelectorAll('.card, [class*="card"], article, section');
+        if (cardCandidates.length >= 3) {
+          // Check if they have suspiciously similar structure
+          const structures = Array.from(cardCandidates).map(el => {
+            const children = Array.from(el.children).map(c => c.tagName).join(',');
+            const textLen = (el.textContent || '').trim().length;
+            return children + '|' + textLen;
+          });
+          const uniqueStructures = new Set(structures);
+          if (uniqueStructures.size === 1 && structures.length >= 3) {
+            violations.push({
+              rule: 'generic-cards',
+              element: cardCandidates[0].tagName.toLowerCase() + (cardCandidates[0].className ? '.' + cardCandidates[0].className.split(' ')[0] : ''),
+              severity: 'warning',
+              fix: 'Avoid generic "hero + 3 identical cards" pattern. Vary layout rhythm, use real content, not placeholder emoji/icons.'
+            });
+          }
+        }
+
+        // 6. Missing hover/focus/disabled/loading states on interactive elements
+        const interactive = doc.querySelectorAll('button, a[href], input, select, textarea, [role="button"], [tabindex]:not([tabindex="-1"])');
+        interactive.forEach(el => {
+          const style = getStyle(el);
+          const hasHover = el.matches(':hover') || style.getPropertyValue('--hover-defined') === 'true';
+          const hasFocus = style.outline !== 'none' || style.boxShadow.includes('focus') || el.matches(':focus-visible');
+          const isDisabled = el.disabled || el.getAttribute('aria-disabled') === 'true';
+          const isLoading = el.getAttribute('aria-busy') === 'true' || el.classList.contains('loading');
+          if (!isDisabled && !isLoading && !hasHover && !hasFocus) {
+            violations.push({
+              rule: 'interactive-states',
+              element: el.tagName.toLowerCase() + (el.id ? '#' + el.id : '') + (el.className ? '.' + el.className.split(' ')[0] : ''),
+              severity: 'warning',
+              fix: 'Add :hover, :focus-visible, :disabled, and .loading states. Use design token colours for consistency.'
+            });
+          }
+        });
+
+        // 7. Text overflow at mobile width (simulated by checking container width < 480px)
+        // We can't easily resize, so check for overflow: hidden without text-overflow: ellipsis on constrained containers
+        doc.querySelectorAll('[style*="max-width"], [class*="container"], [class*="wrapper"]').forEach(el => {
+          const style = getStyle(el);
+          const width = parseFloat(style.width) || parseFloat(style.maxWidth) || 0;
+          if (width > 0 && width < 480) {
+            const overflow = style.overflow;
+            const textOverflow = style.textOverflow;
+            if (overflow === 'hidden' && textOverflow !== 'ellipsis') {
+              const text = (el.textContent || '').trim();
+              if (text.length > 100) {
+                violations.push({
+                  rule: 'text-overflow-mobile',
+                  element: el.tagName.toLowerCase() + (el.id ? '#' + el.id : '') + (el.className ? '.' + el.className.split(' ')[0] : ''),
+                  severity: 'warning',
+                  fix: 'Add text-overflow: ellipsis; white-space: nowrap; overflow: hidden; for constrained containers at mobile width.'
+                });
+              }
+            }
+          }
+        });
+
+      } catch (e) {
+        // Cross-origin or other access issues - silently return no violations
+        return { ok: true, violations: [] };
+      }
+
+      return { ok: violations.length === 0, violations };
     }
 
     // Build the "fix this" prompt sent to the agent (text + failing file/line)
