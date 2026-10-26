@@ -24555,12 +24555,14 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
 
           try {
             // Execute agent with task
-            const result = await executeAgentTask(agent, task);
+            const result = await executeTeamAgentTask(agent, task);
             task.output = result;
             // PART 4: pre-commit gate — done-transition is refused while mandatory checks are unrecorded
             const gateOK = tryTaskDoneTransition(task, 'idle-done');
             completed.add(task.id);
             progress = true;
+
+            fireHook('task-complete', { taskId: task.id, description: task.description, agent: { id: agent.id, name: agent.name } }).catch(() => {});
 
             if (gateOK) {
               const completedMsg = `Completed: ${task.description}`;
@@ -24596,8 +24598,12 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
       appendTeamChat('system', null, '=== EXECUTION PHASE COMPLETE ===');
     }
 
-    // Execute a single agent task
-    async function executeAgentTask(agent, task) {
+    // Execute a single agent task (Team Mode) — named distinctly from the
+    // single-mode executeAgentTask(task) below: a shared name let the
+    // single-mode definition shadow this one, so runExecutionPhase's call
+    // reached the wrong function and every team task threw
+    // 'No prompt provided for agent mode'.
+    async function executeTeamAgentTask(agent, task) {
       const provider = appState.providers[agent.providerId];
       const session = getCurrentSession();
 
@@ -24701,7 +24707,9 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
 
         // Return summary for presentation
         const summary = response.replace(/```(file|delete|browse):[\s\S]*?```/g, '').trim();
-        return { summary: summary || 'Task completed (see file changes)', toolsUsed };
+        const result = { summary: summary || 'Task completed (see file changes)', toolsUsed };
+        fireHook('build-finish', { agent: { id: agent.id, name: agent.name }, task: task.description, summary: result.summary, toolsUsed: result.toolsUsed }).catch(() => {});
+        return result;
       } finally {
         appState.activeProviderId = oldProviderId;
         appState.activeAgentId = oldAgentId;
@@ -24848,6 +24856,14 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
               task.status = 'rework';
               task.reworkNote = { issue, fix };
               reworkItems.push({ agentId: agent.id, taskId: task.id, issue, fix });
+              
+              // Track reject count per owner+task for senior-reject hook
+              if (!appState.seniorRejectCounts) appState.seniorRejectCounts = {};
+              const rejectKey = `${agent.id}:${task.id}`;
+              appState.seniorRejectCounts[rejectKey] = (appState.seniorRejectCounts[rejectKey] || 0) + 1;
+              const rejectCount = appState.seniorRejectCounts[rejectKey];
+              
+              fireHook('senior-reject', { owner: agent.id, taskId: task.id, reason: issue, rejectCount }).catch(() => {});
             }
           }
         }
@@ -27043,12 +27059,14 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
       // Note: This is a simplified version - real implementation would use callLLMWithFallback
       logActivity(`Agent executing task: ${task.name}`, 'info');
       
-      return {
+      const result = {
         response: `[Agent] Task "${task.name}" executed with prompt: ${prompt.substring(0, 100)}...`,
         provider: providerId,
         model: provider.model,
         timestamp: Date.now()
       };
+      fireHook('build-finish', { agent: { id: appState.activeAgentId || 'unknown', name: appState.agents[appState.activeAgentId]?.name || 'Agent' }, task: task.name, summary: result.response, toolsUsed: [] }).catch(() => {});
+      return result;
     }
 
     // Deliver task result to configured destination
