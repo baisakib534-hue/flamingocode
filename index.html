@@ -20575,10 +20575,23 @@ Only propose merges for skills that are genuinely overlapping or complementary. 
                     }
 
                     // Design review badge (Batch 7.8) — for UI files (html, css, js)
+                    // Shows the last designReview result: "Design ✓" / "Design: N issues".
+                    // Before any review has run, "Design: check preview".
                     let designBadgeHtml = '';
                     const isUiFile = /\.(html?|css|js|jsx|tsx?|vue|svelte)$/i.test(path);
                     if (isUiFile) {
-                      designBadgeHtml = '<span style="background:rgba(245,158,11,0.15); color:var(--warning); padding:2px 6px; border-radius:3px; font-size:9px; font-weight:600; margin-left:6px;">Design: check preview</span>';
+                      const lastDesign = (typeof appState !== 'undefined' && appState.lastDesignReview) || null;
+                      let designBadgeText = 'Design: check preview';
+                      let designBadgeStyle = 'background:rgba(245,158,11,0.15); color:var(--warning);';
+                      if (lastDesign) {
+                        if (lastDesign.count === 0) {
+                          designBadgeText = 'Design ✓';
+                          designBadgeStyle = 'background:rgba(16,185,129,0.2); color:var(--success);';
+                        } else {
+                          designBadgeText = 'Design: ' + lastDesign.count + ' issue' + (lastDesign.count > 1 ? 's' : '');
+                        }
+                      }
+                      designBadgeHtml = '<span style="' + designBadgeStyle + ' padding:2px 6px; border-radius:3px; font-size:9px; font-weight:600; margin-left:6px;">' + designBadgeText + '</span>';
                     }
 
                     return `
@@ -22831,6 +22844,8 @@ Original request: ${appState.lastEnhancedSpec?.originalPrompt || ''}`;
       // Batch 7.8: Run design review and add violations as errors
       try {
         const design = await designReview();
+        // Remember the last design review result for the A2 diff-review badge
+        appState.lastDesignReview = { ok: design.ok, count: (design.violations || []).length, time: Date.now() };
         if (!design.ok && design.violations) {
           design.violations.forEach(v => {
             push({

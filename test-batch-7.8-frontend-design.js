@@ -376,6 +376,11 @@ try {
   assert('Diff review has isUiFile check', script.includes('isUiFile'));
   assert('Diff review has designBadge', script.includes('designBadge'));
   assert('Diff review shows Design badge for UI files', script.includes('Design: check preview') || script.includes('Design ✓'));
+  // Verifier repair: the badge must reflect the last designReview result,
+  // not a static label — the result is stored after each review and read here.
+  assert('Design review result is stored for the diff badge', script.includes('appState.lastDesignReview'));
+  assert('Diff badge shows Design ✓ when clean', script.includes("'Design ✓'"));
+  assert('Diff badge shows Design: N issues when violations exist', script.includes('lastDesign.count'));
 
   passed++;
 } catch (e) {
