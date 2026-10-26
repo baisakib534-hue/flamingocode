@@ -1167,6 +1167,135 @@
       }
     }
 
+    /* Team Replay Viewer - Touch-friendly styles */
+    @media (max-width: 768px) {
+      #paneReplay .replay-session-item {
+        padding: 12px;
+        min-height: 44px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+      }
+      #paneReplay .replay-session-item .session-title {
+        font-size: 14px;
+        font-weight: 600;
+      }
+      #paneReplay .replay-session-item .session-meta {
+        font-size: 12px;
+        color: var(--text-dim);
+      }
+      #paneReplay #replayControls button {
+        min-height: 44px;
+        padding: 8px 16px;
+        font-size: 14px;
+      }
+      #paneReplay #replayStepInput {
+        min-height: 44px;
+        font-size: 14px;
+        padding: 8px 12px;
+      }
+      #paneReplay #replaySpeedSelect {
+        min-height: 44px;
+        font-size: 14px;
+        padding: 8px 12px;
+      }
+      #paneReplay .replay-chat-message {
+        font-size: 13px;
+        padding: 8px 12px;
+        min-height: 44px;
+      }
+      #paneReplay .replay-task-item {
+        padding: 10px 12px;
+        min-height: 44px;
+        font-size: 13px;
+      }
+    }
+
+    /* Replay Viewer base styles */
+    #paneReplay .replay-session-item {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 10px 12px;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    #paneReplay .replay-session-item:hover {
+      background: var(--bg-hover);
+      border-color: var(--accent-blue);
+    }
+    #paneReplay .replay-session-item .session-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-main);
+      margin-bottom: 4px;
+    }
+    #paneReplay .replay-session-item .session-meta {
+      font-size: 10px;
+      color: var(--text-dim);
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    #paneReplay .replay-chat-message {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 8px 10px;
+      font-size: 11px;
+      line-height: 1.4;
+    }
+    #paneReplay .replay-chat-message.system {
+      border-color: var(--accent-blue);
+      background: rgba(59, 130, 246, 0.08);
+    }
+    #paneReplay .replay-chat-message.replay {
+      border-color: var(--success);
+      background: rgba(34, 197, 94, 0.08);
+    }
+    #paneReplay .replay-chat-message.user {
+      border-color: var(--warning);
+      background: rgba(245, 158, 11, 0.08);
+    }
+    #paneReplay .replay-chat-message.vote {
+      border-color: var(--accent-purple);
+      background: rgba(168, 85, 247, 0.08);
+    }
+    #paneReplay .replay-chat-message.decision {
+      border-color: var(--accent-pink);
+      background: rgba(236, 72, 153, 0.08);
+    }
+    #paneReplay .replay-chat-message.error {
+      border-color: var(--danger);
+      background: rgba(239, 68, 68, 0.08);
+    }
+    #paneReplay .replay-task-item {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 5px;
+      padding: 6px 10px;
+      font-size: 11px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    #paneReplay .replay-task-item .task-status {
+      font-size: 9px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 3px;
+      text-transform: uppercase;
+    }
+    #paneReplay .replay-task-item .status-pending { background: var(--bg-hover); color: var(--text-muted); }
+    #paneReplay .replay-task-item .status-working { background: rgba(59, 130, 246, 0.2); color: var(--accent-blue); }
+    #paneReplay .replay-task-item .status-done { background: rgba(34, 197, 94, 0.2); color: var(--success); }
+    #paneReplay .replay-task-item .status-review { background: rgba(245, 158, 11, 0.2); color: var(--warning); }
+    #paneReplay .replay-task-item .status-rework { background: rgba(239, 68, 68, 0.2); color: var(--danger); }
+    #paneReplay .replay-task-item .status-approved { background: rgba(168, 85, 247, 0.2); color: var(--accent-purple); }
+    #paneReplay .replay-task-item .task-title { flex: 1; min-width: 100px; }
+    #paneReplay .replay-task-item .task-owner { font-size: 10px; color: var(--text-dim); }
+
     /* Diff Review Styles */
     .diff-file {
       animation: slideIn 0.2s ease-out;
@@ -1999,10 +2128,83 @@
                 <div style="font-size: 11px; color: var(--text-dim); text-align: center; padding: 10px;" data-i18n="No checkpoints">No checkpoints</div>
               </div>
             </div>
-          </div>
-        </div>
+                  </div>
+                </div>
 
-        </main>
+                <!-- Team Replay Viewer Pane -->
+                <div class="pane-view" id="paneReplay">
+                  <div style="display:flex; flex-direction:column; height:100%; overflow:hidden;">
+                    <!-- Replay Viewer Header -->
+                    <div style="display:flex; align-items:center; gap:8px; padding:8px 12px; background:var(--bg-surface); border-bottom:1px solid var(--border-color);">
+                      <div style="display:flex; align-items:center; gap:6px;">
+                        <span style="font-size: 12px; font-weight: 600; color: var(--text-main);" data-i18n="Replay Viewer">Replay Viewer</span>
+                      </div>
+                      <div style="flex:1;"></div>
+                      <button class="btn btn-secondary" id="btnCloseReplay" style="padding: 4px 8px; font-size: 11px;" data-i18n="Close">Close</button>
+                    </div>
+
+                    <!-- Session List -->
+                    <div style="flex:1; overflow-y:auto; padding: 12px;">
+                      <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;" data-i18n="Past Sessions">Past Sessions</div>
+                      <div id="replaySessionList" style="display:flex; flex-direction:column; gap:6px;">
+                        <div style="font-size: 11px; color: var(--text-dim); text-align: center; padding: 20px;" data-i18n="No past sessions">No past team sessions recorded yet. Run a team session to see it here.</div>
+                      </div>
+                    </div>
+
+                    <!-- Replay Controls (hidden until session selected) -->
+                    <div id="replayControls" style="display:none; padding: 8px 12px; background:var(--bg-surface); border-top:1px solid var(--border-color);">
+                      <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:8px;">
+                        <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;" data-i18n="Replay Controls">Replay Controls</div>
+                        <div style="flex:1;"></div>
+                        <span id="replayCurrentSession" style="font-size: 10px; color: var(--text-dim);"></span>
+                      </div>
+                      <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:8px;">
+                        <button class="btn btn-secondary" id="btnReplayPrev" style="padding: 4px 8px; font-size: 10px;" data-i18n="Previous" title="Previous step">⏮ Previous</button>
+                        <button class="btn" id="btnReplayPlayPause" style="padding: 4px 8px; font-size: 10px;" data-i18n="Play">▶ Play</button>
+                        <button class="btn btn-secondary" id="btnReplayNext" style="padding: 4px 8px; font-size: 10px;" data-i18n="Next">Next ⏭</button>
+                        <div style="flex:1;"></div>
+                        <label style="font-size: 10px; color: var(--text-dim);" data-i18n="Speed">Speed:</label>
+                        <select id="replaySpeedSelect" style="background:var(--bg-hover); border:1px solid var(--border-color); border-radius:4px; color:var(--text-main); font-size:10px; padding:2px 4px;">
+                          <option value="50">50ms</option>
+                          <option value="120" selected>120ms</option>
+                          <option value="250">250ms</option>
+                          <option value="500">500ms</option>
+                          <option value="1000">1s</option>
+                        </select>
+                        <button class="btn btn-secondary" id="btnReplayJumpIn" style="padding: 4px 8px; font-size: 10px; margin-left:8px;" data-i18n="Jump In">↩ Jump In</button>
+                      </div>
+                      <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                        <label style="font-size: 10px; color: var(--text-dim); align-self:center;" data-i18n="Step">Step:</label>
+                        <input id="replayStepInput" type="number" min="0" value="0" style="width:60px; background:var(--bg-hover); border:1px solid var(--border-color); border-radius:4px; color:var(--text-main); font-size:10px; padding:2px 4px;" />
+                        <span id="replayStepTotal" style="font-size: 10px; color: var(--text-dim); align-self:center;">/ 0</span>
+                        <div style="flex:1;"></div>
+                        <button class="btn btn-secondary" id="btnReplayCloseSession" style="padding: 4px 8px; font-size: 10px;" data-i18n="Close Session">Close Session</button>
+                      </div>
+                    </div>
+
+                    <!-- Replay Display Area (chat + task board) -->
+                    <div id="replayDisplay" style="display:none; flex:1; overflow:hidden; flex-direction:column;">
+                      <!-- Team Chat Replay -->
+                      <div style="flex:1; overflow-y:auto; padding: 12px; display:flex; flex-direction:column; gap:8px; min-height: 200px;">
+                        <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;" data-i18n="Team Discussion Replay">Team Discussion Replay</div>
+                        <div id="replayChat" style="flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:6px;">
+                          <div style="font-size: 11px; color: var(--text-dim); text-align: center; padding: 20px;">Select a session and press Play to start replay.</div>
+                        </div>
+                      </div>
+                      <!-- Task Board at Current Step -->
+                      <div style="border-top:1px solid var(--border-color); background:var(--bg-surface);">
+                        <div style="padding: 8px 12px; border-bottom:1px solid var(--border-color);">
+                          <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;" data-i18n="Task Board at This Step">Task Board at This Step</div>
+                        </div>
+                        <div id="replayTaskBoard" style="padding: 8px 12px; max-height: 200px; overflow-y:auto; display:flex; flex-direction:column; gap:4px;">
+                          <div style="font-size: 11px; color: var(--text-dim); text-align: center; padding: 10px;" data-i18n="No task board data">No task board data for this step.</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                    </main>
 
   <!-- Mobile Bottom Tab Bar -->
   <nav class="mobile-nav" id="mobileNav">
@@ -4559,6 +4761,23 @@ WORK STYLE:
         'No checkpoints': 'কোনো চেকপয়েন্ট নেই',
         'Approve': 'অনুমোদন',
         'Reject': 'প্রত্যাখ্যান',
+
+        // Team Replay Viewer (B4.5)
+        'Replay': 'রিপ্লে',
+        'Team Replay': 'টিম রিপ্লে',
+        'Session Replay': 'সেশন রিপ্লে',
+        'No past sessions': 'কোনো পূর্ব সেশন নেই',
+        'Select a session and press Play to start replay.': 'একটি সেশন নির্বাচন করুন এবং Play চাপুন রিপ্লে শুরু করতে।',
+        'Replayed to the end of the recorded session.': 'রেকর্ড করা সেশনের শেষে রিপ্লে করা হয়েছে।',
+        'Jump in mid-replay': 'মাঝপথে রিপ্লেতে ঢুকুন',
+        'Enter your message to redirect the team (will be injected at current replay point):': 'আপনার বার্তা লিখুন টিমকে পুনঃনির্দেশ করতে (বর্তমান রিপ্লে পয়েন্টে ইনজেক্ট হবে):',
+        'Jump-in message added to replay': 'জাম্প-ইন বার্তা রিপ্লেতে যোগ করা হয়েছে',
+        'Play': 'চালান',
+        'Pause': 'বিরতি',
+        'Previous': 'পূর্ববর্তী',
+        'Next': 'পরবর্তী',
+        'Speed': 'গতি',
+        'Close Session': 'সেশন বন্ধ করুন',
 
         // Welcome / Empty states
         'No files yet. Create one to get started.': 'এখনো কোনো ফাইল নেই। শুরু করতে একটি তৈরি করুন।',
@@ -22844,6 +23063,30 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
         }
 
         logActivity('Team mode completed', 'success');
+
+        // Save completed team session to history for replay viewer
+        const v2 = getTeamV2();
+        const completedSession = {
+          id: 'ts_' + Date.now(),
+          startedAt: v2.session[0]?.t || Date.now(),
+          endedAt: Date.now(),
+          prompt: v2.lastPrompt || 'Team session',
+          roster: [...appState.teamRoster],
+          seniorId: appState.teamSeniorId,
+          execMode: v2.execMode,
+          budgetCap: v2.budgetCap,
+          events: [...v2.session],
+          votes: [...v2.votes],
+          disputes: [...v2.disputes],
+          checkpoints: [...v2.checkpoints],
+          finalTaskBoard: appState.teamTaskBoard.map(t => ({ ...t })),
+          totalSpend: teamTotalSpend(),
+          usage: { ...v2.usage }
+        };
+        v2.history.unshift(completedSession);
+        // Keep only last 50 sessions
+        if (v2.history.length > 50) v2.history.length = 50;
+
       } catch (err) {
         logActivity('Team mode error: ' + err.message, 'error');
         appendTeamChat('error', null, `Team mode failed: ${err.message}`);
@@ -23202,19 +23445,30 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
           votes: [],                    // {options, tally, winner, at}
           disputes: [],                 // {agents, topic, arbitration, overruled, at}
           checkpoints: [],              // {reason, answer, at}
-          session: [],                  // replay events {t, type, text}
+          session: [],                  // replay events {t, type, text, taskBoardSnapshot}
+          history: [],                  // completed team sessions for replay viewer
           lastReviewFlags: [],          // senior diff view data
           lastReviewApproved: false,
           userRedirect: null            // pending jump-in message for next agent turn
         };
       }
       if (!Array.isArray(appState.teamV2.session)) appState.teamV2.session = [];
+      if (!Array.isArray(appState.teamV2.history)) appState.teamV2.history = [];
       return appState.teamV2;
     }
 
     // Record a replay event for every visible team-room happening
     function recordSessionEvent(type, text) {
-      getTeamV2().session.push({ t: Date.now(), type, text });
+      const v2 = getTeamV2();
+      const taskBoardSnapshot = appState.teamTaskBoard.map(t => ({
+        id: t.id,
+        title: t.title,
+        owner: t.owner,
+        status: t.status,
+        gate: t.gate ? { ...t.gate } : null,
+        reworkNote: t.reworkNote ? { ...t.reworkNote } : null
+      }));
+      v2.session.push({ t: Date.now(), type, text, taskBoardSnapshot });
     }
 
     // ---------- Role presets (Stage 4 spec: real senior-dev playbooks) ----------
@@ -23602,6 +23856,63 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
         btnMemory.onclick = saveTeamMemoryToBrain;
       }
 
+      // Replay viewer buttons
+      const btnCloseReplay = document.getElementById('btnCloseReplay');
+      if (btnCloseReplay && !btnCloseReplay.dataset.v2wired) {
+        btnCloseReplay.dataset.v2wired = '1';
+        btnCloseReplay.onclick = () => {
+          document.querySelectorAll('.pane-view').forEach(p => p.classList.remove('active'));
+          const teamPane = document.getElementById('paneTeam');
+          if (teamPane) teamPane.classList.add('active');
+          document.querySelectorAll('.panel-tab').forEach(t => t.classList.remove('active'));
+          const teamTab = document.querySelector('[data-tab="team"]');
+          if (teamTab) teamTab.classList.add('active');
+          closeReplaySession();
+        };
+      }
+
+      const btnReplayPrev = document.getElementById('btnReplayPrev');
+      if (btnReplayPrev && !btnReplayPrev.dataset.v2wired) {
+        btnReplayPrev.dataset.v2wired = '1';
+        btnReplayPrev.onclick = replayStepBackward;
+      }
+
+      const btnReplayPlayPause = document.getElementById('btnReplayPlayPause');
+      if (btnReplayPlayPause && !btnReplayPlayPause.dataset.v2wired) {
+        btnReplayPlayPause.dataset.v2wired = '1';
+        btnReplayPlayPause.onclick = toggleReplayPlayPause;
+      }
+
+      const btnReplayNext = document.getElementById('btnReplayNext');
+      if (btnReplayNext && !btnReplayNext.dataset.v2wired) {
+        btnReplayNext.dataset.v2wired = '1';
+        btnReplayNext.onclick = replayStepForward;
+      }
+
+      const replaySpeedSelect = document.getElementById('replaySpeedSelect');
+      if (replaySpeedSelect && !replaySpeedSelect.dataset.v2wired) {
+        replaySpeedSelect.dataset.v2wired = '1';
+        replaySpeedSelect.onchange = onReplaySpeedChange;
+      }
+
+      const btnReplayJumpIn = document.getElementById('btnReplayJumpIn');
+      if (btnReplayJumpIn && !btnReplayJumpIn.dataset.v2wired) {
+        btnReplayJumpIn.dataset.v2wired = '1';
+        btnReplayJumpIn.onclick = replayJumpIn;
+      }
+
+      const replayStepInput = document.getElementById('replayStepInput');
+      if (replayStepInput && !replayStepInput.dataset.v2wired) {
+        replayStepInput.dataset.v2wired = '1';
+        replayStepInput.onchange = () => replayJumpToStep(parseInt(replayStepInput.value) || 0);
+      }
+
+      const btnReplayCloseSession = document.getElementById('btnReplayCloseSession');
+      if (btnReplayCloseSession && !btnReplayCloseSession.dataset.v2wired) {
+        btnReplayCloseSession.dataset.v2wired = '1';
+        btnReplayCloseSession.onclick = closeReplaySession;
+      }
+
       const specialistSel = document.getElementById('teamSpecialistSelect');
       if (specialistSel && !specialistSel.dataset.v2wired) {
         specialistSel.dataset.v2wired = '1';
@@ -23806,19 +24117,258 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
       document.querySelectorAll('.modal-overlay').forEach(m => m.remove());
     }
 
-    // ---------- Session Replay: full team session from the start ----------
-    async function replayTeamSession() {
-      const events = getTeamV2().session;
-      if (!events.length) { alert('No team session recorded yet. Run a team session, then replay.'); return; }
-      const chat = document.getElementById('teamChat');
-      if (chat) chat.innerHTML = '';
-      appendTeamChat('system', null, `▶ SESSION REPLAY — ${events.length} events. (run again to watch at natural speed)`);
-      for (const ev of events) {
-        const time = new Date(ev.t).toLocaleTimeString();
-        appendTeamChat('replay', null, `[${time}] ${ev.text}`);
-        await new Promise(r => setTimeout(r, 120));
+    // ============ TEAM REPLAY VIEWER ============
+    // State for replay viewer
+    let replayViewerState = {
+      currentSession: null,
+      currentStep: 0,
+      isPlaying: false,
+      playTimer: null,
+      speed: 120
+    };
+
+    // Open replay viewer pane and render session list
+    function openReplayViewer() {
+      // Switch to replay pane
+      document.querySelectorAll('.pane-view').forEach(p => p.classList.remove('active'));
+      const replayPane = document.getElementById('paneReplay');
+      if (replayPane) replayPane.classList.add('active');
+      document.querySelectorAll('.panel-tab').forEach(t => t.classList.remove('active'));
+      const replayTab = document.querySelector('[data-tab="replay"]');
+      if (replayTab) replayTab.classList.add('active');
+
+      renderReplaySessionList();
+    }
+
+    // Render the list of past team sessions
+    function renderReplaySessionList() {
+      const v2 = getTeamV2();
+      const list = document.getElementById('replaySessionList');
+      if (!list) return;
+
+      if (!v2.history || v2.history.length === 0) {
+        list.innerHTML = '<div style="font-size: 11px; color: var(--text-dim); text-align: center; padding: 20px;" data-i18n="No past sessions">No past team sessions recorded yet. Run a team session to see it here.</div>';
+        return;
       }
-      appendTeamChat('system', null, '▶ Replayed to the end of the recorded session.');
+
+      list.innerHTML = v2.history.map((session, idx) => {
+        const date = new Date(session.startedAt).toLocaleString();
+        const duration = Math.round((session.endedAt - session.startedAt) / 1000);
+        const mins = Math.floor(duration / 60);
+        const secs = duration % 60;
+        const durationStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+        const rosterCount = session.roster?.length || 0;
+        const eventCount = session.events?.length || 0;
+        const outcome = session.finalTaskBoard?.every(t => t.status === 'approved' || t.status === 'done') ? '✅ Completed' : '⚠️ Partial';
+
+        return `
+          <div class="replay-session-item" onclick="selectReplaySession('${session.id}')" data-session-id="${session.id}">
+            <div class="session-title">${escapeHtml(session.prompt || 'Team session')}</div>
+            <div class="session-meta">
+              <span>📅 ${date}</span>
+              <span>⏱ ${durationStr}</span>
+              <span>👥 ${rosterCount} agents</span>
+              <span>💬 ${eventCount} events</span>
+              <span>${outcome}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Select a session for replay
+    function selectReplaySession(sessionId) {
+      const v2 = getTeamV2();
+      const session = v2.history.find(s => s.id === sessionId);
+      if (!session) return;
+
+      replayViewerState.currentSession = session;
+      replayViewerState.currentStep = 0;
+      replayViewerState.isPlaying = false;
+      replayViewerState.speed = parseInt(document.getElementById('replaySpeedSelect')?.value) || 120;
+
+      // Show controls and display area
+      document.getElementById('replayControls').style.display = 'block';
+      document.getElementById('replayDisplay').style.display = 'flex';
+      document.getElementById('replayCurrentSession').textContent = `${escapeHtml(session.prompt || 'Team session')} — ${new Date(session.startedAt).toLocaleString()}`;
+      document.getElementById('replayStepTotal').textContent = `/ ${session.events.length - 1}`;
+
+      // Reset chat and render first step
+      renderReplayStep(0);
+      updateReplayPlayPauseBtn();
+    }
+
+    // Close current replay session
+    function closeReplaySession() {
+      replayViewerState.currentSession = null;
+      replayViewerState.currentStep = 0;
+      replayViewerState.isPlaying = false;
+      if (replayViewerState.playTimer) {
+        clearTimeout(replayViewerState.playTimer);
+        replayViewerState.playTimer = null;
+      }
+      document.getElementById('replayControls').style.display = 'none';
+      document.getElementById('replayDisplay').style.display = 'none';
+      document.getElementById('replayChat').innerHTML = '<div style="font-size: 11px; color: var(--text-dim); text-align: center; padding: 20px;">Select a session and press Play to start replay.</div>';
+      document.getElementById('replayTaskBoard').innerHTML = '<div style="font-size: 11px; color: var(--text-dim); text-align: center; padding: 10px;" data-i18n="No task board data">No task board data for this step.</div>';
+      renderReplaySessionList();
+    }
+
+    // Render a specific replay step
+    function renderReplayStep(stepIndex) {
+      const session = replayViewerState.currentSession;
+      if (!session || !session.events || stepIndex < 0 || stepIndex >= session.events.length) return;
+
+      replayViewerState.currentStep = stepIndex;
+      const ev = session.events[stepIndex];
+
+      // Update step input
+      document.getElementById('replayStepInput').value = stepIndex;
+
+      // Render chat message
+      const chat = document.getElementById('replayChat');
+      if (chat) {
+        const time = new Date(ev.t).toLocaleTimeString();
+        const typeClass = ev.type || 'replay';
+        const msgDiv = document.createElement('div');
+        msgDiv.className = `replay-chat-message ${typeClass}`;
+        msgDiv.innerHTML = `<span style="font-weight:600;">[${time}]</span> ${escapeHtml(ev.text || '')}`;
+        chat.appendChild(msgDiv);
+        chat.scrollTop = chat.scrollHeight;
+      }
+
+      // Render task board snapshot
+      renderReplayTaskBoard(ev.taskBoardSnapshot);
+    }
+
+    // Render task board from snapshot
+    function renderReplayTaskBoard(snapshot) {
+      const container = document.getElementById('replayTaskBoard');
+      if (!container) return;
+
+      if (!snapshot || snapshot.length === 0) {
+        container.innerHTML = '<div style="font-size: 11px; color: var(--text-dim); text-align: center; padding: 10px;" data-i18n="No task board data">No task board data for this step.</div>';
+        return;
+      }
+
+      container.innerHTML = snapshot.map(task => {
+        const agent = appState.agents[task.owner];
+        const ownerName = agent ? agent.name : 'unassigned';
+        const ownerEmoji = agent ? agent.emoji : '❓';
+        const statusClass = `status-${task.status || 'pending'}`;
+        return `
+          <div class="replay-task-item">
+            <span class="task-status ${statusClass}">${task.status || 'pending'}</span>
+            <span class="task-title">${ownerEmoji} ${escapeHtml(task.title || '')}</span>
+            <span class="task-owner">→ ${ownerName}</span>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Play/pause replay
+    function toggleReplayPlayPause() {
+      if (!replayViewerState.currentSession) return;
+
+      replayViewerState.isPlaying = !replayViewerState.isPlaying;
+      updateReplayPlayPauseBtn();
+
+      if (replayViewerState.isPlaying) {
+        playReplay();
+      } else if (replayViewerState.playTimer) {
+        clearTimeout(replayViewerState.playTimer);
+        replayViewerState.playTimer = null;
+      }
+    }
+
+    // Update play/pause button text
+    function updateReplayPlayPauseBtn() {
+      const btn = document.getElementById('btnReplayPlayPause');
+      if (!btn) return;
+      btn.textContent = replayViewerState.isPlaying ? '⏸ Pause' : '▶ Play';
+      btn.setAttribute('data-i18n', replayViewerState.isPlaying ? 'Pause' : 'Play');
+    }
+
+    // Play replay forward
+    async function playReplay() {
+      const session = replayViewerState.currentSession;
+      if (!session || !replayViewerState.isPlaying) return;
+
+      if (replayViewerState.currentStep >= session.events.length - 1) {
+        // Reached end
+        replayViewerState.isPlaying = false;
+        updateReplayPlayPauseBtn();
+        appendTeamChat('system', null, '▶ Replayed to the end of the recorded session.');
+        return;
+      }
+
+      // Render next step
+      renderReplayStep(replayViewerState.currentStep + 1);
+
+      // Schedule next step
+      replayViewerState.playTimer = setTimeout(() => {
+        playReplay();
+      }, replayViewerState.speed);
+    }
+
+    // Step forward
+    function replayStepForward() {
+      const session = replayViewerState.currentSession;
+      if (!session) return;
+      if (replayViewerState.currentStep < session.events.length - 1) {
+        renderReplayStep(replayViewerState.currentStep + 1);
+      }
+    }
+
+    // Step backward
+    function replayStepBackward() {
+      if (replayViewerState.currentStep > 0) {
+        renderReplayStep(replayViewerState.currentStep - 1);
+      }
+    }
+
+    // Jump to specific step
+    function replayJumpToStep(stepIndex) {
+      const session = replayViewerState.currentSession;
+      if (!session) return;
+      const idx = Math.max(0, Math.min(stepIndex, session.events.length - 1));
+      renderReplayStep(idx);
+    }
+
+    // Jump in mid-replay (redirect the team)
+    function replayJumpIn() {
+      if (!replayViewerState.currentSession) return;
+      const input = prompt('Enter your message to redirect the team (will be injected at current replay point):');
+      if (!input) return;
+
+      // Record the jump-in as a user event at current step
+      const session = replayViewerState.currentSession;
+      const jumpInEvent = {
+        t: Date.now(),
+        type: 'jump-in',
+        text: `[USER JUMP-IN] ${input}`,
+        taskBoardSnapshot: session.events[replayViewerState.currentStep]?.taskBoardSnapshot || []
+      };
+
+      // Insert into session events at current position
+      session.events.splice(replayViewerState.currentStep + 1, 0, jumpInEvent);
+      document.getElementById('replayStepTotal').textContent = `/ ${session.events.length - 1}`;
+
+      // Render the jump-in message
+      renderReplayStep(replayViewerState.currentStep + 1);
+
+      logActivity('Jump-in message added to replay', 'info');
+    }
+
+    // Speed change handler
+    function onReplaySpeedChange() {
+      replayViewerState.speed = parseInt(document.getElementById('replaySpeedSelect')?.value) || 120;
+    }
+
+    // ---------- Session Replay: full team session from the start (legacy - kept for backward compat) ----------
+    async function replayTeamSession() {
+      // Open the replay viewer instead of inline replay
+      openReplayViewer();
     }
 
     // ---------- Transcript export as a document ----------
