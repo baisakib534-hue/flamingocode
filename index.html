@@ -3026,6 +3026,7 @@ sudo *"></textarea>
           <label class="form-label">Provider Preset</label>
           <select id="providerPresetSelect" class="form-select">
             <option value="">-- Custom Provider --</option>
+            <option value="local-ai">Local AI (Ollama / LM Studio — http://localhost:11434/v1)</option>
             <option value="9router">9router (Default free /v1)</option>
             <option value="omniroute-cloud">OmniRoute Cloud (https://omniroute-main-9nt1.onrender.com/api/v1)</option>
             <option value="omniroute-local">OmniRoute Local (http://localhost:20128/v1)</option>
@@ -3055,6 +3056,18 @@ sudo *"></textarea>
         <div class="form-group" id="groupBaseUrl">
           <label class="form-label">Base URL</label>
           <input type="text" id="providerBaseUrl" class="form-input" placeholder="https://api.example.com/v1" />
+          <div id="localAiGuidance" style="display: none; margin-top: 8px; padding: 10px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 5px; font-size: 11px; color: var(--text-main);">
+            <div style="font-weight: 600; margin-bottom: 6px; color: var(--accent-blue);" data-i18n="Local AI Setup">Local AI Setup</div>
+            <div style="margin-bottom: 4px;" data-i18n="For Ollama: run">For <strong>Ollama</strong>: run <code>ollama serve</code> (default: http://localhost:11434/v1)</div>
+            <div style="margin-bottom: 4px;" data-i18n="For LM Studio: enable">For <strong>LM Studio</strong>: enable "Local Server" in Settings → Developer (default: http://localhost:1234/v1)</div>
+            <div style="margin-bottom: 4px;" data-i18n="Model must be loaded">Ensure your model is loaded: <code>ollama pull llama3.1:8b</code> or load in LM Studio</div>
+            <div style="margin-bottom: 4px;" data-i18n="CORS may be needed">If browser blocks requests, enable CORS in server config or use a CORS proxy</div>
+          </div>
+          <div id="localConnectionStatus" style="display: none; margin-top: 8px; display: flex; align-items: center; gap: 8px;">
+            <span id="localStatusIndicator" style="width: 10px; height: 10px; border-radius: 50%;"></span>
+            <span id="localStatusText" style="font-size: 11px; font-weight: 500;"></span>
+            <button type="button" class="btn" id="btnCheckLocalConnection" style="padding: 4px 10px; font-size: 10px; margin-left: auto;" data-i18n="Check Connection">Check Connection</button>
+          </div>
         </div>
 
         <div class="form-group">
@@ -4433,6 +4446,21 @@ WORK STYLE:
         'Default': 'ডিফল্ট',
         'Custom': 'কাস্টম',
         'Preset': 'প্রিসেট',
+        // Local AI
+        'Local AI Setup': 'লোকাল AI সেটআপ',
+        'For Ollama: run': 'Ollama-এর জন্য: চালান',
+        'For LM Studio: enable': 'LM Studio-এর জন্য: সক্রিয় করুন',
+        'Model must be loaded': 'মডেল লোড করা থাকতে হবে',
+        'CORS may be needed': 'CORS দরকার হতে পারে',
+        'Check Connection': 'সংযোগ চেক করুন',
+        'Enter Base URL': 'বেস ইউআরএল লিখুন',
+        'Checking...': 'চেক করা হচ্ছে...',
+        'Online': 'অনলাইন',
+        'Offline': 'অফলাইন',
+        'Timeout': 'টাইমআউট',
+        'CORS blocked': 'CORS ব্লক করা হয়েছে',
+        'Connection refused': 'সংযোগ প্রত্যাখ্যান করা হয়েছে',
+        'Error: ': 'ত্রুটি: ',
 
         // Settings - Behavior
         'Uncensored Mode': 'অনসেন্সরড মোড',
@@ -17881,6 +17909,52 @@ Format:
       renderProviderFallbackChain();
     }
 
+    // Local AI connection check
+    async function checkLocalConnection(baseUrl, indicatorEl, textEl) {
+      if (!baseUrl) {
+        indicatorEl.style.background = 'var(--border-color)';
+        textEl.textContent = t('Enter Base URL');
+        textEl.style.color = 'var(--text-dim)';
+        return;
+      }
+
+      indicatorEl.style.background = 'var(--warning)';
+      textEl.textContent = t('Checking...');
+      textEl.style.color = 'var(--warning)';
+
+      try {
+        // Try /models endpoint (OpenAI-compatible)
+        const modelsUrl = baseUrl.replace(/\/+$/, '') + '/models';
+        const res = await fetch(modelsUrl, { 
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+          signal: AbortSignal.timeout(5000)
+        });
+        
+        if (res.ok) {
+          indicatorEl.style.background = 'var(--success)';
+          textEl.textContent = t('Online');
+          textEl.style.color = 'var(--success)';
+        } else {
+          indicatorEl.style.background = 'var(--danger)';
+          textEl.textContent = t('Offline') + ` (HTTP ${res.status})`;
+          textEl.style.color = 'var(--danger)';
+        }
+      } catch (err) {
+        indicatorEl.style.background = 'var(--danger)';
+        if (err.name === 'TimeoutError' || err.name === 'AbortError') {
+          textEl.textContent = t('Timeout');
+        } else if (err.name === 'TypeError' && err.message.includes('CORS')) {
+          textEl.textContent = t('CORS blocked');
+        } else if (err.name === 'TypeError' && err.message.includes('Failed to fetch')) {
+          textEl.textContent = t('Connection refused');
+        } else {
+          textEl.textContent = t('Error: ') + err.message.slice(0, 30);
+        }
+        textEl.style.color = 'var(--danger)';
+      }
+    }
+
     function openProviderModal(provider = null) {
           const modal = document.getElementById('providerModal');
           const title = document.getElementById('providerModalTitle');
@@ -18003,9 +18077,64 @@ Format:
                       title.textContent = 'Add Provider';
                     }
 
-          modal.classList.add('active');
-          nameInput.focus();
-        }
+                    // Local AI: show guidance and connection status for local presets or localhost URLs
+                    const localGuidance = document.getElementById('localAiGuidance');
+                    const localStatus = document.getElementById('localConnectionStatus');
+                    const statusIndicator = document.getElementById('localStatusIndicator');
+                    const statusText = document.getElementById('localStatusText');
+                    const checkBtn = document.getElementById('btnCheckLocalConnection');
+                    const currentBaseUrl = baseUrlInput.value || '';
+                    const isLocalPreset = presetSelect.value === 'local-ai' || presetSelect.value === 'omniroute-local';
+                    const isLocalUrl = currentBaseUrl.includes('localhost') || currentBaseUrl.includes('127.0.0.1');
+
+                    if (isLocalPreset || isLocalUrl) {
+                      localGuidance.style.display = 'block';
+                      localStatus.style.display = 'flex';
+                      // Initial status check
+                      checkLocalConnection(currentBaseUrl, statusIndicator, statusText);
+                    } else {
+                      localGuidance.style.display = 'none';
+                      localStatus.style.display = 'none';
+                    }
+
+                    // Preset change handler for local AI
+                    presetSelect.onchange = () => {
+                      const newBaseUrl = baseUrlInput.value || '';
+                      const newIsLocalPreset = presetSelect.value === 'local-ai' || presetSelect.value === 'omniroute-local';
+                      const newIsLocalUrl = newBaseUrl.includes('localhost') || newBaseUrl.includes('127.0.0.1');
+                      if (newIsLocalPreset || newIsLocalUrl) {
+                        localGuidance.style.display = 'block';
+                        localStatus.style.display = 'flex';
+                        checkLocalConnection(newBaseUrl, statusIndicator, statusText);
+                      } else {
+                        localGuidance.style.display = 'none';
+                        localStatus.style.display = 'none';
+                      }
+                    };
+
+                    // Base URL change handler
+                    baseUrlInput.oninput = () => {
+                      const newBaseUrl = baseUrlInput.value || '';
+                      const newIsLocalUrl = newBaseUrl.includes('localhost') || newBaseUrl.includes('127.0.0.1');
+                      const newIsLocalPreset = presetSelect.value === 'local-ai' || presetSelect.value === 'omniroute-local';
+                      if (newIsLocalUrl || newIsLocalPreset) {
+                        localGuidance.style.display = 'block';
+                        localStatus.style.display = 'flex';
+                        checkLocalConnection(newBaseUrl, statusIndicator, statusText);
+                      } else {
+                        localGuidance.style.display = 'none';
+                        localStatus.style.display = 'none';
+                      }
+                    };
+
+                    // Check connection button handler
+                    checkBtn.onclick = () => {
+                      checkLocalConnection(baseUrlInput.value || '', statusIndicator, statusText);
+                    };
+
+                    modal.classList.add('active');
+                    nameInput.focus();
+  }
 
     // Key pool helper functions (module-level)
     function renderKeyPoolList(keyPool) {
