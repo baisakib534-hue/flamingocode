@@ -2588,6 +2588,26 @@
           <div style="font-size: 10px; color: var(--text-dim);">Gate Status: <span id="precommitGateStatus" style="color: var(--warning); font-weight: 600;" data-i18n="Pending">Pending</span></div>
         </div>
 
+        <!-- Lazy Tool Loading (B4.7) -->
+        <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; padding: 12px;">
+          <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;" data-i18n="Lazy Tool Loading">Lazy Tool Loading</div>
+          <div style="font-size: 12px; color: var(--text-main); margin-bottom: 8px;" data-i18n="Load tool/skill/MCP definitions on demand instead of pre-loading all. Reduces context tokens and cost.">Load tool/skill/MCP definitions on demand instead of pre-loading all. Reduces context tokens and cost.</div>
+          <div style="margin-bottom: 8px;">
+            <label style="font-size: 11px; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 6px;" data-i18n="Loading Mode">Loading Mode</label>
+            <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+              <label style="display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 4px; cursor: pointer; font-size: 11px;">
+                <input type="radio" name="lazyToolsMode" value="lazy" style="width: 16px; height: 16px; accent-color: var(--accent-blue);" /> <span data-i18n="Load tools when needed (default)">Load tools when needed (default)</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 4px; cursor: pointer; font-size: 11px;">
+                <input type="radio" name="lazyToolsMode" value="eager" style="width: 16px; height: 16px; accent-color: var(--accent-blue);" /> <span data-i18n="Tools already loaded">Tools already loaded</span>
+              </label>
+            </div>
+          </div>
+          <div style="font-size: 11px; color: var(--text-dim); padding: 8px; background: var(--bg-dark); border-radius: 4px; border: 1px solid var(--border-color);">
+            <span data-i18n="Loaded">Loaded</span>: <span id="lazyToolsLoadedCount" style="font-weight: 600; color: var(--accent-blue);">0</span> / <span id="lazyToolsTotalCount" style="font-weight: 600; color: var(--text-main);">0</span> <span data-i18n="tools">tools</span>
+          </div>
+        </div>
+
         <!-- Safe Mode v2: Approval Ladder + Hardline Blocklist + Deny Rules -->
         <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; padding: 12px;">
           <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;" data-i18n="Safe Mode v2">Safe Mode v2</div>
@@ -4833,6 +4853,15 @@ WORK STYLE:
         'No skills installed.': 'কোনো স্কিল ইনস্টল করা নেই।',
         'No MCP servers configured.': 'কোনো এমসিপি সার্ভার কনফিগার করা নেই।',
         'No activity yet.': 'এখনো কোনো কার্যক্রম নেই।',
+
+        // Lazy Tool Loading (B4.7)
+        'Lazy Tool Loading': 'লেজি টুল লোডিং',
+        'Load tool/skill/MCP definitions on demand instead of pre-loading all. Reduces context tokens and cost.': 'টুল/স্কিল/এমসিপি ডেফিনিশন চাহিদামতো লোড করুন, সব আগে থেকে লোড করার পরিবর্তে। কনটেক্সট টোকেন এবং খরচ কমানো।',
+        'Loading Mode': 'লোডিং মোড',
+        'Load tools when needed (default)': 'প্রয়োজনে টুল লোড করুন (ডিফল্ট)',
+        'Tools already loaded': 'টুলগুলোর আগে থেকেই লোড করা আছে',
+        'Loaded': 'লোডেড',
+        'tools': 'টুল',
       }
     };
 
@@ -5055,6 +5084,12 @@ WORK STYLE:
         lastGenerated: null,        // Timestamp of last docs generation
         lastFileHash: null,         // Hash of project files at last generation
         stale: false                // Whether docs are considered stale
+      },
+      // Lazy Tool Loading (B4.7) - progressive disclosure for tools/skills/MCPs
+      lazyTools: {
+        enabled: true,              // 'Load tools when needed' mode (default)
+        loadedCount: 0,             // Number of tool definitions loaded this session
+        loadedKeys: []              // Keys of loaded tool definitions
       }
     };
 
@@ -9502,29 +9537,82 @@ Links: [[Brain Index]]
       ]
     };
 
+    // ==================== TOOL DEFINITIONS REGISTRY (B4.7) ====================
+    // Single source of truth for all tools (built-in, skill-based, MCP-based).
+    // Used for lazy loading: agent context gets names + triggers only; full def loads on demand.
+    const TOOL_DEFINITIONS = {
+      // Built-in file operations
+      'file-write': { name: 'file-write', type: 'builtin', trigger: 'Creates or overwrites a file in the virtual FS', description: 'Write full file content to the virtual filesystem. Use for creating new files or completely replacing existing file content.' },
+      'file-delete': { name: 'file-delete', type: 'builtin', trigger: 'Deletes a file from the virtual FS', description: 'Remove a file from the virtual filesystem. Irreversible — use with caution.' },
+      'file-read': { name: 'file-read', type: 'builtin', trigger: 'Reads a file from the virtual FS (via context injection)', description: 'Files are automatically included in agent context as signatures or full content. Explicit read not typically needed.' },
+      // Brain/knowledge tools
+      'brain-read': { name: 'brain-read', type: 'builtin', trigger: 'Reads a brain note by name', description: 'Retrieve a note from the Brain (.devforge/notes/). Use `brain-read:note-name` block to fetch full note content on demand.' },
+      'brain-write': { name: 'brain-write', type: 'builtin', trigger: 'Writes a brain note', description: 'Create or update a note in the Brain. Notes are atomic markdown files under .devforge/notes/.' },
+      // Browser/MCP tools
+      'browser': { name: 'browser', type: 'mcp', trigger: 'Browses a URL and returns page content', description: 'Navigate to a URL and extract readable content. Uses the Playwright MCP server. Use `browse:url` block.' },
+      'screenshot-to-app': { name: 'screenshot-to-app', type: 'skill', trigger: 'Converts a screenshot to a working app', description: 'Analyze a screenshot image and generate a functional HTML/CSS/JS application that replicates it.' },
+      // Search/web tools
+      'web-search': { name: 'web-search', type: 'mcp', trigger: 'Searches the web for information', description: 'Search the web via the fetch MCP. Returns titles, URLs, and snippets.' },
+      'web-extract': { name: 'web-extract', type: 'mcp', trigger: 'Extracts full content from a URL', description: 'Fetch and extract full markdown content from a web page or PDF.' },
+      // Code graph tools (Brain v2)
+      'query-graph': { name: 'query-graph', type: 'builtin', trigger: 'Queries the code graph for symbols and relationships', description: 'Search the code graph for nodes matching a query. Returns relevant symbols, types, and file paths.' },
+      'explain-graph': { name: 'explain-graph', type: 'builtin', trigger: 'Explains a code concept from the graph', description: 'Get a detailed explanation of a specific symbol/concept from the code graph, including its connections.' },
+      'path-graph': { name: 'path-graph', type: 'builtin', trigger: 'Finds paths between two symbols in the code graph', description: 'Trace the shortest call/import/dependency path between two symbols in the codebase.' },
+      // Git tools
+      'git-status': { name: 'git-status', type: 'builtin', trigger: 'Shows git status of the virtual FS', description: 'Display modified, staged, and untracked files in the virtual filesystem.' },
+      'git-commit': { name: 'git-commit', type: 'builtin', trigger: 'Commits changes in the virtual FS', description: 'Create a git commit with the current staged changes.' },
+      'git-diff': { name: 'git-diff', type: 'builtin', trigger: 'Shows diff of changes', description: 'Display the diff between working tree and last commit.' },
+      // Terminal/tools
+      'terminal': { name: 'terminal', type: 'builtin', trigger: 'Runs a shell command in the virtual environment', description: 'Execute shell commands (npm, node, python, etc.) in the project environment. Use for builds, tests, scripts.' },
+      // Skill-based tools (from AUTONOMY_CATALOG)
+      // These are loaded via skill_ prefix
+      // MCP-based tools (from AUTONOMY_CATALOG)
+      // These are loaded via mcp_ prefix
+      // Plugin pack tools (from AUTONOMY_CATALOG)
+      // These are loaded via plugin_ prefix
+    };
+
     // Plain-text catalog + rule, injected into agent context and spawn templates.
-    // Progressive disclosure: only names + one-line triggers injected; full content loads on demand via loadSkillContent().
-    function buildAutonomyCatalogText() {
-      let text = '=== AUTONOMY ENGINE: INSTALLED CATALOG ===\n';
-      text += 'These skills, plugins and MCPs are installed. Full content loads on demand when you declare Tools used.\n\n';
-      text += '--- MANDATORY PRE-INSTALLED SKILLS (jcode pack) ---\n';
-      text += AUTONOMY_CATALOG.skills.map(s => '• ' + s.name + ': ' + s.desc.split('.')[0] + '. [load: skill_' + s.name + ']').join('\n');
-      text += '\n\n--- MANDATORY PRE-INSTALLED MCPs ---\n';
-      text += AUTONOMY_CATALOG.mcps.map(m => '• ' + m.name + ': ' + m.desc.split('.')[0] + '. [load: mcp_' + m.name + ']').join('\n');
-      text += '\n\n--- SKILLS FOR VIBE-CODING DEVELOPMENT ---\n';
-      text += AUTONOMY_CATALOG.vibeSkills.map(s => '• ' + s.name + ': ' + s.desc.split('.')[0] + '. [load: vibe_' + s.name + ']').join('\n');
-      text += '\n\n--- MCPs (BUILD ENVIRONMENT) ---\n';
-      text += AUTONOMY_CATALOG.newMcps.map(m => '• ' + m.name + ': ' + m.desc.split('.')[0] + '. [load: mcp_' + m.name + ']').join('\n');
-      text += '\n\n--- PLUGIN PACKS (product runtime library) ---\n';
-      text += AUTONOMY_CATALOG.pluginPacks.map(p => '• ' + p.name + ': ' + p.desc.split('.')[0] + '. [load: plugin_' + p.name + ']').join('\n');
-      
-      // Custom user skill packs
-      if (appState.customSkillPacks && Object.keys(appState.customSkillPacks).length > 0) {
-        text += '\n\n--- CUSTOM USER SKILL PACKS ---\n';
-        text += Object.values(appState.customSkillPacks).map(s => '• ' + s.name + ' (' + (s.category || 'general') + '): ' + (s.instructions || '').split('.')[0] + '. [load: custom_' + s.id + ']').join('\n');
-      }
-      return text;
-    }
+        // Progressive disclosure: only names + one-line triggers injected; full content loads on demand via loadSkillContent() / loadToolContent().
+        function buildAutonomyCatalogText() {
+          let text = '=== AUTONOMY ENGINE: INSTALLED CATALOG ===\n';
+          text += 'These skills, plugins, MCPs and tools are installed. Full content loads on demand when you declare Tools used.\n\n';
+          text += '--- MANDATORY PRE-INSTALLED SKILLS (jcode pack) ---\n';
+          text += AUTONOMY_CATALOG.skills.map(s => '• ' + s.name + ': ' + s.desc.split('.')[0] + '. [load: skill_' + s.name + ']').join('\n');
+          text += '\n\n--- MANDATORY PRE-INSTALLED MCPs ---\n';
+          text += AUTONOMY_CATALOG.mcps.map(m => '• ' + m.name + ': ' + m.desc.split('.')[0] + '. [load: mcp_' + m.name + ']').join('\n');
+          text += '\n\n--- SKILLS FOR VIBE-CODING DEVELOPMENT ---\n';
+          text += AUTONOMY_CATALOG.vibeSkills.map(s => '• ' + s.name + ': ' + s.desc.split('.')[0] + '. [load: vibe_' + s.name + ']').join('\n');
+          text += '\n\n--- MCPs (BUILD ENVIRONMENT) ---\n';
+          text += AUTONOMY_CATALOG.newMcps.map(m => '• ' + m.name + ': ' + m.desc.split('.')[0] + '. [load: mcp_' + m.name + ']').join('\n');
+          text += '\n\n--- PLUGIN PACKS (product runtime library) ---\n';
+          text += AUTONOMY_CATALOG.pluginPacks.map(p => '• ' + p.name + ': ' + p.desc.split('.')[0] + '. [load: plugin_' + p.name + ']').join('\n');
+
+          // Tools (B4.7 Lazy Loading) - only show names + triggers when lazy loading enabled
+          if (appState.lazyTools?.enabled) {
+            const allTools = Object.values(TOOL_DEFINITIONS);
+            const loadedKeys = appState.lazyTools.loadedKeys || [];
+            text += '\n\n--- TOOLS (lazy-loaded) ---\n';
+            text += 'Mode: Load tools when needed. ' + loadedKeys.length + ' of ' + allTools.length + ' loaded.\n';
+            text += allTools.map(t => {
+              const isLoaded = loadedKeys.includes(t.name);
+              const status = isLoaded ? '[LOADED]' : '[load: tool_' + t.name + ']';
+              return '• ' + t.name + ' (' + t.type + '): ' + t.trigger + '. ' + status;
+            }).join('\n');
+          } else {
+            // "Tools already loaded" mode - show full definitions inline
+            const allTools = Object.values(TOOL_DEFINITIONS);
+            text += '\n\n--- TOOLS (pre-loaded) ---\n';
+            text += allTools.map(t => '• ' + t.name + ' (' + t.type + '): ' + t.trigger + '. Full: ' + t.description).join('\n');
+          }
+
+          // Custom user skill packs
+          if (appState.customSkillPacks && Object.keys(appState.customSkillPacks).length > 0) {
+            text += '\n\n--- CUSTOM USER SKILL PACKS ---\n';
+            text += Object.values(appState.customSkillPacks).map(s => '• ' + s.name + ' (' + (s.category || 'general') + '): ' + (s.instructions || '').split('.')[0] + '. [load: custom_' + s.id + ']').join('\n');
+          }
+          return text;
+        }
 
     // Load full skill content on demand (called when agent declares Tools used with load: prefix)
     function loadSkillContent(loadKey) {
@@ -9556,6 +9644,47 @@ Links: [[Brain Index]]
         if (pack) return '=== CUSTOM SKILL PACK: ' + pack.name.toUpperCase() + ' ===\n' + (pack.instructions || '') + '\n\nCategory: ' + (pack.category || 'general') + '\nWhen to use: ' + (pack.instructions || '').split('.')[0] + '\nProcedure: Follow the custom instructions above.\nPitfalls: Custom skills are user-authored; verify they apply to current task.\nVerification: Check output matches the skill\'s stated purpose.';
       }
       return null;
+    }
+
+    // Load full tool definition on demand (B4.7) - called when agent declares Tools used with load: tool_xxx
+    function loadToolContent(loadKey) {
+      if (!loadKey.startsWith('tool_')) return null;
+      const name = loadKey.replace('tool_', '');
+      const tool = TOOL_DEFINITIONS[name];
+      if (!tool) return null;
+
+      // Track as loaded
+      if (!appState.lazyTools.loadedKeys.includes(name)) {
+        appState.lazyTools.loadedKeys.push(name);
+        appState.lazyTools.loadedCount = appState.lazyTools.loadedKeys.length;
+        saveAppState();
+      }
+
+      return '=== TOOL: ' + tool.name.toUpperCase() + ' ===\\n' +
+        'Type: ' + tool.type + '\\n' +
+        'Trigger: ' + tool.trigger + '\\n' +
+        'Description: ' + tool.description + '\\n\\n' +
+        'When to use: ' + tool.trigger + '\\n' +
+        'Procedure: Use the appropriate block syntax for this tool type.\\n' +
+        'Pitfalls: Ensure correct block syntax and parameters.\\n' +
+        'Verification: Check tool output for expected result.';
+    }
+
+    // Parse "Tools used:" line from agent response and trigger lazy loading (B4.7)
+    function parseToolsUsedLine(responseText) {
+      if (!appState.lazyTools?.enabled) return;
+      const match = responseText.match(/Tools used:\s*(.+)/i);
+      if (!match) return;
+      const toolsLine = match[1].trim();
+      const toolNames = toolsLine.split(',').map(s => s.trim()).filter(Boolean);
+      
+      for (const toolName of toolNames) {
+        // Check if it's a load: prefix for lazy loading
+        if (toolName.startsWith('load:')) {
+          const loadKey = toolName.replace('load:', '').trim();
+          loadToolContent(loadKey);
+        }
+      }
     }
 
     function buildMandatoryUseRuleText() {
@@ -9674,6 +9803,34 @@ Links: [[Brain Index]]
         const allPassed = appState.autonomy?.checks?.['testing-qa'] && appState.autonomy?.checks?.['security-review'] && appState.autonomy?.checks?.['domain-skill'];
         precommitGateStatus.textContent = allPassed ? 'Passed' : 'Pending';
         precommitGateStatus.style.color = allPassed ? 'var(--success)' : 'var(--warning)';
+      }
+
+      // Render Lazy Tool Loading (B4.7)
+      const lazyToolsLoadedCount = document.getElementById('lazyToolsLoadedCount');
+      const lazyToolsTotalCount = document.getElementById('lazyToolsTotalCount');
+      if (lazyToolsLoadedCount && lazyToolsTotalCount) {
+        const totalTools = Object.keys(TOOL_DEFINITIONS).length;
+        const loadedCount = appState.lazyTools?.loadedCount || 0;
+        lazyToolsLoadedCount.textContent = loadedCount;
+        lazyToolsTotalCount.textContent = totalTools;
+      }
+
+      const lazyModeRadios = document.querySelectorAll('input[name="lazyToolsMode"]');
+      if (lazyModeRadios.length > 0) {
+        const isLazy = appState.lazyTools?.enabled !== false; // default true
+        lazyModeRadios.forEach(r => {
+          r.checked = (r.value === 'lazy' && isLazy) || (r.value === 'eager' && !isLazy);
+          r.onchange = () => {
+            appState.lazyTools.enabled = r.value === 'lazy';
+            appState.lazyTools.loadedCount = 0;
+            appState.lazyTools.loadedKeys = [];
+            saveAppState();
+            // Re-render the autonomy tab to update catalog text
+            renderAutonomyTab();
+            // Rebuild agent context
+            buildAgentContext();
+          };
+        });
       }
 
       // Render Safe Mode v2
@@ -15283,6 +15440,9 @@ async function sendAgentPrompt(userPrompt, autoTurn = 0) {
 
         session.chatHistory.push({ role: 'assistant', content: reply });
 
+        // B4.7: Parse "Tools used:" line for lazy loading
+        parseToolsUsedLine(reply);
+
         const { chips, fileModified, toolsUsed, noteReads } = await parseAndApplyBlocks(reply);
         appendChatMessage('agent', reply, chips, toolsUsed);
 
@@ -16295,6 +16455,9 @@ CURRENT VIRTUAL FILES (outlines):
             updateThinkActObserveState('observed', step.text);
 
             session.chatHistory.push({ role: 'assistant', content: reply });
+
+            // B4.7: Parse "Tools used:" line for lazy loading
+            parseToolsUsedLine(reply);
 
             const { chips, fileModified, toolsUsed, noteReads } = await parseAndApplyBlocks(reply);
             appendChatMessage('agent', reply, chips, toolsUsed);
@@ -22937,6 +23100,9 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
         const v2PromptChars = messages.reduce((s, m) => s + (m.content || '').length, 0);
         const response = await callLLMWithFallback(messages);
         recordAgentUsage(agent, Date.now() - v2T0, v2PromptChars, (response || '').length);
+
+        // B4.7: Parse "Tools used:" line for lazy loading
+        parseToolsUsedLine(response);
 
         // Parse and apply any file blocks
         const { chips, fileModified, toolsUsed, noteReads } = await parseAndApplyBlocks(response);
