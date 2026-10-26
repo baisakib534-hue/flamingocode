@@ -65,12 +65,30 @@ When the matcher finds something, show ONE compact card in the chat area
   card, do not hide it.
 - A "Recommended for this task" section in the Plugin Catalog tab shows
   the same recommendations for the current task, so he can find them
-  even after dismissing the chat card.
+  even after dismissing the chat card. Recommendations for a task that
+  is still UNFINISHED are saved with the task and shown again when the
+  software reopens or the task resumes (see §4 Persistence) — he never
+  loses a suggestion just because he closed the app.
 
 ### 4. Hard rules (his orders — do not bend these)
-- **NEVER auto-install.** Installation happens ONLY when he clicks
-  Install. This holds in every Safe Mode (Smart / Manual / Off) — a
-  recommendation is a suggestion, never an action.
+- **NEVER block or pause a task.** A recommendation is a suggestion,
+  never a gate. The agent keeps working with the tools already
+  installed; if he installs a recommended tool mid-task, the agent
+  picks it up from the next step. ONLY if a step is genuinely
+  IMPOSSIBLE without the missing tool does the agent say so plainly
+  ("এই ধাপের জন্য X লাগবে — install করলে এগোবো") and wait on THAT
+  step alone (needs-help state), while continuing anything else it can
+  do. The task as a whole never stalls on a recommendation.
+- **Persistence (his question 2026-10-26 ~18:25 +06).** Installed tools
+  ALWAYS persist — they live in the skill / MCP / plugin registries
+  (saved settings), so closing the software changes nothing for them.
+  Recommendations themselves are per-task: a recommendation for an
+  UNFINISHED task is saved with the task (in `appState`, next to the
+  task state) and re-shown when the software reopens or the task
+  resumes. Recommendations for a FINISHED task expire with the task —
+  but giving the same task again re-runs the matcher and recommends
+  again. Muted tools stay muted across restarts (the mute list is
+  persisted in `appState`, like the other Behavior settings).
 - **NEVER recommend an installed tool.** Check installed/enabled state
   from the existing registries at match time.
 - **Learning (local, no model call):** when he installs a recommended
@@ -107,7 +125,14 @@ after your build. Cover at least:
   consequence;
 - (g) installing a recommended tool records the task → tool link and
   raises that tool's score for the same task text next time;
-- (h) the Behavior toggle OFF suppresses all recommendation cards.
+- (h) the Behavior toggle OFF suppresses all recommendation cards;
+- (i) a task proceeds with installed tools when a recommendation is
+  left unanswered — the matcher/render path never blocks the agent
+  (assert the agent's next step runs without any Install click);
+- (j) persistence: recommendations for an unfinished task survive a
+  save/load round-trip of `appState` and are re-shown, while
+  recommendations for a finished task expire; muted tools stay muted
+  after the round-trip.
 
 ## Verification before you report done
 1. `node` syntax check of the extracted script — must pass.
