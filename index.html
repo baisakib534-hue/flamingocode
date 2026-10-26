@@ -2330,6 +2330,7 @@
         <button class="settings-tab" data-settings-tab="usage" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">Usage & Quota</button>
         <button class="settings-tab" data-settings-tab="behavior" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">Behavior</button>
         <button class="settings-tab" data-settings-tab="autonomy" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">Autonomy</button>
+        <button class="settings-tab" data-settings-tab="permissions" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;" data-i18n="Permissions">Permissions</button>
         <button class="settings-tab" data-settings-tab="rules" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">Rules</button>
         <button class="settings-tab" data-settings-tab="backup" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">Backup</button>
         <button class="settings-tab" data-settings-tab="language" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">Language</button>
@@ -2795,6 +2796,15 @@
           <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;" data-i18n="Safe Mode v2">Safe Mode v2</div>
           <div style="font-size: 12px; color: var(--text-main); margin-bottom: 8px;" data-i18n="Controls how destructive agent actions are approved. Three modes + unconditional blocklist + user deny rules.">Controls how destructive agent actions are approved. Three modes + unconditional blocklist + user deny rules.</div>
 
+          <!-- Per-tool Permissions Summary -->
+          <div style="font-size: 11px; color: var(--text-dim); margin-bottom: 12px; padding: 8px; background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 4px; display: flex; gap: 16px; flex-wrap: wrap;">
+            <span id="permRuleCount" style="font-weight: 600; color: var(--text-main);">0 rules</span>
+            <span id="permDenyCount" style="color: var(--error);">0 deny</span>
+            <span id="permAllowCount" style="color: var(--success);">0 allow</span>
+            <span id="permAskCount" style="color: var(--warning);">0 ask</span>
+            <span style="color: var(--text-muted);">(<a href="#" id="openPermTab" style="color: var(--accent-blue); text-decoration: none;">Manage in Permissions tab</a>)</span>
+          </div>
+
           <!-- Approval Mode Selector -->
           <div style="margin-bottom: 12px;">
             <label style="font-size: 11px; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 6px;" data-i18n="Approval Mode">Approval Mode</label>
@@ -2855,6 +2865,105 @@ sudo *"></textarea>
     <div style="border-top: 1px solid var(--border-color); padding-top: 12px;">
       <div style="display:flex; justify-content:flex-end; gap:8px;">
         <button class="btn btn-secondary" id="btnCancelSettings">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Permissions Tab (Batch 7.4) -->
+  <div class="settings-pane" id="settingsPanePermissions" style="display: none; flex-direction: column;">
+    <div style="max-height: 40vh; overflow-y: auto; margin-bottom: 12px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
+        <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;" data-i18n="Per-Tool Permissions">Per-Tool Permissions</span>
+      </div>
+      <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; padding: 12px; margin-bottom: 12px;">
+        <div style="font-size: 12px; color: var(--text-main); margin-bottom: 8px;" data-i18n="Fine-grained rules for every tool call. Last matching rule wins. Default is 'ask'.">Fine-grained rules for every tool call. Last matching rule wins. Default is 'ask'.</div>
+        <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 8px;">
+          <span data-i18n="Rules">Rules</span>: <span id="permRuleCount" style="font-weight: 600;">0</span> | 
+          <span data-i18n="Allow">Allow</span>: <span id="permAllowCount" style="font-weight: 600; color: var(--success);">0</span> | 
+          <span data-i18n="Ask">Ask</span>: <span id="permAskCount" style="font-weight: 600; color: var(--warning);">0</span> | 
+          <span data-i18n="Deny">Deny</span>: <span id="permDenyCount" style="font-weight: 600; color: var(--error);">0</span>
+        </div>
+        <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 8px;">
+          <span data-i18n="Patterns use">Patterns use</span> <code>*</code> <span data-i18n="and">and</span> <code>?</code> <span data-i18n="only">only</span>.
+        </div>
+      </div>
+
+      <!-- Presets -->
+      <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; padding: 12px; margin-bottom: 12px;">
+        <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;" data-i18n="Presets">Presets</div>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px;">
+          <button class="btn btn-secondary" id="btnPresetStrict" style="padding: 6px 12px; font-size: 11px;" data-i18n="Strict">🔒 Strict</button>
+          <button class="btn btn-secondary" id="btnPresetBalanced" style="padding: 6px 12px; font-size: 11px;" data-i18n="Balanced">⚖️ Balanced</button>
+          <button class="btn btn-secondary" id="btnPresetOpen" style="padding: 6px 12px; font-size: 11px;" data-i18n="Open">🔓 Open</button>
+        </div>
+        <div style="font-size: 10px; color: var(--text-dim);" data-i18n="Presets replace all rules after confirmation.">Presets replace all rules after confirmation.</div>
+      </div>
+
+      <!-- Rule List -->
+      <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; padding: 12px; margin-bottom: 12px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;" data-i18n="Rules (order matters, lower wins)">Rules (order matters, lower wins)</div>
+          <button class="btn btn-secondary" id="btnAddRule" style="padding: 4px 10px; font-size: 11px;" data-i18n="+ Add Rule">+ Add Rule</button>
+        </div>
+        <div id="permRuleList" style="display: flex; flex-direction: column; gap: 4px; max-height: 300px; overflow-y: auto;">
+          <!-- Rules rendered here -->
+        </div>
+      </div>
+
+      <!-- Add/Edit Rule Form (hidden by default) -->
+      <div id="permRuleForm" style="display: none; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; padding: 12px; margin-bottom: 12px;">
+        <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;" data-i18n="Add / Edit Rule">Add / Edit Rule</div>
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <div>
+            <label style="font-size: 11px; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="Tool Pattern">Tool Pattern</label>
+            <select id="permRuleTool" class="form-input" style="width: 100%; padding: 8px; background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-main); font-size: 11px;">
+              <option value="*" data-i18n="All tools (*)">All tools (*)</option>
+              <option value="write" data-i18n="Write (file)">Write (file)</option>
+              <option value="read" data-i18n="Read (file/brain)">Read (file/brain)</option>
+              <option value="bash" data-i18n="Bash (shell commands)">Bash (shell commands)</option>
+              <option value="browser" data-i18n="Browser (browse)">Browser (browse)</option>
+              <option value="mcp" data-i18n="MCP (all servers)">MCP (all servers)</option>
+              <option value="brain-read" data-i18n="Brain Read">Brain Read</option>
+              <option value="screenshot-to-app" data-i18n="Screenshot to App">Screenshot to App</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size: 11px; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="Argument Pattern">Argument Pattern</label>
+            <input type="text" id="permRulePattern" class="form-input" style="width: 100%; padding: 8px; background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-main); font-size: 11px;" placeholder="e.g., git status *, rm *, *.env, *API_KEY*" data-i18n-placeholder="e.g., git status *, rm *, *.env, *API_KEY*">
+            <div style="font-size: 9px; color: var(--text-dim); margin-top: 2px;" data-i18n="Use * for any chars, ? for one char. Example: git status * matches 'git status --short'.">Use * for any chars, ? for one char. Example: git status * matches 'git status --short'.</div>
+          </div>
+          <div>
+            <label style="font-size: 11px; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="Action">Action</label>
+            <select id="permRuleAction" class="form-input" style="width: 100%; padding: 8px; background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-main); font-size: 11px;">
+              <option value="allow" data-i18n="Allow (auto-approve)">🟢 Allow (auto-approve)</option>
+              <option value="ask" data-i18n="Ask (prompt user)">🟡 Ask (prompt user)</option>
+              <option value="deny" data-i18n="Deny (block)">🔴 Deny (block)</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size: 11px; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="Scope">Scope</label>
+            <select id="permRuleScope" class="form-input" style="width: 100%; padding: 8px; background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-main); font-size: 11px;">
+              <option value="global" data-i18n="All agents (global)">All agents (global)</option>
+              <option value="agent" data-i18n="Specific agent">Specific agent</option>
+            </select>
+          </div>
+          <div id="permRuleAgentSelect" style="display: none;">
+            <label style="font-size: 11px; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="Agent">Agent</label>
+            <select id="permRuleAgentId" class="form-input" style="width: 100%; padding: 8px; background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-main); font-size: 11px;">
+              <option value="">Select agent...</option>
+              <!-- Agents populated dynamically -->
+            </select>
+          </div>
+          <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px;">
+            <button class="btn btn-secondary" id="btnCancelRuleEdit" style="padding: 6px 12px; font-size: 11px;" data-i18n="Cancel">Cancel</button>
+            <button class="btn" id="btnSaveRule" style="padding: 6px 12px; font-size: 11px;" data-i18n="Save Rule">Save Rule</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div style="border-top: 1px solid var(--border-color); padding-top: 12px;">
+      <div style="display:flex; justify-content:flex-end; gap:8px;">
+        <button class="btn btn-secondary" id="btnCancelSettingsPerm" data-i18n="Close">Close</button>
       </div>
     </div>
   </div>
@@ -5979,6 +6088,23 @@ WORK STYLE:
       },
       // Brainstorm-before-building (Batch 7.3)
       askBeforeBuilding: true,       // Ask for approach before building multi-file tasks
+      // Per-tool permissions (Batch 7.4)
+      toolPermissions: [             // Flat list of { permission, pattern, action, agentId?, teamId? }
+        // 1. read: { "*": "allow" } — reading files is always safe
+        { permission: 'read', pattern: '*', action: 'allow' },
+        // 2. bash: { "git status *": "allow", "git log *": "allow", "git diff *": "allow" }
+        { permission: 'bash', pattern: 'git status *', action: 'allow' },
+        { permission: 'bash', pattern: 'git log *', action: 'allow' },
+        { permission: 'bash', pattern: 'git diff *', action: 'allow' },
+        // 3. bash: { "rm *": "deny", "git push *": "deny" }
+        { permission: 'bash', pattern: 'rm *', action: 'deny' },
+        { permission: 'bash', pattern: 'git push *', action: 'deny' },
+        // 4. *: { "*.env": "deny", "*API_KEY*": "deny", "*SECRET*": "deny", "*PASSWORD*": "deny" }
+        { permission: '*', pattern: '*.env', action: 'deny' },
+        { permission: '*', pattern: '*API_KEY*', action: 'deny' },
+        { permission: '*', pattern: '*SECRET*', action: 'deny' },
+        { permission: '*', pattern: '*PASSWORD*', action: 'deny' }
+      ],
       // Scheduled Tasks + Watch Loops (H5.1)
       scheduledTasks: [],  // Array of {id, name, schedule, prompt, skills, modelPin, workdir, noAgent, script, deliver, monitor, enabled, created, nextRun, lastRun, status, preflightValid, preflightAlerted}
       // Hooks (H5.4)
@@ -11687,6 +11813,7 @@ Links: [[Brain Index]]
       updateApprovalModeUI();
       updateYoloBanner();
       renderSmartDecisionDisplay();
+      updatePermissionSummary();
     }
 
     // Update approval mode UI (radio selection + description)
@@ -11720,6 +11847,36 @@ Links: [[Brain Index]]
           banner.style.display = 'none';
           hidePersistentYoloBanner();
         }
+      }
+    }
+
+// Update permission summary in Safe Mode section
+    function updatePermissionSummary() {
+      const rules = appState.toolPermissions || [];
+      const ruleCountEl = document.getElementById('permRuleCount');
+      const allowCountEl = document.getElementById('permAllowCount');
+      const denyCountEl = document.getElementById('permDenyCount');
+      const askCountEl = document.getElementById('permAskCount');
+      
+      if (ruleCountEl) ruleCountEl.textContent = rules.length + ' rule' + (rules.length !== 1 ? 's' : '');
+      if (allowCountEl) allowCountEl.textContent = rules.filter(r => r.action === 'allow').length + ' allow';
+      if (denyCountEl) denyCountEl.textContent = rules.filter(r => r.action === 'deny').length + ' deny';
+      if (askCountEl) askCountEl.textContent = rules.filter(r => r.action === 'ask').length + ' ask';
+      
+      // Open Permissions tab link
+      const openPermTab = document.getElementById('openPermTab');
+      if (openPermTab) {
+        openPermTab.onclick = (e) => {
+          e.preventDefault();
+          // Switch to Settings modal and Permissions tab
+          const settingsModal = document.getElementById('settingsModal');
+          if (settingsModal) {
+            settingsModal.style.display = 'flex';
+            // Click the Permissions tab
+            const permTab = document.querySelector('[data-tab="permissions"]');
+            if (permTab) permTab.click();
+          }
+        };
       }
     }
 
@@ -11794,6 +11951,55 @@ Links: [[Brain Index]]
         renderSafeModeTab();
         logActivity('Safe Mode: hardline blocklist updated', 'warning');
       }
+    }
+
+    // ==================== PER-TOOL PERMISSIONS (Batch 7.4) ====================
+
+    // Wildcard matching with * (any chars) and ? (exactly one char) — no regex
+    function wildcardMatch(pattern, text) {
+      if (!pattern || !text) return false;
+      // Convert wildcard pattern to regex: escape special chars, then replace * and ?
+      const regexPattern = pattern
+        .replace(/[.+^${}()|[\]\\]/g, '\\$&')  // escape regex special chars except * and ?
+        .replace(/\*/g, '.*')                   // * matches any chars
+        .replace(/\?/g, '.');                   // ? matches exactly one char
+      try {
+        return new RegExp('^' + regexPattern + '$', 'i').test(text);
+      } catch {
+        return false;
+      }
+    }
+
+    // Evaluate tool permission against policy rules
+    // Returns: { action: 'allow'|'ask'|'deny', matchedRule: rule|null }
+    function evaluateToolPermission(toolName, argsSummary, agentId) {
+      const rules = appState.toolPermissions || [];
+      if (!rules.length) return { action: 'ask', matchedRule: null };
+
+      // First pass: global rules (no agentId/teamId)
+      let matchedRule = null;
+      for (const rule of rules) {
+        if (rule.agentId || rule.teamId) continue; // skip agent/team scoped rules in first pass
+        if (wildcardMatch(rule.permission, toolName) && wildcardMatch(rule.pattern, argsSummary)) {
+          matchedRule = rule;
+        }
+      }
+
+      // Second pass: agent-scoped rules (override globals for this agent)
+      if (agentId) {
+        for (const rule of rules) {
+          if (rule.agentId === agentId || rule.teamId === agentId) { // teamId can also match agentId for simplicity
+            if (wildcardMatch(rule.permission, toolName) && wildcardMatch(rule.pattern, argsSummary)) {
+              matchedRule = rule; // agent-scoped rule wins
+            }
+          }
+        }
+      }
+
+      if (matchedRule) {
+        return { action: matchedRule.action, matchedRule };
+      }
+      return { action: 'ask', matchedRule: null }; // default is ask
     }
 
     // ==================== APPROVAL LADDER LOGIC ====================
@@ -12088,9 +12294,63 @@ Links: [[Brain Index]]
 
     // Main approval ladder function
     // Returns: { allowed: boolean, reason: string, requiresUserInput: boolean, decision: object }
-    async function runApprovalLadder(actionText, actionType) {
+    async function runApprovalLadder(actionText, actionType, toolName, argsSummary, agentId) {
       const sm = appState.safeMode;
       if (!sm) return { allowed: true, reason: 'Safe Mode not initialized', requiresUserInput: false };
+
+      // Step 0: Per-tool permissions evaluator (Batch 7.4)
+      // Extract toolName and argsSummary from actionText if not provided
+      let evalToolName = toolName;
+      let evalArgsSummary = argsSummary;
+      
+      if (!evalToolName) {
+        // Try to extract from actionText (e.g., "bash: git status", "write: file.txt", "mcp_github_create_issue")
+        const colonIdx = actionText.indexOf(':');
+        if (colonIdx > 0) {
+          evalToolName = actionText.slice(0, colonIdx).trim();
+          evalArgsSummary = actionText.slice(colonIdx + 1).trim();
+        } else if (actionText.startsWith('mcp_')) {
+          evalToolName = 'mcp';
+          evalArgsSummary = actionText;
+        } else {
+          evalToolName = 'unknown';
+          evalArgsSummary = actionText;
+        }
+      }
+
+      const permResult = evaluateToolPermission(evalToolName, evalArgsSummary, agentId);
+      
+      // Apply Safe Mode mapping
+      let effectiveAction = permResult.action;
+      if (sm.approvalMode === 'manual') {
+        // Manual mode forces EVERYTHING to 'ask' regardless of rules
+        if (effectiveAction === 'allow') effectiveAction = 'ask';
+      } else if (sm.approvalMode === 'off') {
+        // Off (YOLO) mode: deny rules still enforced, but allow rules become 'ask'
+        if (effectiveAction === 'allow') effectiveAction = 'ask';
+      }
+      
+      if (effectiveAction === 'allow') {
+        logActivity(`✅ AUTO-APPROVED (Rule: ${permResult.matchedRule?.permission} ${permResult.matchedRule?.pattern} → allow)`, 'debug');
+        return { 
+          allowed: true, 
+          reason: 'Allowed by per-tool permission rule', 
+          requiresUserInput: false, 
+          decision: { level: 'per-tool-allow', matchedRule: permResult.matchedRule } 
+        };
+      }
+      
+      if (effectiveAction === 'deny') {
+        const ruleDesc = permResult.matchedRule ? `${permResult.matchedRule.permission}: ${permResult.matchedRule.pattern}` : 'unknown rule';
+        logActivity(`🛑 BLOCKED (Rule: ${ruleDesc} → deny)`, 'error');
+        return { 
+          allowed: false, 
+          reason: `Blocked by your rule: ${ruleDesc} is denied`, 
+          requiresUserInput: false, 
+          decision: { level: 'per-tool-deny', matchedRule: permResult.matchedRule } 
+        };
+      }
+      // effectiveAction === 'ask' → fall through to existing approval ladder
 
       // Step 1: Hardline blocklist (NEVER overridden)
       const hardlineCheck = checkHardlineBlocklist(actionText);
@@ -12245,9 +12505,9 @@ Links: [[Brain Index]]
     }
 
     // Wrapper for human checkpoints to use the approval ladder
-    async function requestHumanCheckpointWithApproval(reason, actionText, actionType) {
+    async function requestHumanCheckpointWithApproval(reason, actionText, actionType, toolName, argsSummary, agentId) {
       // First run the approval ladder
-      const approvalResult = await runApprovalLadder(actionText || reason, actionType);
+      const approvalResult = await runApprovalLadder(actionText || reason, actionType, toolName, argsSummary, agentId);
       
       // If approval ladder allows, no need for human checkpoint
       if (approvalResult.allowed && !approvalResult.requiresUserInput) {
@@ -12296,6 +12556,264 @@ Links: [[Brain Index]]
       ];
       
       return destructivePatterns.some(p => p.test(actionText || ''));
+    }
+
+    // ==================== PERMISSIONS TAB (Batch 7.4) ====================
+    function renderPermissionsTab() {
+      const ruleList = document.getElementById('permRuleList');
+      const form = document.getElementById('permRuleForm');
+      const toolSelect = document.getElementById('permRuleTool');
+      const patternInput = document.getElementById('permRulePattern');
+      const actionSelect = document.getElementById('permRuleAction');
+      const scopeSelect = document.getElementById('permRuleScope');
+      const agentSelectDiv = document.getElementById('permRuleAgentSelect');
+      const agentSelect = document.getElementById('permRuleAgentId');
+      const saveBtn = document.getElementById('btnSaveRule');
+      const cancelBtn = document.getElementById('btnCancelRuleEdit');
+      const addBtn = document.getElementById('btnAddRule');
+      const presetStrict = document.getElementById('btnPresetStrict');
+      const presetBalanced = document.getElementById('btnPresetBalanced');
+      const presetOpen = document.getElementById('btnPresetOpen');
+
+      // Update summary counts
+      const rules = appState.toolPermissions || [];
+      const allowCount = rules.filter(r => r.action === 'allow').length;
+      const askCount = rules.filter(r => r.action === 'ask').length;
+      const denyCount = rules.filter(r => r.action === 'deny').length;
+      const countEl = document.getElementById('permRuleCount');
+      const allowEl = document.getElementById('permAllowCount');
+      const askEl = document.getElementById('permAskCount');
+      const denyEl = document.getElementById('permDenyCount');
+      if (countEl) countEl.textContent = rules.length;
+      if (allowEl) allowEl.textContent = allowCount;
+      if (askEl) askEl.textContent = askCount;
+      if (denyEl) denyEl.textContent = denyCount;
+
+      // Populate agent select
+      if (agentSelect) {
+        agentSelect.innerHTML = '<option value="">Select agent...</option>';
+        if (appState.agents) {
+          Object.values(appState.agents).forEach(agent => {
+            const opt = document.createElement('option');
+            opt.value = agent.id;
+            opt.textContent = agent.name || agent.id;
+            agentSelect.appendChild(opt);
+          });
+        }
+      }
+
+      // Render rule list
+      function renderRules() {
+        if (!ruleList) return;
+        ruleList.innerHTML = '';
+        rules.forEach((rule, index) => {
+          const row = document.createElement('div');
+          row.style.cssText = 'display: flex; align-items: center; gap: 8px; padding: 8px; background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px;';
+          
+          const actionColors = { allow: 'var(--success)', ask: 'var(--warning)', deny: 'var(--error)' };
+          const actionLabels = { allow: 'Allow', ask: 'Ask', deny: 'Deny' };
+          const scopeLabel = rule.agentId ? `Agent: ${rule.agentId}` : (rule.teamId ? `Team: ${rule.teamId}` : 'Global');
+          
+          row.innerHTML = `
+            <span style="flex: 0 0 80px; font-family: var(--font-mono); font-size: 10px; color: var(--text-dim);">${escapeHtml(rule.permission)}</span>
+            <span style="flex: 1; font-family: var(--font-mono); font-size: 10px; color: var(--text-main);">${escapeHtml(rule.pattern)}</span>
+            <span style="flex: 0 0 80px; padding: 2px 8px; border-radius: 3px; background: ${actionColors[rule.action]}; color: var(--bg-dark); font-weight: 600; font-size: 9px; text-align: center;">${actionLabels[rule.action]}</span>
+            <span style="flex: 0 0 120px; font-size: 9px; color: var(--text-dim);">${escapeHtml(scopeLabel)}</span>
+            <button class="perm-move-up" data-index="${index}" style="padding: 2px 6px; font-size: 9px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 3px; cursor: pointer;">↑</button>
+            <button class="perm-move-down" data-index="${index}" style="padding: 2px 6px; font-size: 9px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 3px; cursor: pointer;">↓</button>
+            <button class="perm-edit" data-index="${index}" style="padding: 2px 6px; font-size: 9px; background: var(--accent-blue); border: none; border-radius: 3px; color: white; cursor: pointer;">✏️</button>
+            <button class="perm-delete" data-index="${index}" style="padding: 2px 6px; font-size: 9px; background: var(--error); border: none; border-radius: 3px; color: white; cursor: pointer;">🗑️</button>
+          `;
+          ruleList.appendChild(row);
+        });
+
+        // Bind move up/down
+        ruleList.querySelectorAll('.perm-move-up').forEach(btn => {
+          btn.onclick = (e) => {
+            const i = parseInt(e.target.dataset.index);
+            if (i > 0) {
+              [rules[i], rules[i-1]] = [rules[i-1], rules[i]];
+              saveAppState();
+              updatePermissionSummary();
+              renderRules();
+            }
+          };
+        });
+        ruleList.querySelectorAll('.perm-move-down').forEach(btn => {
+          btn.onclick = (e) => {
+            const i = parseInt(e.target.dataset.index);
+            if (i < rules.length - 1) {
+              [rules[i], rules[i+1]] = [rules[i+1], rules[i]];
+              saveAppState();
+              updatePermissionSummary();
+              renderRules();
+            }
+          };
+        });
+        // Bind edit
+        ruleList.querySelectorAll('.perm-edit').forEach(btn => {
+          btn.onclick = (e) => {
+            const i = parseInt(e.target.dataset.index);
+            editRule(i);
+          };
+        });
+        // Bind delete
+        ruleList.querySelectorAll('.perm-delete').forEach(btn => {
+          btn.onclick = (e) => {
+            const i = parseInt(e.target.dataset.index);
+            if (confirm(t('Delete this rule?'))) {
+              rules.splice(i, 1);
+              saveAppState();
+              updatePermissionSummary();
+              renderRules();
+            }
+          };
+        });
+      }
+
+      function editRule(index) {
+        const rule = rules[index];
+        if (!rule) return;
+        
+        form.dataset.editIndex = index;
+        if (toolSelect) toolSelect.value = rule.permission;
+        if (patternInput) patternInput.value = rule.pattern;
+        if (actionSelect) actionSelect.value = rule.action;
+        if (scopeSelect) scopeSelect.value = rule.agentId ? 'agent' : (rule.teamId ? 'team' : 'global');
+        
+        // Show/hide agent select
+        if (agentSelectDiv) {
+          agentSelectDiv.style.display = (rule.agentId || rule.teamId) ? 'block' : 'none';
+        }
+        if (agentSelect && rule.agentId) {
+          agentSelect.value = rule.agentId;
+        }
+        
+        form.style.display = 'block';
+        form.scrollIntoView({ behavior: 'smooth' });
+      }
+
+      function saveRule() {
+        const index = parseInt(form.dataset.editIndex);
+        const tool = toolSelect ? toolSelect.value : '*';
+        const pattern = patternInput ? patternInput.value.trim() : '*';
+        const action = actionSelect ? actionSelect.value : 'ask';
+        const scope = scopeSelect ? scopeSelect.value : 'global';
+        const agentId = (scope === 'agent' && agentSelect && agentSelect.value) ? agentSelect.value : null;
+        const teamId = (scope === 'team' && agentSelect && agentSelect.value) ? agentSelect.value : null;
+
+        if (!pattern) {
+          alert(t('Argument pattern is required'));
+          return;
+        }
+
+        const newRule = { permission: tool, pattern, action };
+                if (agentId) newRule.agentId = agentId;
+                if (teamId) newRule.teamId = teamId;
+
+                if (isNaN(index) || index < 0 || index >= rules.length) {
+                  rules.push(newRule);
+                } else {
+                  rules[index] = newRule;
+                }
+
+                saveAppState();
+                updatePermissionSummary();
+                form.style.display = 'none';
+                delete form.dataset.editIndex;
+                renderRules();
+                logActivity(`Permission rule ${isNaN(index) ? 'added' : 'updated'}: ${tool} ${pattern} → ${action}`, 'info');
+      }
+
+      function cancelEdit() {
+        form.style.display = 'none';
+        delete form.dataset.editIndex;
+      }
+
+      // Preset handlers
+      const presets = {
+        strict: [
+          { permission: 'read', pattern: '*', action: 'allow' },
+          { permission: 'bash', pattern: 'git status *', action: 'allow' },
+          { permission: 'bash', pattern: 'git log *', action: 'allow' },
+          { permission: 'bash', pattern: 'git diff *', action: 'allow' },
+          { permission: 'bash', pattern: 'rm *', action: 'deny' },
+          { permission: 'bash', pattern: 'git push *', action: 'deny' },
+          { permission: '*', pattern: '*.env', action: 'deny' },
+          { permission: '*', pattern: '*API_KEY*', action: 'deny' },
+          { permission: '*', pattern: '*SECRET*', action: 'deny' },
+          { permission: '*', pattern: '*PASSWORD*', action: 'deny' }
+        ],
+        balanced: [
+          { permission: 'read', pattern: '*', action: 'allow' },
+          { permission: 'bash', pattern: 'git status *', action: 'allow' },
+          { permission: 'bash', pattern: 'git log *', action: 'allow' },
+          { permission: 'bash', pattern: 'git diff *', action: 'allow' },
+          { permission: 'bash', pattern: 'rm *', action: 'deny' },
+          { permission: 'bash', pattern: 'git push *', action: 'deny' },
+          { permission: '*', pattern: '*.env', action: 'deny' },
+          { permission: '*', pattern: '*API_KEY*', action: 'deny' },
+          { permission: '*', pattern: '*SECRET*', action: 'deny' },
+          { permission: '*', pattern: '*PASSWORD*', action: 'deny' }
+        ],
+        open: [
+          { permission: 'read', pattern: '*', action: 'allow' },
+          { permission: 'bash', pattern: 'git status *', action: 'allow' },
+          { permission: 'bash', pattern: 'git log *', action: 'allow' },
+          { permission: 'bash', pattern: 'git diff *', action: 'allow' },
+          { permission: 'bash', pattern: 'rm *', action: 'ask' },
+          { permission: 'bash', pattern: 'git push *', action: 'ask' },
+          { permission: '*', pattern: '*.env', action: 'deny' },
+          { permission: '*', pattern: '*API_KEY*', action: 'deny' },
+          { permission: '*', pattern: '*SECRET*', action: 'deny' },
+          { permission: '*', pattern: '*PASSWORD*', action: 'deny' }
+        ]
+      };
+
+      async function applyPreset(name) {
+        const presetRules = presets[name];
+        if (!presetRules) return;
+        
+        if (confirm(t('Replace all current rules with') + ` "${name}" ` + t('preset?'))) {
+          appState.toolPermissions = [...presetRules];
+          saveAppState();
+          renderRules();
+          logActivity(`Applied ${name} permission preset`, 'success');
+        }
+      }
+
+      if (presetStrict) presetStrict.onclick = () => applyPreset('strict');
+      if (presetBalanced) presetBalanced.onclick = () => applyPreset('balanced');
+      if (presetOpen) presetOpen.onclick = () => applyPreset('open');
+
+      // Add rule button
+      if (addBtn) {
+        addBtn.onclick = () => {
+          delete form.dataset.editIndex;
+          if (toolSelect) toolSelect.value = '*';
+          if (patternInput) patternInput.value = '';
+          if (actionSelect) actionSelect.value = 'ask';
+          if (scopeSelect) scopeSelect.value = 'global';
+          if (agentSelectDiv) agentSelectDiv.style.display = 'none';
+          form.style.display = 'block';
+          form.scrollIntoView({ behavior: 'smooth' });
+        };
+      }
+
+      // Scope change handler
+      if (scopeSelect) {
+        scopeSelect.onchange = () => {
+          if (agentSelectDiv) {
+            agentSelectDiv.style.display = scopeSelect.value === 'agent' || scopeSelect.value === 'team' ? 'block' : 'none';
+          }
+        };
+      }
+
+      if (saveBtn) saveBtn.onclick = saveRule;
+      if (cancelBtn) cancelBtn.onclick = cancelEdit;
+
+      // Initial render
+      renderRules();
     }
 
     // Render Project Rules tab
@@ -17539,34 +18057,53 @@ Only propose merges for skills that are genuinely overlapping or complementary. 
             const fileOps = [];
 
             while ((match = blockRegex.exec(responseText)) !== null) {
-              const actionType = match[1];
-              const targetPath = match[2].trim();
-              const blockContent = match[3];
+                          const actionType = match[1];
+                          const targetPath = match[2].trim();
+                          const blockContent = match[3];
 
-              // Safe Mode v2: Run approval ladder for destructive actions BEFORE executing
-              if (actionType === 'file' || actionType === 'delete') {
-                const actionDesc = actionType === 'delete' 
-                  ? `Delete file: ${targetPath}`
-                  : `Write file: ${targetPath}`;
-          
-                const approval = await runApprovalLadder(actionDesc, actionType);
-                if (!approval.allowed) {
-                  const msg = `🛑 BLOCKED by Safe Mode (${approval.decision.level}): ${approval.reason}`;
-                  logActivity(msg, 'error');
-                  chips.push({ type: 'blocked', label: `Blocked: ${targetPath} (${approval.decision.level})` });
-                  continue; // Skip this action
-                }
-                if (approval.requiresUserInput && !approval.decision.approved) {
-                  const msg = `🛑 DENIED by user: ${actionDesc}`;
-                  logActivity(msg, 'warning');
-                  chips.push({ type: 'blocked', label: `Denied: ${targetPath}` });
-                  continue; // Skip this action
-                }
-                // Log approval decision for audit trail
-                if (approval.decision.level !== 'yolo') {
-                  logActivity(`✅ Safe Mode approval: ${approval.decision.level} — ${actionDesc}`, 'info');
-                }
-              }
+                          // Safe Mode v2 + Per-tool permissions (Batch 7.4): Run approval ladder for ALL tool actions BEFORE executing
+                          let toolName = 'unknown';
+                          let argsSummary = targetPath;
+                          if (actionType === 'file') {
+                            toolName = 'write';
+                            argsSummary = targetPath;
+                          } else if (actionType === 'delete') {
+                            toolName = 'write'; // delete is also a write operation
+                            argsSummary = targetPath;
+                          } else if (actionType === 'brain-read') {
+                            toolName = 'read';
+                            argsSummary = targetPath || blockContent.trim();
+                          } else if (actionType === 'browse') {
+                            toolName = 'browser';
+                            argsSummary = targetPath || blockContent.trim();
+                          } else if (actionType === 'screenshot-to-app') {
+                            toolName = 'screenshot-to-app';
+                            argsSummary = targetPath || blockContent.trim();
+                          }
+
+                          const approval = await runApprovalLadder(
+                            `${actionType}: ${argsSummary}`,
+                            actionType,
+                            toolName,
+                            argsSummary,
+                            appState.activeAgentId
+                          );
+                          if (!approval.allowed) {
+                            const msg = `🛑 BLOCKED by Safe Mode (${approval.decision.level}): ${approval.reason}`;
+                            logActivity(msg, 'error');
+                            chips.push({ type: 'blocked', label: `Blocked: ${actionType} ${targetPath} (${approval.decision.level})` });
+                            continue; // Skip this action
+                          }
+                          if (approval.requiresUserInput && !approval.decision.approved) {
+                            const msg = `🛑 DENIED by user: ${actionType}: ${argsSummary}`;
+                            logActivity(msg, 'warning');
+                            chips.push({ type: 'blocked', label: `Denied: ${actionType} ${targetPath}` });
+                            continue; // Skip this action
+                          }
+                          // Log approval decision for audit trail
+                          if (approval.decision.level !== 'yolo' && approval.decision.level !== 'per-tool-allow') {
+                            logActivity(`✅ Safe Mode approval: ${approval.decision.level} — ${actionType}: ${argsSummary}`, 'info');
+                          }
 
               if (actionType === 'file') {
                 if (isBrainNotePath(targetPath)) {
@@ -17903,8 +18440,7 @@ Only propose merges for skills that are genuinely overlapping or complementary. 
         : change.action === 'create'
           ? `Create file: ${path}`
           : `Modify file: ${path}`;
-      
-      const approval = await runApprovalLadder(actionDesc, change.action === 'delete' ? 'delete' : 'file');
+      const approval = await runApprovalLadder(actionDesc, change.action === 'delete' ? 'delete' : 'file', 'write', path);
       if (!approval.allowed) {
         const msg = `🛑 BLOCKED by Safe Mode (${approval.decision.level}): ${approval.reason}`;
         logActivity(msg, 'error');
@@ -18006,7 +18542,7 @@ Only propose merges for skills that are genuinely overlapping or complementary. 
                 ? `Create file: ${change.path}`
                 : `Modify file: ${change.path}`;
 
-            const approval = await runApprovalLadder(actionDesc, change.action === 'delete' ? 'delete' : 'file');
+            const approval = await runApprovalLadder(actionDesc, change.action === 'delete' ? 'delete' : 'file', 'write', change.path);
             if (!approval.allowed) {
               const msg = `🛑 BLOCKED by Safe Mode (${approval.decision.level}): ${approval.reason}`;
               logActivity(msg, 'error');
@@ -22832,6 +23368,9 @@ Format:
           }
           if (tabName === 'autonomy') {
             renderAutonomyTab();
+          }
+          if (tabName === 'permissions') {
+            renderPermissionsTab();
           }
           if (tabName === 'rules') {
             renderRulesTab();
@@ -29390,9 +29929,9 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
     }
 
     // Safe Mode v2: Human checkpoint with approval ladder integration
-    async function requestHumanCheckpoint(reason, actionText, actionType) {
+    async function requestHumanCheckpoint(reason, actionText, actionType, toolName, argsSummary, agentId) {
       // Run the approval ladder first
-      const approvalResult = await runApprovalLadder(actionText || reason, actionType);
+      const approvalResult = await runApprovalLadder(actionText || reason, actionType, toolName, argsSummary, agentId);
       
       // If approval ladder allows without user input, auto-approve
       if (approvalResult.allowed && !approvalResult.requiresUserInput) {
