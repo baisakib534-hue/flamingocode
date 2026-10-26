@@ -1332,6 +1332,27 @@
     
     <!-- Left Panel: Sessions & Virtual File Tree -->
     <aside class="panel-left" id="panelLeft">
+      <!-- Sessions Section -->
+      <div class="panel-section-title">
+        <span data-i18n="Sessions">Sessions</span>
+        <div style="display:flex; gap:4px;">
+          <button class="section-btn" id="btnNewSessionSidebar" title="New Session" data-i18n="New Session">+ New</button>
+        </div>
+      </div>
+      
+      <div id="sessionsPanel" style="padding: 0 12px 8px;">
+        <input type="text" id="sessionSearchInput" class="form-input" placeholder="Search sessions, chats, notes..." style="font-size: 11px; padding: 6px 8px; margin-bottom: 8px;" data-i18n-placeholder="Search sessions, chats, notes..." />
+        <div id="sessionList" style="max-height: 200px; overflow-y: auto;">
+          <!-- Session list rendered here -->
+        </div>
+        <div id="sessionSearchResults" style="display: none; max-height: 200px; overflow-y: auto; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border-color);">
+          <!-- Search results rendered here -->
+        </div>
+      </div>
+      
+      <div style="height: 1px; background: var(--border-color); margin: 4px 12px;"></div>
+
+      <!-- Files Section -->
       <div class="panel-section-title">
         <span data-i18n="Files">Files</span>
         <div style="display:flex; gap:4px;">
@@ -14058,17 +14079,261 @@ Rules:
       });
     }
 
+    function renderSessionList() {
+      const container = document.getElementById('sessionList');
+      if (!container) return;
+      container.innerHTML = '';
+      const sessions = Object.values(appState.sessions);
+      if (sessions.length === 0) {
+        container.innerHTML = '<div style="font-size: 11px; color: var(--text-dim); padding: 8px; text-align: center;">No sessions</div>';
+        return;
+      }
+      sessions.forEach(sess => {
+        const usage = appState.usage?.byProject?.[sess.id] || { requests: 0, totalTokens: 0, cost: 0 };
+        const item = document.createElement('div');
+        item.style.cssText = 'display:flex; align-items:center; justify-content:space-between; padding:6px 8px; border-radius:5px; cursor:pointer; border:1px solid transparent;';
+        item.dataset.sessionId = sess.id;
+        if (sess.id === appState.activeSessionId) {
+          item.style.background = 'var(--bg-surface)';
+          item.style.borderColor = 'var(--accent-blue)';
+        }
+        item.onmouseenter = () => { if (sess.id !== appState.activeSessionId) item.style.background = 'var(--bg-hover)'; };
+        item.onmouseleave = () => { if (sess.id !== appState.activeSessionId) item.style.background = 'transparent'; };
+        item.onclick = () => switchSession(sess.id);
+        
+        const tokensStr = usage.totalTokens > 0 ? usage.totalTokens.toLocaleString() + ' tok' : '—';
+        const costStr = usage.cost > 0 ? '$' + usage.cost.toFixed(4) : '—';
+        
+        item.innerHTML = `
+          <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px;">
+            <div style="font-weight:600; font-size:12px; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(sess.name)}</div>
+            <div style="font-size:10px; color:var(--text-dim); display:flex; gap:8px; font-family:var(--font-mono);">
+              <span>${usage.requests} req</span>
+              <span>${tokensStr}</span>
+              <span style="color:var(--success);">${costStr}</span>
+            </div>
+          </div>
+          <button class="section-btn" onclick="event.stopPropagation(); deleteSession('${sess.id}')" title="Delete session" style="opacity:0; color:var(--danger);">🗑️</button>
+        `;
+        item.querySelector('button').style.opacity = '0';
+        item.onmouseenter = () => { item.querySelector('button').style.opacity = '1'; if (sess.id !== appState.activeSessionId) item.style.background = 'var(--bg-hover)'; };
+        item.onmouseleave = () => { item.querySelector('button').style.opacity = '0'; if (sess.id !== appState.activeSessionId) item.style.background = 'transparent'; };
+        container.appendChild(item);
+      });
+    }
+
+    function searchSessions(query) {
+      const resultsContainer = document.getElementById('sessionSearchResults');
+      const listContainer = document.getElementById('sessionList');
+      if (!query || query.trim().length < 2) {
+        if (resultsContainer) resultsContainer.style.display = 'none';
+        if (listContainer) listContainer.style.display = 'block';
+        return;
+      }
+      const q = query.toLowerCase().trim();
+      const results = [];
+      
+      Object.values(appState.sessions).forEach(sess => {
+        // Search session name
+        if (sess.name.toLowerCase().includes(q)) {
+          results.push({ type: 'session', sessionId: sess.id, title: sess.name, snippet: 'Session name match', session: sess });
+        }
+        // Search files
+        if (sess.files) {
+          Object.entries(sess.files).forEach(([path, content]) => {
+            if (typeof content === 'string' && content.toLowerCase().includes(q)) {
+              const idx = content.toLowerCase().indexOf(q);
+              const start = Math.max(0, idx - 60);
+              const end = Math.min(content.length, idx + 60);
+              let snippet = content.slice(start, end);
+              if (start > 0) snippet = '...' + snippet;
+              if (end < content.length) snippet = snippet + '...';
+              results.push({ type: 'file', sessionId: sess.id, sessionName: sess.name, title: path, snippet: escapeHtml(snippet), session: sess });
+            }
+          });
+        }
+        // Search chat history
+        if (sess.chatHistory) {
+          sess.chatHistory.forEach((msg, idx) => {
+            if (msg.content && msg.content.toLowerCase().includes(q)) {
+              const cidx = msg.content.toLowerCase().indexOf(q);
+              const start = Math.max(0, cidx - 60);
+              const end = Math.min(msg.content.length, cidx + 60);
+              let snippet = msg.content.slice(start, end);
+              if (start > 0) snippet = '...' + snippet;
+              if (end < msg.content.length) snippet = snippet + '...';
+              results.push({ type: 'chat', sessionId: sess.id, sessionName: sess.name, title: msg.role === 'user' ? 'You' : 'Agent', snippet: escapeHtml(snippet), session: sess });
+            }
+          });
+        }
+      });
+      
+      if (results.length === 0) {
+        resultsContainer.innerHTML = '<div style="font-size: 11px; color: var(--text-dim); padding: 8px; text-align: center;">No matches</div>';
+      } else {
+        resultsContainer.innerHTML = results.slice(0, 50).map(r => `
+          <div style="padding:6px 8px; border-radius:4px; background:var(--bg-surface); border:1px solid var(--border-color); margin-bottom:4px; cursor:pointer;" 
+               onclick="switchSession('${r.sessionId}')" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='var(--bg-surface)'">
+            <div style="display:flex; align-items:center; gap:6px; margin-bottom:2px;">
+              <span style="font-weight:600; font-size:11px; color:var(--accent-blue);">${escapeHtml(r.sessionName || r.title)}</span>
+              <span style="font-size:9px; color:var(--text-dim); background:var(--bg-dark); padding:1px 4px; border-radius:2px;">${r.type}</span>
+            </div>
+            <div style="font-size:10px; color:var(--text-main);">${r.title}</div>
+            <div style="font-size:9px; color:var(--text-dim); font-family:var(--font-mono);">${r.snippet}</div>
+          </div>
+        `).join('');
+      }
+      resultsContainer.style.display = 'block';
+      if (listContainer) listContainer.style.display = 'none';
+    }
+
+    function showSessionRecap(session) {
+      if (!session) return;
+      const usage = appState.usage?.byProject?.[session.id] || { requests: 0, totalTokens: 0, cost: 0 };
+      const chatHistory = session.chatHistory || [];
+      const lastExchanges = chatHistory.slice(-6); // last 3 user+assistant pairs
+      
+      let recapHtml = `
+        <div id="sessionRecapCard" style="position:fixed; top:60px; right:12px; z-index:2000; background:var(--bg-panel); border:1px solid var(--border-color); border-radius:8px; box-shadow:0 8px 32px rgba(0,0,0,0.4); min-width:320px; max-width:420px; animation:slideInRight 0.2s ease-out;">
+          <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 12px; background:var(--bg-surface); border-bottom:1px solid var(--border-color); border-radius:8px 8px 0 0;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <div style="width:28px; height:28px; background:linear-gradient(135deg,var(--accent-blue),var(--accent-hover)); border-radius:6px; display:flex; align-items:center; justify-content:center; color:white; font-size:11px; font-weight:700;">📋</div>
+              <span style="font-weight:600; font-size:12px; color:var(--text-main);">Session Recap — ${escapeHtml(session.name)}</span>
+            </div>
+            <button onclick="closeSessionRecap()" style="background:none; border:none; color:var(--text-muted); font-size:16px; cursor:pointer; padding:0 4px;" title="Close">✕</button>
+          </div>
+          <div style="padding:12px; max-height:400px; overflow-y:auto;">
+            <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:12px; padding:8px; background:var(--bg-dark); border-radius:6px; border:1px solid var(--border-color);">
+              <div><div style="font-size:9px; color:var(--text-dim); text-transform:uppercase;">Requests</div><div style="font-family:var(--font-mono); font-weight:600; color:var(--accent-blue);">${usage.requests}</div></div>
+              <div><div style="font-size:9px; color:var(--text-dim); text-transform:uppercase;">Tokens</div><div style="font-family:var(--font-mono); font-weight:600; color:var(--text-main);">${usage.totalTokens.toLocaleString()}</div></div>
+              <div><div style="font-size:9px; color:var(--text-dim); text-transform:uppercase;">Cost</div><div style="font-family:var(--font-mono); font-weight:600; color:var(--success);">$${usage.cost.toFixed(4)}</div></div>
+            </div>
+      `;
+      
+      // What was built (recent file changes from checkpoints or chat)
+      const recentFiles = Object.entries(session.files || {}).filter(([path]) => !path.startsWith('.devforge/')).slice(0, 5);
+      if (recentFiles.length > 0) {
+        recapHtml += `
+          <div style="margin-bottom:10px;">
+            <div style="font-size:10px; font-weight:600; color:var(--text-muted); text-transform:uppercase; margin-bottom:6px;">Files in Project</div>
+            <div style="display:flex; flex-wrap:wrap; gap:4px;">
+              ${recentFiles.map(([path]) => `<span style="font-size:10px; background:var(--bg-dark); border:1px solid var(--border-color); border-radius:3px; padding:2px 6px; font-family:var(--font-mono); color:var(--text-main);">${escapeHtml(path)}</span>`).join('')}
+            </div>
+          </div>
+        `;
+      }
+      
+      // Last 3 exchanges
+      if (lastExchanges.length > 0) {
+        recapHtml += `
+          <div style="margin-bottom:10px;">
+            <div style="font-size:10px; font-weight:600; color:var(--text-muted); text-transform:uppercase; margin-bottom:6px;">Last Exchanges</div>
+            <div style="display:flex; flex-direction:column; gap:6px;">
+        `;
+        for (let i = 0; i < lastExchanges.length; i += 2) {
+          const userMsg = lastExchanges[i];
+          const agentMsg = lastExchanges[i + 1];
+          if (userMsg && userMsg.role === 'user') {
+            recapHtml += `
+              <div style="background:var(--bg-dark); border:1px solid var(--border-color); border-radius:6px; padding:8px;">
+                <div style="font-size:10px; color:var(--accent-blue); margin-bottom:4px;">👤 You</div>
+                <div style="font-size:11px; color:var(--text-main); white-space:pre-wrap; word-break:break-word;">${escapeHtml(userMsg.content.slice(0, 300))}${userMsg.content.length > 300 ? '...' : ''}</div>
+              </div>
+            `;
+          }
+          if (agentMsg && agentMsg.role === 'assistant') {
+            recapHtml += `
+              <div style="background:var(--bg-dark); border:1px solid var(--border-color); border-radius:6px; padding:8px;">
+                <div style="font-size:10px; color:var(--success); margin-bottom:4px;">🤖 Agent</div>
+                <div style="font-size:11px; color:var(--text-main); white-space:pre-wrap; word-break:break-word;">${escapeHtml(agentMsg.content.slice(0, 300))}${agentMsg.content.length > 300 ? '...' : ''}</div>
+              </div>
+            `;
+          }
+        }
+        recapHtml += `</div></div>`;
+      }
+      
+      // What was left (from progress.md or plan)
+      const progressContent = session.files['.devforge/progress.md'];
+      const planContent = session.files['.devforge/current-plan.md'];
+      if (progressContent || planContent) {
+        recapHtml += `<div style="margin-bottom:10px;"><div style="font-size:10px; font-weight:600; color:var(--text-muted); text-transform:uppercase; margin-bottom:6px;">What's Left</div>`;
+        if (planContent) {
+          const pendingSteps = planContent.match(/\[\s\]/g) || [];
+          const inProgressSteps = planContent.match(/\[\~\s*\]/g) || [];
+          recapHtml += `<div style="font-size:11px; color:var(--text-main);">${pendingSteps.length} pending step(s), ${inProgressSteps.length} in progress</div>`;
+        }
+        if (progressContent) {
+          const nextMatch = progressContent.match(/## Next Up\n([\s\S]*?)(?:\n## |\n---|$)/);
+          if (nextMatch && nextMatch[1].trim()) {
+            recapHtml += `<div style="font-size:10px; color:var(--text-dim); margin-top:4px; font-style:italic;">${escapeHtml(nextMatch[1].trim().slice(0, 200))}</div>`;
+          }
+        }
+        recapHtml += `</div>`;
+      }
+      
+      recapHtml += `
+          </div>
+          <div style="padding:8px 12px; border-top:1px solid var(--border-color); display:flex; justify-content:flex-end; gap:8px;">
+            <button class="btn btn-secondary" onclick="closeSessionRecap()" style="font-size:11px; padding:4px 10px;">Got it</button>
+          </div>
+        </div>
+        <style>
+          @keyframes slideInRight { from { opacity:0; transform:translateX(20px); } to { opacity:1; transform:translateX(0); } }
+        </style>
+      `;
+      
+      // Remove existing recap if any
+      const existing = document.getElementById('sessionRecapCard');
+      if (existing) existing.remove();
+      
+      document.body.insertAdjacentHTML('beforeend', recapHtml);
+      
+      // Auto-close after 15 seconds
+      setTimeout(() => closeSessionRecap(), 15000);
+    }
+
+    function closeSessionRecap() {
+      const card = document.getElementById('sessionRecapCard');
+      if (card) card.remove();
+    }
+
+    function deleteSession(sessionId) {
+      const sess = appState.sessions[sessionId];
+      if (!sess) return;
+      if (!confirm(`Delete session "${sess.name}"?`)) return;
+      const wasActive = sessionId === appState.activeSessionId;
+      delete appState.sessions[sessionId];
+      // Also clean up usage data
+      if (appState.usage?.byProject?.[sessionId]) {
+        delete appState.usage.byProject[sessionId];
+      }
+      if (Object.keys(appState.sessions).length === 0) {
+        createNewSession('Default Studio');
+      }
+      if (wasActive) {
+        appState.activeSessionId = Object.keys(appState.sessions)[0];
+      }
+      saveAppState();
+      renderSessionList();
+      renderSessionPicker();
+      if (wasActive) switchSession(appState.activeSessionId);
+      logActivity(`Deleted session: ${sess.name}`, 'warning');
+    }
+
     function switchSession(sessionId) {
       if (!appState.sessions[sessionId]) return;
+      const previousSessionId = appState.activeSessionId;
       appState.activeSessionId = sessionId;
       saveAppState();
       renderSessionPicker();
+      renderSessionList();
       renderFileTree();
       renderTabs();
       renderChatHistory();
       updateUncensoredUI();
       updateHeaderUsageMeter();
-      previewHealthReset(); // session switch clears Preview Health state for the new project
+      previewHealthReset();
       const session = getCurrentSession();
       if (session.activeFile && session.files[session.activeFile] !== undefined) {
         document.getElementById('editorTextarea').value = session.files[session.activeFile];
@@ -14078,6 +14343,11 @@ Rules:
       updateLineNumbers();
       refreshPreview();
       logActivity(`Switched to session: ${session.name}`, 'info');
+      
+      // Show recap card for the new session (but not on initial load)
+      if (previousSessionId && previousSessionId !== sessionId) {
+        setTimeout(() => showSessionRecap(session), 100);
+      }
     }
 
     // Update Uncensored Mode UI in header based on current project state
@@ -17730,6 +18000,7 @@ Requirements:
       applyTranslations();
       updateHeaderUsageMeter();
       renderSessionPicker();
+      renderSessionList();
 
       document.getElementById('sessionSelect').onchange = (e) => switchSession(e.target.value);
 
@@ -17738,6 +18009,17 @@ Requirements:
         if (name === null) return;
         const newId = createNewSession(name || undefined);
         switchSession(newId);
+      };
+
+      document.getElementById('btnNewSessionSidebar').onclick = () => {
+        const name = prompt('Enter new session name:');
+        if (name === null) return;
+        const newId = createNewSession(name || undefined);
+        switchSession(newId);
+      };
+
+      document.getElementById('sessionSearchInput').oninput = (e) => {
+        searchSessions(e.target.value);
       };
 
       document.getElementById('btnDelSession').onclick = () => {
