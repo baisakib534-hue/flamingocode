@@ -63,12 +63,34 @@ When the matcher finds something, show ONE compact card in the chat area
 - The card ALSO lists, in small text, the trust consequence for MCPs:
   a newly installed MCP starts UNTRUSTED (H5.5 rule) — say so on the
   card, do not hide it.
-- A "Recommended for this task" section in the Plugin Catalog tab shows
-  the same recommendations for the current task, so he can find them
-  even after dismissing the chat card. Recommendations for a task that
-  is still UNFINISHED are saved with the task and shown again when the
-  software reopens or the task resumes (see §4 Persistence) — he never
-  loses a suggestion just because he closed the app.
+- PERSISTENT HOME (his order 2026-10-26 ~19:18 +06): recommendations
+  ALSO live as a "Recommendations" section on the right page for their
+  kind — MCP recommendations on the MCP page, skill recommendations on
+  the Skills page, plugin recommendations in the Plugin Catalog tab.
+  Each section lists EVERY recommended tool of that kind that is NOT
+  installed yet — accumulated across ALL past tasks, not only the
+  current task. Anything never installed stays listed there until he
+  installs it, dismisses it, or mutes it, so he can install it from
+  there at ANY time, even days later. Each entry carries the same
+  Install / Dismiss / "Don't suggest again" buttons as the chat card
+  (same install path, same untrusted-MCP notice). Dismissing the chat
+  card does NOT remove the entry from its page section — only an
+  explicit Dismiss/mute on the page entry, or installing it, removes
+  it. Recommendations for a task that is still UNFINISHED are saved
+  with the task and shown again when the software reopens or the task
+  resumes (see §4 Persistence) — he never loses a suggestion just
+  because he closed the app.
+- PHONE MIRROR (his order 2026-10-26 ~19:33 +06): the same
+  recommendation state is mirrored to the phone app — a
+  Recommendations section in the phone app (same accumulated
+  not-installed list) plus a notification for each new
+  recommendation. From the phone he can Install / Dismiss /
+  "Don't suggest again" exactly as on desktop, and the install
+  lands on the desktop (the tool lives on the desktop; the phone is
+  the remote). Keep ALL recommendation state in `appState` (never
+  local-only UI state) so the relay/phone can read it. NEVER
+  auto-install from the phone either — Install is always his
+  explicit tap, in every mode (Ask / Auto approve / Full access).
 
 ### 4. Hard rules (his orders — do not bend these)
 - **NEVER block or pause a task.** A recommendation is a suggestion,
@@ -133,6 +155,14 @@ after your build. Cover at least:
   save/load round-trip of `appState` and are re-shown, while
   recommendations for a finished task expire; muted tools stay muted
   after the round-trip.
+- (k) the MCP page / Skills page / Plugin Catalog tab each carry a
+  Recommendations section listing every recommended-but-not-installed
+  tool of that kind accumulated across tasks (a recommendation from an
+  earlier task is still listed after a later unrelated task);
+- (l) Install from the page section works at any time (not only while
+  its task is running) and calls the existing install path;
+- (m) dismissing the chat card keeps the entry in its page section;
+  only Dismiss/mute on the page entry (or installing it) removes it.
 
 ## Verification before you report done
 1. `node` syntax check of the extracted script — must pass.
