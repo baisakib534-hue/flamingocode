@@ -5887,7 +5887,7 @@ Detail level: {{detail_level}}`,
         'Result': 'ফলাফল',
         'Error occurred — fixing': 'একটা সমস্যা হয়েছে — আমি ঠিক করছি',
         'Done — tested': 'হয়েছে — পরীক্ষা করা হয়েছে',
-        'Tests passed': 'পাস',
+        'Tests passed': 'পরীক্ষা করা হয়েছে',
         'Try it': 'চেষ্টা করুন',
         'Approved': 'ঠিক আছে',
         'Change it': 'বদলাও',
@@ -6948,6 +6948,7 @@ Detail level: {{detail_level}}`,
       
       // Initialize pre-installed MCP servers (github, memory, fetch) with trust: 'trusted'
       if (!appState.mcpServers) appState.mcpServers = {};
+      if (!appState.generalModeShowCode) appState.generalModeShowCode = {};  // 7.9: pre-7.9 saved states lack this
       const mandatoryMcps = [
         { id: 'mcp_github', name: 'GitHub', transport: 'stdio', command: 'npx @modelcontextprotocol/server-github', env: {}, description: 'GitHub repository operations (issues, PRs, repos, files)', enabled: true, trust: 'trusted' },
         { id: 'mcp_memory', name: 'Memory', transport: 'stdio', command: 'npx @modelcontextprotocol/server-memory', env: {}, description: 'Persistent memory/knowledge graph for agents', enabled: true, trust: 'trusted' },
@@ -19338,7 +19339,6 @@ Only propose merges for skills that are genuinely overlapping or complementary. 
                 // Error state: plain Bangla sentence
                 html += `<div style="padding:12px; background:var(--danger-bg, #2a0a0a); border:1px solid var(--danger-border, #5a1a1a); border-radius:6px; color:var(--text-main);">
                   <div style="font-weight:600; margin-bottom:4px;">⚠ ${t('Error occurred — fixing')}</div>
-                  <div style="font-size:12px; color:var(--text-dim);">${escapeHtml(cleanText || 'An error occurred')}</div>
                 </div>`;
               } else if (isDone || hasChips) {
                 // Result card: done state with Bangla
@@ -19359,7 +19359,7 @@ Only propose merges for skills that are genuinely overlapping or complementary. 
                     <button class="btn-reject" style="padding:6px 12px; background:var(--warning); color:var(--bg); border:none; border-radius:4px; font-weight:600; cursor:pointer;" onclick="rejectTask('${msgId}')">${t('Change it')}</button>
                     ${hasCode ? `<button class="btn-show-code" style="padding:6px 12px; background:var(--bg-surface); color:var(--text-main); border:1px solid var(--border-color); border-radius:4px; font-weight:600; cursor:pointer;" onclick="toggleShowCode('${msgId}', this)">${showCode ? t('Hide code') : t('Show code')}</button>` : ''}
                   </div>
-                  ${showCode && hasCode ? `<div class="general-code-block" style="margin-top:12px; padding:12px; background:var(--bg-dark); border:1px solid var(--border-color); border-radius:4px; font-family:var(--font-mono); font-size:11px; overflow:auto; max-height:300px;">${escapeHtml(codeBlocks.join('\n\n'))}</div>` : ''}
+                  ${hasCode ? `<div class="general-code-block" style="margin-top:12px; padding:12px; background:var(--bg-dark); border:1px solid var(--border-color); border-radius:4px; font-family:var(--font-mono); font-size:11px; overflow:auto; max-height:300px; display:${showCode ? 'block' : 'none'};">${escapeHtml(codeBlocks.join('\n\n'))}</div>` : ''}
                 </div>`;
               } else {
                 // Progress line: single Bangla line
@@ -19607,7 +19607,7 @@ Only propose merges for skills that are genuinely overlapping or complementary. 
       const chatInput = document.getElementById('chatInput');
       if (chatInput) {
         chatInput.focus();
-        chatInput.value = 'Please make changes: ';
+        chatInput.value = 'বদলাতে চাই: ';
       }
     }
 

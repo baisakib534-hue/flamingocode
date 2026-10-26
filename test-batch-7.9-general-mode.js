@@ -11,10 +11,13 @@ function readIndex() {
   return fs.readFileSync(INDEX_PATH, 'utf-8');
 }
 
+let passCount = 0;
+
 function assert(condition, message) {
   if (!condition) {
     throw new Error(`ASSERTION FAILED: ${message}`);
   }
+  passCount++;
   console.log(`  ✓ ${message}`);
 }
 
@@ -22,6 +25,7 @@ function assertIncludes(haystack, needle, message) {
   if (!haystack.includes(needle)) {
     throw new Error(`ASSERTION FAILED: ${message}\n  Expected to find: ${needle}`);
   }
+  passCount++;
   console.log(`  ✓ ${message}`);
 }
 
@@ -29,6 +33,7 @@ function assertNotIncludes(haystack, needle, message) {
   if (haystack.includes(needle)) {
     throw new Error(`ASSERTION FAILED: ${message}\n  Should NOT contain: ${needle}`);
   }
+  passCount++;
   console.log(`  ✓ ${message}`);
 }
 
@@ -73,6 +78,9 @@ async function runTests() {
   assertIncludes(html, 'একটা সমস্যা হয়েছে — আমি ঠিক করছি', 'Bengali translation for error');
   assertIncludes(html, 'isError = content.toLowerCase().includes', 'Error detection logic');
   assertIncludes(html, 'danger-bg', 'Error styling');
+  // Regression (verifier repair): the error card must show ONLY the plain sentence, never the raw error text
+  const errorSection = html.substring(html.indexOf('if (isError)'), html.indexOf('} else if (isDone'));
+  assertNotIncludes(errorSection, 'cleanText', 'Error branch must not render the raw message text');
   
   // (e) The 7.3 verification evidence still attaches to a "done" claim in General mode
   console.log('\n(e) 7.3 verification evidence attaches in General mode');
@@ -93,6 +101,8 @@ async function runTests() {
   assertIncludes(html, 'Show code', 'Show code button text');
   assertIncludes(html, 'Hide code', 'Hide code button text');
   assertIncludes(html, 'appState.generalModeShowCode[msgId]', 'Per-message show code state');
+  // Regression (verifier repair): the code block must be in the DOM (hidden) so Show code can reveal it
+  assertIncludes(html, "display:${showCode ? 'block' : 'none'}", 'Code block rendered with display control for the toggle');
   
   // (g) Switching modes mid-task keeps the task + history + files
   console.log('\n(g) Mode switching preserves task, history, files');
@@ -156,7 +166,7 @@ async function runTests() {
   assertIncludes(html, "'general' | 'chat' | 'codebase-chat'", 'Plan mode type includes general');
   
   console.log('\n=== ALL TESTS PASSED ===');
-  console.log(`Total assertions: ${bnKeys.length + 35} (approx)`);
+  console.log(`Total assertions: ${passCount}`);
   
   process.exit(0);
 }
