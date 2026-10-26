@@ -59,18 +59,28 @@ function extractObject(scriptText, objName) {
   return scriptText.slice(start, i + 1);
 }
 
-// Extract a property object literal (e.g. scheduledTasks: { ... } inside appState)
+// Extract a property value (object or array) from appState (e.g. scheduledTasks: [...] or scheduledTasks: { ... })
 function extractProperty(scriptText, propName) {
-  const searchStr = propName + ': {';
-  const idx = scriptText.indexOf(searchStr);
+  // Try object first
+  let searchStr = propName + ': {';
+  let idx = scriptText.indexOf(searchStr);
+  let openChar = '{';
+  let closeChar = '}';
+  if (idx === -1) {
+    // Try array
+    searchStr = propName + ': [';
+    idx = scriptText.indexOf(searchStr);
+    openChar = '[';
+    closeChar = ']';
+  }
   if (idx === -1) return null;
-  const start = scriptText.indexOf('{', idx);
+  const start = scriptText.indexOf(openChar, idx);
   let braceCount = 0;
   let i = start;
   let seenOpen = false;
   for (; i < scriptText.length; i++) {
-    if (scriptText[i] === '{') { braceCount++; seenOpen = true; }
-    else if (scriptText[i] === '}') {
+    if (scriptText[i] === openChar) { braceCount++; seenOpen = true; }
+    else if (scriptText[i] === closeChar) {
       braceCount--;
       if (braceCount === 0 && seenOpen) break;
     }
