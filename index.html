@@ -3600,7 +3600,10 @@ sudo *"></textarea>
 
         <div style="display:flex; justify-content:space-between; align-items:center;">
           <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">MCP Servers</span>
-          <button class="btn" id="btnAddMcpServer" style="padding: 4px 10px; font-size: 11px;">+ Add Server</button>
+          <div style="display:flex; gap:6px;">
+            <button class="btn" id="btnReloadMcpRegistry" style="padding: 4px 10px; font-size: 11px;" data-i18n="Reload">🔄 Reload</button>
+            <button class="btn" id="btnAddMcpServer" style="padding: 4px 10px; font-size: 11px;">+ Add Server</button>
+          </div>
         </div>
 
         <div id="mcpServerList" style="display:flex; flex-direction:column; gap:6px;">
@@ -3659,8 +3662,37 @@ sudo *"></textarea>
           <label style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; min-width: 120px;">Enabled</label>
           <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 12px; color: var(--text-main);">
             <input type="checkbox" id="mcpServerEnabled" checked />
-            <span>Enable this server</span>
+            <span data-i18n="Enable this server">Enable this server</span>
           </label>
+        </div>
+
+        <div class="form-group" style="flex-direction: row; align-items: center; gap: 8px;">
+          <label style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; min-width: 120px;" data-i18n="Trust Level">Trust Level</label>
+          <select id="mcpServerTrust" class="form-select" style="width: 160px;">
+            <option value="trusted" data-i18n="Trusted">Trusted</option>
+            <option value="untrusted" data-i18n="Untrusted">Untrusted</option>
+          </select>
+          <small style="font-size: 10px; color: var(--text-dim);" data-i18n="Untrusted servers require confirmation for write tools">Untrusted servers require confirmation for write tools</small>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" data-i18n="Enabled Tools">Enabled Tools</label>
+          <div id="mcpServerToolPicker" style="display: flex; flex-direction: column; gap: 4px; max-height: 200px; overflow-y: auto;">
+            <small style="font-size: 10px; color: var(--text-dim);" data-i18n="Select tools this server may use. Disabled tools are hidden from agent context.">Select tools this server may use. Disabled tools are hidden from agent context.</small>
+          </div>
+        </div>
+
+        <div class="form-group" style="display: flex; gap: 16px; flex-wrap: wrap;">
+          <div style="flex: 1; min-width: 180px;">
+            <label class="form-label" data-i18n="Call Limit (per session)">Call Limit (per session)</label>
+            <input type="number" id="mcpServerCallLimit" class="form-input" placeholder="Unlimited" min="0" step="1" />
+            <small style="font-size: 10px; color: var(--text-dim);" data-i18n="Max tool calls per session. Empty = unlimited.">Max tool calls per session. Empty = unlimited.</small>
+          </div>
+          <div style="flex: 1; min-width: 180px;">
+            <label class="form-label" data-i18n="Spend Limit">Spend Limit</label>
+            <input type="number" id="mcpServerSpendLimit" class="form-input" placeholder="No limit" min="0" step="0.01" />
+            <small style="font-size: 10px; color: var(--text-dim);" data-i18n="Max estimated cost per session. Enforced when cost is known.">Max estimated cost per session. Enforced when cost is known.</small>
+          </div>
         </div>
 
         <div style="font-size: 10px; color: var(--text-dim); padding: 8px; background: var(--bg-surface); border-radius: 5px;">
@@ -5484,6 +5516,27 @@ WORK STYLE:
       // Sync legacy provider field for backward compatibility
       syncLegacyProvider();
       
+      // Initialize pre-installed MCP servers (github, memory, fetch) with trust: 'trusted'
+      if (!appState.mcpServers) appState.mcpServers = {};
+      const mandatoryMcps = [
+        { id: 'mcp_github', name: 'GitHub', transport: 'stdio', command: 'npx @modelcontextprotocol/server-github', env: {}, description: 'GitHub repository operations (issues, PRs, repos, files)', enabled: true, trust: 'trusted' },
+        { id: 'mcp_memory', name: 'Memory', transport: 'stdio', command: 'npx @modelcontextprotocol/server-memory', env: {}, description: 'Persistent memory/knowledge graph for agents', enabled: true, trust: 'trusted' },
+        { id: 'mcp_fetch', name: 'Fetch', transport: 'stdio', command: 'npx @modelcontextprotocol/server-fetch', env: {}, description: 'Web fetching and content extraction', enabled: true, trust: 'trusted' }
+      ];
+      mandatoryMcps.forEach(mcp => {
+        if (!appState.mcpServers[mcp.id]) {
+          appState.mcpServers[mcp.id] = mcp;
+        } else {
+          // Ensure existing mandatory MCPs have trust: 'trusted'
+          if (mcp.trust === 'trusted') {
+            appState.mcpServers[mcp.id].trust = 'trusted';
+          }
+        }
+      });
+
+      // Rebuild MCP tool definitions after initialization
+      rebuildMcpToolDefinitions();
+
       // Initialize checkpoints if not present (migration)
       if (!appState.checkpoints) {
         appState.checkpoints = [];
@@ -9999,6 +10052,21 @@ Links: [[Brain Index]]
           text += '\n\n--- PLUGIN PACKS (product runtime library) ---\n';
           text += AUTONOMY_CATALOG.pluginPacks.map(p => '• ' + p.name + ': ' + p.desc.split('.')[0] + '. [load: plugin_' + p.name + ']').join('\n');
 
+          // User-configured MCP servers (from registry) - scrub credentials before injecting
+          const userMcpServers = Object.values(appState.mcpServers || {}).filter(s => s.enabled !== false);
+          if (userMcpServers.length > 0) {
+            text += '\\n\\n--- USER MCP SERVERS (registry) ---\\n';
+            text += userMcpServers.map(server => {
+              const scrubbed = scrubMcpCredentialsForContext(server);
+              const toolsInfo = scrubbed.enabledTools && scrubbed.enabledTools.length > 0
+                ? ' | Tools: ' + scrubbed.enabledTools.map(t => t.replace('mcp_', '')).join(', ')
+                : ' | Tools: (all declared)';
+              const trustInfo = ' | Trust: ' + (scrubbed.trust || 'untrusted');
+              const limitInfo = scrubbed.callLimit ? ' | Call limit: ' + scrubbed.callLimit + '/session' : '';
+              return '• ' + scrubbed.name + ': ' + (scrubbed.description || 'No description') + toolsInfo + trustInfo + limitInfo + '. [load: mcp_' + scrubbed.id.replace('mcp_', '') + ']';
+            }).join('\\n');
+          }
+
           // Tools (B4.7 Lazy Loading) - only show names + triggers when lazy loading enabled
           if (appState.lazyTools?.enabled) {
             const allTools = Object.values(TOOL_DEFINITIONS);
@@ -10024,6 +10092,31 @@ Links: [[Brain Index]]
           }
           return text;
         }
+
+    // Scrub credential fields from MCP server object before injecting into agent context
+    function scrubMcpCredentialsForContext(server) {
+      if (!server) return server;
+      const scrubbed = { ...server };
+      // Remove credential fields
+      const credentialFields = ['apiKey', 'token', 'password', 'secret', 'accessToken', 'authToken', 'api_key', 'access_token', 'auth_token'];
+      if (scrubbed.env) {
+        const scrubbedEnv = { ...scrubbed.env };
+        for (const key of Object.keys(scrubbedEnv)) {
+          const lowerKey = key.toLowerCase();
+          if (credentialFields.some(f => lowerKey.includes(f.toLowerCase()))) {
+            scrubbedEnv[key] = '[REDACTED]';
+          }
+        }
+        scrubbed.env = scrubbedEnv;
+      }
+      // Also scrub top-level credential fields if any
+      for (const field of credentialFields) {
+        if (scrubbed[field]) {
+          scrubbed[field] = '[REDACTED]';
+        }
+      }
+      return scrubbed;
+    }
 
     // Load full skill content on demand (called when agent declares Tools used with load: prefix)
     function loadSkillContent(loadKey) {
@@ -10734,6 +10827,150 @@ Links: [[Brain Index]]
       return { blocked: false };
     }
 
+    // Check if action is an MCP tool call on an untrusted server that requires trust escalation
+    function checkMcpTrustEnforcement(actionText, actionType) {
+      // Match MCP tool calls: mcp_<serverId>_<toolName> pattern
+      // Server ID is the second segment, tool name is everything after that (can contain underscores)
+      // Example: mcp_github_create_issue -> serverId: github, toolName: create_issue
+      // Example: mcp_my_server_read_file -> serverId: my_server, toolName: read_file
+      if (!actionText.startsWith('mcp_')) {
+        // Also check for tool: prefix or other patterns
+        const toolMatch = actionText.match(/tool[:\\s]+(mcp_[a-zA-Z0-9_-]+)/i);
+        if (!toolMatch) return { requiresApproval: false };
+        actionText = toolMatch[1];
+      }
+      
+      // Split by underscore: [0]='mcp', [1]=serverId(first part), [2...]=toolName parts
+      const parts = actionText.split('_');
+      if (parts.length < 3) return { requiresApproval: false }; // mcp + serverId(1+) + toolName(1+)
+      
+      // Find the serverId by checking which prefix matches a known server
+      // Server IDs in appState are like 'mcp_github', 'mcp_memory', 'mcp_fetch', 'mcp_custom', etc.
+      // The tool name is the rest
+      let serverId = null;
+      let toolName = null;
+      let fullServerId = null;
+      
+      // Try progressively longer serverId prefixes until we find a match
+      for (let i = 1; i < parts.length; i++) {
+        const candidateServerId = parts.slice(1, i + 1).join('_');
+        const candidateFullServerId = 'mcp_' + candidateServerId;
+        if (appState.mcpServers?.[candidateFullServerId]) {
+          serverId = candidateServerId;
+          fullServerId = candidateFullServerId;
+          toolName = parts.slice(i + 1).join('_');
+          break;
+        }
+      }
+      
+      if (!serverId || !toolName) return { requiresApproval: false };
+      
+      const server = appState.mcpServers[fullServerId];
+      
+      // Check if tool is enabled on this server
+      const fullToolName = 'mcp_' + serverId + '_' + toolName;
+      if (server.enabledTools && server.enabledTools.length > 0) {
+        if (!server.enabledTools.includes(fullToolName)) {
+          return { 
+            requiresApproval: true, 
+            reason: `Tool ${fullToolName} is disabled on server ${server.name}`,
+            serverName: server.name,
+            trust: server.trust || 'untrusted',
+            toolName: fullToolName
+          };
+        }
+      }
+      
+      // Check trust level - untrusted servers require escalation for write tools
+      const trust = server.trust || 'untrusted';
+      if (trust === 'untrusted') {
+        // Heuristic: tools that modify state are "write" tools
+        const writeToolPatterns = ['create', 'update', 'delete', 'write', 'push', 'commit', 'merge', 'post', 'put', 'patch', 'edit', 'modify', 'remove', 'add'];
+        const isWriteTool = writeToolPatterns.some(pattern => toolName.toLowerCase().includes(pattern));
+        
+        if (isWriteTool) {
+          return { 
+            requiresApproval: true, 
+            reason: `Untrusted MCP server "${server.name}" attempting write operation: ${toolName}`,
+            serverName: server.name,
+            trust: trust,
+            toolName: fullToolName
+          };
+        }
+      }
+      return { requiresApproval: false };
+      
+      // Check call/spend limits
+      const limitCheck = checkMcpCallSpendLimit(fullServerId, server);
+      if (limitCheck.requiresPrompt) {
+        return {
+          requiresApproval: true,
+          reason: limitCheck.reason,
+          serverName: server.name,
+          trust: trust,
+          toolName: 'mcp_' + serverId + '_' + toolName,
+          limitType: limitCheck.type,
+          limitValue: limitCheck.value
+        };
+      }
+      
+      return { requiresApproval: false };
+    }
+
+    // Check MCP call/spend limits
+    function checkMcpCallSpendLimit(serverId, server) {
+      if (!server) return { requiresPrompt: false };
+      
+      // Initialize session call counter if not exists
+      if (!appState._mcpCallCounts) appState._mcpCallCounts = {};
+      if (!appState._mcpCallCounts[serverId]) appState._mcpCallCounts[serverId] = 0;
+      
+      // Check call limit
+      if (server.callLimit && server.callLimit > 0) {
+        const currentCalls = appState._mcpCallCounts[serverId];
+        if (currentCalls >= server.callLimit) {
+          return {
+            requiresPrompt: true,
+            reason: `Call limit reached for server "${server.name}" (${currentCalls}/${server.callLimit} calls this session)`,
+            type: 'callLimit',
+            value: server.callLimit
+          };
+        }
+      }
+      
+      // Spend limit would be checked when a call reports a cost
+      // This is a placeholder - actual spend tracking would need cost reporting from MCP calls
+      if (server.spendLimit && server.spendLimit > 0) {
+        const currentSpend = appState._mcpSpendTotal?.[serverId] || 0;
+        if (currentSpend >= server.spendLimit) {
+          return {
+            requiresPrompt: true,
+            reason: `Spend limit reached for server "${server.name}" ($${currentSpend.toFixed(4)}/$${server.spendLimit} this session)`,
+            type: 'spendLimit',
+            value: server.spendLimit
+          };
+        }
+      }
+      
+      return { requiresPrompt: false };
+    }
+
+    // Increment MCP call counter for a server
+    function incrementMcpCallCount(serverId) {
+      if (!appState._mcpCallCounts) appState._mcpCallCounts = {};
+      if (!appState._mcpCallCounts[serverId]) appState._mcpCallCounts[serverId] = 0;
+      appState._mcpCallCounts[serverId]++;
+      return appState._mcpCallCounts[serverId];
+    }
+
+    // Add MCP spend for a server
+    function addMcpSpend(serverId, amount) {
+      if (!appState._mcpSpendTotal) appState._mcpSpendTotal = {};
+      if (!appState._mcpSpendTotal[serverId]) appState._mcpSpendTotal[serverId] = 0;
+      appState._mcpSpendTotal[serverId] += amount;
+      return appState._mcpSpendTotal[serverId];
+    }
+
     // Smart mode auxiliary risk judge
     // Returns: { allow: boolean, reason: string, risk: 'low'|'medium'|'high'|'critical' }
     async function smartModeJudge(actionText, actionType) {
@@ -10855,6 +11092,55 @@ Links: [[Brain Index]]
           requiresUserInput: false, 
           decision: { level: 'deny-rule', ...denyCheck } 
         };
+      }
+
+      // Step 2.5: MCP Trust Enforcement - untrusted server write tools must escalate even in YOLO mode
+      const mcpTrustCheck = checkMcpTrustEnforcement(actionText, actionType);
+      if (mcpTrustCheck.requiresApproval) {
+        logActivity(`⚠️ MCP Trust Escalation: ${mcpTrustCheck.reason}`, 'warning');
+        // Force escalation through smart mode judge regardless of approval mode
+        const smartDecision = await smartModeJudge(actionText, actionType);
+        sm.lastSmartDecision = smartDecision;
+        saveAppState();
+        renderSmartDecisionDisplay();
+        
+        if (smartDecision.allow) {
+          logActivity(`✅ APPROVED (MCP Trust → Smart): ${actionText.slice(0, 80)}`, 'success');
+          return { 
+            allowed: true, 
+            reason: 'MCP trust escalation approved by smart judge: ' + smartDecision.reason, 
+            requiresUserInput: false, 
+            decision: { level: 'mcp-trust-smart', ...smartDecision } 
+          };
+        } else if (smartDecision.risk === 'critical') {
+          logActivity(`🛑 DENIED (MCP Trust - critical risk): ${actionText.slice(0, 80)}`, 'error');
+          return {
+            allowed: false,
+            reason: smartDecision.reason,
+            requiresUserInput: false,
+            decision: { level: 'mcp-trust-denied', approved: false, ...smartDecision }
+          };
+        } else {
+          // Escalate to user for high/medium risk
+          const userConfirm = confirm(`🔐 MCP Trust Escalation — ${smartDecision.risk.toUpperCase()} RISK:\\n\\n${smartDecision.reason}\\n\\nServer: ${mcpTrustCheck.serverName} (${mcpTrustCheck.trust})\\nTool: ${mcpTrustCheck.toolName}\\n\\nAllow this action?`);
+          if (userConfirm) {
+            logActivity(`✅ APPROVED (MCP Trust → User): ${actionText.slice(0, 80)}`, 'success');
+            return { 
+              allowed: true, 
+              reason: 'User approved MCP trust escalation', 
+              requiresUserInput: true, 
+              decision: { level: 'mcp-trust-user', approved: true, ...smartDecision } 
+            };
+          } else {
+            logActivity(`🛑 DENIED (MCP Trust → User): ${actionText.slice(0, 80)}`, 'warning');
+            return { 
+              allowed: false, 
+              reason: 'User denied MCP trust escalation', 
+              requiresUserInput: true, 
+              decision: { level: 'mcp-trust-user', approved: false, ...smartDecision } 
+            };
+          }
+        }
       }
 
       // Step 3: Approval mode
@@ -23919,11 +24205,15 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
         const statusBadge = server.enabled 
           ? '<span style="font-size:9px; padding:2px 6px; background:var(--success); color:var(--bg-dark); border-radius:3px;">ENABLED</span>'
           : '<span style="font-size:9px; padding:2px 6px; background:var(--bg-hover); color:var(--text-dim); border-radius:3px;">DISABLED</span>';
+        const trustBadge = server.trust === 'trusted'
+          ? '<span style="font-size:9px; padding:2px 6px; background:var(--accent); color:var(--bg-dark); border-radius:3px;">TRUSTED</span>'
+          : '<span style="font-size:9px; padding:2px 6px; background:var(--warning); color:var(--bg-dark); border-radius:3px;">UNTRUSTED</span>';
         item.innerHTML = `
           <div style="flex:1; min-width:0;">
             <div style="display:flex; align-items:center; gap:8px;">
               <div style="font-weight:600; font-size:12px;">${escapeHtml(server.name)}</div>
               ${statusBadge}
+              ${trustBadge}
             </div>
             <div style="font-size:10px; color:var(--text-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(server.description || 'No description')}</div>
             <div style="font-size:10px; color:var(--text-dim); margin-top:2px;">Transport: ${escapeHtml(server.transport)} | ${server.transport === 'stdio' ? 'Command: ' + escapeHtml(server.command || '') : 'URL: ' + escapeHtml(server.url || '')}</div>
@@ -23947,12 +24237,44 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
       document.getElementById('mcpServerEnv').value = server.env ? JSON.stringify(server.env, null, 2) : '';
       document.getElementById('mcpServerDescription').value = server.description || '';
       document.getElementById('mcpServerEnabled').checked = server.enabled !== false;
+      document.getElementById('mcpServerTrust').value = server.trust || 'untrusted';
+      document.getElementById('mcpServerCallLimit').value = server.callLimit || '';
+      document.getElementById('mcpServerSpendLimit').value = server.spendLimit || '';
+
+      // Render tool picker checkboxes
+      renderMcpServerToolPicker(server);
 
       // Show/hide command vs URL fields
       updateMcpTransportFields(server.transport);
 
       document.getElementById('mcpRegistryModal').classList.remove('active');
       document.getElementById('mcpServerModal').classList.add('active');
+    }
+
+    // Render tool picker checkboxes for MCP server
+    function renderMcpServerToolPicker(server) {
+      const container = document.getElementById('mcpServerToolPicker');
+      if (!container) return;
+      
+      // Get declared tools for this server from TOOL_DEFINITIONS (mcp_ prefix)
+      const declaredTools = Object.values(TOOL_DEFINITIONS).filter(t => t.type === 'mcp' && t.name.startsWith('mcp_'));
+      const enabledTools = server.enabledTools || declaredTools.map(t => t.name); // Default: all enabled
+      
+      if (declaredTools.length === 0) {
+        container.innerHTML = '<small style="font-size: 10px; color: var(--text-dim);" data-i18n="No tools declared for this server. Tools will appear after server connects.">No tools declared for this server. Tools will appear after server connects.</small>';
+        return;
+      }
+      
+      container.innerHTML = declaredTools.map(tool => {
+        const isEnabled = enabledTools.includes(tool.name);
+        return `
+          <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 11px; color: var(--text-main); padding: 4px 6px; border-radius: 3px; background: ${isEnabled ? 'var(--bg-surface)' : 'transparent'};">
+            <input type="checkbox" class="mcp-tool-checkbox" data-tool-name="${escapeHtml(tool.name)}" ${isEnabled ? 'checked' : ''} />
+            <span style="font-weight: 500;">${escapeHtml(tool.name.replace('mcp_', ''))}</span>
+            <small style="color: var(--text-dim);">${escapeHtml(tool.trigger)}</small>
+          </label>
+        `;
+      }).join('');
     }
 
     function updateMcpTransportFields(transport) {
@@ -23967,6 +24289,75 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
       }
     }
 
+    function getDeclaredMcpToolsForServer(server) {
+      // Get tools declared for this server from TOOL_DEFINITIONS
+      // Tools are named like mcp_<serverId>_<toolName> or mcp_<builtinName>
+      const serverId = server.id || '';
+      const tools = [];
+      for (const [name, def] of Object.entries(TOOL_DEFINITIONS || {})) {
+        if (def.type === 'mcp' && name.startsWith('mcp_')) {
+          // Check if this tool belongs to this server
+          // Pattern: mcp_<serverId>_<tool> or mcp_<builtin>
+          if (serverId && name.startsWith('mcp_' + serverId + '_')) {
+            tools.push({ name, trigger: def.trigger || def.description || name });
+          } else if (!serverId && name.match(/^mcp_(github|memory|fetch)$/)) {
+            // Builtin tools
+            tools.push({ name, trigger: def.trigger || def.description || name });
+          }
+        }
+      }
+      return tools;
+    }
+
+    function rebuildMcpToolDefinitions() {
+      // Rebuild MCP tool definitions from registry for agent context
+      // This clears any dynamically added MCP tools and re-adds them from appState.mcpServers
+      const mcpToolsToRemove = Object.keys(TOOL_DEFINITIONS).filter(key => key.startsWith('mcp_') && !['mcp_browser', 'mcp_web_search', 'mcp_web_extract'].includes(key));
+      for (const key of mcpToolsToRemove) {
+        delete TOOL_DEFINITIONS[key];
+      }
+      
+      // Add tools from user-configured MCP servers
+      for (const [serverId, server] of Object.entries(appState.mcpServers || {})) {
+        if (!server.enabled) continue;
+        
+        // Get declared tools for this server
+        const declaredTools = getDeclaredMcpToolsForServer(server);
+        
+        // Filter to only enabled tools
+        const toolsToAdd = server.enabledTools && server.enabledTools.length > 0
+          ? declaredTools.filter(t => server.enabledTools.includes(t.name))
+          : declaredTools;
+        
+        for (const tool of toolsToAdd) {
+          TOOL_DEFINITIONS[tool.name] = {
+            ...tool,
+            mcpServerId: serverId,
+            mcpServerTrust: server.trust || 'untrusted',
+            mcpServerCallLimit: server.callLimit,
+            mcpServerSpendLimit: server.spendLimit
+          };
+        }
+      }
+      
+      // Also add mandatory pre-installed MCPs (github, memory, fetch) if not already present
+      for (const mcp of AUTONOMY_CATALOG.newMcps) {
+        const toolName = 'mcp_' + mcp.name;
+        if (!TOOL_DEFINITIONS[toolName]) {
+          TOOL_DEFINITIONS[toolName] = {
+            name: toolName,
+            type: 'mcp',
+            trigger: mcp.desc,
+            description: mcp.desc,
+            mcpServerId: 'builtin_' + mcp.name,
+            mcpServerTrust: 'trusted',
+            mcpServerCallLimit: undefined,
+            mcpServerSpendLimit: undefined
+          };
+        }
+      }
+    }
+
     function saveMcpServer() {
       const modal = document.getElementById('mcpServerModal');
       const serverId = modal.dataset.serverId || 'mcp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
@@ -23978,6 +24369,13 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
       const envText = document.getElementById('mcpServerEnv').value.trim();
       const description = document.getElementById('mcpServerDescription').value.trim();
       const enabled = document.getElementById('mcpServerEnabled').checked;
+      const trust = document.getElementById('mcpServerTrust').value;
+      const callLimit = document.getElementById('mcpServerCallLimit').value;
+      const spendLimit = document.getElementById('mcpServerSpendLimit').value;
+
+      // Read enabled tools from checkboxes
+      const enabledTools = Array.from(document.querySelectorAll('.mcp-tool-checkbox:checked'))
+        .map(cb => cb.dataset.toolName);
 
       if (!name) {
         alert('Server name is required');
@@ -24002,12 +24400,19 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
         url: transport !== 'stdio' ? url : undefined,
         env,
         description,
-        enabled
+        enabled,
+        trust,
+        enabledTools,
+        callLimit: callLimit ? parseInt(callLimit, 10) : undefined,
+        spendLimit: spendLimit ? parseFloat(spendLimit) : undefined
       };
 
       appState.mcpServers = appState.mcpServers || {};
       appState.mcpServers[serverId] = server;
       saveAppState();
+
+      // Rebuild MCP tool definitions after save
+      rebuildMcpToolDefinitions();
 
       renderMcpServerList();
       renderMcpServerSummary();
@@ -24026,6 +24431,8 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
       delete appState.mcpServers[serverId];
       saveAppState();
       renderMcpServerList();
+      // Rebuild MCP tool definitions after delete
+      rebuildMcpToolDefinitions();
       renderMcpServerSummary();
       modal.classList.remove('active');
       document.getElementById('mcpRegistryModal').classList.add('active');
@@ -24044,9 +24451,24 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
         document.getElementById('mcpServerEnv').value = '';
         document.getElementById('mcpServerDescription').value = '';
         document.getElementById('mcpServerEnabled').checked = true;
+        document.getElementById('mcpServerTrust').value = 'untrusted';
+        document.getElementById('mcpServerCallLimit').value = '';
+        document.getElementById('mcpServerSpendLimit').value = '';
+        // Render tool picker with all tools enabled by default
+        renderMcpServerToolPicker({ enabledTools: undefined });
         updateMcpTransportFields('stdio');
         document.getElementById('mcpRegistryModal').classList.remove('active');
         document.getElementById('mcpServerModal').classList.add('active');
+      };
+      document.getElementById('btnReloadMcpRegistry').onclick = () => {
+        if (!confirm('Reload MCP registry? This will rebuild the tool set and invalidate the prompt cache.')) return;
+        logActivity('🔄 MCP registry reload confirmed — rebuilding tool set...', 'info');
+        // Rebuild MCP tool definitions from registry
+        rebuildMcpToolDefinitions();
+        // Re-render server list and summary
+        renderMcpServerList();
+        renderMcpServerSummary();
+        logActivity('✅ MCP registry reloaded successfully', 'success');
       };
       document.getElementById('mcpServerTransport').onchange = (e) => updateMcpTransportFields(e.target.value);
       document.getElementById('btnCloseMcpServerModal').onclick = () => {
