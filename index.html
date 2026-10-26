@@ -24340,6 +24340,14 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
       if (!replayViewerState.currentSession) return;
       const input = prompt('Enter your message to redirect the team (will be injected at current replay point):');
       if (!input) return;
+    // H1.3: scan the jump-in message before it is injected into the replay session
+    const jumpInScan = scanForInjection(input, 'replay-jump-in');
+    if (!jumpInScan.clean) {
+      const jumpInMsg = 'Injection scan blocked replay jump-in: ' + jumpInScan.issues.join(', ');
+      logActivity(jumpInMsg, 'danger');
+      alert(jumpInMsg);
+      return;
+    }
 
       // Record the jump-in as a user event at current step
       const session = replayViewerState.currentSession;
@@ -24595,6 +24603,14 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
       const input = document.getElementById('teamJumpIn');
       const text = (input?.value || '').trim();
       if (!text) return;
+    // H1.3: scan the jump-in message before it reaches the team / agents
+    const jumpInScan = scanForInjection(text, 'team-jump-in');
+    if (!jumpInScan.clean) {
+      const jumpInMsg = 'Injection scan blocked team jump-in: ' + jumpInScan.issues.join(', ');
+      logActivity(jumpInMsg, 'danger');
+      alert(jumpInMsg);
+      return;
+    }
       appendTeamChat('user', null, text);
       recordSessionEvent('jump-in', text);
       getTeamV2().userRedirect = text;
