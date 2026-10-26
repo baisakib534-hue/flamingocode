@@ -3587,6 +3587,25 @@ sudo *"></textarea>
 
     // Provider presets - all built-in configurations
     const PROVIDER_PRESETS = {
+          'local-ai': {
+            name: 'Local AI',
+            type: 'openai-compatible',
+            baseUrl: 'http://localhost:11434/v1',
+            model: 'llama3.1:8b',
+            apiKey: '',
+            authStyle: 'none',
+            customHeaders: {},
+            corsProxy: '',
+            streaming: true,
+            contextWindow: 128000,
+            isLocal: true,
+            modelLimits: {
+              tpm: null, tpd: null, rpm: null, rpd: null,
+              contextWindow: 128000, maxTokens: 4096,
+              monthlyTokenCap: null, monthlyRequestCap: null, monthlyCostCap: null,
+              concurrentLimit: null, cooldownSeconds: 60
+            }
+          },
           '9router': {
                         name: '9router',
                         type: 'openai-compatible',
