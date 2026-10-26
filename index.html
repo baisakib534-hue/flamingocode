@@ -2276,6 +2276,7 @@
         <button class="settings-tab" data-settings-tab="language" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">Language</button>
         <button class="settings-tab" data-settings-tab="skillLibrarian" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">Skill Librarian</button>
         <button class="settings-tab" data-settings-tab="scheduled" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;" data-i18n="Scheduled Tasks">Scheduled Tasks</button>
+        <button class="settings-tab" data-settings-tab="importTools" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;" data-i18n="Import from Tools">Import from Tools</button>
       </div>
 
       <!-- Providers Tab -->
@@ -2889,6 +2890,43 @@ sudo *"></textarea>
             </div>
             <div id="scheduledTaskList" style="display: flex; flex-direction: column; gap: 6px;">
               <!-- Scheduled tasks rendered here -->
+            </div>
+          </div>
+          <div style="border-top: 1px solid var(--border-color); padding-top: 12px;">
+            <div style="display:flex; justify-content:flex-end; gap:8px;">
+              <button class="btn btn-secondary" id="btnCancelSettings" data-i18n="Close">Close</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Import from Tools Tab (H5.2) -->
+        <div class="settings-pane" id="settingsPaneImportTools" style="display: none; flex-direction: column;">
+          <div style="max-height: 40vh; overflow-y: auto; margin-bottom: 12px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
+              <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;" data-i18n="Import from Tools">Import from Tools</span>
+            </div>
+            <div style="font-size: 11px; color: var(--text-dim); margin-bottom: 12px;" data-i18n="Paste an exported configuration from another coding tool to import skills, MCP servers, project rules, and agent definitions.">Paste an exported configuration from another coding tool to import skills, MCP servers, project rules, and agent definitions.</div>
+            <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px;">
+              <select id="importToolSelect" style="background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 4px; padding: 8px 10px; color: var(--text-main); font-size: 11px;">
+                <option value="claudecode" data-i18n="Claude Code">Claude Code</option>
+                <option value="codex" data-i18n="Codex">Codex</option>
+                <option value="cursor" data-i18n="Cursor">Cursor</option>
+                <option value="opencode" data-i18n="OpenCode">OpenCode</option>
+                <option value="qoder" data-i18n="Qoder">Qoder</option>
+              </select>
+              <textarea id="importToolPaste" placeholder="Paste exported JSON/config here..." style="min-height: 200px; background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 4px; padding: 10px; color: var(--text-main); font-family: var(--font-mono); font-size: 11px; resize: vertical;" data-i18n-placeholder="Paste exported JSON/config here..."></textarea>
+            </div>
+            <button class="btn" id="btnScanImport" style="padding: 8px 16px; font-size: 11px;" data-i18n="Scan & Review">🔍 Scan & Review</button>
+            <div id="importToolStatus" style="margin-top: 8px; font-size: 10px; color: var(--text-dim);"></div>
+            <!-- Review list (shown after scan) -->
+            <div id="importToolReview" style="display: none; margin-top: 16px;">
+              <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;" data-i18n="Review Import">Review Import</div>
+              <div style="font-size: 11px; color: var(--text-dim); margin-bottom: 12px;" data-i18n="Security scan passed. Review the items below before importing.">Security scan passed. Review the items below before importing.</div>
+              <div id="importToolReviewList" style="display: flex; flex-direction: column; gap: 4px; max-height: 200px; overflow-y: auto;"></div>
+              <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px;">
+                <button class="btn btn-secondary" id="btnCancelImportReview" data-i18n="Cancel">Cancel</button>
+                <button class="btn" id="btnConfirmImport" style="background: var(--success);" data-i18n="Confirm Import">✅ Confirm Import</button>
+              </div>
             </div>
           </div>
           <div style="border-top: 1px solid var(--border-color); padding-top: 12px;">
@@ -10606,6 +10644,314 @@ Links: [[Brain Index]]
       if (exportStatus) exportStatus.textContent = '';
       if (importStatus) importStatus.textContent = '';
       if (githubStatus) githubStatus.textContent = '';
+    }
+
+    // ==================== IMPORT TOOLS TAB (H5.2) ====================
+    function renderImportToolsTab() {
+      const scanBtn = document.getElementById('btnScanImport');
+      const cancelBtn = document.getElementById('btnCancelImportReview');
+      const confirmBtn = document.getElementById('btnConfirmImport');
+      const pasteArea = document.getElementById('importToolPaste');
+      const toolSelect = document.getElementById('importToolSelect');
+      const status = document.getElementById('importToolStatus');
+      const reviewDiv = document.getElementById('importToolReview');
+      const reviewList = document.getElementById('importToolReviewList');
+
+      if (scanBtn) {
+        scanBtn.onclick = () => scanImportToolExport();
+      }
+      if (cancelBtn) {
+        cancelBtn.onclick = () => {
+          if (reviewDiv) reviewDiv.style.display = 'none';
+          if (status) status.textContent = '';
+        };
+      }
+      if (confirmBtn) {
+        confirmBtn.onclick = () => confirmImportToolExport();
+      }
+      if (pasteArea) {
+        pasteArea.oninput = () => {
+          if (status) status.textContent = '';
+          if (reviewDiv) reviewDiv.style.display = 'none';
+        };
+      }
+      if (toolSelect) {
+        toolSelect.onchange = () => {
+          if (status) status.textContent = '';
+          if (reviewDiv) reviewDiv.style.display = 'none';
+        };
+      }
+    }
+
+    // Store for scanned import data
+    let importToolScannedData = null;
+
+    // Scan pasted export from another coding tool
+    async function scanImportToolExport() {
+      const pasteArea = document.getElementById('importToolPaste');
+      const toolSelect = document.getElementById('importToolSelect');
+      const status = document.getElementById('importToolStatus');
+      const reviewDiv = document.getElementById('importToolReview');
+      const reviewList = document.getElementById('importToolReviewList');
+
+      const rawText = pasteArea?.value?.trim();
+      const toolType = toolSelect?.value;
+
+      if (!rawText) {
+        if (status) { status.textContent = 'Please paste an exported configuration.'; status.style.color = 'var(--warning)'; }
+        return;
+      }
+
+      if (status) { status.textContent = 'Parsing and scanning...'; status.style.color = 'var(--accent-blue)'; }
+      if (reviewDiv) reviewDiv.style.display = 'none';
+
+      try {
+        let parsed;
+        try {
+          parsed = JSON.parse(rawText);
+        } catch (e) {
+          throw new Error('Invalid JSON. Please paste a valid exported configuration.');
+        }
+
+        // Extract data based on tool type
+        const extracted = extractToolData(parsed, toolType);
+        if (!extracted || (extracted.skills.length === 0 && extracted.mcpServers.length === 0 && extracted.agents.length === 0 && extracted.projectRules.length === 0)) {
+          throw new Error('No recognized data found in export for ' + toolType + '. Check the format.');
+        }
+
+        // Run injection scan on all extracted items
+        const allItems = [
+          ...extracted.skills.map(s => ({ type: 'skill', name: s.name, content: JSON.stringify(s) })),
+          ...extracted.mcpServers.map(m => ({ type: 'mcp', name: m.name, content: JSON.stringify(m) })),
+          ...extracted.agents.map(a => ({ type: 'agent', name: a.name, content: JSON.stringify(a) })),
+          ...extracted.projectRules.map(r => ({ type: 'rule', name: r.name, content: r.content }))
+        ];
+
+        const blockedItems = [];
+        const cleanItems = [];
+        for (const item of allItems) {
+          const scan = scanForInjection(item.content, item.name);
+          if (!scan.clean) {
+            blockedItems.push({ ...item, issues: scan.issues });
+          } else {
+            cleanItems.push(item);
+          }
+        }
+
+        if (blockedItems.length > 0) {
+          const msg = 'Blocked ' + blockedItems.length + ' item(s) with injection patterns: ' + blockedItems.map(i => i.name).join(', ');
+          if (status) { status.textContent = msg; status.style.color = 'var(--danger)'; }
+          logActivity(msg, 'danger');
+        }
+
+        if (cleanItems.length === 0) {
+          throw new Error('No safe items to import (all blocked by security scan)');
+        }
+
+        // Group clean items by type for review
+        const skills = cleanItems.filter(i => i.type === 'skill');
+        const mcpServers = cleanItems.filter(i => i.type === 'mcp');
+        const agents = cleanItems.filter(i => i.type === 'agent');
+        const projectRules = cleanItems.filter(i => i.type === 'rule');
+
+        // Build review list HTML
+        let html = '';
+        if (skills.length > 0) {
+          html += '<div style="font-weight: 600; color: var(--accent-blue); margin-top: 8px;">🧠 Skills (' + skills.length + ')</div>';
+          skills.forEach(s => {
+            html += '<div style="padding: 6px 8px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px;">' + s.name + '</div>';
+          });
+        }
+        if (mcpServers.length > 0) {
+          html += '<div style="font-weight: 600; color: var(--accent-blue); margin-top: 8px;">🔌 MCP Servers (' + mcpServers.length + ')</div>';
+          mcpServers.forEach(m => {
+            html += '<div style="padding: 6px 8px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px;">' + m.name + '</div>';
+          });
+        }
+        if (agents.length > 0) {
+          html += '<div style="font-weight: 600; color: var(--accent-blue); margin-top: 8px;">🤖 Agents (' + agents.length + ')</div>';
+          agents.forEach(a => {
+            html += '<div style="padding: 6px 8px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px;">' + a.name + '</div>';
+          });
+        }
+        if (projectRules.length > 0) {
+          html += '<div style="font-weight: 600; color: var(--accent-blue); margin-top: 8px;">📋 Project Rules (' + projectRules.length + ')</div>';
+          projectRules.forEach(r => {
+            html += '<div style="padding: 6px 8px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px;">' + r.name + '</div>';
+          });
+        }
+
+        if (reviewList) reviewList.innerHTML = html;
+        if (reviewDiv) reviewDiv.style.display = 'block';
+
+        // Store scanned data for confirmation
+        importToolScannedData = {
+          toolType,
+          skills: extracted.skills,
+          mcpServers: extracted.mcpServers,
+          agents: extracted.agents,
+          projectRules: extracted.projectRules
+        };
+
+        if (status) { status.textContent = 'Scan complete. ' + cleanItems.length + ' safe item(s) found. Review and confirm.'; status.style.color = 'var(--success)'; }
+
+      } catch (err) {
+        if (status) { status.textContent = 'Scan failed: ' + err.message; status.style.color = 'var(--danger)'; }
+        logActivity('Import tools scan failed: ' + err.message, 'error');
+        importToolScannedData = null;
+      }
+    }
+
+    // Extract recognized data from parsed export based on tool type
+    function extractToolData(parsed, toolType) {
+      const result = { skills: [], mcpServers: [], agents: [], projectRules: [] };
+
+      switch (toolType) {
+        case 'claudecode': {
+          // Claude Code exports: .claude/agents/, .claude/commands/, settings.json
+          if (parsed.agents && Array.isArray(parsed.agents)) {
+            result.agents = parsed.agents.map(a => ({ name: a.name || 'Unnamed Agent', ...a }));
+          }
+          if (parsed.mcpServers && Array.isArray(parsed.mcpServers)) {
+            result.mcpServers = parsed.mcpServers.map(m => ({ name: m.name || 'Unnamed MCP', ...m }));
+          }
+          if (parsed.skills && Array.isArray(parsed.skills)) {
+            result.skills = parsed.skills.map(s => ({ name: s.name || 'Unnamed Skill', ...s }));
+          }
+          if (parsed.projectRules && typeof parsed.projectRules === 'string') {
+            result.projectRules.push({ name: 'Project Rules', content: parsed.projectRules });
+          }
+          break;
+        }
+        case 'codex': {
+          // Codex exports: codex.json with agents, tools, mcpServers
+          if (parsed.agents && Array.isArray(parsed.agents)) {
+            result.agents = parsed.agents.map(a => ({ name: a.name || 'Unnamed Agent', ...a }));
+          }
+          if (parsed.mcpServers && Array.isArray(parsed.mcpServers)) {
+            result.mcpServers = parsed.mcpServers.map(m => ({ name: m.name || 'Unnamed MCP', ...m }));
+          }
+          if (parsed.skills && Array.isArray(parsed.skills)) {
+            result.skills = parsed.skills.map(s => ({ name: s.name || 'Unnamed Skill', ...s }));
+          }
+          if (parsed.projectRules && typeof parsed.projectRules === 'string') {
+            result.projectRules.push({ name: 'Project Rules', content: parsed.projectRules });
+          }
+          break;
+        }
+        case 'cursor': {
+          // Cursor exports: .cursor/rules/, .cursor/mcp.json, agents
+          if (parsed.agents && Array.isArray(parsed.agents)) {
+            result.agents = parsed.agents.map(a => ({ name: a.name || 'Unnamed Agent', ...a }));
+          }
+          if (parsed.mcpServers && Array.isArray(parsed.mcpServers)) {
+            result.mcpServers = parsed.mcpServers.map(m => ({ name: m.name || 'Unnamed MCP', ...m }));
+          }
+          if (parsed.skills && Array.isArray(parsed.skills)) {
+            result.skills = parsed.skills.map(s => ({ name: s.name || 'Unnamed Skill', ...s }));
+          }
+          if (parsed.rules && Array.isArray(parsed.rules)) {
+            result.projectRules = parsed.rules.map(r => ({ name: r.name || 'Rule', content: r.content || JSON.stringify(r) }));
+          } else if (parsed.projectRules && typeof parsed.projectRules === 'string') {
+            result.projectRules.push({ name: 'Project Rules', content: parsed.projectRules });
+          }
+          break;
+        }
+        case 'opencode': {
+          // OpenCode exports: opencode.json with agents, plugins, mcp
+          if (parsed.agents && Array.isArray(parsed.agents)) {
+            result.agents = parsed.agents.map(a => ({ name: a.name || 'Unnamed Agent', ...a }));
+          }
+          if (parsed.mcpServers && Array.isArray(parsed.mcpServers)) {
+            result.mcpServers = parsed.mcpServers.map(m => ({ name: m.name || 'Unnamed MCP', ...m }));
+          }
+          if (parsed.plugins && Array.isArray(parsed.plugins)) {
+            // OpenCode plugins map to skills
+            result.skills = parsed.plugins.map(p => ({ name: p.name || 'Unnamed Plugin', ...p }));
+          }
+          if (parsed.projectRules && typeof parsed.projectRules === 'string') {
+            result.projectRules.push({ name: 'Project Rules', content: parsed.projectRules });
+          }
+          break;
+        }
+        case 'qoder': {
+          // Qoder exports: qoder.json with assistants, mcp, rules
+          if (parsed.assistants && Array.isArray(parsed.assistants)) {
+            result.agents = parsed.assistants.map(a => ({ name: a.name || 'Unnamed Assistant', ...a }));
+          }
+          if (parsed.mcpServers && Array.isArray(parsed.mcpServers)) {
+            result.mcpServers = parsed.mcpServers.map(m => ({ name: m.name || 'Unnamed MCP', ...m }));
+          }
+          if (parsed.skills && Array.isArray(parsed.skills)) {
+            result.skills = parsed.skills.map(s => ({ name: s.name || 'Unnamed Skill', ...s }));
+          }
+          if (parsed.rules && Array.isArray(parsed.rules)) {
+            result.projectRules = parsed.rules.map(r => ({ name: r.name || 'Rule', content: r.content || JSON.stringify(r) }));
+          } else if (parsed.projectRules && typeof parsed.projectRules === 'string') {
+            result.projectRules.push({ name: 'Project Rules', content: parsed.projectRules });
+          }
+          break;
+        }
+      }
+
+      return result;
+    }
+
+    // Confirm and apply the scanned import
+    function confirmImportToolExport() {
+      if (!importToolScannedData) {
+        const status = document.getElementById('importToolStatus');
+        if (status) { status.textContent = 'No scanned data to import. Run scan first.'; status.style.color = 'var(--warning)'; }
+        return;
+      }
+
+      const status = document.getElementById('importToolStatus');
+      const reviewDiv = document.getElementById('importToolReview');
+
+      // Import skills
+      importToolScannedData.skills.forEach(skill => {
+        const id = 'skill_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+        appState.customSkillPacks[id] = { ...skill, id, isBuiltin: false, createdAt: Date.now() };
+      });
+
+      // Import MCP servers
+      importToolScannedData.mcpServers.forEach(mcp => {
+        const id = 'mcp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+        appState.mcpServers[id] = { ...mcp, id, createdAt: Date.now() };
+      });
+
+      // Import agents
+      importToolScannedData.agents.forEach(agent => {
+        const id = 'agent_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+        appState.agents[id] = { ...agent, id, providerId: appState.activeProviderId, createdAt: Date.now() };
+      });
+
+      // Import project rules - store in active session's files as .devforge/rules.md
+      if (importToolScannedData.projectRules.length > 0 && appState.activeSessionId) {
+        const session = appState.sessions[appState.activeSessionId];
+        if (session) {
+          const rulesContent = importToolScannedData.projectRules.map(r => r.content).join('\n\n---\n\n');
+          session.files = session.files || {};
+          session.files['.devforge/rules.md'] = rulesContent;
+        }
+      }
+
+      saveAppState();
+
+      const totalImported = importToolScannedData.skills.length + importToolScannedData.mcpServers.length + importToolScannedData.agents.length + importToolScannedData.projectRules.length;
+      const msg = 'Imported ' + totalImported + ' item(s) from ' + importToolScannedData.toolType + ' (' + importToolScannedData.skills.length + ' skills, ' + importToolScannedData.mcpServers.length + ' MCPs, ' + importToolScannedData.agents.length + ' agents, ' + importToolScannedData.projectRules.length + ' rules)';
+      if (status) { status.textContent = msg; status.style.color = 'var(--success)'; }
+      logActivity(msg, 'success');
+
+      // Clear and hide review
+      importToolScannedData = null;
+      if (reviewDiv) reviewDiv.style.display = 'none';
+      const pasteArea = document.getElementById('importToolPaste');
+      if (pasteArea) pasteArea.value = '';
+
+      // Refresh relevant tabs if they're open
+      renderMcpServerSummary();
+      renderBuiltinSkillPacks();
     }
 
     // Export all app state to a JSON file
@@ -19131,6 +19477,7 @@ Format:
           if (tabName === 'language') renderLanguageTab();
           if (tabName === 'skillLibrarian') renderSkillLibrarian();
           if (tabName === 'scheduled') renderScheduledTasksTab();
+          if (tabName === 'importTools') renderImportToolsTab();
         });
       });
 
