@@ -2381,6 +2381,16 @@
                   <!-- Built-in skill packs rendered here -->
                 </div>
               </div>
+              <!-- Superpowers Pack Section -->
+              <div id="superpowersPackSection" style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border-color);">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
+                  <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;" data-i18n="Superpowers">Superpowers</span>
+                  <span style="font-size: 9px; padding: 2px 6px; background: var(--accent-purple); color: white; border-radius: 3px;">BUILT-IN</span>
+                </div>
+                <div id="superpowersSkillList" style="display: flex; flex-direction: column; gap: 4px;">
+                  <!-- Superpowers skills rendered here -->
+                </div>
+              </div>
               <!-- Tool Recommendations Section (Batch 7.2b) -->
               <div id="skills-recommendations-section" style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border-color);">
                 <!-- Skill recommendations rendered here -->
@@ -2640,6 +2650,48 @@
           </div>
           <label class="toggle-switch" style="cursor: pointer; flex-shrink: 0;">
             <input type="checkbox" id="toolRecommendationsToggleSettings" style="display: none;" checked />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <hr style="border: none; border-top: 1px solid var(--border-color); margin: 12px 0;">
+        <!-- Verification Before Completion (Batch 7.3) -->
+        <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;" data-i18n="Verification Before Completion">Verification Before Completion</div>
+        <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 8px;" data-i18n="Iron law gate: require fresh test/build evidence before claiming 'done'. Stale evidence (any file change after run) is rejected. OFF shows warning on every completion claim.">Iron law gate: require fresh test/build evidence before claiming 'done'. Stale evidence (any file change after run) is rejected. OFF shows warning on every completion claim.</div>
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+          <div style="flex: 1; min-width: 0;">
+            <div style="font-weight: 600; font-size: 12px; color: var(--text-main);" data-i18n="Require fresh evidence for completion">Require fresh evidence for completion</div>
+            <div style="font-size: 10px; color: var(--text-dim); margin-top: 2px;" data-i18n="Block 'done' claims without fresh test/build run (exit 0 + output read).">Block 'done' claims without fresh test/build run (exit 0 + output read).</div>
+          </div>
+          <label class="toggle-switch" style="cursor: pointer; flex-shrink: 0;">
+            <input type="checkbox" id="verificationBeforeCompletionToggleSettings" style="display: none;" checked />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <hr style="border: none; border-top: 1px solid var(--border-color); margin: 12px 0;">
+        <!-- Ask Before Building / Brainstorm (Batch 7.3) -->
+        <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;" data-i18n="Brainstorm Before Building">Brainstorm Before Building</div>
+        <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 8px;" data-i18n="For multi-file tasks, present 2-3 approaches first and get human approval before planning. Single-file tasks skip automatically.">For multi-file tasks, present 2-3 approaches first and get human approval before planning. Single-file tasks skip automatically.</div>
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+          <div style="flex: 1; min-width: 0;">
+            <div style="font-weight: 600; font-size: 12px; color: var(--text-main);" data-i18n="Ask before building (brainstorm first)">Ask before building (brainstorm first)</div>
+            <div style="font-size: 10px; color: var(--text-dim); margin-top: 2px;" data-i18n="Present approaches for multi-file tasks, get human pick, then plan.">Present approaches for multi-file tasks, get human pick, then plan.</div>
+          </div>
+          <label class="toggle-switch" style="cursor: pointer; flex-shrink: 0;">
+            <input type="checkbox" id="askBeforeBuildingToggleSettings" style="display: none;" checked />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <hr style="border: none; border-top: 1px solid var(--border-color); margin: 12px 0;">
+        <!-- TDD Badge in Diff Review (Batch 7.3) -->
+        <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;" data-i18n="TDD Badge in Diff Review">TDD Badge in Diff Review</div>
+        <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 8px;" data-i18n="Show 'test-first ✓' or 'no test first ✗' badge in A2 diff review when production files change. Warning only, not a hard block.">Show 'test-first ✓' or 'no test first ✗' badge in A2 diff review when production files change. Warning only, not a hard block.</div>
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+          <div style="flex: 1; min-width: 0;">
+            <div style="font-weight: 600; font-size: 12px; color: var(--text-main);" data-i18n="Show TDD badge in diff review">Show TDD badge in diff review</div>
+            <div style="font-size: 10px; color: var(--text-dim); margin-top: 2px;" data-i18n="Badge indicates if a test was written before the production change in this task.">Badge indicates if a test was written before the production change in this task.</div>
+          </div>
+          <label class="toggle-switch" style="cursor: pointer; flex-shrink: 0;">
+            <input type="checkbox" id="tddBadgeToggleSettings" style="display: none;" checked />
             <span class="toggle-slider"></span>
           </label>
         </div>
@@ -4653,6 +4705,37 @@ WORK STYLE:
       }
     };
 
+    // Superpowers Pack — 12 disciplined workflow skills
+    const SUPERPOWER_SKILLS = [
+      'brainstorming',
+      'writing-plans',
+      'test-driven-development',
+      'subagent-driven-development',
+      'executing-plans',
+      'using-git-worktrees',
+      'verification-before-completion',
+      'systematic-debugging',
+      'requesting-code-review',
+      'receiving-code-review',
+      'dispatching-parallel-agents',
+      'finishing-a-development-branch'
+    ];
+
+    const SUPERPOWER_SKILL_DETAILS = {
+      'brainstorming': { name: 'brainstorming', desc: 'Lay out 2–3 approaches in plain language, get human to pick one, write a short design doc, get approval, THEN plan. Never build first.' },
+      'writing-plans': { name: 'writing-plans', desc: 'Plans saved per feature under .devforge/plans/YYYY-MM-DD-<feature>.md; tasks right-sized to end in independently testable deliverables; every step is one action with a checkable result.' },
+      'test-driven-development': { name: 'test-driven-development', desc: 'TDD iron law: NO PRODUCTION CODE WITHOUT A FAILING TEST FIRST — write the test, watch it fail, write minimal code to pass.' },
+      'subagent-driven-development': { name: 'subagent-driven-development', desc: 'Fresh subagent per task, review after each, broad final review; "Rulings, not stalls" — only 4 things stop a run: irreversible/destructive action, security-sensitive action, side effect outside worktree, or a plan so broken every path is a guess.' },
+      'executing-plans': { name: 'executing-plans', desc: 'Execute a written plan step by step, checking each step result before the next; a failed step stops that step only, the plan is revised, never silently skipped.' },
+      'using-git-worktrees': { name: 'using-git-worktrees', desc: 'Detect isolation first, prefer native worktree tools, fall back to git worktree add; never mix two tasks in one tree.' },
+      'verification-before-completion': { name: 'verification-before-completion', desc: 'Iron law gate: identify proving command → run fresh → read full output + exit code → verify → only then claim done. Stale evidence (any file change after run) invalidates and re-runs. Completion message shows command + exit code + pass count.' },
+      'systematic-debugging': { name: 'systematic-debugging', desc: 'Reproduce first, form ONE hypothesis, test it, record the result; never shotgun-fix, never change two things at once.' },
+      'requesting-code-review': { name: 'requesting-code-review', desc: 'Before asking for review: run tests, run lint, write what changed and what to check; the review request carries its own evidence.' },
+      'receiving-code-review': { name: 'receiving-code-review', desc: 'Every review comment gets a reply: fixed, disputed with reason, or deferred with reason; nothing silently dropped.' },
+      'dispatching-parallel-agents': { name: 'dispatching-parallel-agents', desc: 'Independent tasks go to parallel agents with non-overlapping file scopes; overlapping scopes are sequential, never parallel.' },
+      'finishing-a-development-branch': { name: 'finishing-a-development-branch', desc: 'Before a branch is called done: tests green, review addressed, changelog entry, clean tree, pushed.' }
+    };
+
     // Built-in Plugin Packs (read-only)
     const BUILTIN_PLUGIN_PACKS = {
       'console-error-sweep': {
@@ -5620,6 +5703,28 @@ WORK STYLE:
         'No recommendations for this task': 'এই কাজের জন্য কোনো সুপারিশ নেই',
         'Accumulated recommendations across tasks': 'বিভিন্ন কাজ থেকে জমা সুপারিশ',
         'Install from here anytime': 'এখান থেকে যেকোনো সময় ইনস্টল করুন',
+
+        // Superpowers Pack (Batch 7.3)
+        'Verification Before Completion': 'সমাপ্তির আগে যাচাই',
+        'Iron law gate: require fresh test/build evidence before claiming \\'done\\'. Stale evidence (any file change after run) is rejected. OFF shows warning on every completion claim.': 'আয়রন ল গেট: ডান দাবি করার আগে তাজা টেস্ট/বিল্ড বুদ্ধি প্রয়োজন। পুরনো বুদ্ধি (রান করার পর ফাইল পরিবর্তন) প্রত্যাখ্যান করা হয়। OFF থাকলে প্রতিটি সমাপ্তি দাবিতে সতর্কতা দেখায়।',
+        'Require fresh evidence for completion': 'সমাপ্তির জন্য তাজা বুদ্ধি প্রয়োজন',
+        'Block \\'done\\' claims without fresh test/build run (exit 0 + output read).': 'তাজা টেস্ট/বিল্ড রান (exit 0 + আউটপুট পড়া) ছাড়া ডান দাবি ব্লক করুন।',
+        'Brainstorm Before Building': 'বিল্ডের আগে ব্রেইনস্টর্ম',
+        'For multi-file tasks, present 2-3 approaches first and get human approval before planning. Single-file tasks skip automatically.': 'বহু-ফাইল টাস্কের জন্য, পরিকল্পনার আগে ২-৩টি পদ্ধতি উপস্থাপন করুন এবং মানব অনুমোদন নিন। একক-ফাইল টাস্ক স্বয়ংক্রিয়ভাবে বাদ দেওয়া হয়।',
+        'Ask before building (brainstorm first)': 'বিল্ডের আগে জিজ্ঞেস করুন (প্রথমে ব্রেইনস্টর্ম)',
+        'Present approaches for multi-file tasks, get human pick, then plan.': 'বহু-ফাইল টাস্কের জন্য পদ্ধতিগুলো উপস্থাপন করুন, মানবের পছন্দ পান, তারপর পরিকল্পনা করুন।',
+        'TDD Badge in Diff Review': 'ডিফ রিভিউ-এ TDD ব্যাজ',
+        'Show \\'test-first ✓\\' or \\'no test first ✗\\' badge in A2 diff review when production files change. Warning only, not a hard block.': 'প্রোডাকশন ফাইল পরিবর্তন হলে A2 ডিফ রিভিউ-এ test-first ✓ বা no test first ✗ ব্যাজ দেখান। শুধু সতর্কতা, হার্ড ব্লক নয়।',
+        'Show TDD badge in diff review': 'ডিফ রিভিউ-এ TDD ব্যাজ দেখান',
+        'Badge indicates if a test was written before the production change in this task.': 'ব্যাজ ইঙ্গিত করে এই টাস্কে প্রোডাকশন পরিবর্তনের আগে টেস্ট লিখা হয়েছে কিনা।',
+        'Choose an approach': 'একটি পদ্ধতি বেছে নিন',
+        'This task involves multiple files. Pick an approach before building.': 'এই টাস্কে একাধিক ফাইল জড়িত। বিল্ড করার আগে একটি পদ্ধতি বেছে নিন।',
+        'Cancel': 'বাতিল',
+        'test-first ✓': 'টেস্ট-ফার্স্ট ✓',
+        'no test first ✗': 'নো টেস্ট ফার্স্ট ✗',
+        'Verification before completion': 'সমাপ্তির আগে যাচাই',
+        'cost if wrong': 'ভুল হলে খরচ',
+        'stale evidence': 'পুরনো বুদ্ধি',
   }
 };
 
@@ -5860,6 +5965,20 @@ WORK STYLE:
         loadedCount: 0,             // Number of tool definitions loaded this session
         loadedKeys: []              // Keys of loaded tool definitions
       },
+      // Superpowers Pack settings (Batch 7.3)
+      superpowersEnabled: {},       // { [skillId]: boolean } — per-skill enable toggles, default all ON
+      // Verification-before-completion gate (Batch 7.3)
+      verificationBeforeCompletion: true,  // Iron law gate: require fresh evidence before "done" claim
+      verificationEvidence: null,    // { command, outputTail, exitCode, ranAt, filesChangedAfter }
+      // TDD iron law badge (Batch 7.3)
+      tddBadgeEnabled: true,         // Show TDD badge in diff review
+      taskTddState: {                // Per-task TDD tracking
+        testWrittenFirst: false,
+        testFile: null,
+        productionFiles: []
+      },
+      // Brainstorm-before-building (Batch 7.3)
+      askBeforeBuilding: true,       // Ask for approach before building multi-file tasks
       // Scheduled Tasks + Watch Loops (H5.1)
       scheduledTasks: [],  // Array of {id, name, schedule, prompt, skills, modelPin, workdir, noAgent, script, deliver, monitor, enabled, created, nextRun, lastRun, status, preflightValid, preflightAlerted}
       // Hooks (H5.4)
@@ -10413,6 +10532,52 @@ Links: [[Brain Index]]
       });
     }
 
+    // Render Superpowers pack skills with enable/disable toggles
+    function renderSuperpowersSkills() {
+      const container = document.getElementById('superpowersSkillList');
+      if (!container) return;
+      container.innerHTML = '';
+
+      // Initialize superpowersEnabled in appState if not present (default all ON)
+      if (!appState.superpowersEnabled) {
+        appState.superpowersEnabled = {};
+        SUPERPOWER_SKILLS.forEach(skill => {
+          appState.superpowersEnabled[skill] = true;
+        });
+        saveAppState();
+      }
+
+      SUPERPOWER_SKILLS.forEach(skill => {
+        const skillData = SUPERPOWER_SKILL_DETAILS[skill];
+        const enabled = appState.superpowersEnabled[skill] !== false; // default true
+        const item = document.createElement('div');
+        item.style.cssText = 'display:flex; align-items:center; justify-content:space-between; padding:8px 10px; background:var(--bg-surface); border:1px solid var(--border-color); border-radius:5px;';
+        item.innerHTML = `
+          <div style="flex:1; min-width:0;">
+            <div style="font-weight:600; font-size:12px; color:var(--accent-purple);">${escapeHtml(skillData.name)}</div>
+            <div style="font-size:10px; color:var(--text-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(skillData.desc)}</div>
+          </div>
+          <label class="toggle-switch" style="cursor: pointer;">
+            <input type="checkbox" ${enabled ? 'checked' : ''} data-superpower-skill="${escapeHtml(skill)}" />
+            <span class="toggle-slider"></span>
+          </label>
+        `;
+        container.appendChild(item);
+      });
+
+      // Attach toggle handlers
+      container.querySelectorAll('input[data-superpower-skill]').forEach(input => {
+        input.onchange = (e) => {
+          const skill = e.target.getAttribute('data-superpower-skill');
+          appState.superpowersEnabled[skill] = e.target.checked;
+          saveAppState();
+          logActivity(`${e.target.checked ? 'Enabled' : 'Disabled'} Superpower: ${skill}`, 'info');
+          // Re-render skill librarian to reflect changes
+          renderSkillLibrarian();
+        };
+      });
+    }
+
     // Render built-in plugin packs in settings
     function renderBuiltinPluginPacks() {
       const container = document.getElementById('builtinPluginPackList');
@@ -10653,6 +10818,39 @@ Links: [[Brain Index]]
         };
       }
 
+      // Verification Before Completion toggle (Batch 7.3)
+      const verificationToggle = document.getElementById('verificationBeforeCompletionToggleSettings');
+      if (verificationToggle) {
+        verificationToggle.checked = appState.verificationBeforeCompletion !== false; // Default ON
+        verificationToggle.onchange = (e) => {
+          appState.verificationBeforeCompletion = e.target.checked;
+          saveAppState();
+          logActivity(e.target.checked ? 'Verification-before-completion gate ENABLED' : '⚠️ Verification-before-completion gate DISABLED — completion claims become UNVERIFIED', e.target.checked ? 'success' : 'warning');
+        };
+      }
+
+      // Ask Before Building / Brainstorm toggle (Batch 7.3)
+      const askBeforeBuildingToggle = document.getElementById('askBeforeBuildingToggleSettings');
+      if (askBeforeBuildingToggle) {
+        askBeforeBuildingToggle.checked = appState.askBeforeBuilding !== false; // Default ON
+        askBeforeBuildingToggle.onchange = (e) => {
+          appState.askBeforeBuilding = e.target.checked;
+          saveAppState();
+          logActivity(e.target.checked ? 'Brainstorm-before-building ENABLED' : 'Brainstorm-before-building DISABLED', 'info');
+        };
+      }
+
+      // TDD Badge toggle (Batch 7.3)
+      const tddBadgeToggle = document.getElementById('tddBadgeToggleSettings');
+      if (tddBadgeToggle) {
+        tddBadgeToggle.checked = appState.tddBadgeEnabled !== false; // Default ON
+        tddBadgeToggle.onchange = (e) => {
+          appState.tddBadgeEnabled = e.target.checked;
+          saveAppState();
+          logActivity(e.target.checked ? 'TDD badge in diff review ENABLED' : 'TDD badge in diff review DISABLED', 'info');
+        };
+      }
+
       // Render muted recommendations list
       renderMutedRecommendationsList();
     }
@@ -10702,6 +10900,20 @@ Links: [[Brain Index]]
         { name: 'api-design', desc: 'Hardened client design for calling heterogeneous LLM/provider APIs.' },
         { name: 'debugging-discipline', desc: 'Systematic debugging methodology.' },
         { name: 'git-workflow', desc: 'Clean git habits for staged agent-built projects.' }
+      ],
+      superpowers: [
+        { name: 'brainstorming', desc: 'Lay out 2–3 approaches in plain language, get human to pick one, write a short design doc, get approval, THEN plan. Never build first.' },
+        { name: 'writing-plans', desc: 'Plans saved per feature under .devforge/plans/YYYY-MM-DD-<feature>.md; tasks right-sized to end in independently testable deliverables; every step is one action with a checkable result.' },
+        { name: 'test-driven-development', desc: 'TDD iron law: NO PRODUCTION CODE WITHOUT A FAILING TEST FIRST — write the test, watch it fail, write minimal code to pass.' },
+        { name: 'subagent-driven-development', desc: 'Fresh subagent per task, review after each, broad final review; "Rulings, not stalls" — only 4 things stop a run: irreversible/destructive action, security-sensitive action, side effect outside worktree, or a plan so broken every path is a guess.' },
+        { name: 'executing-plans', desc: 'Execute a written plan step by step, checking each step result before the next; a failed step stops that step only, the plan is revised, never silently skipped.' },
+        { name: 'using-git-worktrees', desc: 'Detect isolation first, prefer native worktree tools, fall back to git worktree add; never mix two tasks in one tree.' },
+        { name: 'verification-before-completion', desc: 'Iron law gate: identify proving command → run fresh → read full output + exit code → verify → only then claim done. Stale evidence (any file change after run) invalidates and re-runs. Completion message shows command + exit code + pass count.' },
+        { name: 'systematic-debugging', desc: 'Reproduce first, form ONE hypothesis, test it, record the result; never shotgun-fix, never change two things at once.' },
+        { name: 'requesting-code-review', desc: 'Before asking for review: run tests, run lint, write what changed and what to check; the review request carries its own evidence.' },
+        { name: 'receiving-code-review', desc: 'Every review comment gets a reply: fixed, disputed with reason, or deferred with reason; nothing silently dropped.' },
+        { name: 'dispatching-parallel-agents', desc: 'Independent tasks go to parallel agents with non-overlapping file scopes; overlapping scopes are sequential, never parallel.' },
+        { name: 'finishing-a-development-branch', desc: 'Before a branch is called done: tests green, review addressed, changelog entry, clean tree, pushed.' }
       ],
       mcps: [
         { name: 'context7', desc: 'Docs lookup — up-to-date documentation and code examples for any library.' },
@@ -13913,6 +14125,12 @@ Links: [[Brain Index]]
       if (window.AUTONOMY_CATALOG?.vibeSkills) {
         window.AUTONOMY_CATALOG.vibeSkills.forEach(s => {
           skills.push({ id: s.name, name: s.name, desc: s.desc, isCustom: false, source: 'builtin' });
+        });
+      }
+      // Superpowers skills from AUTONOMY_CATALOG
+      if (window.AUTONOMY_CATALOG?.superpowers) {
+        window.AUTONOMY_CATALOG.superpowers.forEach(s => {
+          skills.push({ id: s.name, name: s.name, desc: s.desc, isCustom: false, source: 'builtin', pack: 'superpowers' });
         });
       }
       // Custom skills from skillPacks
@@ -17214,6 +17432,9 @@ Only propose merges for skills that are genuinely overlapping or complementary. 
                 }));
                 logActivity(`Applied ${srResult.changes.length} SEARCH/REPLACE patch(es)`, 'success');
                 toolsUsed.push({ name: 'search-replace-patch', type: 'skill' });
+                
+                // Batch 7.3: Track file writes for verification gate and TDD badge
+                srResult.changes.forEach(c => onFileWritten(c.filePath));
 
                 // Atomic Batches (H2.5): compact summary chip instead of per-file chips
                 if (appState.atomicBatchMode && fileOps.length > 1) {
@@ -17259,6 +17480,9 @@ Only propose merges for skills that are genuinely overlapping or complementary. 
                 }));
                 logActivity(`Applied unified diff with ${udResult.changes.length} file(s)`, 'success');
                 toolsUsed.push({ name: 'unified-diff-patch', type: 'skill' });
+                
+                // Batch 7.3: Track file writes for verification gate and TDD badge
+                udResult.changes.forEach(c => onFileWritten(c.filePath));
 
                 if (appState.atomicBatchMode && fileOps.length > 1) {
                   const fileCount = fileOps.length;
@@ -17355,6 +17579,8 @@ Only propose merges for skills that are genuinely overlapping or complementary. 
                   // Track agent modification for keep-my-edits restore
                   if (!session.fileMeta) session.fileMeta = {};
                   session.fileMeta[targetPath] = { lastModifiedBy: 'agent', timestamp: Date.now() };
+                  // Batch 7.3: Track file writes for verification gate and TDD badge
+                  onFileWritten(targetPath);
                 }
                 fileModified = true;
                 const lineCount = blockContent.split('\n').length;
@@ -17369,6 +17595,8 @@ Only propose merges for skills that are genuinely overlapping or complementary. 
                 // Track agent deletion for keep-my-edits restore
                 if (!session.fileMeta) session.fileMeta = {};
                 session.fileMeta[targetPath] = { lastModifiedBy: 'agent', timestamp: Date.now(), deleted: true };
+                // Batch 7.3: Track file writes for verification gate
+                onFileWritten(targetPath);
                 fileModified = true;
                 fileOps.push({ type: 'delete', path: targetPath, lineCount: 0 });
                 logActivity(`Agent deleted ${targetPath}`, 'warning');
@@ -17590,27 +17818,39 @@ Only propose merges for skills that are genuinely overlapping or complementary. 
               : '<span style="background:rgba(59,130,246,0.2); color:var(--accent-blue); padding:2px 6px; border-radius:3px; font-size:9px; font-weight:600;">MODIFY</span>';
       
           // Method badge: shows how the change was applied (patch vs full rewrite)
-          const methodBadge = method
-            ? `<span style="background:rgba(139,92,246,0.15); color:var(--accent-purple); padding:2px 6px; border-radius:3px; font-size:9px; font-weight:600; margin-left:6px;">via ${escapeHtml(method)}</span>`
-            : '';
-      
-          return `
-            <div class="diff-file" data-path="${escapeHtml(path)}" style="background:var(--bg-surface); border:1px solid var(--border-color); border-radius:6px; overflow:hidden;">
-              <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:var(--bg-panel); border-bottom:1px solid var(--border-color);">
-                <div style="display:flex; align-items:center; gap:8px;">
-                  <span style="font-family:var(--font-mono); font-size:12px; color:var(--text-main);">${escapeHtml(path)}</span>
-                  ${actionBadge}
-                  ${methodBadge}
-                </div>
-                <div style="display:flex; gap:6px;">
-                  <button class="btn btn-secondary btn-accept-file" data-path="${escapeHtml(path)}" style="padding:4px 10px; font-size:10px;">Accept</button>
-                  <button class="btn btn-secondary btn-reject-file" data-path="${escapeHtml(path)}" style="padding:4px 10px; font-size:10px; color:var(--danger); border-color:var(--danger);">Reject</button>
-                </div>
-              </div>
-              <div class="diff-content" style="max-height:300px; overflow:auto; font-family:var(--font-mono); font-size:11px; line-height:1.6; padding:8px;">
-                ${diffHtml}
-              </div>
-            </div>
+                    const methodBadge = method
+                      ? `<span style="background:rgba(139,92,246,0.15); color:var(--accent-purple); padding:2px 6px; border-radius:3px; font-size:9px; font-weight:600; margin-left:6px;">via ${escapeHtml(method)}</span>`
+                      : '';
+          
+                    // TDD badge (Batch 7.3) — shows if test was written before production change
+                    let tddBadgeHtml = '';
+                    if (appState.tddBadgeEnabled && appState.taskTddState) {
+                      const { testWrittenFirst } = appState.taskTddState;
+                      if (testWrittenFirst) {
+                        tddBadgeHtml = '<span style="background:rgba(16,185,129,0.2); color:var(--success); padding:2px 6px; border-radius:3px; font-size:9px; font-weight:600; margin-left:6px;" data-i18n="test-first ✓">test-first ✓</span>';
+                      } else {
+                        tddBadgeHtml = '<span style="background:rgba(239,68,68,0.2); color:var(--danger); padding:2px 6px; border-radius:3px; font-size:9px; font-weight:600; margin-left:6px;" data-i18n="no test first ✗">no test first ✗</span>';
+                      }
+                    }
+
+                    return `
+                      <div class="diff-file" data-path="${escapeHtml(path)}" style="background:var(--bg-surface); border:1px solid var(--border-color); border-radius:6px; overflow:hidden;">
+                        <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:var(--bg-panel); border-bottom:1px solid var(--border-color);">
+                          <div style="display:flex; align-items:center; gap:8px;">
+                            <span style="font-family:var(--font-mono); font-size:12px; color:var(--text-main);">${escapeHtml(path)}</span>
+                            ${actionBadge}
+                            ${methodBadge}
+                            ${tddBadgeHtml}
+                          </div>
+                          <div style="display:flex; gap:6px;">
+                            <button class="btn btn-secondary btn-accept-file" data-path="${escapeHtml(path)}" style="padding:4px 10px; font-size:10px;">Accept</button>
+                            <button class="btn btn-secondary btn-reject-file" data-path="${escapeHtml(path)}" style="padding:4px 10px; font-size:10px; color:var(--danger); border-color:var(--danger);">Reject</button>
+                          </div>
+                        </div>
+                        <div class="diff-content" style="max-height:300px; overflow:auto; font-family:var(--font-mono); font-size:11px; line-height:1.6; padding:8px;">
+                          ${diffHtml}
+                        </div>
+                      </div>`;
           `;
         }
 
@@ -18780,6 +19020,25 @@ async function sendAgentPrompt(userPrompt, autoTurn = 0) {
         }
       }
 
+      // Brainstorm before building (Batch 7.3) — for multi-file tasks in normal mode
+      if (autoTurn === 0 && appState.askBeforeBuilding && appState.planMode === 'normal') {
+        if (shouldBrainstorm(userPrompt)) {
+          const approaches = await runBrainstorm(userPrompt);
+          // Present approaches to human and wait for selection
+          const chosen = await presentBrainstormChoices(approaches, userPrompt);
+          if (!chosen) {
+            // User cancelled or dismissed
+            agentWorking = false;
+            return;
+          }
+          // Record the choice
+          const designNote = `# Design Decision: ${new Date().toISOString().split('T')[0]} - ${userPrompt.slice(0, 50)}\n\nApproaches considered:\n${approaches.map(a => `- ${a.label}: ${a.desc}`).join('\n')}\n\n**Chosen:** ${chosen.label}\n\n---\n*Recorded by brainstorm-before-building (Superpowers pack)*`;
+          await writeBrainNote(`design-${Date.now()}`, designNote);
+          // Prepend the chosen approach to the prompt
+          userPrompt = `${chosen.label}: ${chosen.desc}\n\n---\n\nOriginal request:\n${userPrompt}`;
+        }
+      }
+
       // Handle Plan mode - generate plan only, no file changes
       if (appState.planMode === 'plan' && autoTurn === 0) {
         return sendPlanPrompt(userPrompt);
@@ -18940,6 +19199,22 @@ async function sendAgentPrompt(userPrompt, autoTurn = 0) {
           if (!gateCheck.passed) {
             appendChatMessage('system', gateCheck.message);
             logActivity('Pre-commit gate blocked task completion', 'warning');
+          }
+        }
+        
+        // Verification-before-completion gate (Batch 7.3) - check before final "done" claim
+        if (fileModified && autoTurn >= 3) {
+          const verification = verifyBeforeCompletion('Task completed');
+          if (!verification.allowed) {
+            appendChatMessage('system', verification.message);
+            logActivity('Verification-before-completion gate blocked task completion', 'warning');
+          } else if (verification.evidence) {
+            // Append evidence inline to the last agent message
+            appendChatMessage('system', verification.evidence);
+            logActivity('Verification-before-completion: fresh evidence attached', 'success');
+          } else if (verification.warning) {
+            appendChatMessage('system', '⚠️ Verification-before-completion is DISABLED — completion claim is UNVERIFIED');
+            logActivity('Verification-before-completion gate is OFF', 'warning');
           }
         }
 
@@ -22546,6 +22821,7 @@ Format:
           }
           if (tabName === 'skills') {
             renderBuiltinSkillPacks();
+            renderSuperpowersSkills();
             renderRecommendationSections();
           }
           if (tabName === 'plugins') {
@@ -27499,6 +27775,19 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
         const report = await callLLMWithAgent(messages, senior);
         appendTeamChat('final-report', appState.teamSeniorId, report);
         logActivity('Final report generated', 'success');
+        
+        // Verification-before-completion gate for Team Mode Senior final report (Batch 7.3)
+        const verification = verifyBeforeCompletion('Team mode final report');
+        if (!verification.allowed) {
+          appendTeamChat('system', null, verification.message);
+          logActivity('Verification-before-completion gate blocked Senior final report', 'warning');
+        } else if (verification.evidence) {
+          appendTeamChat('system', null, verification.evidence);
+          logActivity('Verification-before-completion: fresh evidence attached to Senior report', 'success');
+        } else if (verification.warning) {
+          appendTeamChat('system', null, '⚠️ Verification-before-completion is DISABLED — Senior report is UNVERIFIED');
+          logActivity('Verification-before-completion gate is OFF for Senior report', 'warning');
+        }
       } catch (err) {
         appendTeamChat('error', appState.teamSeniorId, `Report generation failed: ${err.message}`);
       }
@@ -27537,7 +27826,216 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
       return { passed: true };
     }
 
-    // ---- PART 4: PRE-COMMIT GATE ON TASKS (done-transition blocker) ----
+    // ==================== VERIFICATION-BEFORE-COMPLETION GATE (Batch 7.3) ====================
+    // Iron law: no "done" claim without fresh evidence (exit 0 + output read)
+    // Stale evidence (recorded before last file change) is rejected and gate re-runs
+
+    function recordVerificationEvidence(command, output, exitCode) {
+      const ranAt = Date.now();
+      const changedFiles = getRecentlyChangedFiles(ranAt - 5000);
+      appState.verificationEvidence = {
+        command: command,
+        outputTail: (output || '').slice(-3000),
+        exitCode: exitCode,
+        ranAt: ranAt,
+        filesChangedAfter: false
+      };
+      saveAppState();
+    }
+
+    function getRecentlyChangedFiles(since) {
+      if (!appState._recentlyWrittenFiles) return [];
+      return appState._recentlyWrittenFiles
+        .filter(f => f.at > since)
+        .map(f => f.path);
+    }
+
+    function markFilesChangedAfterEvidence() {
+      if (appState.verificationEvidence) {
+        appState.verificationEvidence.filesChangedAfter = true;
+        saveAppState();
+      }
+    }
+
+    function isEvidenceStale() {
+      const ev = appState.verificationEvidence;
+      if (!ev) return true;
+      if (ev.filesChangedAfter) return true;
+      return false;
+    }
+
+    function verifyBeforeCompletion(claim) {
+      if (!appState.verificationBeforeCompletion) {
+        logActivity('\u26a0\ufe0f Verification-before-completion gate is OFF \u2014 completion claims are UNVERIFIED', 'warning');
+        return { allowed: true, evidence: null, warning: true };
+      }
+      
+      if (isEvidenceStale()) {
+        const message = `\uD83D\uDEAB **Verification-Before-Completion Gate BLOCKED**\\n\\nClaim: "${claim}"\\n\\nNo fresh verification evidence exists. The iron law requires:\\n1. Identify the proving command (test suite, build, preview health check)\\n2. Run it FRESH in this turn\\n3. Read full output + exit code\\n4. Only then claim completion\\n\\nStale evidence does not count \u2014 any file change after the run invalidates it.\\n\\nRun your proving command now, then try again.`;
+        return { allowed: false, evidence: null, message, blocked: true };
+      }
+      
+      const ev = appState.verificationEvidence;
+      const evidenceText = `\u2705 Verified: \`${escapeHtml(ev.command)}\` \u2192 exit ${ev.exitCode} ${ev.exitCode === 0 ? '(pass)' : '(FAIL)'} @ ${new Date(ev.ranAt).toLocaleTimeString()}\\n\`\`\`\\n${escapeHtml(ev.outputTail)}\\n\`\`\``;
+      
+      return { allowed: true, evidence: evidenceText, evidenceRaw: ev };
+    }
+
+    function onFileWritten(filePath) {
+      if (!appState._recentlyWrittenFiles) appState._recentlyWrittenFiles = [];
+      appState._recentlyWrittenFiles.push({ path: filePath, at: Date.now() });
+      if (appState._recentlyWrittenFiles.length > 100) appState._recentlyWrittenFiles = appState._recentlyWrittenFiles.slice(-100);
+      markFilesChangedAfterEvidence();
+      
+      if (appState.tddBadgeEnabled && !isTestFile(filePath)) {
+        if (!appState.taskTddState.testWrittenFirst) {
+          appState.taskTddState.productionFiles.push(filePath);
+        }
+      }
+      if (appState.tddBadgeEnabled && isTestFile(filePath)) {
+        if (appState.taskTddState.productionFiles.length === 0) {
+          appState.taskTddState.testWrittenFirst = true;
+          appState.taskTddState.testFile = filePath;
+        }
+      }
+    }
+
+    function isTestFile(filePath) {
+      return filePath.includes('.test.') || filePath.includes('.spec.') || filePath.includes('test-') || filePath.includes('spec-');
+    }
+
+    function getTddBadge() {
+      if (!appState.tddBadgeEnabled) return '';
+      return appState.taskTddState.testWrittenFirst 
+        ? '\u2705 **TDD Badge: test-first \u2713**' 
+        : '\u26a0\ufe0f **TDD Badge: no test first \u2717**';
+    }
+
+    function resetTaskTddState() {
+      appState.taskTddState = {
+        testWrittenFirst: false,
+        testFile: null,
+        productionFiles: []
+      };
+    }
+
+    // ==================== BRAINSTORM-BEFORE-BUILDING (Batch 7.3) ====================
+    function shouldBrainstorm(userPrompt) {
+      if (!appState.askBeforeBuilding) return false;
+      const isPlanBuild = appState.planMode === 'plan-build' || appState.planMode === 'plan';
+      const isMultiFile = userPrompt.toLowerCase().includes('multi') || userPrompt.toLowerCase().includes('several') || userPrompt.toLowerCase().includes('multiple') || userPrompt.split(/\\s+/).length > 50;
+      return isPlanBuild || isMultiFile;
+    }
+
+    async function runBrainstorm(userPrompt) {
+      const approaches = [
+        { id: 'a', label: 'Approach A: Conservative', desc: 'Minimal changes, reuse existing patterns, incremental refactor' },
+        { id: 'b', label: 'Approach B: Modern', desc: 'Use modern APIs, new patterns, cleaner architecture' },
+        { id: 'c', label: 'Approach C: Hybrid', desc: 'Conservative core with modern enhancements where beneficial' }
+      ];
+      
+      const designNote = `# Design Decision: ${new Date().toISOString().split('T')[0]} - ${userPrompt.slice(0, 50)}\n\nApproaches considered:\n${approaches.map(a => `- ${a.label}: ${a.desc}`).join('\n')}\n\n**Chosen:** (pending human selection)\n\n---\n*Recorded by brainstorm-before-building (Superpowers pack)*`;
+      
+      await writeBrainNote(`design-${Date.now()}`, designNote);
+      
+      return approaches;
+    }
+
+    // Present brainstorm choices to human and wait for selection (Batch 7.3)
+    function presentBrainstormChoices(approaches, userPrompt) {
+      return new Promise(resolve => {
+        // Create modal dialog
+        const overlay = document.createElement('div');
+        overlay.style.cssText = 'position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:10000; display:flex; align-items:center; justify-content:center;';
+        
+        const modal = document.createElement('div');
+        modal.style.cssText = 'background:var(--bg-panel); border:1px solid var(--border-color); border-radius:8px; padding:20px; max-width:600px; width:90%; max-height:80vh; overflow:auto;';
+        
+        modal.innerHTML = `
+          <div style="margin-bottom:16px;">
+            <div style="font-size:14px; font-weight:600; color:var(--text-main); margin-bottom:4px;" data-i18n="Choose an approach">Choose an approach</div>
+            <div style="font-size:12px; color:var(--text-dim);" data-i18n="This task involves multiple files. Pick an approach before building.">This task involves multiple files. Pick an approach before building.</div>
+            <div style="font-size:11px; color:var(--text-dim); margin-top:4px; font-family:var(--font-mono);">${escapeHtml(userPrompt.slice(0, 100))}${userPrompt.length > 100 ? '...' : ''}</div>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:16px;">
+            ${approaches.map((a, i) => `
+              <button class="btn btn-secondary brainstorm-choice" data-id="${a.id}" style="text-align:left; padding:12px; border-radius:6px; border:1px solid var(--border-color); background:var(--bg-surface);">
+                <div style="font-weight:600; font-size:13px; color:var(--text-main);">${escapeHtml(a.label)}</div>
+                <div style="font-size:11px; color:var(--text-dim); margin-top:4px;">${escapeHtml(a.desc)}</div>
+              </button>
+            `).join('')}
+          </div>
+          <div style="display:flex; justify-content:flex-end; gap:8px;">
+            <button class="btn btn-secondary" id="brainstormCancel" data-i18n="Cancel">Cancel</button>
+          </div>
+        `;
+        
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+        
+        // Handle clicks
+        modal.querySelectorAll('.brainstorm-choice').forEach(btn => {
+          btn.onclick = () => {
+            const id = btn.getAttribute('data-id');
+            const chosen = approaches.find(a => a.id === id);
+            document.body.removeChild(overlay);
+            resolve(chosen);
+          };
+        });
+        
+        document.getElementById('brainstormCancel').onclick = () => {
+          document.body.removeChild(overlay);
+          resolve(null);
+        };
+        
+        // Close on overlay click
+        overlay.onclick = (e) => {
+          if (e.target === overlay) {
+            document.body.removeChild(overlay);
+            resolve(null);
+          }
+        };
+      });
+    }
+
+    // ==================== RULINGS, NOT STALLS (Batch 7.3) ====================
+    function recordRuling(what, why, costIfWrong) {
+      const ruling = `Ruling: ${what} — ${why} — ${costIfWrong}`;
+      const timestamp = new Date().toISOString();
+      const noteName = `ruling-${timestamp.replace(/[:.]/g, '-')}`;
+      const noteContent = `# Ruling: ${timestamp}\n\n${ruling}\n\n---\n*Recorded by subagent-driven-development (Superpowers pack)*`;
+      
+      writeBrainNote(noteName, noteContent);
+      logActivity(`Ruling recorded: ${what}`, 'info');
+      return ruling;
+    }
+
+    function shouldStopForHelp(reason) {
+      const stopReasons = [
+        'irreversible',
+        'destructive',
+        'security',
+        'outside-worktree',
+        'plan-broken'
+      ];
+      return stopReasons.some(r => reason.toLowerCase().includes(r));
+    }
+
+    const originalNeedsHelp = window.needsHelp || function() {};
+    window.needsHelp = function(reason, details) {
+      if (shouldStopForHelp(reason)) {
+        return originalNeedsHelp(reason, details);
+      } else {
+        recordRuling(
+          `Proceeding despite: ${reason}`,
+          `Not one of the four stop reasons \u2014 continuing per subagent-driven-development`,
+          `If wrong: wasted effort on wrong path, but reversible`
+        );
+        return false;
+      }
+    };
+
+    // ==================== SUB-AGENT SPAWN SUPPORT ====================
 
     const AUTONOMY_MANDATORY_CHECKS = [
       { id: 'testing-qa', label: 'testing-qa' },
