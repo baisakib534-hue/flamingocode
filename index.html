@@ -2861,6 +2861,8 @@
         <button class="settings-tab" data-settings-tab="engines" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">Engines</button>
         <button class="settings-tab" data-settings-tab="securityAudit" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">Security Audit</button>
         <button class="settings-tab" data-settings-tab="androidPack" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">Android Pack</button>
+        <!-- Batch 9: CLI Tools -->
+        <button class="settings-tab" data-settings-tab="cliTools" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">CLI Tools</button>
         <!-- Batch 8c: Accounts & Themes -->
         <button class="settings-tab" data-settings-tab="accounts" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">Accounts</button>
         <button class="settings-tab" data-settings-tab="themes" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">Themes</button>
@@ -5180,6 +5182,25 @@ const fc = {
           </div>
         </div>
 
+        <!-- Batch 9: CLI Tools -->
+        <div class="settings-pane" id="settingsPaneCliTools" style="display: none; flex-direction: column;">
+          <div style="max-height: 40vh; overflow-y: auto; margin-bottom: 12px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
+              <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">CLI Tools</span>
+              <button class="btn" id="btnRefreshCliTools" style="padding: 4px 10px; font-size: 11px;">↻ Refresh All</button>
+            </div>
+            <div id="cliToolsList" style="display: flex; flex-direction: column; gap: 6px;">
+              <!-- CLI tools rendered here -->
+            </div>
+          </div>
+          <div style="border-top: 1px solid var(--border-color); padding-top: 12px;">
+            <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 8px;">Detected tools appear in the agent's tool catalog. Undetected tools show install instructions. Safe Mode gates execution — approval required.</div>
+            <div style="display:flex; justify-content:flex-end; gap:8px;">
+              <button class="btn btn-secondary" id="btnCancelSettings">Close</button>
+            </div>
+          </div>
+        </div>
+
         <!-- Accounts (Batch 8c A1) -->
         <div class="settings-pane" id="settingsPaneAccounts" style="display: none; flex-direction: column;">
           <div style="max-height: 40vh; overflow-y: auto; margin-bottom: 12px;">
@@ -6044,6 +6065,17 @@ const fc = {
         <div class="form-group">
           <label class="form-label">Environment Variables (JSON)</label>
           <textarea id="mcpServerEnv" class="form-input" placeholder='{"API_KEY": "value"}' style="min-height: 60px; font-family: var(--font-mono); font-size: 11px;"></textarea>
+        </div>
+
+        <div class="form-group" id="groupMcpGithubToken" style="display: none;">
+          <label class="form-label">GitHub Token (per project — never in the repo)</label>
+          <input type="password" id="mcpServerToken" class="form-input" placeholder="ghp_... (Personal Access Token)" autocomplete="off" />
+          <small style="font-size: 10px; color: var(--text-dim);">Stored locally in appState only. Passed to the desktop app as GITHUB_PERSONAL_ACCESS_TOKEN — the web app cannot spawn the stdio server, so the token is stored for the desktop app.</small>
+        </div>
+
+        <div class="form-group" id="groupMcpGithubToolsets" style="display: none;">
+          <label class="form-label">GitHub Toolsets (fewer toolsets = fewer tools toward the ~40 budget)</label>
+          <div id="mcpGithubToolsets" style="display: flex; flex-direction: column; gap: 4px;"></div>
         </div>
 
         <div class="form-group">
@@ -9132,7 +9164,7 @@ Detail level: {{detail_level}}`,
       if (!appState.mcpServers) appState.mcpServers = {};
       if (!appState.generalModeShowCode) appState.generalModeShowCode = {};  // 7.9: pre-7.9 saved states lack this
       const mandatoryMcps = [
-        { id: 'mcp_github', name: 'GitHub', transport: 'stdio', command: 'npx @modelcontextprotocol/server-github', env: {}, description: 'GitHub repository operations (issues, PRs, repos, files)', enabled: true, trust: 'trusted' },
+        { id: 'mcp_github', name: 'GitHub', transport: 'stdio', command: 'npx @modelcontextprotocol/server-github', env: {}, description: 'GitHub repository operations (issues, PRs, repos, files)', enabled: true, trust: 'trusted', token: '', toolsets: ['repos', 'issues', 'prs', 'actions'] },
         { id: 'mcp_memory', name: 'Memory', transport: 'stdio', command: 'npx @modelcontextprotocol/server-memory', env: {}, description: 'Persistent memory/knowledge graph for agents', enabled: true, trust: 'trusted' },
         { id: 'mcp_fetch', name: 'Fetch', transport: 'stdio', command: 'npx @modelcontextprotocol/server-fetch', env: {}, description: 'Web fetching and content extraction', enabled: true, trust: 'trusted' }
       ];
@@ -9143,6 +9175,16 @@ Detail level: {{detail_level}}`,
           // Ensure existing mandatory MCPs have trust: 'trusted'
           if (mcp.trust === 'trusted') {
             appState.mcpServers[mcp.id].trust = 'trusted';
+          }
+          // Batch 9 repair: migrate an existing github entry — token + toolsets
+          // (older saves have neither; the toolset filter needs both).
+          if (mcp.id === 'mcp_github') {
+            const gh = appState.mcpServers[mcp.id];
+            if (typeof gh.token !== 'string') gh.token = '';
+            if (!Array.isArray(gh.toolsets) || gh.toolsets.length === 0) gh.toolsets = [...GITHUB_MCP_ALL_TOOLSETS];
+            if (!Array.isArray(gh.enabledTools) || gh.enabledTools.length === 0) {
+              gh.enabledTools = getGithubMcpTools(gh).map(t => t.name);
+            }
           }
         }
       });
@@ -9353,6 +9395,20 @@ Detail level: {{detail_level}}`,
       const session = getCurrentSession();
       if (!session) {
         return { success: false, error: 'No active session' };
+      }
+
+      // Batch 9 repair: GitHub MCP tools run in the desktop app (stdio) — the
+      // web app cannot spawn the server. Read the stored token so the call path
+      // is honest about what is (not) configured instead of "Unknown tool".
+      if (toolName.startsWith('mcp_github_')) {
+        const gh = (appState.mcpServers || {})['mcp_github'];
+        if (!gh || gh.enabled === false) {
+          return { success: false, error: 'GitHub MCP server is not enabled (MCP Registry → GitHub).' };
+        }
+        if (!gh.token) {
+          return { success: false, error: 'GitHub MCP: no token configured — add one in MCP Registry → GitHub → Configure. GitHub MCP tools run in the desktop app (stdio).' };
+        }
+        return { success: false, error: 'GitHub MCP tools run in the desktop app (stdio) — token is stored for desktop use (GITHUB_PERSONAL_ACCESS_TOKEN).' };
       }
 
       switch (toolName) {
@@ -13653,6 +13709,100 @@ function findReferencesInGraph(symbolId) {
   }
 
   return results;
+}
+
+// ==================== BATCH 9: BUILT-IN TOOL HELPERS ====================
+// listCodeDefinitionsInGraph: list top-level definitions (functions, classes, components) in a file
+function listCodeDefinitionsInGraph(filePath) {
+  const session = getCurrentSession();
+  if (!session) return [];
+  const graph = getOrBuildCodeGraph(session);
+  if (!graph || graph.nodes.length === 0) return [];
+
+  const results = [];
+  const normalizedPath = filePath.replace(/\\/g, '/');
+
+  for (const node of graph.nodes) {
+    if (node.type === NODE_TYPES.FILE) continue;
+    if (node.filePath.replace(/\\/g, '/') !== normalizedPath) continue;
+
+    // Only include top-level definitions (functions, classes, components, etc.)
+    if ([NODE_TYPES.FUNCTION, NODE_TYPES.CLASS, NODE_TYPES.CONCEPT, NODE_TYPES.VARIABLE].includes(node.type)) {
+      results.push({
+        id: node.id,
+        name: node.name,
+        kind: node.type,
+        file: node.filePath,
+        line: node.meta?.line || 0,
+        signature: node.meta?.signature || ''
+      });
+    }
+  }
+
+  // Sort by line number
+  results.sort((a, b) => a.line - b.line);
+  return results;
+}
+
+// handleTodoWrite: manage the agent's todo list (Step Planner Todo panel)
+function handleTodoWrite(action, id, title, status) {
+  const session = getCurrentSession();
+  if (!session) return { success: false, error: 'No active session' };
+
+  // Initialize todo list if not exists
+  if (!session.todoList) session.todoList = [];
+
+  switch (action) {
+    case 'create': {
+      const newId = id || 'todo-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+      const newTodo = {
+        id: newId,
+        title: title,
+        status: status || 'pending',
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+      };
+      session.todoList.push(newTodo);
+      // Also update currentPlan for Step Planner visibility
+      if (!appState.currentPlan) appState.currentPlan = [];
+      appState.currentPlan.push({ text: title, done: false, current: false, id: newId, stepPlan: [] });
+      renderTodoList();
+      saveAppState();
+      return { success: true, todo: newId };
+    }
+    case 'update': {
+      if (!id) return { success: false, error: 'Update requires id' };
+      const todo = session.todoList.find(t => t.id === id);
+      if (!todo) return { success: false, error: 'Todo not found' };
+      if (title) todo.title = title;
+      if (status) todo.status = status;
+      todo.updatedAt = Date.now();
+      // Sync with currentPlan
+      const planItem = appState.currentPlan?.find(p => p.id === id);
+      if (planItem) {
+        if (title) planItem.text = title;
+        if (status) planItem.done = status === 'completed';
+      }
+      renderTodoList();
+      saveAppState();
+      return { success: true };
+    }
+    case 'complete': {
+      if (!id) return { success: false, error: 'Complete requires id' };
+      const todo = session.todoList.find(t => t.id === id);
+      if (!todo) return { success: false, error: 'Todo not found' };
+      todo.status = 'completed';
+      todo.updatedAt = Date.now();
+      // Sync with currentPlan
+      const planItem = appState.currentPlan?.find(p => p.id === id);
+      if (planItem) planItem.done = true;
+      renderTodoList();
+      saveAppState();
+      return { success: true };
+    }
+    default:
+      return { success: false, error: 'Invalid action: ' + action };
+  }
 }
 
 // renameSymbol: rename by SYMBOL — applies to definition + all references as diff patches
@@ -18377,7 +18527,196 @@ function validateRecipe(recipe) {
         category: 'Analytics',
         triggers: ['Event tracking', 'analytics', 'metrics'],
         steps: ['Configure provider', 'Add event calls', 'Build dashboards']
+      },
+      // ==================== BATCH 9: SKILL PACKS P1-P11 ====================
+      'p1-anthropic-skills': {
+        name: 'p1-anthropic-skills',
+        displayName: 'P1: Anthropic Skills',
+        desc: 'অফিশিয়াল স্কিলস কালেকশন — ডকুমেন্ট ক্রিয়েশন, কোড রিভিউ, রিসার্চ স্কিলস ফ্ল্যামিঙ্গোকোড-নেটিভ হিসেবে আপাতন্ত্রীয়ভাবে লেখা',
+        version: '1.0.0',
+        category: 'Official',
+        skillCount: 12,
+        skills: [
+          'doc-create', 'doc-review', 'code-review', 'research-plan', 'research-execute',
+          'research-synthesize', 'api-design', 'api-document', 'test-design', 'test-implement',
+          'debug-systematic', 'refactor-safe'
+        ],
+        triggers: ['document creation', 'code review', 'research', 'API design', 'testing', 'debugging'],
+        steps: ['Install pack', 'Skills auto-load on demand', 'Use via agent tool picker']
+      },
+      'p2-knowledge-work': {
+        name: 'p2-knowledge-work',
+        displayName: 'P2: Knowledge Work Plugins',
+        desc: 'নোট-টেকিং, রিসার্চ সিনথেসিস, রিডিং লিস্ট — ব্রেইন v2-এর সাথে জোড়া',
+        version: '1.0.0',
+        category: 'Knowledge',
+        skillCount: 8,
+        skills: [
+          'note-create', 'note-link', 'note-search', 'research-collect', 'research-synthesize',
+          'reading-list', 'reading-summarize', 'knowledge-graph'
+        ],
+        triggers: ['note taking', 'research synthesis', 'reading list', 'knowledge management'],
+        steps: ['Install pack', 'Integrates with Brain v2', 'Use via agent tool picker']
+      },
+      'p3-claude-plugins': {
+        name: 'p3-claude-plugins',
+        displayName: 'P3: Official Plugin Shapes',
+        desc: 'অফিশিয়াল প্লাগইন আকৃতি — আমাদের নিজের প্যাক হিসেবে পুনর্নির্মিত',
+        version: '1.0.0',
+        category: 'Official',
+        skillCount: 10,
+        skills: [
+          'plugin-web-fetch', 'plugin-web-search', 'plugin-file-ops', 'plugin-code-exec',
+          'plugin-data-process', 'plugin-api-client', 'plugin-task-runner', 'plugin-notify',
+          'plugin-schedule', 'plugin-export'
+        ],
+        triggers: ['web fetch', 'web search', 'file operations', 'code execution', 'data processing'],
+        steps: ['Install pack', 'Plugins register as tools', 'Use via agent tool picker']
+      },
+      'p4-superpowers': {
+        name: 'p4-superpowers',
+        displayName: 'P4: Superpowers Pack',
+        desc: 'সুপারপাওয়ার্স — ইতিমধ্যে Batch 7.3-এ বিল্ট, এই এন্ট্রি বিল্ট স্কিলসকে পয়েন্ট করে (নো রিবিল্ড)',
+        version: '1.0.0',
+        category: 'Built',
+        skillCount: 15,
+        skills: [
+          'sp-code-nav', 'sp-refactor', 'sp-test-gen', 'sp-doc-gen', 'sp-debug',
+          'sp-perf', 'sp-sec-audit', 'sp-dep-graph', 'sp-migrate', 'sp-lint',
+          'sp-format', 'sp-type-check', 'sp-build', 'sp-deploy', 'sp-monitor'
+        ],
+        triggers: ['superpowers', 'code navigation', 'refactoring', 'test generation', 'documentation'],
+        steps: ['Install pack (points to existing Batch 7.3 skills)', 'Skills auto-load on demand']
+      },
+      'p5-spec-kit': {
+        name: 'p5-spec-kit',
+        displayName: 'P5: Spec Kit Pack',
+        desc: 'স্পেক কিট — ইতিমধ্যে Batch 7.6-এ বিল্ট, প্যাক এন্ট্রি মাত্র (নো রিবিল্ড)',
+        version: '1.0.0',
+        category: 'Built',
+        skillCount: 6,
+        skills: [
+          'spec-create', 'spec-validate', 'spec-implement', 'spec-test', 'constitution', 'govern'
+        ],
+        triggers: ['spec kit', 'specification', 'constitution driven', 'spec driven'],
+        steps: ['Install pack (points to existing Batch 7.6 skills)', 'Skills auto-load on demand']
+      },
+      'p6-ecc': {
+        name: 'p6-ecc',
+        displayName: 'P6: ECC Layer Pack',
+        desc: 'ECC লেয়ার — ইতিমধ্যে Batch 8b G21-এ বিল্ট, প্যাক এন্ট্রি মাত্র (নো রিবিল্ড)',
+        version: '1.0.0',
+        category: 'Built',
+        skillCount: 5,
+        skills: [
+          'ecc-encode', 'ecc-decode', 'ecc-verify', 'ecc-repair', 'ecc-monitor'
+        ],
+        triggers: ['ECC', 'error correction', 'encoding', 'data integrity'],
+        steps: ['Install pack (points to existing Batch 8b G21 skills)', 'Skills auto-load on demand']
+      },
+      'p7-security-audit': {
+        name: 'p7-security-audit',
+        displayName: 'P7: Security Audit Skill Pack',
+        desc: 'সিকিউরিটি-অডিট স্কিল — ইতিমধ্যে Batch 8b G22-এ বিল্ট, প্যাক এন্ট্রি মাত্র (নো রিবিল্ড)',
+        version: '1.0.0',
+        category: 'Built',
+        skillCount: 4,
+        skills: [
+          'sec-audit-scan', 'sec-audit-report', 'sec-audit-fix', 'sec-audit-compliance'
+        ],
+        triggers: ['security audit', 'vulnerability scan', 'compliance check'],
+        steps: ['Install pack (points to existing Batch 8b G22 skill)', 'Skill auto-loads on demand']
+      },
+      'p8-android-skills': {
+        name: 'p8-android-skills',
+        displayName: 'P8: Android Skills Pack',
+        desc: 'অ্যান্ড্রয়েড স্কিলস — ইতিমধ্যে Batch 8b G23-এ বিল্ট, প্যাক এন্ট্রি মাত্র (নো রিবিল্ড)',
+        version: '1.0.0',
+        category: 'Built',
+        skillCount: 7,
+        skills: [
+          'android-build', 'android-test', 'android-lint', 'android-debug',
+          'android-profile', 'android-sign', 'android-deploy'
+        ],
+        triggers: ['android', 'mobile build', 'mobile test', 'android deploy'],
+        steps: ['Install pack (points to existing Batch 8b G23 skills)', 'Skills auto-load on demand']
+      },
+      'p9-cursor-plugins': {
+        name: 'p9-cursor-plugins',
+        displayName: 'P9: Editor Plugin Shapes',
+        desc: 'এডিটর-ফোকাসড প্লাগইন আকৃতি — মূলরূপে পুনর্নির্মিত',
+        version: '1.0.0',
+        category: 'Editor',
+        skillCount: 9,
+        skills: [
+          'editor-inline-edit', 'editor-cmd-k', 'editor-chat', 'editor-composer',
+          'editor-tab', 'editor-next-edit', 'editor-rules', 'editor-context', 'editor-apply'
+        ],
+        triggers: ['editor plugin', 'inline edit', 'cmd+k', 'chat', 'composer', 'rules'],
+        steps: ['Install pack', 'Plugins register as tools', 'Use via agent tool picker']
+      },
+      'p10-goose-catalog': {
+        name: 'p10-goose-catalog',
+        displayName: 'P10: Goose Catalog Pack',
+        desc: 'গুজের রেসিপি + এক্সটেনশন ক্যাটালগ আকৃতি — আমাদের Batch 7.5 রেসিপি + MCP ক্যাটালগকে পয়েন্ট করে (নো ডুপ্লিকেট স্টোর)',
+        version: '1.0.0',
+        category: 'Catalog',
+        skillCount: 11,
+        skills: [
+          'goose-recipe-list', 'goose-recipe-run', 'goose-extension-list', 'goose-extension-install',
+          'mcp-catalog-browse', 'mcp-catalog-install', 'recipe-create', 'recipe-share',
+          'extension-create', 'extension-publish', 'catalog-sync'
+        ],
+        triggers: ['goose', 'recipe', 'extension', 'catalog', 'mcp browse'],
+        steps: ['Install pack', 'Points to existing Recipe (Batch 7.5) + MCP catalogs', 'Use via agent tool picker']
+      },
+      'p11-qoder-benchmark': {
+        name: 'p11-qoder-benchmark',
+        displayName: 'P11: Benchmark Pack',
+        desc: 'বেঞ্চমার্ক প্যাক — Batch 8a F3-এর মডেল-বেঞ্চমার্ক টাস্কগুলো রানযোগ্য প্যাক হিসেবে প্যাকেজড',
+        version: '1.0.0',
+        category: 'Benchmark',
+        skillCount: 8,
+        skills: [
+          'bench-run', 'bench-compare', 'bench-report', 'bench-config',
+          'model-eval', 'prompt-eval', 'latency-measure', 'quality-score'
+        ],
+        triggers: ['benchmark', 'model evaluation', 'prompt evaluation', 'latency', 'quality'],
+        steps: ['Install pack', 'Runs Batch 8a F3 benchmark tasks', 'Reports via agent']
       }
+    };
+
+    // ==================== BATCH 9: CLI TOOLS CATALOG ====================
+    // C1-C14: Declared + detected CLI tools. Agent tool catalog shows ONLY detected tools.
+    const CLI_TOOLS_CATALOG = {
+      'ast-grep': { id: 'ast-grep', name: 'ast-grep', desc: 'স্ট্রাকচারাল সার্চ — কোড প্যাটার্ন খুঁজুন AST-লেভেলে (রেগেক্সের চেয়ে স্মার্ট)', category: 'Search', versionFlag: '--version', installHint: 'cargo install ast-grep / brew install ast-grep / npm i -g @ast-grep/cli', usedBy: 'Agent codebase search uses it when present; falls back to built-in search' },
+      'ripgrep': { id: 'ripgrep', name: 'ripgrep (rg)', desc: 'ফাস্ট সার্চ — এজেন্টের কোডবেস সার্চ এটি ব্যবহার করে যদি থাকে, নয় তবে বিল্ট-ইন ফলব্যাক', category: 'Search', versionFlag: '--version', installHint: 'cargo install ripgrep / brew install ripgrep / apt install ripgrep', usedBy: 'Agent codebase search (primary)' },
+      'tree-sitter': { id: 'tree-sitter', name: 'tree-sitter', desc: 'পারসিং — কোড গ্রাফ ইন্ডেক্সারকে ফিড করে যদি থাকে', category: 'Parsing', versionFlag: '--version', installHint: 'npm i -g tree-sitter-cli / cargo install tree-sitter-cli', usedBy: 'Code graph indexer' },
+      'lsp-typescript': { id: 'lsp-typescript', name: 'TypeScript LSP', desc: 'LSP সার্ভার (TypeScript) — H4 §8-এর সাথে জোড়া, হভার, গো-টু-ডেফিনিশন, রিফ্যাক্টর', category: 'LSP', versionFlag: '--version', installHint: 'npm i -g typescript typescript-language-server', usedBy: 'H4 LSP integration' },
+      'lsp-python': { id: 'lsp-python', name: 'Python LSP', desc: 'LSP সার্ভার (Python) — pyright/basedpyright, টাইপ চেক, কমপ্লিশন', category: 'LSP', versionFlag: '--version', installHint: 'pip install python-lsp-server / pip install basedpyright', usedBy: 'H4 LSP integration' },
+      'lsp-rust': { id: 'lsp-rust', name: 'Rust LSP (rust-analyzer)', desc: 'LSP সার্ভার (Rust) — রাস্ট-অ্যানালাইজার, সব রাস্ট ফিচার', category: 'LSP', versionFlag: '--version', installHint: 'rustup component add rust-analyzer', usedBy: 'H4 LSP integration' },
+      'lsp-go': { id: 'lsp-go', name: 'Go LSP (gopls)', desc: 'LSP সার্ভার (Go) — gopls, গো মডিউলস, টেস্ট, ভেট', category: 'LSP', versionFlag: '--version', installHint: 'go install golang.org/x/tools/gopls@latest', usedBy: 'H4 LSP integration' },
+      'eslint': { id: 'eslint', name: 'ESLint', desc: 'লিন্টার (JS/TS) — প্রজেক্টের নিজস্ব কনফিগ রান করে, কখনো আবिष्कার করে না', category: 'Format/Lint', versionFlag: '--version', installHint: 'npm i -D eslint / npx eslint --init', usedBy: 'Agent runs project config' },
+      'prettier': { id: 'prettier', name: 'Prettier', desc: 'ফরম্যাটার (JS/TS/JSON/MD) — প্রজেক্ট কনফিগ অনুযায়ী', category: 'Format/Lint', versionFlag: '--version', installHint: 'npm i -D prettier', usedBy: 'Agent runs project config' },
+      'ruff': { id: 'ruff', name: 'Ruff', desc: 'লিন্টার+ফরম্যাটার (Python) — এক্সট্রিম ফাস্ট, flake8/black রিপ্লেসমেন্ট', category: 'Format/Lint', versionFlag: '--version', installHint: 'pip install ruff / cargo install ruff', usedBy: 'Agent runs project config' },
+      'gofmt': { id: 'gofmt', name: 'gofmt/goimports', desc: 'ফরম্যাটার (Go) — স্ট্যান্ডার্ড টুলচেইনের অংশ', category: 'Format/Lint', versionFlag: '-version', installHint: 'Included with Go toolchain', usedBy: 'Agent runs project config' },
+      'rustfmt': { id: 'rustfmt', name: 'rustfmt', desc: 'ফরম্যাটার (Rust) — স্ট্যান্ডার্ড টুলচেইনের অংশ', category: 'Format/Lint', versionFlag: '--version', installHint: 'rustup component add rustfmt', usedBy: 'Agent runs project config' },
+      'vitest': { id: 'vitest', name: 'Vitest', desc: 'টেস্ট রানার (Vite/JS/TS) — প্রজেক্টের টেস্ট কমান্ড রান করে', category: 'Test', versionFlag: '--version', installHint: 'npm i -D vitest', usedBy: 'Agent runs project test command' },
+      'jest': { id: 'jest', name: 'Jest', desc: 'টেস্ট রানার (JS/TS) — প্রজেক্টের টেস্ট কমান্ড রান করে', category: 'Test', versionFlag: '--version', installHint: 'npm i -D jest', usedBy: 'Agent runs project test command' },
+      'pytest': { id: 'pytest', name: 'pytest', desc: 'টেস্ট রানার (Python) — প্রজেক্টের টেস্ট কমান্ড রান করে', category: 'Test', versionFlag: '--version', installHint: 'pip install pytest', usedBy: 'Agent runs project test command' },
+      'go-test': { id: 'go-test', name: 'go test', desc: 'টেস্ট রানার (Go) — স্ট্যান্ডার্ড টুলচেইনের অংশ', category: 'Test', versionFlag: 'version', installHint: 'Included with Go toolchain', usedBy: 'Agent runs project test command' },
+      'playwright': { id: 'playwright', name: 'Playwright', desc: 'ব্রাউজার টেস্ট — H4 §14-এর সাথে জোড়া, E2E, কম্পোনেন্ট টেস্ট', category: 'Browser Test', versionFlag: '--version', installHint: 'npm i -D @playwright/test && npx playwright install', usedBy: 'H4 browser tests' },
+      'puppeteer': { id: 'puppeteer', name: 'Puppeteer', desc: 'ব্রাউজার অটোমেশন — H4 §14-এর সাথে জোড়া, হেডলেস ক্রোম', category: 'Browser Test', versionFlag: '--version', installHint: 'npm i puppeteer', usedBy: 'H4 browser tests' },
+      'gh-cli': { id: 'gh-cli', name: 'GitHub CLI (gh)', desc: 'GitHub থেকে টার্মিনাল — Batch 8a F14-এর সাথে জোড়া, PR, ইস্যু, রিলিজ', category: 'Git/Hub', versionFlag: '--version', installHint: 'brew install gh / winget install GitHub.cli / apt install gh', usedBy: 'Batch 8a F14 GitHub ops' },
+      'git-worktree': { id: 'git-worktree', name: 'git worktree', desc: 'গিট ওয়ার্কট্রি — H4 §6-এর সাথে জোড়া, প্যারালেল ব্রাঞ্চ ওয়ার্কস্পেস', category: 'Git/Hub', versionFlag: 'worktree --help', installHint: 'Included with Git (2.5+)', usedBy: 'H4 parallel workspaces' },
+      'docker': { id: 'docker', name: 'Docker', desc: 'কন্টেইনার রানটাইম — স্যান্ডবক্স স্পেসifikeshনের সাথে জোড়া', category: 'Container', versionFlag: '--version', installHint: 'Install Docker Desktop / Docker Engine', usedBy: 'Sandbox spec execution' },
+      'difftastic': { id: 'difftastic', name: 'difftastic (difft)', desc: 'স্ট্রাকচারাল ডিফ — AST-অনভিজ্ঞ ডিফ ডিসপ্লে (delta-র চেয়ে ভালো)', category: 'Diff', versionFlag: '--version', installHint: 'cargo install difftastic / brew install difftastic', usedBy: 'Agent diff display' },
+      'delta': { id: 'delta', name: 'delta', desc: 'সিনট্যাক্স-হাইলাইটেড ডিফ — GitHub-স্টাইল ডিফ ভিউয়ার', category: 'Diff', versionFlag: '--version', installHint: 'cargo install git-delta / brew install git-delta', usedBy: 'Agent diff display (fallback)' },
+      'tmux': { id: 'tmux', name: 'tmux', desc: 'টার্মিনাল সেশন ম্যানেজার — পিসিস্টেন্ট শেলস, প্যান, উইন্ডো', category: 'Terminal', versionFlag: '-V', installHint: 'brew install tmux / apt install tmux', usedBy: 'Terminal session management' },
+      'jq': { id: 'jq', name: 'jq', desc: 'JSON কোয়ারী/ট্রান্সফর্ম — পাইপ-ফ্রেন্ডলি, শক্তিশালী ফিল্টার', category: 'Data', versionFlag: '--version', installHint: 'brew install jq / apt install jq / winget install jqlang.jq', usedBy: 'Agent JSON queries' },
+      'yq': { id: 'yq', name: 'yq', desc: 'YAML কোয়ারী/ট্রান্সফর্ম — jq-এর মতই YAML-এর জন্য', category: 'Data', versionFlag: '--version', installHint: 'brew install yq / pip install yq / go install github.com/mikefarah/yq/v4@latest', usedBy: 'Agent YAML queries' },
+      'node-inspect': { id: 'node-inspect', name: 'Node.js Inspector', desc: 'ডিবাগার (Node) — node --inspect, agent আটাচ করতে পারে, ইউজার কোডে অটো-রান নয়', category: 'Debug', versionFlag: '--version', installHint: 'Included with Node.js', usedBy: 'Agent attaches with approval' },
+      'python-pdb': { id: 'python-pdb', name: 'Python pdb/debugpy', desc: 'ডিবাগার (Python) — python -m pdb / debugpy, agent আটাচ করতে পারে অপ্রুভাল দিয়ে', category: 'Debug', versionFlag: '--version', installHint: 'Included with Python / pip install debugpy', usedBy: 'Agent attaches with approval' }
     };
 
     // ==================== TOOL DEFINITIONS REGISTRY (B4.7) ====================
@@ -18418,6 +18757,11 @@ function validateRecipe(recipe) {
       'git-diff': { name: 'git-diff', type: 'builtin', trigger: 'Shows diff of changes', description: 'Display the diff between working tree and last commit.' },
       // Terminal/tools
       'terminal': { name: 'terminal', type: 'builtin', trigger: 'Runs a shell command in the virtual environment', description: 'Execute shell commands (npm, node, python, etc.) in the project environment. Use for builds, tests, scripts.' },
+      // ==================== BATCH 9: BUILT-IN TOOLS D1-D3 ====================
+      'todowrite': { name: 'todowrite', type: 'builtin', trigger: 'Creates/updates/completes a todo in the agent\'s todo panel', description: 'Manage the agent todo list (Step Planner Todo panel). Use to create, update, or complete todos. Visible to user live. Args: {action: "create|update|complete", id?: string, title: string, status?: "pending|in_progress|completed"}' },
+      'question': { name: 'question', type: 'builtin', trigger: 'Asks the user a question mid-task and waits for the answer', description: 'Agent asks the user a question MID-TASK and waits for the answer. Uses the existing human checkpoint UI. Alias: ask_followup_question. Args: {question: string, options?: string[]}' },
+      'list_code_definition_names': { name: 'list_code_definition_names', type: 'builtin', trigger: 'Lists top-level definitions (functions, classes, components) of a file from the code graph', description: 'Fast "what is in this file" tool — lists top-level definitions from the code graph without reading the full file. Args: {filePath: string}' },
+      'ask_followup_question': { name: 'ask_followup_question', type: 'builtin', trigger: 'Asks the user a follow-up question mid-task and waits for the answer (alias of question)', description: 'Alias of question tool — asks the user a question MID-TASK and waits for the answer. Uses the existing human checkpoint UI. Args: {question: string, options?: string[]}' },
       // Skill-based tools (from AUTONOMY_CATALOG)
       // These are loaded via skill_ prefix
       // MCP-based tools (from AUTONOMY_CATALOG)
@@ -18512,6 +18856,22 @@ function validateRecipe(recipe) {
       if (typeof appState !== 'undefined' && appState.pluginCatalog?.installed) {
         for (const [packName, packInfo] of Object.entries(appState.pluginCatalog.installed)) {
           addEntry('plugin_' + packName, 'plugin', packName, packInfo.desc || '', ['plugin', 'pack', packName]);
+        }
+      }
+
+      // 9. CLI tools (Batch 9 repair) — status from detection; refreshed by rebuildToolSearchIndex.
+      // Guarded: extracted-eval harnesses may not provide CLI_TOOLS_CATALOG.
+      if (typeof CLI_TOOLS_CATALOG !== 'undefined') {
+        for (const tool of Object.values(CLI_TOOLS_CATALOG)) {
+          const cliId = 'cli_' + tool.id;
+          const cliStatus = tool.detected === true
+            ? 'Available (detected' + (tool.detectedVersion ? ' ' + tool.detectedVersion : '') + ')'
+            : (tool.detected === false
+              ? 'Not installed — install: ' + tool.installHint
+              : 'Detection pending — check from Settings → CLI Tools');
+          addEntry(cliId, 'cli', tool.name, tool.desc + '. ' + cliStatus, ['cli', tool.id, tool.category]);
+          index[cliId].detected = tool.detected === true;
+          index[cliId].installHint = tool.installHint;
         }
       }
 
@@ -18672,9 +19032,25 @@ function validateRecipe(recipe) {
             }
           }
         }
+        // 8. User plugin packs (dynamic)
         if (typeof appState !== 'undefined' && appState.pluginCatalog?.installed) {
           for (const [packName, packInfo] of Object.entries(appState.pluginCatalog.installed)) {
             addEntry('plugin_' + packName, 'plugin', packName, packInfo.desc || '', ['plugin', 'pack', packName]);
+          }
+        }
+
+        // 9. CLI tools (Batch 9 repair) — status from detection.
+        if (typeof CLI_TOOLS_CATALOG !== 'undefined') {
+          for (const tool of Object.values(CLI_TOOLS_CATALOG)) {
+            const cliId = 'cli_' + tool.id;
+            const cliStatus = tool.detected === true
+              ? 'Available (detected' + (tool.detectedVersion ? ' ' + tool.detectedVersion : '') + ')'
+              : (tool.detected === false
+                ? 'Not installed — install: ' + tool.installHint
+                : 'Detection pending — check from Settings → CLI Tools');
+            addEntry(cliId, 'cli', tool.name, tool.desc + '. ' + cliStatus, ['cli', tool.id, tool.category]);
+            index[cliId].detected = tool.detected === true;
+            index[cliId].installHint = tool.installHint;
           }
         }
 
@@ -18777,6 +19153,25 @@ function validateRecipe(recipe) {
                   const limitInfo = scrubbed.callLimit ? ' | Call limit: ' + scrubbed.callLimit + '/session' : '';
                   return '• ' + scrubbed.name + ': ' + (scrubbed.description || 'No description') + toolsInfo + trustInfo + limitInfo + '. [load: mcp_' + scrubbed.id.replace('mcp_', '') + ']';
                 }).join('\n');
+              }
+
+              // CLI tools (Batch 9 repair) — detected on this machine via the terminal path.
+              // Detected tools are usable; undetected tools are listed as not installed
+              // with install instructions and must NOT be called.
+              if (typeof CLI_TOOLS_CATALOG !== 'undefined') {
+                const cliTools = Object.values(CLI_TOOLS_CATALOG);
+                if (cliTools.length > 0) {
+                  text += '\n\n--- CLI TOOLS (on this machine) ---\n';
+                  text += 'CLI tools run through the terminal path when detected; undetected tools are NOT usable until installed (desktop app).\n';
+                  text += cliTools.map(tool => {
+                    const status = tool.detected === true
+                      ? '[available' + (tool.detectedVersion ? ' — detected ' + tool.detectedVersion : '') + ']'
+                      : (tool.detected === false
+                        ? '[not installed — install: ' + tool.installHint + ']'
+                        : '[not checked yet — Settings → CLI Tools → Check]');
+                    return '• ' + tool.name + ' (cli, ' + tool.category + '): ' + (tool.desc || '').split('.')[0] + '. ' + status + ' [load: cli_' + tool.id + ']';
+                  }).join('\n');
+                }
               }
 
               // Tool Search (Batch 7.10) — replaces B4.7 lazy-loading with query-driven loading
@@ -21196,6 +21591,91 @@ function validateRecipe(recipe) {
       // Re-render the manager modal
       openPluginPackManager(packName);
     }
+
+
+    // ==================== BATCH 9: CLI TOOLS TAB RENDER ====================
+    function renderCliToolsTab() {
+      const list = document.getElementById('cliToolsList');
+      const refreshBtn = document.getElementById('btnRefreshCliTools');
+      if (!list) return;
+
+      list.innerHTML = Object.values(CLI_TOOLS_CATALOG).map(tool => `
+        <div style="padding: 10px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 4px; display: flex; flex-direction: column; gap: 6px;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+            <div>
+              <span style="font-weight: 600; font-size: 12px;">${escapeHtml(tool.name)}</span>
+              <span style="font-size: 10px; color: var(--text-muted); margin-left: 8px;">${escapeHtml(tool.category)}</span>
+            </div>
+            <span id="cli-status-${escapeHtml(tool.id)}" style="font-size: 10px; padding: 2px 6px; background: var(--text-dim); color: white; border-radius: 3px;">Checking...</span>
+          </div>
+          <div style="font-size: 10px; color: var(--text-dim);">${escapeHtml(tool.desc)}</div>
+          <div style="font-size: 9px; color: var(--text-muted); font-family: var(--font-mono);">Used by: ${escapeHtml(tool.usedBy)}</div>
+          <div style="display: flex; gap: 6px; margin-top: 4px;">
+            <button class="btn btn-secondary btn-sm" onclick="checkCliTool('${escapeHtml(tool.id)}')" style="padding: 4px 8px; font-size: 10px;">Check</button>
+            <button class="btn btn-secondary btn-sm" onclick="showCliInstallHint('${escapeHtml(tool.id)}')" style="padding: 4px 8px; font-size: 10px;">Install Hint</button>
+          </div>
+          <div id="cli-hint-${escapeHtml(tool.id)}" style="font-size: 9px; color: var(--text-dim); font-family: var(--font-mono); display: none;"></div>
+        </div>
+      `).join('');
+
+      // Auto-check all tools on render
+      Object.keys(CLI_TOOLS_CATALOG).forEach(id => checkCliTool(id));
+
+      if (refreshBtn) {
+        refreshBtn.onclick = () => {
+          Object.keys(CLI_TOOLS_CATALOG).forEach(id => checkCliTool(id));
+        };
+      }
+    }
+
+    async function checkCliTool(toolId) {
+      const tool = CLI_TOOLS_CATALOG[toolId];
+      if (!tool) return;
+
+      const prevDetected = tool.detected;
+      const statusEl = document.getElementById(`cli-status-${toolId}`);
+      if (!statusEl) return;
+
+      statusEl.textContent = 'Checking...';
+      statusEl.style.background = 'var(--accent)';
+
+      try {
+        // Run version command through the terminal path
+        const versionCmd = tool.versionFlag.startsWith('-') ? `${tool.id} ${tool.versionFlag}` : `${tool.id} ${tool.versionFlag}`;
+        const result = await runTerminalCommand(versionCmd, { timeout: 5000, silent: true });
+        if (result && result.exitCode === 0 && result.output) {
+          const version = result.output.trim().split('\n')[0];
+          statusEl.textContent = `Found: ${escapeHtml(version)}`;
+          statusEl.style.background = 'var(--success)';
+          tool.detected = true;
+          tool.detectedVersion = version;
+        } else {
+          statusEl.textContent = 'Not found';
+          statusEl.style.background = 'var(--danger)';
+          tool.detected = false;
+        }
+      } catch (e) {
+        statusEl.textContent = 'Error';
+        statusEl.style.background = 'var(--danger)';
+        tool.detected = false;
+      }
+
+      // Batch 9 repair: detection changed — refresh the agent tool catalog so
+      // the CLI status in the index/catalog is live, not stale.
+      if (tool.detected !== prevDetected && typeof rebuildToolSearchIndex === 'function') {
+        try { rebuildToolSearchIndex(); } catch (e) { /* index refresh is best-effort */ }
+      }
+    }
+
+    function showCliInstallHint(toolId) {
+      const tool = CLI_TOOLS_CATALOG[toolId];
+      if (!tool) return;
+      const hintEl = document.getElementById(`cli-hint-${toolId}`);
+      if (!hintEl) return;
+      hintEl.textContent = `Install: ${tool.installHint}`;
+      hintEl.style.display = hintEl.style.display === 'none' ? 'block' : 'none';
+    }
+
 
     // ==================== BATCH 8b: SWEEP LEFTOVERS RENDER FUNCTIONS ====================
 
@@ -30267,7 +30747,7 @@ ${description}
             }
 
             // Regex for fenced blocks: ```file:filename\ncontent```
-            const blockRegex = /```(file|delete|browse|brain-read|screenshot-to-app|find-symbol|find-references|rename-symbol|insert-after-symbol|hybrid-search|blast-radius|file-dependency-graph|risk-scored-review|git-pinned-memory):([^\n]*)\n([\s\S]*?)```/g;
+            const blockRegex = /```(file|delete|browse|brain-read|screenshot-to-app|find-symbol|find-references|rename-symbol|insert-after-symbol|hybrid-search|blast-radius|file-dependency-graph|risk-scored-review|git-pinned-memory|todowrite|question|ask_followup_question|list_code_definition_names):([^\n]*)\n([\s\S]*?)```/g;
             let match;
 
             // Collect file operations for potential atomic batch summary (legacy path)
@@ -30571,6 +31051,74 @@ ${description}
                 chips.push({ type: 'tool', label: `Git-pinned memory: ${pinResult.message}` });
                 logActivity(`git-pinned-memory: ${pinResult.message}`, 'info');
                 toolsUsed.push({ name: 'git-pinned-memory', type: 'builtin' });
+              } else if (actionType === 'todowrite') {
+                // todowrite: manage agent's todo list
+                let params;
+                try {
+                  params = JSON.parse(blockContent.trim());
+                } catch (e) {
+                  chips.push({ type: 'tool', label: `todowrite: invalid JSON params: ${e.message}` });
+                  logActivity('todowrite: invalid JSON params', 'error');
+                  if (typeof trackToolFailure === 'function') { try { trackToolFailure('todowrite', 'invalid JSON params'); } catch (_) {} }
+                  toolsUsed.push({ name: 'todowrite', type: 'builtin' });
+                  continue;
+                }
+                const { action, id, title, status } = params;
+                if (!action || !title) {
+                  chips.push({ type: 'tool', label: 'todowrite: requires action and title' });
+                  logActivity('todowrite: missing action or title', 'error');
+                  toolsUsed.push({ name: 'todowrite', type: 'builtin' });
+                  continue;
+                }
+                const todoResult = handleTodoWrite(action, id, title, status);
+                chips.push({ type: 'tool', label: `Todo ${action}: ${title}` });
+                logActivity(`todowrite: ${action} "${title}"`, 'info');
+                toolsUsed.push({ name: 'todowrite', type: 'builtin' });
+              } else if (actionType === 'question' || actionType === 'ask_followup_question') {
+                // question / ask_followup_question: ask user a question mid-task
+                const questionText = targetPath || blockContent.trim();
+                if (!questionText) {
+                  chips.push({ type: 'tool', label: 'question: requires a question text' });
+                  logActivity('question: missing question text', 'error');
+                  toolsUsed.push({ name: actionType, type: 'builtin' });
+                  continue;
+                }
+                // Parse options from block content if JSON
+                let options = [];
+                try {
+                  const parsed = JSON.parse(blockContent.trim());
+                  if (parsed.options && Array.isArray(parsed.options)) {
+                    options = parsed.options;
+                  }
+                } catch (_) {
+                  // Not JSON, use block content as question text
+                }
+                // Use existing human checkpoint UI (original version)
+                const fullQuestion = options.length > 0 
+                  ? questionText + '\nOptions: ' + options.join(', ')
+                  : questionText;
+                await requestHumanCheckpointOriginal(fullQuestion);
+                chips.push({ type: 'tool', label: `Question asked: ${questionText.substring(0, 50)}${questionText.length > 50 ? '...' : ''}` });
+                logActivity(`question: asked user "${questionText.substring(0, 50)}"`, 'info');
+                toolsUsed.push({ name: actionType, type: 'builtin' });
+              } else if (actionType === 'list_code_definition_names') {
+                // list_code_definition_names: list top-level definitions from code graph
+                const filePath = targetPath || blockContent.trim();
+                if (!filePath) {
+                  chips.push({ type: 'tool', label: 'list_code_definition_names: requires filePath' });
+                  logActivity('list_code_definition_names: missing filePath', 'error');
+                  toolsUsed.push({ name: 'list_code_definition_names', type: 'builtin' });
+                  continue;
+                }
+                const definitions = listCodeDefinitionsInGraph(filePath);
+                const resultText = definitions.length > 0
+                  ? definitions.map(d => `${d.kind} ${d.name} (line ${d.line})${d.signature ? ': ' + d.signature : ''}`).join('\n')
+                  : 'No top-level definitions found in ' + filePath;
+                chips.push({ type: 'tool', label: `Found ${definitions.length} definition(s) in ${filePath}` });
+                logActivity(`list_code_definition_names: "${filePath}" → ${definitions.length} definition(s)`, 'info');
+                toolsUsed.push({ name: 'list_code_definition_names', type: 'builtin' });
+                // Store results for follow-up
+                window.lastListDefinitionsResults = definitions;
               }
             }
 
@@ -36998,6 +37546,9 @@ Format:
           if (tabName === 'modelPrefs') {
             renderTaskModelPreferences();
           }
+          if (tabName === 'cliTools') {
+            renderCliToolsTab();
+          }
         });
       });
 
@@ -42776,18 +43327,68 @@ It integrates with the current user model (src/models/User.js) and JWT utility (
     // MCP tool budget: models degrade past ~40 enabled tools. Count the
     // tools each enabled server contributes (its explicit enabledTools list,
     // else the declared mcp_* tools) and warn when the total crosses 40.
+    // ==================== BATCH 9 REPAIR: GitHub MCP toolsets ====================
+    // Real tool names of @modelcontextprotocol/server-github, grouped by its
+    // toolsets feature. The web app cannot spawn the stdio server, but the
+    // toolset filter IS enforced here: counts, picker and TOOL_DEFINITIONS only
+    // ever see tools of enabled toolsets. The token is stored per project in
+    // appState (never in the repo) and passed to the desktop spawn as
+    // env GITHUB_PERSONAL_ACCESS_TOKEN.
+    const GITHUB_MCP_TOOLSETS = {
+      repos: { label: 'Repositories', tools: ['create_repository', 'search_repositories', 'get_file_contents', 'create_or_update_file', 'push_files', 'create_branch', 'list_commits', 'list_branches', 'fork_repository', 'get_repository'] },
+      issues: { label: 'Issues', tools: ['create_issue', 'list_issues', 'get_issue', 'update_issue', 'add_issue_comment', 'search_issues'] },
+      prs: { label: 'Pull Requests', tools: ['create_pull_request', 'list_pull_requests', 'get_pull_request', 'merge_pull_request', 'get_pull_request_files', 'get_pull_request_status', 'update_pull_request_branch', 'get_pull_request_comments'] },
+      actions: { label: 'Actions', tools: ['list_workflows', 'list_workflow_runs', 'get_workflow_run', 'list_workflow_jobs', 'rerun_workflow'] }
+    };
+    const GITHUB_MCP_ALL_TOOLSETS = ['repos', 'issues', 'prs', 'actions'];
+
+    // Tools of the server's enabled toolsets, as { name, trigger, toolset }.
+    // Full tool names follow the mcp_<serverId>_<tool> convention (mcp_github_create_issue).
+    function getGithubMcpTools(server) {
+      const sets = (server && Array.isArray(server.toolsets) && server.toolsets.length > 0)
+        ? server.toolsets : GITHUB_MCP_ALL_TOOLSETS;
+      const out = [];
+      for (const ts of sets) {
+        const def = GITHUB_MCP_TOOLSETS[ts];
+        if (!def) continue;
+        for (const t of def.tools) out.push({ name: 'mcp_github_' + t, trigger: def.label + ': ' + t, toolset: ts });
+      }
+      return out;
+    }
+
+    // Tool NAMES this server contributes to the agent catalog: for GitHub, the
+    // enabled toolsets' tools, further filtered by enabledTools when set.
+    // For other servers, the pre-existing declared/enabledTools logic.
+    function getEffectiveMcpToolsForServer(server) {
+      if (!server) return [];
+      if (server.id === 'mcp_github') {
+        const tsTools = getGithubMcpTools(server).map(t => t.name);
+        if (server.enabledTools && server.enabledTools.length > 0) {
+          return tsTools.filter(n => server.enabledTools.includes(n));
+        }
+        return tsTools;
+      }
+      const declared = getDeclaredMcpToolsForServer(server).map(t => t.name);
+      if (server.enabledTools && server.enabledTools.length > 0) {
+        return declared.filter(n => server.enabledTools.includes(n));
+      }
+      return declared;
+    }
+
     function getMcpToolCounts() {
       const declaredTools = (typeof TOOL_DEFINITIONS !== 'undefined')
         ? Object.values(TOOL_DEFINITIONS).filter(t => t.type === 'mcp' && t.name.startsWith('mcp_'))
         : [];
-      const perServer = Object.values(appState.mcpServers || {}).map(server => ({
-        id: server.id,
-        name: server.name,
-        enabled: server.enabled !== false,
-        count: (server.enabledTools && server.enabledTools.length > 0)
-          ? server.enabledTools.length
-          : declaredTools.length,
-      }));
+      const perServer = Object.values(appState.mcpServers || {}).map(server => {
+        // Batch 9 repair: GitHub counts its EFFECTIVE toolset tools (a disabled
+        // toolset drops the count). Other servers keep the existing counting.
+        const count = (server.id === 'mcp_github' && typeof getEffectiveMcpToolsForServer === 'function')
+          ? getEffectiveMcpToolsForServer(server).length
+          : ((server.enabledTools && server.enabledTools.length > 0)
+            ? server.enabledTools.length
+            : declaredTools.length);
+        return { id: server.id, name: server.name, enabled: server.enabled !== false, count };
+      });
       const total = perServer.filter(s => s.enabled).reduce((sum, s) => sum + s.count, 0);
       return { total, limit: 40, overLimit: total >= 40, approaching: total >= 35 && total < 40, perServer };
     }
@@ -42860,6 +43461,21 @@ It integrates with the current user model (src/models/User.js) and JWT utility (
       document.getElementById('mcpServerCallLimit').value = server.callLimit || '';
       document.getElementById('mcpServerSpendLimit').value = server.spendLimit || '';
 
+      // Batch 9 repair: GitHub token + toolsets (github-only section)
+      const isGithubServer = server.id === 'mcp_github';
+      const ghTokenGroup = document.getElementById('groupMcpGithubToken');
+      if (ghTokenGroup) ghTokenGroup.style.display = isGithubServer ? 'block' : 'none';
+      const ghToolsetsGroup = document.getElementById('groupMcpGithubToolsets');
+      if (ghToolsetsGroup) ghToolsetsGroup.style.display = isGithubServer ? 'block' : 'none';
+      const ghTokenInput = document.getElementById('mcpServerToken');
+      if (ghTokenInput) ghTokenInput.value = isGithubServer ? (server.token || '') : '';
+      if (isGithubServer) {
+        renderGithubToolsetPicker(server);
+      } else {
+        const ghToolsetsContainer = document.getElementById('mcpGithubToolsets');
+        if (ghToolsetsContainer) ghToolsetsContainer.innerHTML = '';
+      }
+
       // Render tool picker checkboxes
       renderMcpServerToolPicker(server);
 
@@ -42871,10 +43487,73 @@ It integrates with the current user model (src/models/User.js) and JWT utility (
     }
 
     // Render tool picker checkboxes for MCP server
+    // Current GitHub toolsets from the edit-modal checkboxes (live form state),
+    // or null when the modal has no toolset checkboxes rendered.
+    function getCurrentGithubToolsetsFromForm() {
+      const boxes = document.querySelectorAll('.mcp-toolset-checkbox');
+      if (!boxes || boxes.length === 0) return null;
+      return Array.from(boxes).filter(cb => cb.checked).map(cb => cb.dataset.toolset);
+    }
+
+    // A toolset checkbox changed: re-render the tool picker for the live form state.
+    function onGithubToolsetToggle() {
+      const modal = document.getElementById('mcpServerModal');
+      const serverId = modal && modal.dataset.serverId;
+      const server = (appState.mcpServers || {})[serverId] || { id: 'mcp_github' };
+      renderMcpServerToolPicker(server);
+    }
+
+    // Render the GitHub toolset checkboxes in the edit modal.
+    function renderGithubToolsetPicker(server) {
+      const container = document.getElementById('mcpGithubToolsets');
+      if (!container) return;
+      const sets = (server && Array.isArray(server.toolsets) && server.toolsets.length > 0)
+        ? server.toolsets : GITHUB_MCP_ALL_TOOLSETS;
+      container.innerHTML = GITHUB_MCP_ALL_TOOLSETS.map(ts => {
+        const def = GITHUB_MCP_TOOLSETS[ts];
+        const checked = sets.includes(ts);
+        return `
+          <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 11px; color: var(--text-main); padding: 4px 6px; border-radius: 3px; background: ${checked ? 'var(--bg-surface)' : 'transparent'};">
+            <input type="checkbox" class="mcp-toolset-checkbox" data-toolset="${escapeHtml(ts)}" ${checked ? 'checked' : ''} onchange="onGithubToolsetToggle()" />
+            <span style="font-weight: 500;">${escapeHtml(def.label)}</span>
+            <small style="color: var(--text-dim);">${def.tools.length} tools</small>
+          </label>
+        `;
+      }).join('');
+    }
+
     function renderMcpServerToolPicker(server) {
       const container = document.getElementById('mcpServerToolPicker');
       if (!container) return;
-      
+
+      // Batch 9 repair: GitHub shows ONLY its enabled toolsets' tools, grouped
+      // by toolset. A disabled toolset's tools are hidden from the picker.
+      if (server && server.id === 'mcp_github') {
+        const formToolsets = (typeof getCurrentGithubToolsetsFromForm === 'function') ? getCurrentGithubToolsetsFromForm() : null;
+        const activeSets = formToolsets || server.toolsets || GITHUB_MCP_ALL_TOOLSETS;
+        const ghTools = getGithubMcpTools({ ...server, toolsets: activeSets });
+        const enabledTools = server.enabledTools || ghTools.map(t => t.name);
+        if (ghTools.length === 0) {
+          container.innerHTML = '<small style="font-size: 10px; color: var(--text-dim);">All GitHub toolsets are disabled. Enable a toolset above to see its tools.</small>';
+          return;
+        }
+        container.innerHTML = GITHUB_MCP_ALL_TOOLSETS.filter(ts => activeSets.includes(ts)).map(ts => {
+          const def = GITHUB_MCP_TOOLSETS[ts];
+          const rows = ghTools.filter(t => t.toolset === ts).map(tool => {
+            const isEnabled = enabledTools.includes(tool.name);
+            return `
+          <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 11px; color: var(--text-main); padding: 4px 6px; border-radius: 3px; background: ${isEnabled ? 'var(--bg-surface)' : 'transparent'};">
+            <input type="checkbox" class="mcp-tool-checkbox" data-tool-name="${escapeHtml(tool.name)}" ${isEnabled ? 'checked' : ''} />
+            <span style="font-weight: 500;">${escapeHtml(tool.name.replace('mcp_github_', ''))}</span>
+            <small style="color: var(--text-dim);">${escapeHtml(tool.trigger)}</small>
+          </label>
+        `;
+          }).join('');
+          return `<div style="display: flex; flex-direction: column; gap: 2px;"><div style="font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; padding: 6px 6px 2px;">${escapeHtml(def.label)}</div>${rows}</div>`;
+        }).join('');
+        return;
+      }
+
       // Get declared tools for this server from TOOL_DEFINITIONS (mcp_ prefix)
       const declaredTools = Object.values(TOOL_DEFINITIONS).filter(t => t.type === 'mcp' && t.name.startsWith('mcp_'));
       const enabledTools = server.enabledTools || declaredTools.map(t => t.name); // Default: all enabled
@@ -42912,6 +43591,10 @@ It integrates with the current user model (src/models/User.js) and JWT utility (
       // Get tools declared for this server from TOOL_DEFINITIONS
       // Tools are named like mcp_<serverId>_<toolName> or mcp_<builtinName>
       const serverId = server.id || '';
+      // Batch 9 repair: the GitHub server's tools come from its enabled toolsets
+      if (serverId === 'mcp_github') {
+        return getGithubMcpTools(server);
+      }
       const tools = [];
       for (const [name, def] of Object.entries(TOOL_DEFINITIONS || {})) {
         if (def.type === 'mcp' && name.startsWith('mcp_')) {
@@ -42992,9 +43675,14 @@ It integrates with the current user model (src/models/User.js) and JWT utility (
       const callLimit = document.getElementById('mcpServerCallLimit').value;
       const spendLimit = document.getElementById('mcpServerSpendLimit').value;
 
-      // Read enabled tools from checkboxes
-      const enabledTools = Array.from(document.querySelectorAll('.mcp-tool-checkbox:checked'))
-        .map(cb => cb.dataset.toolName);
+      // Read enabled tools from checkboxes. Tools hidden by a disabled toolset
+      // are not rendered, so preserve their previous enabled state — re-enabling
+      // the toolset brings them back (Batch 9 repair).
+      const prevEnabledTools = (appState.mcpServers[serverId] && appState.mcpServers[serverId].enabledTools) || [];
+      const renderedToolNames = Array.from(document.querySelectorAll('.mcp-tool-checkbox')).map(cb => cb.dataset.toolName);
+      const checkedTools = Array.from(document.querySelectorAll('.mcp-tool-checkbox:checked')).map(cb => cb.dataset.toolName);
+      const preservedTools = prevEnabledTools.filter(t => !renderedToolNames.includes(t));
+      const enabledTools = [...new Set([...checkedTools, ...preservedTools])];
 
       if (!name) {
         alert('Server name is required');
@@ -43011,6 +43699,19 @@ It integrates with the current user model (src/models/User.js) and JWT utility (
         }
       }
 
+      // Batch 9 repair: GitHub token + toolsets (github-only, read from the modal).
+      // The token is passed to the desktop spawn as env GITHUB_PERSONAL_ACCESS_TOKEN.
+      const tokenInput = document.getElementById('mcpServerToken');
+      const githubToken = tokenInput ? tokenInput.value.trim() : '';
+      const toolsetBoxes = document.querySelectorAll('.mcp-toolset-checkbox');
+      const githubToolsets = toolsetBoxes.length > 0
+        ? Array.from(toolsetBoxes).filter(cb => cb.checked).map(cb => cb.dataset.toolset)
+        : null;
+      if (serverId === 'mcp_github') {
+        if (githubToken) env.GITHUB_PERSONAL_ACCESS_TOKEN = githubToken;
+        else delete env.GITHUB_PERSONAL_ACCESS_TOKEN;
+      }
+
       const server = {
         id: serverId,
         name,
@@ -43022,6 +43723,7 @@ It integrates with the current user model (src/models/User.js) and JWT utility (
         enabled,
         trust,
         enabledTools,
+        ...(serverId === 'mcp_github' ? { token: githubToken, toolsets: githubToolsets !== null ? githubToolsets : ((appState.mcpServers[serverId] && Array.isArray(appState.mcpServers[serverId].toolsets)) ? appState.mcpServers[serverId].toolsets : GITHUB_MCP_ALL_TOOLSETS) } : {}),
         callLimit: callLimit ? parseInt(callLimit, 10) : undefined,
         spendLimit: spendLimit ? parseFloat(spendLimit) : undefined
       };
@@ -43143,6 +43845,352 @@ It integrates with the current user model (src/models/User.js) and JWT utility (
       }
     ];
 
+    // ==================== BATCH 9: ADDITIONAL MCP SERVERS ====================
+    // Append additional MCP servers to the known servers catalog
+    const BATCH9_MCP_SERVERS = [
+      {
+        id: 'mcp_jcodemunch',
+        name: 'jcodemunch',
+        repo: 'jcodemunch/jcodemunch',
+        license: 'MIT',
+        description: 'কোডবেস চান্কিং ও ইন্ডেক্সিং হেল্পার — বড় প্রজেক্টের কোড দ্রুত খুঁজে বের করতে সাহায্য করে',
+        tools: [
+          { name: 'mcp_jcodemunch_index', trigger: 'ইন্ডেক্স কোডবেস ফর সেমান্টিক সার্চ' },
+          { name: 'mcp_jcodemunch_search', trigger: 'সেমান্টিক কোয়ারী দিয়ে কোড সার্চ করুন' },
+          { name: 'mcp_jcodemunch_chunk', trigger: 'বড় ফাইলগুলো ছোট চান্কে ভাগ করুন' }
+        ],
+        config: {
+          transport: 'stdio',
+          command: 'npx -y @jcodemunch/mcp-server',
+          env: {},
+          note: 'Runs on desktop — in the web app, the built-in tools below do the same job.'
+        }
+      },
+      {
+        id: 'mcp_gitnexus',
+        name: 'GitNexus',
+        repo: 'gitnexus/gitnexus',
+        license: 'MIT',
+        description: 'মাল্টি-রেপো গিট ইন্টেলিজেন্স — একাধিক রিপোজিটরির কমিট, ব্রাঞ্চ, কমিট বিশ্লেষণ করে',
+        tools: [
+          { name: 'mcp_gitnexus_multi_repo_status', trigger: 'সকল রিপোর স্ট্যাটাস একসাথে দেখুন' },
+          { name: 'mcp_gitnexus_cross_repo_search', trigger: 'একাধিক রিপোতে কোড/প্যাটার্ন খুঁজুন' },
+          { name: 'mcp_gitnexus_branch_analysis', trigger: 'ব্রাঞ্চ তুলনা ও মার্জ কনফ্লিক্ট পূর্বে দেখা' },
+          { name: 'mcp_gitnexus_contributor_stats', trigger: 'কন্ট্রিবিউটরদের অবদান পরিসংখ্যান' }
+        ],
+        config: {
+          transport: 'stdio',
+          command: 'npx -y @gitnexus/mcp-server',
+          env: {},
+          note: 'Runs on desktop — in the web app, the built-in tools below do the same job.'
+        }
+      },
+      {
+        id: 'mcp_chrome_devtools',
+        name: 'Chrome DevTools',
+        repo: 'chrome-devtools/mcp',
+        license: 'BSD-3-Clause',
+        description: 'ব্রাউজার ডিবাগিং — কনসোল, নেটওয়ার্ক, এলিমেন্টস ইনসপেক্ট করা যায় (H4 রিয়েল ব্রাউজার এজেন্টের সাথে জোড়া)',
+        tools: [
+          { name: 'mcp_chrome_console', trigger: 'ব্রাউজার কনসোল লগ পড়ুন/লিখুন' },
+          { name: 'mcp_chrome_network', trigger: 'নেটওয়ার্ক রিকোয়েস্ট ক্যাপচার ও বিশ্লেষণ' },
+          { name: 'mcp_chrome_elements', trigger: 'DOM এলিমেন্টস ইনসপেক্ট ও ম্যানিপুলেট' },
+          { name: 'mcp_chrome_screenshot', trigger: 'পেজের স্ক্রিনশট নিন' },
+          { name: 'mcp_chrome_evaluate', trigger: 'ব্রাউজার কনটেক্সটে জাভাস্ক্রিপ্ট রান করুন' }
+        ],
+        config: {
+          transport: 'stdio',
+          command: 'npx -y @chrome-devtools/mcp-server',
+          env: {},
+          note: 'Runs on desktop — pairs with H4 real browser agent work.'
+        }
+      },
+      {
+        id: 'mcp_supabase',
+        name: 'Supabase',
+        repo: 'supabase/mcp-server',
+        license: 'MIT',
+        description: 'ডেটাবেস + অথেন্টিকেশন — Postgres, Auth, Storage, Realtime, Edge Functions ম্যানেজ করুন',
+        tools: [
+          { name: 'mcp_supabase_query', trigger: 'SQL কোয়ারী রান করুন (SELECT, INSERT, UPDATE, DELETE)' },
+          { name: 'mcp_supabase_auth', trigger: 'ইউজার অথেন্টিকেশন, সেশন, JWT টোকেন ম্যানেজ' },
+          { name: 'mcp_supabase_storage', trigger: 'ফাইল আপলোড/ডাউনলোড/লিস্ট (বাকেটস)' },
+          { name: 'mcp_supabase_realtime', trigger: 'রিয়েলটাইম সাবস্ক্রিপশন সেটআপ' },
+          { name: 'mcp_supabase_edge_function', trigger: 'Edge Functions ডিপ্লয় ও ম্যানেজ' }
+        ],
+        config: {
+          transport: 'stdio',
+          command: 'npx -y @supabase/mcp-server',
+          env: { SUPABASE_URL: '', SUPABASE_ANON_KEY: '' },
+          note: 'Runs on desktop — requires Supabase project credentials.'
+        }
+      },
+      {
+        id: 'mcp_sentry',
+        name: 'Sentry',
+        repo: 'getsentry/sentry-mcp',
+        license: 'MIT',
+        description: 'এরর ট্র্যাকিং — Batch 6 E13 ইন্সিডেন্ট ট্রায়েজের সাথে জোড়া, ইস্যু গ্রুপিং, অ্যালার্ট, রিলিজ ট্র্যাকিং',
+        tools: [
+          { name: 'mcp_sentry_issues', trigger: 'ইস্যু লিস্ট/ফিল্টার/সার্চ করুন' },
+          { name: 'mcp_sentry_events', trigger: 'ইভেন্ট ডিটেইলস দেখুন (স্ট্যাক ট্রেস, ব্রেডক্রাম্বস)' },
+          { name: 'mcp_sentry_releases', trigger: 'রিলিজ তৈরি/আপডেট/ডিপ্লয় মার্কার' },
+          { name: 'mcp_sentry_alerts', trigger: 'অ্যালার্ট রুলস ও নোটিফিকেশন কনফিগার' },
+          { name: 'mcp_sentry_user_feedback', trigger: 'ইউজার ফিডব্যাক কালেক্ট ও দেখুন' }
+        ],
+        config: {
+          transport: 'stdio',
+          command: 'npx -y @sentry/mcp-server',
+          env: { SENTRY_AUTH_TOKEN: '', SENTRY_ORG: '' },
+          note: 'Runs on desktop — pairs with Batch 6 E13 incident triage.'
+        }
+      },
+      {
+        id: 'mcp_figma',
+        name: 'Figma',
+        repo: 'figma/mcp-server',
+        license: 'MIT',
+        description: 'ডিজাইন ফাইলস — Batch 6 E8 মাল্টিমোডাল ইনপুটের সাথে জোড়া, কম্পোনেন্ট, স্টাইল, প্রোটোটাইপ এক্সেস',
+        tools: [
+          { name: 'mcp_figma_get_file', trigger: 'ফাইল নোডস, কম্পোনেন্টস, স্টাইলস এক্সট্র্যাক্ট' },
+          { name: 'mcp_figma_get_components', trigger: 'পাবলিশড কম্পোনেন্ট লাইব্রেরি ব্রাউজ' },
+          { name: 'mcp_figma_get_styles', trigger: 'রঙ, টেক্সট, ইফেক্ট স্টাইলস পান' },
+          { name: 'mcp_figma_get_comments', trigger: 'কমেন্ট থ্রেডস পড়ুন/পোস্ট করুন' },
+          { name: 'mcp_figma_export', trigger: 'এসেট এক্সপোর্ট (PNG, SVG, PDF)' }
+        ],
+        config: {
+          transport: 'stdio',
+          command: 'npx -y @figma/mcp-server',
+          env: { FIGMA_ACCESS_TOKEN: '' },
+          note: 'Runs on desktop — pairs with Batch 6 E8 multimodal input.'
+        }
+      },
+      {
+        id: 'mcp_firecrawl',
+        name: 'Firecrawl',
+        repo: 'mendableai/firecrawl',
+        license: 'MIT',
+        description: 'ওয়েব স্ক্র্যাপিং — Batch 7.11 রিসার্চ মোডের সাথে জোড়া, Crawl, Scrape, Extract, Map, Search',
+        tools: [
+          { name: 'mcp_firecrawl_scrape', trigger: 'সিঙ্গেল URL স্ক্র্যাপ করুন (markdown, HTML, screenshot)' },
+          { name: 'mcp_firecrawl_crawl', trigger: 'ওয়েবসাইট ক্রল করুন (সাইটম্যাপ, লিংক ডিসকভারি)' },
+          { name: 'mcp_firecrawl_extract', trigger: 'LLM-এক্সট্রাকশন দিয়ে স্ট্রাকচার্ড ডেটা' },
+          { name: 'mcp_firecrawl_search', trigger: 'ওয়েব সার্চ + কনটেন্ট এক্সট্র্যাকশন' },
+          { name: 'mcp_firecrawl_map', trigger: 'সাইটম্যাপ জেনারেট (সকল URL ডিসকভার)' }
+        ],
+        config: {
+          transport: 'stdio',
+          command: 'npx -y @mendable/firecrawl-mcp',
+          env: { FIRECRAWL_API_KEY: '' },
+          note: 'Runs on desktop — pairs with Batch 7.11 research mode.'
+        }
+      },
+      {
+        id: 'mcp_linear',
+        name: 'Linear',
+        repo: 'linear/mcp-server',
+        license: 'MIT',
+        description: 'ইস্যু ট্র্যাকিং — Batch 6 E19-এর সাথে জোড়া, ইস্যু, প্রজেক্ট, সাইকেল, টিম, কমেন্ট',
+        tools: [
+          { name: 'mcp_linear_issues', trigger: 'ইস্যু ক্রিএট/আপডেট/সার্চ/ফিল্টার' },
+          { name: 'mcp_linear_projects', trigger: 'প্রজেক্ট ও সাইকেল ম্যানেজমেন্ট' },
+          { name: 'mcp_linear_teams', trigger: 'টিম মেম্বারস, ওয়ার্কফ্লো স্টেটস' },
+          { name: 'mcp_linear_comments', trigger: 'কমেন্ট যোগ/পড়ুন ইস্যুতে' },
+          { name: 'mcp_linear_webhooks', trigger: 'ওয়েবহুক রেজিস্ট্রেশন/ম্যানেজ' }
+        ],
+        config: {
+          transport: 'stdio',
+          command: 'npx -y @linear/mcp-server',
+          env: { LINEAR_API_KEY: '' },
+          note: 'Runs on desktop — pairs with Batch 6 E19.'
+        }
+      },
+      {
+        id: 'mcp_postgresql',
+        name: 'PostgreSQL',
+        repo: 'modelcontextprotocol/server-postgres',
+        license: 'MIT',
+        description: 'ডেটাবেস কোয়ারী — সরাসরি SQL, স্কিমা ইনসপেকশন, এক্সপ্লেইন প্লান, মাইগ্রেশন হেল্পার',
+        tools: [
+          { name: 'mcp_postgres_query', trigger: 'Read-only SELECT কোয়ারী রান করুন' },
+          { name: 'mcp_postgres_execute', trigger: 'DDL/DML স্টেটমেন্ট এক্সিকিউট (সতর্কতায়)' },
+          { name: 'mcp_postgres_schema', trigger: 'টেবিল, কলাম, ইনডেক্স, কনস্ট্রেইন্ট লিস্ট' },
+          { name: 'mcp_postgres_explain', trigger: 'EXPLAIN ANALYZE দিয়ে কোয়ারী প্ল্যান' },
+          { name: 'mcp_postgres_migration', trigger: 'মাইগ্রেশন ফাইল জেনারেট/ভ্যালিডেট' }
+        ],
+        config: {
+          transport: 'stdio',
+          command: 'npx -y @modelcontextprotocol/server-postgres',
+          env: { POSTGRES_CONNECTION_STRING: '' },
+          note: 'Runs on desktop — requires PostgreSQL connection string.'
+        }
+      },
+      {
+        id: 'mcp_vercel',
+        name: 'Vercel',
+        repo: 'vercel/mcp-server',
+        license: 'MIT',
+        description: 'ডিপ্লয়মেন্টস — C1 পাবলিশের সাথে জোড়া, প্রজেক্ট, ডিপ্লয়মেন্ট, ডোমেইন, এনভায়রনমেন্ট ভেরিয়েবল',
+        tools: [
+          { name: 'mcp_vercel_deploy', trigger: 'নতুন ডিপ্লয়মেন্ট ট্রিগার করুন' },
+          { name: 'mcp_vercel_projects', trigger: 'প্রজেক্ট লিস্ট/কনফিগার/এনভায়রনমেন্ট ভেরিয়েবল' },
+          { name: 'mcp_vercel_domains', trigger: 'কাস্টম ডোমেইন অ্যাড/রিমুভ/ভেরিফাই' },
+          { name: 'mcp_vercel_logs', trigger: 'ডিপ্লয়মেন্ট লগস (বিল্ড, ফাংশন) দেখুন' },
+          { name: 'mcp_vercel_rollback', trigger: 'পূর্বের ডিপ্লয়মেন্টে রোলব্যাক' }
+        ],
+        config: {
+          transport: 'stdio',
+          command: 'npx -y @vercel/mcp-server',
+          env: { VERCEL_TOKEN: '' },
+          note: 'Runs on desktop — pairs with C1 publish.'
+        }
+      },
+      {
+        id: 'mcp_cloudflare',
+        name: 'Cloudflare',
+        repo: 'cloudflare/mcp-server',
+        license: 'MIT',
+        description: 'Workers + Pages — Edge ফাংশন, KV, D1, R2, Queues, ডিপ্লয়মেন্ট পাইপলাইন',
+        tools: [
+          { name: 'mcp_cloudflare_workers', trigger: 'Workers স্ক্রিপ্ট ডিপ্লয়/আপডেট/লগস' },
+          { name: 'mcp_cloudflare_kv', trigger: 'KV নেমস্পেস রিড/রাইট/লিস্ট' },
+          { name: 'mcp_cloudflare_d1', trigger: 'D1 SQL ডেটাবেস কোয়ারী/মাইগ্রেশন' },
+          { name: 'mcp_cloudflare_r2', trigger: 'R2 বাকেট আপলোড/ডাউনলোড/লিস্ট' },
+          { name: 'mcp_cloudflare_pages', trigger: 'Pages প্রজেক্ট ডিপ্লয়/প্রিভিউ/প্রোডাকশন' }
+        ],
+        config: {
+          transport: 'stdio',
+          command: 'npx -y @cloudflare/mcp-server',
+          env: { CLOUDFLARE_API_TOKEN: '', CLOUDFLARE_ACCOUNT_ID: '' },
+          note: 'Runs on desktop — Workers/Pages ecosystem.'
+        }
+      },
+      {
+        id: 'mcp_excalidraw',
+        name: 'Excalidraw',
+        repo: 'excalidraw/mcp-server',
+        license: 'MIT',
+        description: 'ডায়াগ্রামস — Batch 5 D1 আর্কিটেকচার ডায়াগ্রামের সাথে জোড়া, সিন, লাইব্রেরি, এক্সপোর্ট',
+        tools: [
+          { name: 'mcp_excalidraw_create', trigger: 'নতুন সিন তৈরি (JSON বা প্রম্পট থেকে)' },
+          { name: 'mcp_excalidraw_update', trigger: 'এলিমেন্ট যোগ/আপডেট/ডিলিট করুন' },
+          { name: 'mcp_excalidraw_export', trigger: 'PNG, SVG, Excalidraw JSON এক্সপোর্ট' },
+          { name: 'mcp_excalidraw_library', trigger: 'কাস্টম লাইব্রেরি আইটেম ম্যানেজ' },
+          { name: 'mcp_excalidraw_collaborate', trigger: 'লাইভ কোলাবোরেশন সেশন শেয়ার' }
+        ],
+        config: {
+          transport: 'stdio',
+          command: 'npx -y @excalidraw/mcp-server',
+          env: {},
+          note: 'Runs on desktop — pairs with Batch 5 D1 architecture diagrams.'
+        }
+      },
+      {
+        id: 'mcp_aws',
+        name: 'AWS',
+        repo: 'awslabs/mcp-server',
+        license: 'Apache-2.0',
+        description: 'ক্লাউড রিসোর্সস — EC2, S3, Lambda, DynamoDB, CloudFormation, IAM, CloudWatch',
+        tools: [
+          { name: 'mcp_aws_ec2', trigger: 'ইনস্ট্যান্স লিস্ট/স্টার্ট/স্টপ/টার্মিনেট' },
+          { name: 'mcp_aws_s3', trigger: 'বাকেট/অবজেক্ট CRUD, প্রিসাইনড URL' },
+          { name: 'mcp_aws_lambda', trigger: 'ফাংশন ডিপ্লয়/ইনভোক/লগস/আপডেট' },
+          { name: 'mcp_aws_dynamodb', trigger: 'টেবিল কোয়ারী/স্ক্যান/আইটেম অপস' },
+          { name: 'mcp_aws_cloudformation', trigger: 'স্ট্যাক ডিপ্লয়/আপডেট/ড্রিফ্ট ডিটেক্ট' },
+          { name: 'mcp_aws_iam', trigger: 'রোল, পলিসি, ইউজার, গ্রুপ ম্যানেজ' },
+          { name: 'mcp_aws_cloudwatch', trigger: 'মেট্রিক্স, অ্যালার্ম, লগ গ্রুপস কোয়ারী' }
+        ],
+        config: {
+          transport: 'stdio',
+          command: 'npx -y @awslabs/mcp-server',
+          env: { AWS_PROFILE: 'default', AWS_REGION: 'us-east-1' },
+          note: 'Runs on desktop — requires AWS credentials configured.'
+        }
+      },
+      {
+        id: 'mcp_notion',
+        name: 'Notion',
+        repo: 'makepm/notion-mcp',
+        license: 'MIT',
+        description: 'ডকস — ব্রেনের সাথে জোড়া, পেজ, ডেটাবেস, ব্লক, সার্চ, কমেন্ট',
+        tools: [
+          { name: 'mcp_notion_pages', trigger: 'পেজ ক্রিএট/আপডেট/সার্চ/আর্কাইভ' },
+          { name: 'mcp_notion_databases', trigger: 'ডেটাবেস স্কিমা, কোয়ারী, ফিল্টার, সর্ট' },
+          { name: 'mcp_notion_blocks', trigger: 'ব্লক অপস (তুলনা, হেডিং, কোড, ইমেজ, এমবেড)' },
+          { name: 'mcp_notion_search', trigger: 'ওয়ার্কস্পেস-উইড ফুল-টেক্সট সার্চ' },
+          { name: 'mcp_notion_comments', trigger: 'পেজ/ব্লক কমেন্ট থ্রেডস' }
+        ],
+        config: {
+          transport: 'stdio',
+          command: 'npx -y @makepm/notion-mcp',
+          env: { NOTION_API_KEY: '' },
+          note: 'Runs on desktop — pairs with the Brain.'
+        }
+      },
+      {
+        id: 'mcp_zapier',
+        name: 'Zapier',
+        repo: 'zapier/mcp-server',
+        license: 'MIT',
+        description: 'অটোমেশনস — Batch 6 E5-এর সাথে জোড়া, Zaps, Webhooks, Actions, App Connections',
+        tools: [
+          { name: 'mcp_zapier_zaps', trigger: 'Zap লিস্ট/ইনবেল/ডিজেবল/রান' },
+          { name: 'mcp_zapier_webhooks', trigger: 'Webhook URL জেনারেট/রিসিভ/টেস্ট' },
+          { name: 'mcp_zapier_actions', trigger: 'AI Actions (Natural Language → API) কল' },
+          { name: 'mcp_zapier_apps', trigger: 'কানেক্টেড অ্যাপস ব্রাউজ/অথোরাইজ' },
+          { name: 'mcp_zapier_tasks', trigger: 'টাস্ক হিস্টরি ও এরর ডিবাগ' }
+        ],
+        config: {
+          transport: 'stdio',
+          command: 'npx -y @zapier/mcp-server',
+          env: { ZAPIER_API_KEY: '' },
+          note: 'Runs on desktop — pairs with Batch 6 E5.'
+        }
+      },
+      {
+        id: 'mcp_monitoring',
+        name: 'Monitoring MCPs',
+        repo: 'monitoring/mcp-servers',
+        license: 'MIT',
+        description: 'আপটাইম/হেলথ চেক — Batch 5 D9 পোস্ট-ডিপ্লয় মনিটরিংর সাথে জোড়া, সিনথেটিক চেক, অ্যালার্ট',
+        tools: [
+          { name: 'mcp_monitoring_uptime', trigger: 'URL/এন্ডপয়েন্ট আপটাইম চেক (HTTP, TCP, DNS)' },
+          { name: 'mcp_monitoring_health', trigger: 'হেলথ এন্ডপয়েন্ট ডিপ চেক (DB, Cache, Dependencies)' },
+          { name: 'mcp_monitoring_alerts', trigger: 'অ্যালার্ট রুলস, নোটিফিকেশন চ্যানেলস, অন-কল রোটা' },
+          { name: 'mcp_monitoring_slo', trigger: 'SLO/SLI ট্র্যাকিং, Error বাজেট, বার্ন রেট' }
+        ],
+        config: {
+          transport: 'stdio',
+          command: 'npx -y @monitoring/mcp-servers',
+          env: {},
+          note: 'Runs on desktop — pairs with Batch 5 D9 post-deploy monitoring.'
+        }
+      },
+      {
+        id: 'mcp_memory_server',
+        name: 'Memory MCPs',
+        repo: 'memory/mcp-servers',
+        license: 'MIT',
+        description: 'পারসিস্টেন্ট মেমোরি সার্ভারস — Brain v2-এর সাথে জোড়া, কখনো দ্বিতীয় মেমোরি/গ্রাফ/কিউ/শেডিউলার/এপিআই নয়',
+        tools: [
+          { name: 'mcp_memory_create', trigger: 'মেমোরি এন্ট্রি তৈরি (কী-ভ্যালু, ট্যাগ, TTL)' },
+          { name: 'mcp_memory_read', trigger: 'কী/ট্যাগ/সেমান্টিক সার্চ দিয়ে রিড' },
+          { name: 'mcp_memory_update', trigger: 'এন্ট্রি আপডেট/ভ্যার্সন/মার্জ' },
+          { name: 'mcp_memory_delete', trigger: 'এন্ট্রি ডিলিট/TTL এক্সপায়ারি' },
+          { name: 'mcp_memory_sync', trigger: 'ব্রেইন v2 সাথে সিঙ্ক (একদিকে, কনফ্লিক্ট রিজলভ)' }
+        ],
+        config: {
+          transport: 'stdio',
+          command: 'npx -y @memory/mcp-servers',
+          env: {},
+          note: 'Runs on desktop — pairs with Brain v2, never a second memory store.'
+        }
+      }
+    ];
+
+    // Merge Batch 9 servers into the known servers catalog
+    MCP_KNOWN_SERVERS.push(...BATCH9_MCP_SERVERS);
+
     // Expose globally for testing and external access
     window.MCP_KNOWN_SERVERS = MCP_KNOWN_SERVERS;
 
@@ -43168,8 +44216,12 @@ It integrates with the current user model (src/models/User.js) and JWT utility (
             </div>
             ${!isInstalled ? `
               <button class="btn" onclick="installKnownMcpServer('${escapeHtml(server.id)}')" style="padding:4px 10px; font-size:11px;" data-i18n="Install">Install</button>
+              <button class="btn btn-secondary" onclick="checkMcpPackage('${escapeHtml(server.id)}')" style="padding:4px 10px; font-size:11px; margin-left:4px;">Check</button>
+              <span id="check-result-${escapeHtml(server.id)}" style="margin-left:6px; font-size:10px; color:var(--text-dim);"></span>
             ` : `
               <button class="btn btn-secondary" onclick="selectMcpServerForEdit('${escapeHtml(server.id)}')" style="padding:4px 10px; font-size:11px;" data-i18n="Configure">Configure</button>
+              <button class="btn btn-secondary" onclick="checkMcpPackage('${escapeHtml(server.id)}')" style="padding:4px 10px; font-size:11px; margin-left:4px;">Check</button>
+              <span id="check-result-${escapeHtml(server.id)}" style="margin-left:6px; font-size:10px; color:var(--text-dim);"></span>
             `}
           </div>
         `;
@@ -43219,6 +44271,48 @@ It integrates with the current user model (src/models/User.js) and JWT utility (
       logActivity(`Installed ${server.name} (UNTRUSTED). Configure trust level and tool permissions in the registry.`, 'success');
     }
 
+    // Check if an MCP package exists in the npm registry
+    async function checkMcpPackage(serverId) {
+      const server = MCP_KNOWN_SERVERS.find(s => s.id === serverId);
+      if (!server) return;
+
+      const resultEl = document.getElementById(`check-result-${serverId}`);
+      if (!resultEl) return;
+
+      resultEl.textContent = 'Checking...';
+      resultEl.style.color = 'var(--accent)';
+
+      try {
+        // Extract package name from command (e.g., 'npx -y @scope/package' -> '@scope/package')
+        const cmd = server.config.command || '';
+        const match = cmd.match(/@?[\w-]+\/[\w-]+/);
+        const pkgName = match ? match[0] : cmd.replace(/^npx\s+-y\s+/, '').trim();
+
+        // Probe npm registry
+        const response = await fetch(`https://registry.npmjs.org/${pkgName}`);
+        if (response.ok) {
+          const data = await response.json();
+          const version = data['dist-tags']?.latest || 'unknown';
+          resultEl.textContent = `VERIFIED v${version}`;
+          resultEl.style.color = 'var(--success)';
+          server.packageVerified = true;
+          server.packageVersion = version;
+        } else if (response.status === 404) {
+          resultEl.textContent = 'NOT FOUND on npm';
+          resultEl.style.color = 'var(--danger)';
+          server.packageVerified = false;
+        } else {
+          resultEl.textContent = `Check failed (HTTP ${response.status})`;
+          resultEl.style.color = 'var(--warning)';
+        }
+      } catch (e) {
+        resultEl.textContent = `Error: ${e.message}`;
+        resultEl.style.color = 'var(--danger)';
+      }
+
+      renderMcpKnownServersList();
+    }
+
     function setupMcpRegistryHandlers() {
       document.getElementById('btnCloseMcpRegistry').onclick = () => document.getElementById('mcpRegistryModal').classList.remove('active');
       document.getElementById('btnAddMcpServer').onclick = () => {
@@ -43234,6 +44328,15 @@ It integrates with the current user model (src/models/User.js) and JWT utility (
         document.getElementById('mcpServerTrust').value = 'untrusted';
         document.getElementById('mcpServerCallLimit').value = '';
         document.getElementById('mcpServerSpendLimit').value = '';
+        // Batch 9 repair: a new server is never the GitHub entry — hide its fields
+        const ghTokenGroupNew = document.getElementById('groupMcpGithubToken');
+        if (ghTokenGroupNew) ghTokenGroupNew.style.display = 'none';
+        const ghToolsetsGroupNew = document.getElementById('groupMcpGithubToolsets');
+        if (ghToolsetsGroupNew) ghToolsetsGroupNew.style.display = 'none';
+        const ghTokenInputNew = document.getElementById('mcpServerToken');
+        if (ghTokenInputNew) ghTokenInputNew.value = '';
+        const ghToolsetsContainerNew = document.getElementById('mcpGithubToolsets');
+        if (ghToolsetsContainerNew) ghToolsetsContainerNew.innerHTML = '';
         // Render tool picker with all tools enabled by default
         renderMcpServerToolPicker({ enabledTools: undefined });
         updateMcpTransportFields('stdio');
