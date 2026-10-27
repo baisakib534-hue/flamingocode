@@ -112,6 +112,16 @@ Already built that you must EXTEND, never rebuild:
   the Batch 6 E15 session API so its events appear on the timeline.
 - The panel is honest about scope: in the web app, external agents run
   over HTTP endpoints; local CLI agents run at Stage 6 (desktop).
+- The engines are listed in Settings → Agents, one row per engine — the
+  six seen in his Devin Desktop video (Devin Local, Claude Agent, Codex,
+  Amp, Google Antigravity, Agoragentic) plus any the user adds: each row
+  shows what the engine is, whether it is installed and logged in
+  (detected, never claimed), an enable/disable toggle, and the default
+  marker. Only ENABLED engines appear in the agent picker (header +
+  task); the default engine runs when the user picks nothing. Disabling
+  an engine never deletes its config or its past sessions. Enabling one
+  that is not installed or not logged in shows exactly what is missing
+  (install command / login step) instead of failing silently.
 
 ### §7. Cloud handoff
 - Hand a long task to a cloud agent: the task's full state (plan, steps,
@@ -209,7 +219,10 @@ All six ship as Settings toggles (default ON, matching the screenshot):
   import, and clipboard context stays off unless opted in; Fast Context
   returns the top files with a measured timing and the Codemap renders
   clickable nodes; an external agent runs through the session API with
-  its events on the timeline; a cloud handoff envelope resumes from the
+  its events on the timeline, the Agents list shows each engine with its
+  installed/logged-in status and enable/disable toggle, a disabled engine
+  hides from the picker, and an enabled-but-not-installed engine shows
+  what is missing; a cloud handoff envelope resumes from the
   exact step on another device and lands in the inbox for review; the
   Agent setup view shows rules (with priority), skills, workflows, and
   MCPs with trust state in one place; the review→QA flow status line
