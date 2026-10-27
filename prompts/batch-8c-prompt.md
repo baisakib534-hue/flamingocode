@@ -6,11 +6,15 @@ You are working in the FlamingoCode repo (single-file web app, `index.html`).
 Read `PRD.md` and `AGENTS.md` before touching code. Build ONLY this batch.
 Vanilla HTML/CSS/JS, no npm packages, no new dependencies.
 
-This batch is two orders from the user, in his own words:
+This batch is three orders from the user, in his own words:
 1. "model - auto: একটার limit শেষ হলে auto আর একটা select করে কাজ চালিয়ে
    যাবে + কোন কাজের জন্য কোন model best ওটা select করে কাজ করিশে নিবে।
    আর এটি solo + team দুই mode তেই থাকবে।"
-2. "theme: Qoder এর theme কপি করবে + তুমি নিজে কিছু theme বানাবে,
+2. "app multiple account connect ও লাগবে — example: github এ একটি account
+   connect করলাম, পরে আরো account থাকলে ওগুলোও connect করতে পারবো; github
+   এ username দেখাবে connect এর পর; আমি বলতে পারবো এই account এ এটা করো,
+   ওই account এ ওটা করো।"
+3. "theme: Qoder এর theme কপি করবে + তুমি নিজে কিছু theme বানাবে,
    background এ কিছু চলবে — example: black hole, solar system, nature —
    আর একটি glass theme যেটার background নাই, ভিতর দিয়ে সব দেখা যায়।"
 
@@ -39,6 +43,11 @@ Already built that you must EXTEND, never rebuild:
 - Team Mode v2 core (templates, live team chat, task board, Senior diff
   review). M3 wires model behaviour INTO its existing agent spawn path —
   never touch the team core itself.
+- The app has NO multi-account system yet: GitHub today is a single
+  account (`appState.githubToken` + `appState.githubRepo`, used by the
+  Batch 8a F14 trigger poll at index.html:27609–27622 and the GitHub
+  import). A1 builds the ONE accounts store and migrates that single
+  token into it — never a second accounts system.
 - The app has NO theme system yet (only a `light-theme` body toggle at
   index.html:39078 and theme words inside generated sample code). T1–T3
   build the ONE theme engine. For Qoder's theme, read the reference notes
@@ -49,6 +58,43 @@ Already built that you must EXTEND, never rebuild:
   ENGINE + the themes themselves.
 - Safe Mode (H2.3) + the approval ladder still gate everything: a failover
   to a different model NEVER bypasses an approval the user would have seen.
+
+## A1. Multiple accounts — এক service-এ একাধিক account, username দেখাবে
+
+- ONE accounts store for every service: `appState.accounts` — each entry
+  `{id, service, username, token, connectedAt, isDefault}`. GitHub is
+  the first service; other services later use the SAME store and the
+  SAME connect flow, never a second one.
+- Connect flow (Settings → Accounts → "Add account"): pick a service
+  (GitHub first) → paste a Personal Access Token (the page links to
+  GitHub's token page and lists the exact scopes needed) → the app
+  VERIFIES the token by calling the provider's own `/user` endpoint and
+  shows the USERNAME it returns (fetched from the provider, never typed
+  by the user) → the account appears in the list with its username
+  (and avatar when the provider returns one). A bad token is rejected
+  with a plain error, never stored.
+- As many accounts as the user wants per service. One DEFAULT account per
+  service (the first connected becomes the default; the user can change
+  it). The list shows service, username, connected date, default badge,
+  and a Disconnect button per account.
+- Per-action targeting — the user's words: "এই account এ এটা করো, ওই
+  account এ ওটা করো". Every GitHub action (F14 trigger poll, repo
+  import, and any later push/PR action) takes an account: the UI shows
+  an account picker (by username) wherever a GitHub action runs, and the
+  agent resolves an account from the user's words (a username mentioned
+  in the prompt) or from the picker. The action's result always names
+  the account it used ("baisakib534-hue দিয়ে push করা হয়েছে"). With no
+  account named, the service default is used — never a random one.
+- Migration, no re-login: the existing single `appState.githubToken` /
+  `githubRepo` becomes the first account automatically (username fetched
+  once via `/user`, or shown as "migrated" until verified). All existing
+  GitHub calls are routed through the per-account caller — the old
+  direct `appState.githubToken` reads are replaced, not duplicated.
+- Safety: tokens live locally only (appState/localStorage, same as the
+  token today), are never displayed in full (masked, last 4 chars at
+  most), and are sent ONLY to the provider's own API. Disconnect removes
+  that account's token entirely. Destructive GitHub actions still need
+  Safe Mode approval, per account. Never hardcode any account or username.
 
 ## M1. Model auto-failover — limit শেষ হলে auto পরের model, কাজ থামে না
 
@@ -179,7 +225,8 @@ Already built that you must EXTEND, never rebuild:
   second graph/index/queue/store/scheduler/session-log/API/router. M1/M2
   extend `routeModelForStep` + `buildProviderFallbackChain`. M3 uses the
   SAME failover function as M1. Learned picks live in the SAME model
-  preferences table. T1–T3 are ONE theme engine, ONE canvas loop.
+  preferences table. A1 is the ONE accounts store; all GitHub calls route
+  through the per-account caller. T1–T3 are ONE theme engine, ONE canvas loop.
 - Safe Mode (H2.3) still gates everything dangerous: a failover never
   bypasses an approval; a learned pick never changes the approval ladder.
 - Never touch: provider/model config, the 9router preset, DuckDuckGo
@@ -193,7 +240,7 @@ Already built that you must EXTEND, never rebuild:
   <script> body, eval it in a minimal DOM stub (document / localStorage /
   window stubs as the existing suites do). NO package.json, NO node_modules,
   never require jsdom or any npm package.
-- Cover each M1–M3 and T1–T3 with at least 2 assertions on REAL behaviour:
+- Cover each M1–M3, A1, and T1–T3 with at least 2 assertions on REAL behaviour:
   a rate-limit error retries the same step on the next model with the
   plan intact and a visible note; all models limited stops cleanly with
   a retry button and never loops past 3 failovers per step; auto-failover
@@ -202,7 +249,11 @@ Already built that you must EXTEND, never rebuild:
   changes the pick and a learned pick appears after 3 manual switches
   with evidence and is deletable; a team agent's limit switches only
   that agent while the others keep working, and the board shows the new
-  model; switching themes repaints via the data-theme attribute and
+  model; connecting a GitHub account with a stubbed /user response shows
+  the fetched username, a second account connects alongside the first,
+  an action given an account id uses that account's token, disconnect
+  removes only that account, and the legacy single token migrates into
+  the store without re-login; switching themes repaints via the data-theme attribute and
   survives reload; the Qoder theme applies its colours; each animated
   theme starts its canvas loop, pauses on a hidden tab, and honours
   reduced-motion with a static frame; the glass theme makes panels
