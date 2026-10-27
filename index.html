@@ -6,33 +6,351 @@
   <title>FlamingoCode — AI Coding Studio</title>
   <style>
     :root {
-      --bg-dark: #0b0d14;
+      /* Default (FlamingoCode Dark) theme variables */
+      --bg: #0b0d14;
       --bg-panel: #131622;
       --bg-surface: #1a1e2e;
       --bg-hover: #24293e;
-      --border-color: #262b40;
-      --border-light: #323852;
-      --accent-blue: #3b82f6;
+      --border: #262b40;
+      --border-hover: #323852;
+      --accent: #3b82f6;
       --accent-hover: #2563eb;
-      --accent-glow: rgba(59, 130, 246, 0.25);
+      --accent-dim: rgba(59, 130, 246, 0.15);
       --success: #10b981;
       --warning: #f59e0b;
       --danger: #ef4444;
       --text-main: #f1f5f9;
-      --text-muted: #8e9aaf;
-      --text-dim: #5c667a;
-      --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --text-dim: #8e9aaf;
+      --text-muted: #5c667a;
       --font-mono: "JetBrains Mono", "Fira Code", Consolas, "Courier New", monospace;
+      --font-ui: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --radius-sm: 4px;
+      --radius-md: 8px;
+      --radius-lg: 12px;
+      --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
+      --shadow-md: 0 4px 12px rgba(0,0,0,0.4);
+      --shadow-lg: 0 8px 24px rgba(0,0,0,0.5);
+      --code-bg: #131622;
+      --code-text: #f1f5f9;
+      --code-comment: #8e9aaf;
+      --code-keyword: #3b82f6;
+      --code-string: #10b981;
+      --code-number: #f59e0b;
+      --code-function: #8b5cf6;
+      --sidebar-bg: #131622;
+      --sidebar-border: #262b40;
+      --panel-bg: #1a1e2e;
+      --panel-border: #262b40;
+      --chat-bg: #1a1e2e;
+      --chat-border: #262b40;
+      --chat-bubble-self: #3b82f6;
+      --chat-bubble-self-text: #0b0d14;
+      --chat-bubble-other: #1a1e2e;
+      --chat-bubble-other-text: #f1f5f9;
+      --input-bg: #0b0d14;
+      --input-border: #262b40;
+      --input-focus-border: #3b82f6;
+      --button-primary-bg: #3b82f6;
+      --button-primary-text: #ffffff;
+      --button-secondary-bg: #1a1e2e;
+      --button-secondary-text: #f1f5f9;
+      --button-secondary-border: #262b40;
       --header-height: 48px;
       --statusbar-height: 24px;
       --mobile-nav-height: 52px;
+      /* Glass theme specific */
+      --glass-blur: 0px;
+      --glass-opacity: 1;
+    }
+
+    /* Theme-specific overrides applied via data-theme attribute */
+    [data-theme="qoder"] {
+      --bg: #0d1117;
+      --bg-panel: #161b22;
+      --bg-surface: #21262d;
+      --bg-hover: #30363d;
+      --border: #30363d;
+      --border-hover: #484f58;
+      --accent: #00d4aa;
+      --accent-hover: #00b894;
+      --accent-dim: rgba(0,212,170,0.15);
+      --success: #3fb950;
+      --warning: #d29922;
+      --danger: #f85149;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      --font-ui: system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif;
+      --radius-sm: 4px;
+      --radius-md: 8px;
+      --radius-lg: 12px;
+      --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
+      --shadow-md: 0 4px 12px rgba(0,0,0,0.4);
+      --shadow-lg: 0 8px 24px rgba(0,0,0,0.5);
+      --code-bg: #161b22;
+      --code-text: #f0f6fc;
+      --code-comment: #8b949e;
+      --code-keyword: #ff7b72;
+      --code-string: #a5d6ff;
+      --code-number: #79c0ff;
+      --code-function: #d2a8ff;
+      --sidebar-bg: #161b22;
+      --sidebar-border: #30363d;
+      --panel-bg: #161b22;
+      --panel-border: #30363d;
+      --chat-bg: #161b22;
+      --chat-border: #30363d;
+      --chat-bubble-self: #00d4aa;
+      --chat-bubble-self-text: #0d1117;
+      --chat-bubble-other: #21262d;
+      --chat-bubble-other-text: #f0f6fc;
+      --input-bg: #0d1117;
+      --input-border: #30363d;
+      --input-focus-border: #00d4aa;
+      --button-primary-bg: #00d4aa;
+      --button-primary-text: #0d1117;
+      --button-secondary-bg: #21262d;
+      --button-secondary-text: #f0f6fc;
+      --button-secondary-border: #30363d;
+    }
+
+    [data-theme="blackhole"] {
+      --bg: #030305;
+      --bg-panel: #0a0a0f;
+      --bg-surface: #111118;
+      --bg-hover: #1a1a22;
+      --border: #1f1f2a;
+      --border-hover: #2a2a3a;
+      --accent: #ff6b35;
+      --accent-hover: #ff8555;
+      --accent-dim: rgba(255,107,53,0.15);
+      --success: #00ff88;
+      --warning: #ffaa00;
+      --danger: #ff4444;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      --font-ui: system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif;
+      --radius-sm: 4px;
+      --radius-md: 8px;
+      --radius-lg: 12px;
+      --shadow-sm: 0 1px 2px rgba(0,0,0,0.5);
+      --shadow-md: 0 4px 12px rgba(0,0,0,0.6);
+      --shadow-lg: 0 8px 24px rgba(255,107,53,0.3);
+      --code-bg: #0a0a0f;
+      --code-text: #e8e8ec;
+      --code-comment: #666677;
+      --code-keyword: #ff6b35;
+      --code-string: #00ff88;
+      --code-number: #ffaa00;
+      --code-function: #d2a8ff;
+      --sidebar-bg: #0a0a0f;
+      --sidebar-border: #1f1f2a;
+      --panel-bg: #0a0a0f;
+      --panel-border: #1f1f2a;
+      --chat-bg: #0a0a0f;
+      --chat-border: #1f1f2a;
+      --chat-bubble-self: #ff6b35;
+      --chat-bubble-self-text: #030305;
+      --chat-bubble-other: #111118;
+      --chat-bubble-other-text: #e8e8ec;
+      --input-bg: #030305;
+      --input-border: #1f1f2a;
+      --input-focus-border: #ff6b35;
+      --button-primary-bg: #ff6b35;
+      --button-primary-text: #030305;
+      --button-secondary-bg: #111118;
+      --button-secondary-text: #e8e8ec;
+      --button-secondary-border: #1f1f2a;
+    }
+
+    [data-theme="solarsystem"] {
+      --bg: #050812;
+      --bg-panel: #0c1428;
+      --bg-surface: #142038;
+      --bg-hover: #1c2a4a;
+      --border: #1e3050;
+      --border-hover: #2a4568;
+      --accent: #ffd600;
+      --accent-hover: #ffe640;
+      --accent-dim: rgba(255,214,0,0.15);
+      --success: #00e676;
+      --warning: #ffab00;
+      --danger: #ff5252;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      --font-ui: system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif;
+      --radius-sm: 4px;
+      --radius-md: 8px;
+      --radius-lg: 12px;
+      --shadow-sm: 0 1px 2px rgba(0,0,0,0.5);
+      --shadow-md: 0 4px 12px rgba(0,0,0,0.6);
+      --shadow-lg: 0 8px 24px rgba(255,214,0,0.3);
+      --code-bg: #0c1428;
+      --code-text: #e8edf5;
+      --code-comment: #6b7a94;
+      --code-keyword: #ffd600;
+      --code-string: #00e676;
+      --code-number: #ffab00;
+      --code-function: #bb86fc;
+      --sidebar-bg: #0c1428;
+      --sidebar-border: #1e3050;
+      --panel-bg: #0c1428;
+      --panel-border: #1e3050;
+      --chat-bg: #0c1428;
+      --chat-border: #1e3050;
+      --chat-bubble-self: #ffd600;
+      --chat-bubble-self-text: #050812;
+      --chat-bubble-other: #142038;
+      --chat-bubble-other-text: #e8edf5;
+      --input-bg: #050812;
+      --input-border: #1e3050;
+      --input-focus-border: #ffd600;
+      --button-primary-bg: #ffd600;
+      --button-primary-text: #050812;
+      --button-secondary-bg: #142038;
+      --button-secondary-text: #e8edf5;
+      --button-secondary-border: #1e3050;
+    }
+
+    [data-theme="nature"] {
+      --bg: #0a120d;
+      --bg-panel: #122016;
+      --bg-surface: #1a2e20;
+      --bg-hover: #223d2a;
+      --border: #2a4a33;
+      --border-hover: #3a5a43;
+      --accent: #4ade80;
+      --accent-hover: #6ee7a7;
+      --accent-dim: rgba(74,222,128,0.15);
+      --success: #22c55e;
+      --warning: #facc15;
+      --danger: #ef4444;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      --font-ui: system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif;
+      --radius-sm: 4px;
+      --radius-md: 8px;
+      --radius-lg: 12px;
+      --shadow-sm: 0 1px 2px rgba(0,0,0,0.4);
+      --shadow-md: 0 4px 12px rgba(0,0,0,0.5);
+      --shadow-lg: 0 8px 24px rgba(74,222,128,0.2);
+      --code-bg: #122016;
+      --code-text: #e8f5eb;
+      --code-comment: #6b9b78;
+      --code-keyword: #4ade80;
+      --code-string: #86efac;
+      --code-number: #facc15;
+      --code-function: #a78bfa;
+      --sidebar-bg: #122016;
+      --sidebar-border: #2a4a33;
+      --panel-bg: #122016;
+      --panel-border: #2a4a33;
+      --chat-bg: #122016;
+      --chat-border: #2a4a33;
+      --chat-bubble-self: #4ade80;
+      --chat-bubble-self-text: #0a120d;
+      --chat-bubble-other: #1a2e20;
+      --chat-bubble-other-text: #e8f5eb;
+      --input-bg: #0a120d;
+      --input-border: #2a4a33;
+      --input-focus-border: #4ade80;
+      --button-primary-bg: #4ade80;
+      --button-primary-text: #0a120d;
+      --button-secondary-bg: #1a2e20;
+      --button-secondary-text: #e8f5eb;
+      --button-secondary-border: #2a4a33;
+    }
+
+    [data-theme="glass"] {
+      --bg: transparent;
+      --bg-panel: rgba(10,10,15,0.4);
+      --bg-surface: rgba(16,16,22,0.5);
+      --bg-hover: rgba(22,22,30,0.6);
+      --border: rgba(48,54,61,0.5);
+      --border-hover: rgba(72,79,88,0.7);
+      --accent: #00d4aa;
+      --accent-hover: #00b894;
+      --accent-dim: rgba(0,212,170,0.2);
+      --success: #3fb950;
+      --warning: #d29922;
+      --danger: #f85149;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      --font-ui: system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif;
+      --radius-sm: 4px;
+      --radius-md: 8px;
+      --radius-lg: 12px;
+      --shadow-sm: 0 1px 2px rgba(0,0,0,0.2);
+      --shadow-md: 0 4px 12px rgba(0,0,0,0.3);
+      --shadow-lg: 0 8px 24px rgba(0,0,0,0.4);
+      --code-bg: rgba(22,22,30,0.6);
+      --code-text: #f0f6fc;
+      --code-comment: #8b949e;
+      --code-keyword: #ff7b72;
+      --code-string: #a5d6ff;
+      --code-number: #79c0ff;
+      --code-function: #d2a8ff;
+      --sidebar-bg: rgba(22,22,30,0.5);
+      --sidebar-border: rgba(48,54,61,0.4);
+      --panel-bg: rgba(16,16,22,0.5);
+      --panel-border: rgba(48,54,61,0.4);
+      --chat-bg: rgba(16,16,22,0.5);
+      --chat-border: rgba(48,54,61,0.4);
+      --chat-bubble-self: rgba(0,212,170,0.8);
+      --chat-bubble-self-text: #0d1117;
+      --chat-bubble-other: rgba(33,38,45,0.8);
+      --chat-bubble-other-text: #f0f6fc;
+      --input-bg: rgba(10,10,15,0.5);
+      --input-border: rgba(48,54,61,0.5);
+      --input-focus-border: #00d4aa;
+      --button-primary-bg: #00d4aa;
+      --button-primary-text: #0d1117;
+      --button-secondary-bg: rgba(33,38,45,0.8);
+      --button-secondary-text: #f0f6fc;
+      --button-secondary-border: rgba(48,54,61,0.5);
+      --glass-blur: 12px;
+      --glass-opacity: 0.5;
+    }
+
+    /* Glass theme backdrop filter */
+    [data-theme="glass"] .panel-left,
+    [data-theme="glass"] .panel-center,
+    [data-theme="glass"] .panel-right,
+    [data-theme="glass"] .app-header,
+    [data-theme="glass"] .modal,
+    [data-theme="glass"] .chat-bubble,
+    [data-theme="glass"] .sidebar-section,
+    [data-theme="glass"] .settings-panel {
+      backdrop-filter: blur(var(--glass-blur));
+      -webkit-backdrop-filter: blur(var(--glass-blur));
+      background-color: var(--bg-panel) !important;
+      border-color: var(--border) !important;
+    }
+
+    [data-theme="glass"] .chat-bubble-self {
+      backdrop-filter: blur(var(--glass-blur));
+      -webkit-backdrop-filter: blur(var(--glass-blur));
+    }
+
+    [data-theme="glass"] .chat-bubble-other {
+      backdrop-filter: blur(var(--glass-blur));
+      -webkit-backdrop-filter: blur(var(--glass-blur));
+    }
+
+    /* Reduced motion - disable animations */
+    @media (prefers-reduced-motion: reduce) {
+      [data-theme="blackhole"] #themeCanvas,
+      [data-theme="solarsystem"] #themeCanvas,
+      [data-theme="nature"] #themeCanvas {
+        display: none !important;
+      }
+    }
+
+    .reduce-motion [data-theme="blackhole"] #themeCanvas,
+    .reduce-motion [data-theme="solarsystem"] #themeCanvas,
+    .reduce-motion [data-theme="nature"] #themeCanvas {
+      display: none !important;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      background-color: var(--bg-dark);
+      background-color: var(--bg);
       color: var(--text-main);
-      font-family: var(--font-sans);
+      font-family: var(--font-ui);
       font-size: 13px;
       line-height: 1.4;
       height: 100vh;
@@ -1466,6 +1784,8 @@
   </style>
 </head>
 <body>
+  <!-- Theme animation canvas (for animated backgrounds) -->
+  <canvas id="themeCanvas" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; display: none;"></canvas>
 
   <!-- App Header -->
   <header class="app-header">
@@ -2541,6 +2861,10 @@
         <button class="settings-tab" data-settings-tab="engines" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">Engines</button>
         <button class="settings-tab" data-settings-tab="securityAudit" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">Security Audit</button>
         <button class="settings-tab" data-settings-tab="androidPack" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">Android Pack</button>
+        <!-- Batch 8c: Accounts & Themes -->
+        <button class="settings-tab" data-settings-tab="accounts" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">Accounts</button>
+        <button class="settings-tab" data-settings-tab="themes" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">Themes</button>
+        <button class="settings-tab" data-settings-tab="modelPrefs" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">Model Preferences</button>
       </div>
 
       <!-- Providers Tab -->
@@ -3333,6 +3657,13 @@ curl -X POST http://localhost:PORT/v1/tasks/TASK_ID/message \
       <!-- Configuration -->
       <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; padding: 12px; margin-bottom: 12px;">
         <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">Trigger Configuration</div>
+        
+        <!-- Account Selector (Batch 8c A1) -->
+        <div style="margin-bottom: 12px;">
+          <label style="display: block; font-size: 11px; color: var(--text-muted); margin-bottom: 4px;">GitHub Account</label>
+          <select id="githubTriggerAccount" class="form-input" style="width: 100%; padding: 6px 8px; font-size: 11px;"></select>
+          <div style="font-size: 9px; color: var(--text-dim); margin-top: 4px;">Select which GitHub account to use for polling. Managed in Accounts tab.</div>
+        </div>
         
         <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px;">
           <label class="toggle-switch" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
@@ -4849,6 +5180,60 @@ const fc = {
           </div>
         </div>
 
+        <!-- Accounts (Batch 8c A1) -->
+        <div class="settings-pane" id="settingsPaneAccounts" style="display: none; flex-direction: column;">
+          <div style="max-height: 40vh; overflow-y: auto; margin-bottom: 12px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px;">
+              <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Connected Accounts</span>
+              <button class="btn" id="btnAddAccount" style="padding: 4px 10px; font-size: 11px;">+ Add Account</button>
+            </div>
+            <div id="accountsList" style="font-size: 11px; color: var(--text-dim);">No accounts connected.</div>
+          </div>
+          <div style="border-top: 1px solid var(--border-color); padding-top: 12px;">
+            <div style="display:flex; justify-content:flex-end; gap:8px;">
+              <button class="btn btn-secondary" id="btnCancelSettings">Close</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Themes (Batch 8c T1-T3) -->
+        <div class="settings-pane" id="settingsPaneThemes" style="display: none; flex-direction: column;">
+          <div style="max-height: 40vh; overflow-y: auto; margin-bottom: 12px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px;">
+              <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Available Themes</span>
+              <label style="display:flex; align-items:center; gap:6px; font-size: 11px; color: var(--text-muted); cursor: pointer;">
+                <input type="checkbox" id="themeAnimationsToggle" checked style="width: 14px; height: 14px;">
+                Animations
+              </label>
+            </div>
+            <div id="themeList" style="display: flex; flex-direction: column; gap: 8px;"></div>
+            <div style="margin-top: 12px; padding: 12px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; font-size: 10px; color: var(--text-dim);">
+              <strong>Glass Theme Note:</strong> True OS desktop transparency requires Electron (Stage 6). In browser, shows app backdrop layer through panels.
+            </div>
+          </div>
+          <div style="border-top: 1px solid var(--border-color); padding-top: 12px;">
+            <div style="display:flex; justify-content:flex-end; gap:8px;">
+              <button class="btn btn-secondary" id="btnCancelSettings">Close</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Model Preferences (Batch 8c M2) -->
+        <div class="settings-pane" id="settingsPaneModelPrefs" style="display: none; flex-direction: column;">
+          <div style="max-height: 40vh; overflow-y: auto; margin-bottom: 12px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px;">
+              <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Best Model Per Task</span>
+            </div>
+            <div style="font-size: 11px; color: var(--text-dim); margin-bottom: 10px;">Choose which model FlamingoCode uses for each kind of task. 'Auto' lets the router decide. After you switch to the same model 3 times mid-task, it becomes the learned preference (শেখা).</div>
+            <div id="taskModelPreferencesTable" style="display: flex; flex-direction: column; gap: 8px;"></div>
+          </div>
+          <div style="border-top: 1px solid var(--border-color); padding-top: 12px;">
+            <div style="display:flex; justify-content:flex-end; gap:8px;">
+              <button class="btn btn-secondary" id="btnCancelSettings">Close</button>
+            </div>
+          </div>
+        </div>
+
         <!-- Enhanced Spec Preview Modal -->
   <div class="modal-overlay" id="enhancedSpecModal">
     <div class="modal-box" style="width: 700px; max-width: 95vw; max-height: 85vh;">
@@ -6177,8 +6562,29 @@ function scanForInjection(content, filePath) {
   return { safe: safe, clean: safe, matches: matches, issues: issues, filePath: filePath || 'unknown' };
 }
 
+// ============ BATCH 8c: Top-level constants for testing ============
+// M2: Task types for model routing
+var DEFAULT_TASK_TYPES = [
+  { id: 'planning', label: 'Planning / Architecture', description: 'Task breakdown, design decisions, approach selection' },
+  { id: 'coding', label: 'Coding / Implementation', description: 'Writing code, creating files, implementing features' },
+  { id: 'review', label: 'Code Review', description: 'Reviewing changes, finding bugs, suggesting improvements' },
+  { id: 'testing', label: 'Testing / QA', description: 'Writing tests, running tests, finding edge cases' },
+  { id: 'research', label: 'Research / Web Search', description: 'Looking up information, API docs, best practices' },
+  { id: 'simple-qa', label: 'Simple Q&A', description: 'Quick questions, explanations, simple queries' },
+  { id: 'long-context', label: 'Long Context Work', description: 'Large file analysis, multi-file refactoring, big codebases' }
+];
 
-    // Builds the priority chain of context files for a given working directory
+// T1: Available themes (minimal for testing; full definitions in main function)
+var AVAILABLE_THEMES = [
+  { id: 'default', name: 'Default', description: 'Built-in FlamingoCode theme', cssVars: {} },
+  { id: 'qoder', name: 'Qoder', description: 'Qoder-inspired dark theme with teal accents', cssVars: { '--accent': '#00d4aa', '--bg': '#0d1117' } },
+  { id: 'blackhole', name: 'Black Hole', description: 'Dark accretion disk with glowing ring + drifting stars (animated)', cssVars: { '--accent': '#ff6b35', '--bg': '#030305' } },
+  { id: 'solarsystem', name: 'Solar System', description: 'Planets orbiting slowly around a sun (animated)', cssVars: { '--accent': '#ffaa00', '--bg': '#0b0d14' } },
+  { id: 'nature', name: 'Nature', description: 'Soft forest tones with slow-drifting leaves/pollen (animated)', cssVars: { '--accent': '#3fb950', '--bg': '#0d1117' } },
+  { id: 'glass', name: 'Glass', description: 'Translucent panels with backdrop-filter blur. In the browser this shows the app backdrop layer through panels; true desktop transparency needs Electron (Stage 6).', cssVars: { '--bg-panel': 'rgba(22,27,34,0.7)', '--bg-surface': 'rgba(33,38,45,0.7)', 'backdrop-filter': 'blur(12px)', '--border': 'rgba(48,54,61,0.5)' }, blurStrength: 'medium' }
+];
+
+  // Builds the priority chain of context files for a given working directory
     // Returns array of { path, content, priority, source } sorted by priority (highest first)
     function buildContextFilePriorityChain(session, workingDir) {
       if (!session || !session.files) return [];
@@ -8901,6 +9307,35 @@ Detail level: {{detail_level}}`,
       if (appState.usage && !appState.usage.ultrathink) appState.usage.ultrathink = { tokens: 0, tasks: 0 };
       if (!appState.nextEditSuggestions) appState.nextEditSuggestions = { enabled: true };
       if (!appState.promptSuggestions) appState.promptSuggestions = { enabled: true, lastTaskOutcome: null, suggestions: [], dismissed: [] };
+
+      // ============ BATCH 8c: Initialize new state properties ============
+      // A1: Multiple accounts store
+      if (!appState.accounts) appState.accounts = [];
+      // M1: Model auto-failover
+      if (appState.autoFailoverEnabled === undefined) appState.autoFailoverEnabled = true;
+      if (!appState.maxFailoversPerStep) appState.maxFailoversPerStep = 3;
+      // M2: Best model per task
+      if (!appState.taskModelPreferences) appState.taskModelPreferences = {};
+      // M3: Team agent model tracking (per-agent model field added to agent objects)
+      // T1: Theme engine
+      if (!appState.theme) appState.theme = 'default';
+      if (!appState.themeBlurStrength) appState.themeBlurStrength = 'medium';
+      // T2: Animated theme state
+      if (appState.themeAnimationEnabled === undefined) appState.themeAnimationEnabled = true;
+      // M1: failover tracking fields (canonical Batch 8c counters)
+      if (appState.failoverCounter === undefined) appState.failoverCounter = 0;
+      if (!appState.modelSwitchHistory) appState.modelSwitchHistory = [];
+      if (!appState.failoverHistory) appState.failoverHistory = [];
+      // M2: learned preferences store
+      if (!appState.learnedModelPreferences) appState.learnedModelPreferences = {};
+      // A1: migrate a legacy single GitHub token into the accounts store (once;
+      // migrateLegacyGitHubToken is a no-op when there is nothing to migrate)
+      if (typeof migrateLegacyGitHubToken === 'function') {
+        try {
+          const _mig = migrateLegacyGitHubToken();
+          if (_mig && typeof _mig.catch === 'function') _mig.catch(function () {});
+        } catch (e) {}
+      }
     }
 
     function saveAppState() {
@@ -11267,39 +11702,52 @@ function routeModelForStep(step) {
       }
     }
   } catch (e) {}
-  
+
   if (enabledProviders.length === 0) {
     return { model: null, reason: 'no configured providers with API keys' };
   }
-  
+
   if (enabledProviders.length === 1) {
     const [name, provider] = enabledProviders[0];
     const model = provider.defaultModel || provider.models?.[0] || name;
     return { model, provider: name, reason: 'only one model configured' };
   }
-  
+
   // Check rate limit status first - filter out rate-limited models
   const rateLimitState = appState.rateLimitState || {};
   const eligibleProviders = enabledProviders.filter(([name]) => {
     const rl = rateLimitState[name];
     return !rl || !rl.isLimited || (rl.retryAfter && Date.now() > rl.retryAfter);
   });
-  
+
   if (eligibleProviders.length === 0) {
     return { model: null, reason: 'all models rate-limited' };
   }
-  
+
   if (eligibleProviders.length === 1) {
     const [name, provider] = eligibleProviders[0];
     const model = provider.defaultModel || provider.models?.[0] || name;
     return { model, provider: name, reason: 'only eligible model (others rate-limited)' };
   }
-  
-  // Classify step type from step text + step kind
+
+  // M2: Classify step type from step text + step kind + task type preferences
   const stepText = (step.text || step.description || '').toLowerCase();
   const stepKind = step.kind || '';
   const fileType = step.fileType || '';
   
+  // Determine task type for this step (for M2 preferences)
+  let taskType = step.taskType || inferTaskType(stepText, stepKind, fileType);
+  
+  // M2: Best model per task — user preference, then learned preference.
+  // getModelForTaskType is the single canonical lookup (it checks both the
+  // model-level and provider-level rate-limit marks).
+  const prefPick = (typeof getModelForTaskType === 'function')
+    ? getModelForTaskType(taskType, eligibleProviders)
+    : null;
+  if (prefPick && prefPick.model && prefPick.providerId) {
+    return { model: prefPick.model, provider: prefPick.providerId, reason: prefPick.reason + ': ' + taskType };
+  }
+
   // Mechanical steps -> cheap/fast model
   const mechanicalKeywords = [
     'rename', 'format', 'reformat', 'lint', 'fix import', 'add import', 'remove import',
@@ -11310,7 +11758,7 @@ function routeModelForStep(step) {
     'typo', 'spelling', 'casing', 'snake_case', 'camelCase', 'PascalCase',
     'const', 'let', 'var', 'arrow function', 'destructuring',
   ];
-  
+
   // Judgment steps -> strong model
   const judgmentKeywords = [
     'architecture', 'design', 'refactor', 'restructure', 'redesign',
@@ -11321,10 +11769,10 @@ function routeModelForStep(step) {
     'decision', 'trade-off', 'choose', 'select', 'evaluate',
     'plan', 'strategy', 'approach', 'pattern', 'anti-pattern',
   ];
-  
+
   const isMechanical = mechanicalKeywords.some(k => stepText.includes(k)) || stepKind === 'mechanical';
   const isJudgment = judgmentKeywords.some(k => stepText.includes(k)) || stepKind === 'judgment';
-  
+
   // Sort eligible providers by cost (cheapest first)
   const sortedProviders = eligibleProviders.map(([name, provider]) => {
     const model = provider.defaultModel || provider.models?.[0] || name;
@@ -11337,7 +11785,7 @@ function routeModelForStep(step) {
     const costOrder = { free: 0, cheap: 1, medium: 2, expensive: 3 };
     return costOrder[a.costTier] - costOrder[b.costTier];
   });
-  
+
   let selected;
   if (isMechanical && !isJudgment) {
     // Mechanical -> cheapest
@@ -11365,6 +11813,277 @@ function routeModelForStep(step) {
       reason: 'balanced: mixed step type' 
     };
   }
+}
+
+// M2: Infer task type from step text/kind
+function inferTaskType(stepText, stepKind, fileType) {
+  if (stepKind === 'plan' || /plan|architect|design|strategy|approach/.test(stepText)) return 'planning';
+  if (stepKind === 'review' || /review|audit|security/.test(stepText)) return 'review';
+  if (stepKind === 'test' || /test|spec|e2e|unit/.test(stepText)) return 'testing';
+  if (/research|search|lookup|find|documentation|api doc/.test(stepText)) return 'research';
+  if (/debug|fix bug|root cause|investigate|analyze/.test(stepText)) return 'coding';
+  if (/refactor|restructure|redesign|optimize|performance/.test(stepText)) return 'coding';
+  if (stepKind === 'mechanical' || /rename|format|lint|import|boilerplate|scaffold|generate|stub|mock|whitespace|indent|semicolon|quote|comma|prettier|eslint|comment|docstring|typo|spelling|casing/.test(stepText)) return 'simple-qa';
+  if (fileType && /\.md$|\.txt$|\.json$|\.yaml$|\.yml$/.test(fileType)) return 'simple-qa';
+  return 'coding';
+}
+
+// M2: Find provider that has the preferred model
+function findProviderForModel(preferredModel, eligibleProviders) {
+  for (const [providerId, provider] of eligibleProviders) {
+    const models = provider.models || [];
+    const defaultModel = provider.defaultModel;
+    if (models.includes(preferredModel) || defaultModel === preferredModel) {
+      return { providerId, model: preferredModel };
+    }
+  }
+  return null;
+}
+
+// M2: Record manual model switch for learning
+function recordModelSwitch(taskType, model, providerId) {
+  if (!appState.learnedModelPreferences) appState.learnedModelPreferences = {};
+  if (!appState.learnedModelPreferences[taskType]) {
+    appState.learnedModelPreferences[taskType] = { model, providerId, count: 1, evidence: '1 বার' };
+  } else {
+    const pref = appState.learnedModelPreferences[taskType];
+    if (pref.model === model && pref.providerId === providerId) {
+      pref.count += 1;
+      pref.evidence = pref.count + ' বার';
+      // After 3 switches, it becomes the learned preference
+      if (pref.count >= 3) {
+        pref.learned = true;
+        // Also update the user preferences table to show "শেখা"
+        if (!appState.taskModelPreferences) appState.taskModelPreferences = {};
+        appState.taskModelPreferences[taskType] = model + '|' + providerId;
+      }
+    } else {
+      // Different model switched to, reset count
+      pref.model = model;
+      pref.providerId = providerId;
+      pref.count = 1;
+      pref.evidence = '1 বার';
+      pref.learned = false;
+    }
+  }
+  saveAppState();
+}
+
+// M2: Alias for recordModelSwitch (Batch 8c naming)
+function learnModelPreference(taskType, model, providerId) {
+  return recordModelSwitch(taskType, model, providerId);
+}
+
+// M2: Current task type for learning — from the active session's current plan step
+function getCurrentTaskTypeForLearning() {
+  try {
+    const session = (typeof getCurrentSession === 'function') ? getCurrentSession() : null;
+    const idx = (session && (session.planStepIndex || 0)) || appState.planStepIndex || 0;
+    const step = (appState.currentPlan && appState.currentPlan[idx]) || (session && session.plan && session.plan[idx]) || null;
+    const text = step ? String(step.text || step.description || step.title || '') : '';
+    const kind = step ? String(step.kind || '') : '';
+    const fileType = step ? String(step.fileType || '') : '';
+    return inferTaskType(text.toLowerCase(), kind, fileType);
+  } catch (e) { return 'coding'; }
+}
+
+// M2: Get the best model for a task type, considering preferences and rate limits
+// M2: Get the best model for a task type — user preference, then learned preference.
+// Returns { model, providerId, reason } or null when no preference applies (the caller
+// then falls back to the router's own ranking). This is the SINGLE canonical reader
+// for taskModelPreferences / learnedModelPreferences; routeModelForStep calls it
+// instead of duplicating the lookup inline (the old inline copy mis-read the
+// 'model|providerId' format and checked only the provider-level rate-limit mark).
+function getModelForTaskType(taskType, eligibleProviders) {
+  // A (model, providerId) pair is limited when EITHER the model-level mark
+  // (providerId:model, written by handleRateLimitFailover) or the provider-level
+  // mark (providerId, written by the router / callLLMWithFallback) is set and
+  // not expired.
+  function isPairLimited(model, providerId) {
+    const rl = appState.rateLimitState || {};
+    const keys = [];
+    if (providerId) keys.push(providerId + ':' + model, providerId);
+    else keys.push(model);
+    for (const k of keys) {
+      const s = rl[k];
+      if (s && s.isLimited) {
+        if (s.retryAfter && Date.now() > s.retryAfter) continue; // expired mark
+        return true;
+      }
+    }
+    return false;
+  }
+  // Resolve a stored preference value to { model, providerId }.
+  // Stored forms: 'model|providerId' (recordModelSwitch + settings table),
+  // a bare model name, or a { model, providerId } object (learned prefs).
+  function resolvePref(pref) {
+    if (!pref || pref === 'auto') return null;
+    if (typeof pref === 'object') return { model: pref.model || null, providerId: pref.providerId || null };
+    const parts = String(pref).split('|');
+    if (parts.length >= 2) return { model: parts[0], providerId: parts[1] };
+    return { model: parts[0], providerId: null };
+  }
+  function providerForModel(model) {
+    const list = eligibleProviders || Object.entries(appState.providers || {});
+    if (typeof findProviderForModel !== 'function') return null;
+    return findProviderForModel(model, list);
+  }
+  // 1. Explicit user preference (Settings table) wins over learned.
+  const userPref = resolvePref(appState.taskModelPreferences && appState.taskModelPreferences[taskType]);
+  if (userPref && userPref.model) {
+    let pid = userPref.providerId;
+    if (!pid) { const f = providerForModel(userPref.model); pid = f ? f.providerId : null; }
+    if (pid && !isPairLimited(userPref.model, pid)) {
+      return { model: userPref.model, providerId: pid, reason: 'user-preference' };
+    }
+    // Preferred model unavailable or limited — fall through to learned, then router.
+  }
+  // 2. Learned preference (set after 3 manual switches to the same model).
+  const learned = appState.learnedModelPreferences && appState.learnedModelPreferences[taskType];
+  if (learned && learned.learned && learned.model) {
+    let pid = learned.providerId;
+    if (!pid) { const f = providerForModel(learned.model); pid = f ? f.providerId : null; }
+    if (pid && !isPairLimited(learned.model, pid)) {
+      return { model: learned.model, providerId: pid, reason: 'learned-preference' };
+    }
+  }
+  return null;
+}
+
+// M2: Settings table — best model per task type (editable)
+function getAllModelOptions() {
+  const options = [];
+  Object.entries(appState.providers || {}).forEach(([providerId, provider]) => {
+    const models = (provider.models || []).slice();
+    if (provider.defaultModel && !models.includes(provider.defaultModel)) models.push(provider.defaultModel);
+    models.forEach(model => options.push({ value: model + '|' + providerId, label: (provider.name || providerId) + ' / ' + model }));
+  });
+  return options;
+}
+
+function setTaskModelPreference(taskType, value) {
+  if (!appState.taskModelPreferences) appState.taskModelPreferences = {};
+  if (!value || value === 'auto') {
+    delete appState.taskModelPreferences[taskType];
+  } else {
+    appState.taskModelPreferences[taskType] = value;
+  }
+  saveAppState();
+  if (typeof renderTaskModelPreferences === 'function') renderTaskModelPreferences();
+}
+
+function deleteTaskModelPreference(taskType) {
+  if (appState.taskModelPreferences) delete appState.taskModelPreferences[taskType];
+  if (appState.learnedModelPreferences) delete appState.learnedModelPreferences[taskType];
+  saveAppState();
+  if (typeof renderTaskModelPreferences === 'function') renderTaskModelPreferences();
+}
+
+function renderTaskModelPreferences() {
+  const container = document.getElementById('taskModelPreferencesTable');
+  if (!container) return;
+  const prefs = appState.taskModelPreferences || {};
+  const learned = appState.learnedModelPreferences || {};
+  const options = getAllModelOptions();
+  container.innerHTML = (typeof DEFAULT_TASK_TYPES !== 'undefined' ? DEFAULT_TASK_TYPES : []).map(t => {
+    const current = prefs[t.id] || 'auto';
+    const lp = learned[t.id];
+    const learnedBadge = (lp && lp.learned)
+      ? ' <span style="background: var(--accent); color: var(--accent-text); padding: 1px 6px; border-radius: 3px; font-size: 9px;">শেখা (' + escapeHtml(lp.evidence || '') + ')</span>'
+      : '';
+    const opts = '<option value="auto"' + (current === 'auto' ? ' selected' : '') + '>Auto (router decides)</option>' +
+      options.map(o => '<option value="' + escapeHtml(o.value) + '"' + (current === o.value ? ' selected' : '') + '>' + escapeHtml(o.label) + '</option>').join('');
+    return '<div style="display: flex; align-items: center; gap: 8px; padding: 8px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px;">' +
+      '<div style="flex: 1; min-width: 0;"><div style="font-weight: 600; font-size: 11px; color: var(--text-main);">' + escapeHtml(t.label) + learnedBadge + '</div>' +
+      '<div style="font-size: 10px; color: var(--text-dim);">' + escapeHtml(t.description || '') + '</div></div>' +
+      '<select onchange="setTaskModelPreference(\'' + t.id + '\', this.value)" style="padding: 4px 6px; font-size: 11px; background: var(--bg); color: var(--text-main); border: 1px solid var(--border-color); border-radius: 4px; max-width: 220px;">' + opts + '</select>' +
+      '<button class="btn btn-secondary" onclick="deleteTaskModelPreference(\'' + t.id + '\')" style="padding: 4px 8px; font-size: 10px;">Reset</button></div>';
+  }).join('');
+}
+
+// Expose the M2 table handlers for the Settings onclick attributes
+window.setTaskModelPreference = setTaskModelPreference;
+window.deleteTaskModelPreference = deleteTaskModelPreference;
+window.renderTaskModelPreferences = renderTaskModelPreferences;
+window.getModelForTaskType = getModelForTaskType;
+
+// M1: Handle rate limit failover - pick next model from fallback chain and retry
+function handleRateLimitFailover(step, failedModel, failedProviderId, error) {
+  error = error || {};
+  // Mark the failed model as rate-limited
+  const rateLimitKey = failedProviderId + ':' + failedModel;
+  if (!appState.rateLimitState) appState.rateLimitState = {};
+  appState.rateLimitState[rateLimitKey] = {
+    isLimited: true,
+    retryAfter: error.retryAfter || Date.now() + 60000, // Default 1 minute
+    failedAt: Date.now()
+  };
+
+  // Get fallback chain for this step
+  // The chain builder only fills appState.providerFallbackChain.chain (provider
+  // ids) and returns nothing — read the chain from state and map ids to models.
+  buildProviderFallbackChain();
+  const chainIds = (appState.providerFallbackChain && appState.providerFallbackChain.chain) || [];
+  const chain = chainIds.map(pid => {
+    const p = appState.providers ? appState.providers[pid] : null;
+    return { providerId: pid, model: (p && (p.defaultModel || (p.models && p.models[0]))) || pid };
+  });
+  if (!chain || chain.length === 0) {
+    return { success: false, reason: 'no-fallback-chain' };
+  }
+
+  // Find the failed model in chain and pick next
+  let failedIndex = chain.findIndex(c => c.providerId === failedProviderId);
+  if (failedIndex < 0) failedIndex = chain.findIndex(c => c.model === failedModel);
+  const nextIndex = failedIndex >= 0 ? failedIndex + 1 : 0;
+  
+  // Check failover count for this step
+  const stepKey = step.id || step.text || JSON.stringify(step).slice(0, 50);
+  if (!appState.failoverCount) appState.failoverCount = {};
+  const failoverCount = (appState.failoverCount[stepKey] || 0) + 1;
+  appState.failoverCount[stepKey] = failoverCount;
+
+  if (failoverCount > 3) {
+    // Max failovers reached
+    const earliestRetry = Math.min(...Object.values(appState.rateLimitState)
+      .filter(s => s.isLimited)
+      .map(s => s.retryAfter || Infinity));
+    return { 
+      success: false, 
+      reason: 'max-failovers-reached',
+      earliestRetry: earliestRetry === Infinity ? null : earliestRetry
+    };
+  }
+
+  // Try next model in chain
+  for (let i = nextIndex; i < chain.length; i++) {
+    const candidate = chain[i];
+    if (candidate.providerId === failedProviderId) continue;
+    const candidateKey = candidate.providerId + ':' + candidate.model;
+    const candidateLimit = appState.rateLimitState[candidateKey];
+    
+    if (!candidateLimit || !candidateLimit.isLimited) {
+      // Found eligible model, retry the step
+      logActivity(`${failedModel}-এর limit শেষ — ${candidate.model} দিয়ে চালিয়ে যাচ্ছি`, 'info');
+      return {
+        success: true,
+        model: candidate.model,
+        providerId: candidate.providerId,
+        reason: 'auto-failover',
+        failoverCount
+      };
+    }
+  }
+
+  // All models limited
+  const earliestRetry = Math.min(...Object.values(appState.rateLimitState)
+    .filter(s => s.isLimited)
+    .map(s => s.retryAfter || Infinity));
+  return {
+    success: false,
+    reason: 'all-models-limited',
+    earliestRetry: earliestRetry === Infinity ? null : earliestRetry
+  };
 }
 
 // ==================== D4: SIDEKICK AGENT ====================
@@ -21291,6 +22010,229 @@ val permissionLauncher = rememberLauncherForActivityResult(
       el.textContent = guidance;
     }
 
+    // Batch 8c A1: Accounts management
+    function renderAccountsTab() {
+      const listEl = document.getElementById('accountsList');
+      if (!listEl) return;
+      
+      const accounts = appState.accounts || [];
+      if (accounts.length === 0) {
+        listEl.innerHTML = '<div style="padding: 16px; text-align: center; color: var(--text-dim);">No accounts connected. Click "Add Account" to connect your first account.</div>';
+        return;
+      }
+      
+      listEl.innerHTML = accounts.map(acc => `
+        <div style="display: flex; align-items: center; gap: 10px; padding: 10px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; margin-bottom: 8px;">
+          <div style="width: 36px; height: 36px; border-radius: 50%; background: ${getServiceColor(acc.service)}; display: flex; align-items: center; justify-content: center; font-weight: 700; color: #000; font-size: 14px;">${acc.service.charAt(0).toUpperCase()}</div>
+          <div style="flex: 1; min-width: 0;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-weight: 600; color: var(--text-main);">${escapeHtml(acc.username)}</span>
+              ${acc.isDefault ? '<span style="background: var(--accent); color: var(--accent-text); padding: 1px 6px; border-radius: 3px; font-size: 9px;">Default</span>' : ''}
+              ${!acc.verified ? '<span style="background: var(--warning); color: #000; padding: 1px 6px; border-radius: 3px; font-size: 9px;">Unverified</span>' : ''}
+            </div>
+            <div style="font-size: 10px; color: var(--text-dim);">Connected: ${formatDate(acc.connectedAt)} • ${acc.service}</div>
+            <div style="font-size: 9px; color: var(--text-dim); font-family: var(--font-mono);">Token: ${maskKey(acc.token)}</div>
+          </div>
+          <div style="display: flex; gap: 4px;">
+            ${!acc.isDefault ? `<button class="btn btn-secondary" onclick="setDefaultAccount('${acc.id}')" style="padding: 4px 8px; font-size: 10px;">Set Default</button>` : ''}
+            <button class="btn btn-secondary" onclick="verifyAccount('${acc.id}')" style="padding: 4px 8px; font-size: 10px;">Verify</button>
+            <button class="btn btn-secondary" onclick="disconnectAccount('${acc.id}')" style="padding: 4px 8px; font-size: 10px; color: var(--danger); border-color: var(--danger);">Disconnect</button>
+          </div>
+        </div>
+      `).join('');
+      
+      // Add account button handler
+      const addBtn = document.getElementById('btnAddAccount');
+      if (addBtn) {
+        addBtn.onclick = () => openAddAccountModal();
+      }
+    }
+    
+    function getServiceColor(service) {
+      const colors = {
+        github: '#6e5494',
+        gitlab: '#fc6d26',
+        bitbucket: '#0052cc'
+      };
+      return colors[service] || '#3b82f6';
+    }
+    
+    function openAddAccountModal() {
+      const service = 'github'; // Currently only GitHub supported
+      const token = prompt(`Enter your GitHub Personal Access Token:\n\nScopes needed: repo, read:user, user:email\n\nGet token at: https://github.com/settings/tokens/new`);
+      if (!token) return;
+      
+      // Verify token by calling GitHub /user endpoint
+      fetch('https://api.github.com/user', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/vnd.github+json'
+        }
+      })
+      .then(res => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+        return res.json();
+      })
+      .then(user => {
+        const newAccount = {
+          id: 'acc_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+          service: 'github',
+          username: user.login,
+          token: token,
+          connectedAt: Date.now(),
+          isDefault: (appState.accounts || []).length === 0,
+          verified: true
+        };
+        
+        appState.accounts = appState.accounts || [];
+        // If this is the first account, make it default
+        if (appState.accounts.length === 0) {
+          newAccount.isDefault = true;
+        }
+        appState.accounts.push(newAccount);
+        saveAppState();
+        renderAccountsTab();
+        logActivity(`Connected GitHub account: ${user.login}`, 'success');
+      })
+      .catch(err => {
+        alert(`Failed to verify token: ${err.message}`);
+        logActivity(`GitHub account verification failed: ${err.message}`, 'error');
+      });
+    }
+    
+    function verifyAccount(accountId) {
+      const account = (appState.accounts || []).find(a => a.id === accountId);
+      if (!account) return;
+      
+      if (account.service !== 'github') return;
+      
+      fetch('https://api.github.com/user', {
+        headers: {
+          'Authorization': `Bearer ${account.token}`,
+          'Accept': 'application/vnd.github+json'
+        }
+      })
+      .then(res => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
+      .then(user => {
+        account.username = user.login;
+        account.verified = true;
+        saveAppState();
+        renderAccountsTab();
+        logActivity(`Verified account: ${user.login}`, 'success');
+      })
+      .catch(err => {
+        alert(`Verification failed: ${err.message}`);
+        logActivity(`Account verification failed: ${err.message}`, 'error');
+      });
+    }
+    
+    function disconnectAccount(accountId) {
+      if (!confirm('Disconnect this account? This cannot be undone.')) return;
+      
+      const accounts = appState.accounts || [];
+      const index = accounts.findIndex(a => a.id === accountId);
+      if (index === -1) return;
+      
+      const wasDefault = accounts[index].isDefault;
+      accounts.splice(index, 1);
+      
+      // If we removed the default, make the first one default
+      if (wasDefault && accounts.length > 0) {
+        accounts[0].isDefault = true;
+      }
+      
+      saveAppState();
+      renderAccountsTab();
+      logActivity('Account disconnected', 'info');
+    }
+    
+    function getDefaultAccount(service) {
+      const accounts = appState.accounts || [];
+      return accounts.find(a => a.service === service && a.isDefault);
+    }
+    
+    function getAccountById(accountId) {
+      const accounts = appState.accounts || [];
+      return accounts.find(a => a.id === accountId);
+    }
+    
+    function getAccountByUsername(service, username) {
+      const accounts = appState.accounts || [];
+      return accounts.find(a => a.service === service && a.username === username);
+    }
+
+    // Resolve account for an action: from explicit mention, preferred, or default
+    function getAccountForAction(service, actionContext, preferredAccountId) {
+      const accounts = appState.accounts || [];
+      const serviceAccounts = accounts.filter(a => a.service === service);
+      if (serviceAccounts.length === 0) return null;
+
+      // 1. Explicit account ID provided
+      if (preferredAccountId) {
+        return serviceAccounts.find(a => a.id === preferredAccountId) || null;
+      }
+
+      // 2. Try to extract username from action context (user's words)
+      // 2a. Exact username match first (e.g. a repo owner), then substring match
+      if (actionContext && typeof actionContext === 'string') {
+        const ctxLower = actionContext.trim().toLowerCase();
+        const exact = serviceAccounts.find(a => (a.username || '').toLowerCase() === ctxLower);
+        if (exact) return exact;
+      }
+      if (actionContext && typeof actionContext === 'string') {
+        const mentioned = serviceAccounts.find(a => 
+          actionContext.toLowerCase().includes(a.username.toLowerCase())
+        );
+        if (mentioned) return mentioned;
+      }
+
+      // 3. Fall back to default account for service
+      return getDefaultAccount(service);
+    }
+
+    // Migrate legacy githubToken/githubRepo to accounts store
+    function migrateLegacyGitHubToken() {
+      initAccountsStore();
+      if (appState.githubToken && !appState.accounts.some(a => a.service === 'github' && a.token === appState.githubToken)) {
+        // Create account from legacy token
+        const repo = appState.githubRepo || '';
+        return addGithubAccount(appState.githubToken, repo)
+          .then(account => {
+            // Clear legacy fields after successful migration
+            delete appState.githubToken;
+            delete appState.githubRepo;
+            saveAppState();
+            logActivity('Migrated legacy GitHub token to accounts store', 'info');
+            return account;
+          })
+          .catch(err => {
+            logActivity('Legacy GitHub token migration failed: ' + err.message, 'error');
+            return null;
+          });
+      }
+      return Promise.resolve(null);
+    }
+
+    // Alias for addGithubAccount (Batch 8c naming)
+    function connectGitHubAccount(token, repo) {
+      return addGithubAccount(token, repo);
+    }
+
+    // Make account functions globally accessible
+    window.renderAccountsTab = renderAccountsTab;
+    window.openAddAccountModal = openAddAccountModal;
+    window.verifyAccount = verifyAccount;
+    window.disconnectAccount = disconnectAccount;
+    window.getDefaultAccount = getDefaultAccount;
+    window.getAccountById = getAccountById;
+    window.getAccountByUsername = getAccountByUsername;
+    window.getAccountForAction = getAccountForAction;
+    window.migrateLegacyGitHubToken = migrateLegacyGitHubToken;
+    window.connectGitHubAccount = connectGitHubAccount;
+
     // Export all app state to a JSON file
     function exportBackup() {
       const btn = document.getElementById('btnExportBackup');
@@ -21547,6 +22489,18 @@ val permissionLauncher = rememberLauncherForActivityResult(
 
       const [, owner, repo] = match;
       const cleanRepo = repo.replace(/\.git$/, '');
+      // A1: use a connected account whose username matches the repo owner
+      // (so "এই account-এ এটা করো" works for imports too). A token typed in
+      // the import box always wins over the resolved account.
+      let accountForImport = null;
+      if (!token && typeof getAccountForAction === 'function') {
+        try { accountForImport = getAccountForAction('github', owner); } catch (e) { accountForImport = null; }
+      }
+      const effectiveToken = token || (accountForImport && accountForImport.token) || '';
+      if (accountForImport) {
+        logActivity('Importing with GitHub account: ' + accountForImport.username, 'info');
+        if (status) { status.textContent = 'Importing with account: ' + accountForImport.username; status.style.color = 'var(--accent-blue)'; }
+      }
 
       if (btn) { btn.disabled = true; btn.textContent = 'Importing...'; }
       if (status) { status.textContent = 'Fetching repository info...'; status.style.color = 'var(--accent-blue)'; }
@@ -21557,8 +22511,8 @@ val permissionLauncher = rememberLauncherForActivityResult(
           'Accept': 'application/vnd.github.v3+json',
           'User-Agent': 'FlamingoCode/1.0'
         };
-        if (token) {
-          headers['Authorization'] = 'token ' + token;
+        if (effectiveToken) {
+          headers['Authorization'] = 'token ' + effectiveToken;
         }
 
         // Fetch repo metadata
@@ -23746,6 +24700,16 @@ Only propose merges for skills that are genuinely overlapping or complementary. 
       const s = appState.usage.currentSession;
       meter.innerHTML = `<span style="font-family:var(--font-mono); font-size:11px; color:var(--accent-blue);">${s.requests} req</span> · <span style="font-family:var(--font-mono); font-size:11px; color:var(--text-main);">${s.totalTokens.toLocaleString()} tok</span> · <span style="font-family:var(--font-mono); font-size:11px; color:var(--success);">$${s.cost.toFixed(4)}</span>`;
       meter.title = `Requests: ${s.requests}\nPrompt tokens: ${s.promptTokens.toLocaleString()}\nCompletion tokens: ${s.completionTokens.toLocaleString()}\nTotal tokens: ${s.totalTokens.toLocaleString()}\nEst. cost: $${s.cost.toFixed(4)}`;
+    }
+
+    // M1: Update header model display after failover
+    function updateHeaderModelDisplay(modelName, providerId) {
+      const modelDisplay = document.getElementById('headerModelDisplay');
+      const provider = appState.providers[providerId];
+      if (modelDisplay && provider) {
+        modelDisplay.textContent = `${provider.name} / ${modelName}`;
+        modelDisplay.title = `Auto-failover: now using ${provider.name} / ${modelName}`;
+      }
     }
 
     function renderUsageDashboard() {
@@ -26449,6 +27413,22 @@ ${description}
     function renderGithubTriggerTab() {
       loadGithubTriggerConfig();
       
+      // Populate account selector (Batch 8c A1)
+      const accountSelect = document.getElementById('githubTriggerAccount');
+      if (accountSelect) {
+        const accounts = (appState.accounts || []).filter(a => a.service === 'github');
+        if (accounts.length > 0) {
+          accountSelect.innerHTML = accounts.map(acc => 
+            `<option value="${acc.id}" ${githubTriggerState.accountId === acc.id ? 'selected' : ''}>${escapeHtml(acc.username)} ${acc.isDefault ? '(Default)' : ''}</option>`
+          ).join('');
+        } else {
+          accountSelect.innerHTML = '<option value="">No GitHub accounts connected</option>';
+        }
+        accountSelect.onchange = () => {
+          githubTriggerState.accountId = accountSelect.value || null;
+        };
+      }
+      
       const saveBtn = document.getElementById('btnSaveGithubTrigger');
       const testBtn = document.getElementById('btnTestGithubTrigger');
       const enabledCheckbox = document.getElementById('githubTriggerEnabled');
@@ -26503,6 +27483,7 @@ ${description}
       githubTriggerState.labelTrigger = appState.githubTriggerLabel !== false;
       githubTriggerState.pollInterval = appState.githubTriggerPollInterval || 5;
       githubTriggerState.triggeredTasks = appState.githubTriggeredTasks || [];
+      githubTriggerState.accountId = appState.githubTriggerAccountId || null;
       
       const enabledCheckbox = document.getElementById('githubTriggerEnabled');
       if (enabledCheckbox) enabledCheckbox.checked = githubTriggerState.enabled;
@@ -26522,6 +27503,7 @@ ${description}
       appState.githubTriggerMention = githubTriggerState.mentionTrigger;
       appState.githubTriggerLabel = githubTriggerState.labelTrigger;
       appState.githubTriggerPollInterval = githubTriggerState.pollInterval;
+      appState.githubTriggerAccountId = githubTriggerState.accountId;
       appState.githubTriggeredTasks = githubTriggerState.triggeredTasks;
       saveAppState();
       
@@ -26546,6 +27528,326 @@ ${description}
         logActivity('GitHub connection test failed: ' + err.message, 'error');
       });
     }
+
+    // ============ A1: Multi-Account System ============
+    // Initialize accounts store (legacy token migration lives in migrateLegacyGitHubToken,
+    // called once from loadAppState — keep exactly one migration path)
+    function initAccountsStore() {
+      if (!appState.accounts) {
+        appState.accounts = [];
+        saveAppState();
+      }
+      return appState.accounts;
+    }
+
+    // Get all accounts for a service
+    function getAccountsForService(service) {
+      initAccountsStore();
+      return appState.accounts.filter(a => a.service === service);
+    }
+
+    // Get default account for a service
+    function getDefaultAccount(service) {
+      const accounts = getAccountsForService(service);
+      return accounts.find(a => a.isDefault) || accounts[0] || null;
+    }
+
+    // Get account by ID
+    function getAccountById(accountId) {
+      initAccountsStore();
+      return appState.accounts.find(a => a.id === accountId) || null;
+    }
+
+    // Verify GitHub token and fetch username
+    async function verifyGithubToken(token) {
+      try {
+        const res = await fetch('https://api.github.com/user', {
+          headers: {
+            'Authorization': 'Bearer ' + token,
+            'Accept': 'application/vnd.github+json'
+          }
+        });
+        if (!res.ok) {
+          const err = await res.text();
+          throw new Error('GitHub API error: ' + res.status + ' - ' + err);
+        }
+        const user = await res.json();
+        return {
+          username: user.login,
+          avatarUrl: user.avatar_url,
+          name: user.name,
+          id: user.id
+        };
+      } catch (err) {
+        throw new Error('Token verification failed: ' + err.message);
+      }
+    }
+
+    // Add a new GitHub account
+    async function addGithubAccount(token, repo) {
+      // Verify token first
+      const userInfo = await verifyGithubToken(token);
+      
+      initAccountsStore();
+      
+      // Check if account already exists
+      const existing = appState.accounts.find(a => a.service === 'github' && a.username === userInfo.username);
+      if (existing) {
+        throw new Error('এই GitHub অ্যাকাউন্ট (' + userInfo.username + ') ইতিমধ্যে সংযুক্ত আছে');
+      }
+      
+      const isFirst = appState.accounts.filter(a => a.service === 'github').length === 0;
+      
+      const newAccount = {
+        id: 'github-' + Date.now(),
+        service: 'github',
+        username: userInfo.username,
+        avatarUrl: userInfo.avatarUrl,
+        token: token,
+        repo: repo || '',
+        connectedAt: Date.now(),
+        isDefault: isFirst
+      };
+      
+      appState.accounts.push(newAccount);
+      saveAppState();
+      
+      return newAccount;
+    }
+
+    // Remove an account
+    function removeAccount(accountId) {
+      initAccountsStore();
+      const index = appState.accounts.findIndex(a => a.id === accountId);
+      if (index === -1) return false;
+      
+      const wasDefault = appState.accounts[index].isDefault;
+      const service = appState.accounts[index].service;
+      appState.accounts.splice(index, 1);
+      
+      // If we removed the default, promote another account
+      if (wasDefault) {
+        const remaining = appState.accounts.filter(a => a.service === service);
+        if (remaining.length > 0) {
+          remaining[0].isDefault = true;
+        }
+      }
+      
+      saveAppState();
+      return true;
+    }
+
+    // Set default account for a service
+    function setDefaultAccount(accountId) {
+      initAccountsStore();
+      const account = appState.accounts.find(a => a.id === accountId);
+      if (!account) return false;
+      
+      // Clear default for all accounts of this service
+      appState.accounts.forEach(a => {
+        if (a.service === account.service) a.isDefault = false;
+      });
+      
+      account.isDefault = true;
+      saveAppState();
+      return true;
+    }
+
+    // Get token for a specific account (or default)
+    function getGithubToken(accountId) {
+      if (accountId) {
+        const account = getAccountById(accountId);
+        return account ? account.token : null;
+      }
+      // Use default account
+      const defaultAccount = getDefaultAccount('github');
+      return defaultAccount ? defaultAccount.token : (appState.githubToken || null);
+    }
+
+    // Get repo for a specific account (or default)
+    function getGithubRepo(accountId) {
+      if (accountId) {
+        const account = getAccountById(accountId);
+        return account ? account.repo : null;
+      }
+      const defaultAccount = getDefaultAccount('github');
+      return defaultAccount ? defaultAccount.repo : (appState.githubRepo || null);
+    }
+
+    // Resolve account from user prompt (mention username)
+    function resolveAccountFromPrompt(prompt, service = 'github') {
+      if (!prompt) return null;
+      const accounts = getAccountsForService(service);
+      if (accounts.length === 0) return null;
+      
+      // Look for @username mentions
+      const mentions = prompt.match(/@(\w+)/g);
+      if (mentions) {
+        for (const mention of mentions) {
+          const username = mention.slice(1);
+          const account = accounts.find(a => a.username.toLowerCase() === username.toLowerCase());
+          if (account) return account;
+        }
+      }
+      
+      // Look for "account username" or "username account" patterns
+      const words = prompt.toLowerCase().split(/\s+/);
+      for (const word of words) {
+        const account = accounts.find(a => a.username.toLowerCase() === word.toLowerCase());
+        if (account) return account;
+      }
+      
+      return null;
+    }
+
+    // Render accounts list in Settings
+    function renderAccountsList() {
+      const container = document.getElementById('accountsList');
+      if (!container) return;
+      
+      initAccountsStore();
+      const accounts = appState.accounts;
+      
+      if (accounts.length === 0) {
+        container.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--text-dim);">No accounts connected yet. Click "Add Account" to connect GitHub.</div>';
+        return;
+      }
+      
+      container.innerHTML = accounts.map(account => {
+        const isDefault = account.isDefault ? '<span style="background: var(--accent); color: var(--accent-text); padding: 2px 8px; border-radius: 4px; font-size: 10px; margin-left: 8px;">DEFAULT</span>' : '';
+        const migrated = account.migrated ? '<span style="background: var(--warning); color: var(--bg); padding: 2px 8px; border-radius: 4px; font-size: 10px; margin-left: 8px;">MIGRATED</span>' : '';
+        const avatar = account.avatarUrl ? '<img src="' + account.avatarUrl + '" style="width: 24px; height: 24px; border-radius: 50%; margin-right: 8px;">' : '';
+        const tokenMasked = account.token ? '••••' + account.token.slice(-4) : 'N/A';
+        const connectedDate = new Date(account.connectedAt).toLocaleDateString();
+        
+        return `
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: var(--bg-surface); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px;">
+            <div style="display: flex; align-items: center; flex: 1;">
+              ${avatar}
+              <div>
+                <div style="font-weight: 600; color: var(--text-main);">${escapeHtml(account.username)} ${isDefault} ${migrated}</div>
+                <div style="font-size: 11px; color: var(--text-dim);">${account.service.toUpperCase()} • Connected: ${connectedDate} • Token: ${tokenMasked}</div>
+                ${account.repo ? '<div style="font-size: 11px; color: var(--text-dim);">Repo: ' + escapeHtml(account.repo) + '</div>' : ''}
+              </div>
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <button onclick="setDefaultAccount('${account.id}')" class="btn-secondary" style="font-size: 11px; padding: 4px 10px;">Make Default</button>
+              <button onclick="removeAccount('${account.id}')" class="btn-danger" style="font-size: 11px; padding: 4px 10px;">Disconnect</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Render add account form
+    function renderAddAccountForm() {
+      const container = document.getElementById('addAccountForm');
+      if (!container) return;
+      
+      container.innerHTML = `
+        <div style="background: var(--bg-surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 16px;">
+          <h4 style="margin: 0 0 12px; color: var(--text-main);">Connect GitHub Account</h4>
+          <p style="font-size: 12px; color: var(--text-dim); margin: 0 0 12px;">
+            Create a Personal Access Token at <a href="https://github.com/settings/tokens/new" target="_blank" style="color: var(--accent);">GitHub Settings → Tokens</a> with these scopes: <code style="background: var(--bg); padding: 2px 6px; border-radius: 3px;">repo</code>, <code style="background: var(--bg); padding: 2px 6px; border-radius: 3px;">read:user</code>, <code style="background: var(--bg); padding: 2px 6px; border-radius: 3px;">read:org</code>
+          </p>
+          <div style="display: flex; flex-direction: column; gap: 10px;">
+            <div>
+              <label style="display: block; font-size: 12px; color: var(--text-dim); margin-bottom: 4px;">Personal Access Token</label>
+              <input type="password" id="newGithubToken" placeholder="ghp_xxxxxxxxxxxx" style="width: 100%; padding: 8px 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text-main); font-family: var(--font-mono); font-size: 13px;">
+            </div>
+            <div>
+              <label style="display: block; font-size: 12px; color: var(--text-dim); margin-bottom: 4px;">Default Repository (optional, owner/name)</label>
+              <input type="text" id="newGithubRepo" placeholder="username/repo-name" style="width: 100%; padding: 8px 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text-main);">
+            </div>
+            <button onclick="connectGithubAccount()" class="btn-primary" style="align-self: flex-start;">Connect & Verify</button>
+            <div id="connectAccountStatus" style="font-size: 12px; min-height: 18px;"></div>
+          </div>
+        </div>
+      `;
+    }
+
+    // Connect GitHub account (called from UI)
+    window.connectGithubAccount = async function() {
+      const tokenInput = document.getElementById('newGithubToken');
+      const repoInput = document.getElementById('newGithubRepo');
+      const statusEl = document.getElementById('connectAccountStatus');
+      
+      if (!tokenInput || !tokenInput.value.trim()) {
+        statusEl.innerHTML = '<span style="color: var(--danger);">Token is required</span>';
+        return;
+      }
+      
+      statusEl.innerHTML = '<span style="color: var(--accent);">Verifying token...</span>';
+      
+      try {
+        const account = await addGithubAccount(tokenInput.value.trim(), repoInput.value.trim() || '');
+        statusEl.innerHTML = '<span style="color: var(--success);">Connected as @' + escapeHtml(account.username) + '!</span>';
+        tokenInput.value = '';
+        repoInput.value = '';
+        renderAccountsList();
+        // Update GitHub trigger tab if visible
+        if (typeof renderGithubTriggerTab === 'function') renderGithubTriggerTab();
+      } catch (err) {
+        statusEl.innerHTML = '<span style="color: var(--danger);">' + escapeHtml(err.message) + '</span>';
+      }
+    };
+
+    // Make account functions globally accessible
+    window.removeAccount = removeAccount;
+    window.setDefaultAccount = setDefaultAccount;
+    window.renderAccountsList = renderAccountsList;
+
+    // Patch checkGithubTriggers to use accounts system
+    const originalCheckGithubTriggers = checkGithubTriggers;
+    checkGithubTriggers = async function(accountId) {
+      const repo = getGithubRepo(accountId);
+      const token = getGithubToken(accountId);
+      
+      if (!repo) {
+        logActivity('GitHub trigger check skipped: no repo linked (link a repo to enable)', 'info');
+        return;
+      }
+      
+      githubTriggerState.lastPoll = Date.now();
+      const parts = String(repo).split('/');
+      const owner = parts[0], name = parts[1];
+      if (!owner || !name) {
+        logActivity('GitHub trigger check skipped: repo name "' + repo + '" is not owner/name', 'warning');
+        return;
+      }
+      const headers = { 'Accept': 'application/vnd.github+json' };
+      if (token) headers['Authorization'] = 'Bearer ' + token;
+      const seen = githubTriggerState.seenIds || (githubTriggerState.seenIds = {});
+      try {
+        const labelRes = await fetch('https://api.github.com/repos/' + owner + '/' + name + '/issues?labels=flamingocode&state=open&per_page=20', { headers });
+        if (labelRes.ok) {
+          const issues = await labelRes.json();
+          for (const issue of (issues || [])) {
+            const key = 'issue-' + issue.id;
+            if (seen[key]) continue;
+            seen[key] = true;
+            addTriggeredTask({ title: issue.title, body: issue.body || '', source: issue.html_url, sourceType: 'label', number: issue.number, accountId });
+          }
+        } else {
+          logActivity('GitHub trigger poll failed (label search): HTTP ' + labelRes.status, 'warning');
+        }
+        const searchRes = await fetch('https://api.github.com/search/issues?q=' + encodeURIComponent('@flamingocode repo:' + owner + '/' + name) + '&per_page=10', { headers });
+        if (searchRes.ok) {
+          const found = await searchRes.json();
+          for (const item of ((found && found.items) || [])) {
+            const key = 'mention-' + item.id;
+            if (seen[key]) continue;
+            seen[key] = true;
+            addTriggeredTask({ title: item.title, body: item.body || '', source: item.html_url, sourceType: 'mention', number: item.number, accountId });
+          }
+        } else {
+          logActivity('GitHub trigger poll failed (mention search): HTTP ' + searchRes.status, 'warning');
+        }
+      } catch (e) {
+        logActivity('GitHub trigger poll failed: ' + e.message, 'error');
+      }
+      saveAppState();
+    };
 
     function startGithubPolling() {
       if (githubTriggerState.polling) return;
@@ -26580,9 +27882,22 @@ ${description}
       // the `flamingocode` label, plus issue search for `@flamingocode` mentions.
       // New items become triggered tasks (deduped by seen id). No repo linked or
       // no network → log and return. Nothing here ever writes to GitHub.
-      const repo = appState.githubRepo;
+      
+      // Get GitHub account from accounts store
+      let account = null;
+      if (githubTriggerState.accountId) {
+        account = getAccountById(githubTriggerState.accountId);
+      } else {
+        account = getDefaultAccount('github');
+      }
+      if (!account) {
+        logActivity('GitHub trigger check skipped: no GitHub account connected', 'info');
+        return;
+      }
+      
+      const repo = account.repo || appState.githubRepo; // Fallback to legacy
       if (!repo) {
-        logActivity('GitHub trigger check skipped: no repo linked (link a repo to enable)', 'info');
+        logActivity('GitHub trigger check skipped: no repo linked on account (link a repo to enable)', 'info');
         return;
       }
       githubTriggerState.lastPoll = Date.now();
@@ -26593,7 +27908,7 @@ ${description}
         return;
       }
       const headers = { 'Accept': 'application/vnd.github+json' };
-      if (appState.githubToken) headers['Authorization'] = 'Bearer ' + appState.githubToken;
+      if (account.token) headers['Authorization'] = 'Bearer ' + account.token;
       const seen = githubTriggerState.seenIds || (githubTriggerState.seenIds = {});
       try {
         const labelRes = await fetch(`https://api.github.com/repos/${owner}/${name}/issues?labels=flamingocode&state=open&per_page=20`, { headers });
@@ -27388,181 +28703,317 @@ ${description}
         }
 
     // --- Provider Fallback Chain (Never-stuck routing) ---
-    async function callLLMWithFallback(messages, options = {}) {
-      const { isAuxiliary = false, forcePrimary = false } = options;
+        // M1: Auto-failover state tracking
+        let failoverCount = 0;
+        const MAX_FAILOVERS_PER_STEP = 3;
+    
+        async function callLLMWithFallback(messages, options = {}) {
+          const { isAuxiliary = false, forcePrimary = false, stepContext = null } = options;
       
-      // Select the appropriate chain
-      const chainState = isAuxiliary 
-        ? appState.auxProviderFallbackChain 
-        : appState.providerFallbackChain;
+          // M1: Reset failover count for new step
+          if (stepContext && stepContext.isNewStep) {
+            failoverCount = 0;
+            appState.failoverCounter = 0;
+          }
       
-      // Check if fallback chain is enabled
-      if (!chainState?.enabled) {
-        return callLLM(messages);
-      }
+          // M1: Check if auto-failover is enabled
+          const autoFailoverEnabled = appState.autoFailoverEnabled !== false;
       
-      const chain = chainState?.chain || [];
-      const cooldowns = chainState?.cooldowns || {};
-      const cooldownMs = chainState?.cooldownMs || 60000;
-      const now = Date.now();
+          // Select the appropriate chain
+          const chainState = isAuxiliary 
+            ? appState.auxProviderFallbackChain 
+            : appState.providerFallbackChain;
       
-      // For main chain: turn-scoped fallback - try primary on each new user turn
-      let primaryProviderId = null;
-      let primaryCooldownUntil = null;
-      if (!isAuxiliary) {
-        primaryProviderId = chainState.primaryProviderId;
-        primaryCooldownUntil = chainState.primaryCooldownUntil;
+          // Check if fallback chain is enabled
+          if (!chainState?.enabled) {
+            return callLLM(messages);
+          }
+      
+          const chain = chainState?.chain || [];
+          const cooldowns = chainState?.cooldowns || {};
+          const cooldownMs = chainState?.cooldownMs || 60000;
+          const now = Date.now();
+      
+          // For main chain: turn-scoped fallback - try primary on each new user turn
+          let primaryProviderId = null;
+          let primaryCooldownUntil = null;
+          if (!isAuxiliary) {
+            primaryProviderId = chainState.primaryProviderId;
+            primaryCooldownUntil = chainState.primaryCooldownUntil;
         
-        // If turn-scoped enabled and primary exists, check if we should try it first
-        const turnScopedEnabled = chainState.turnScopedEnabled !== false;
-        const primaryAvailable = primaryProviderId && chain.includes(primaryProviderId);
-        const primaryRecovered = primaryCooldownUntil === null || primaryCooldownUntil <= now;
+            // If turn-scoped enabled and primary exists, check if we should try it first
+            const turnScopedEnabled = chainState.turnScopedEnabled !== false;
+            const primaryAvailable = primaryProviderId && chain.includes(primaryProviderId);
+            const primaryRecovered = primaryCooldownUntil === null || primaryCooldownUntil <= now;
         
-        if (turnScopedEnabled && primaryAvailable && (primaryRecovered || forcePrimary)) {
-          // Try primary provider first on this turn
-          const primaryProvider = appState.providers[primaryProviderId];
-          if (primaryProvider) {
-            try {
-              logActivity(`Turn-scoped: trying primary provider ${primaryProvider.name}`, 'info');
-              const result = await callLLM(messages, primaryProviderId);
+            if (turnScopedEnabled && primaryAvailable && (primaryRecovered || forcePrimary)) {
+              // Try primary provider first on this turn
+              const primaryProvider = appState.providers[primaryProviderId];
+              if (primaryProvider) {
+                try {
+                  logActivity(`Turn-scoped: trying primary provider ${primaryProvider.name}`, 'info');
+                  const result = await callLLM(messages, primaryProviderId);
               
-              // Primary succeeded - clear its cooldown
-              if (primaryCooldownUntil && primaryCooldownUntil > now) {
-                chainState.primaryCooldownUntil = null;
-                delete cooldowns[primaryProviderId];
+                  // Primary succeeded - clear its cooldown
+                  if (primaryCooldownUntil && primaryCooldownUntil > now) {
+                    chainState.primaryCooldownUntil = null;
+                    delete cooldowns[primaryProviderId];
+                    chainState.cooldowns = cooldowns;
+                    saveAppState();
+                    if (document.getElementById('providerFallbackChainList')) {
+                      renderProviderFallbackChain();
+                    }
+                    logActivity(`Primary provider ${primaryProvider.name} recovered`, 'success');
+                  }
+                  return result;
+                } catch (err) {
+                  // Primary failed - put on cooldown and continue to fallback chain
+                  const errorMsg = err.message || String(err);
+                  const shouldFallback = 
+                    errorMsg.includes('429') || 
+                    errorMsg.includes('500') || 
+                    errorMsg.includes('502') || 
+                    errorMsg.includes('503') || 
+                    errorMsg.includes('504') || 
+                    errorMsg.includes('timeout') || 
+                    errorMsg.includes('Empty response') || 
+                    errorMsg.includes('Network/CORS Error') || 
+                    errorMsg.includes('Request timeout') || 
+                    errorMsg.includes('stream idle');
+              
+                  if (shouldFallback) {
+                    chainState.primaryCooldownUntil = now + cooldownMs;
+                    cooldowns[primaryProviderId] = now + cooldownMs;
+                    chainState.cooldowns = cooldowns;
+                    saveAppState();
+                    if (document.getElementById('providerFallbackChainList')) {
+                      renderProviderFallbackChain();
+                    }
+                    logActivity(`Primary ${primaryProvider.name} failed (${errorMsg.slice(0, 50)}) — trying fallback chain…`, 'warning');
+                  } else {
+                    throw err;
+                  }
+                }
+              }
+            }
+        
+            // If primary is on cooldown, show when it's expected back
+            if (primaryCooldownUntil && primaryCooldownUntil > now) {
+              const remainingMs = primaryCooldownUntil - now;
+              const remainingSec = Math.ceil(remainingMs / 1000);
+              const mins = Math.floor(remainingSec / 60);
+              const secs = remainingSec % 60;
+              const timeStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+              logActivity(`Primary on cooldown — back in ${timeStr}`, 'info');
+            }
+          }
+      
+          // Filter out providers on cooldown
+          const availableChain = chain.filter(id => {
+            const cooldownUntil = cooldowns[id];
+            return !cooldownUntil || cooldownUntil <= now;
+          });
+      
+          if (availableChain.length === 0) {
+            // All providers on cooldown, try the primary active provider
+            logActivity('All fallback providers on cooldown, trying primary...', 'warning');
+            return callLLM(messages);
+          }
+      
+          let lastError = null;
+      
+          for (let i = 0; i < availableChain.length; i++) {
+                  const providerId = availableChain[i];
+                  const provider = appState.providers[providerId];
+      
+                  if (!provider) continue;
+      
+                  try {
+                    logActivity(`Trying provider: ${provider.name} (${i + 1}/${availableChain.length})${isAuxiliary ? ' [aux]' : ''}`, 'info');
+                    const result = await callLLM(messages, providerId);
+      
+                    // Success - if we used a fallback provider, log it
+                    if (i > 0) {
+                      logActivity(`Fallback succeeded with ${provider.name}${isAuxiliary ? ' (aux)' : ''}`, 'success');
+                    }
+                    return result;
+                  } catch (err) {
+                    lastError = err;
+                    const errorMsg = err.message || String(err);
+      
+                    // Handle F5_FALLBACK error from rate limit hit - show visible message and trigger fallback
+                    if (errorMsg.includes('F5_FALLBACK')) {
+                      // Show the rate limit message to user (without the F5_FALLBACK marker)
+                      const displayMsg = errorMsg.replace('|F5_FALLBACK', '');
+                      logActivity(displayMsg, 'error');
+                      // Force show the activity log panel
+                      const activityPanel = document.getElementById('activityLogPanel');
+                      if (activityPanel) activityPanel.style.display = 'block';
+                    }
+      
+                    // M1: Check if this is a rate-limit/quota error (429 or quota-exhausted)
+                    const isRateLimitError = errorMsg.includes('429') || 
+                      errorMsg.includes('quota') || 
+                      errorMsg.includes('rate limit') || 
+                      errorMsg.includes('quota exhausted') ||
+                      errorMsg.includes('F5_FALLBACK');
+                
+                    // Determine if this error should trigger fallback to next provider
+                    const shouldFallback =
+                      isRateLimitError ||                    // Rate limited / quota
+                      errorMsg.includes('500') ||                    // Server error
+                      errorMsg.includes('502') ||                    // Bad gateway
+                      errorMsg.includes('503') ||                    // Service unavailable
+                      errorMsg.includes('504') ||                    // Gateway timeout
+                      errorMsg.includes('timeout') ||                // Timeout
+                      errorMsg.includes('Empty response') ||         // Empty response
+                      errorMsg.includes('Network/CORS Error') ||     // Network/CORS
+                      errorMsg.includes('Request timeout') ||        // Request timeout
+                      errorMsg.includes('stream idle');              // Stream idle timeout
+         
+              if (shouldFallback && i < availableChain.length - 1) {
+                // M1: If rate limit error, mark provider as limited and track for auto-failover
+                if (isRateLimitError && autoFailoverEnabled && failoverCount < MAX_FAILOVERS_PER_STEP) {
+                  // M1: Model-level failover helper — marks the failed model as
+                  // rate-limited (providerId:model) and enforces the per-step cap
+                  // across turns. Its marks feed getModelForTaskType.
+                  let helperMaxReached = false;
+                  let helperPick = null;
+                  try {
+                    if (typeof handleRateLimitFailover === 'function') {
+                      const _stepForFailover = (stepContext && (stepContext.step || stepContext)) || {};
+                      helperPick = handleRateLimitFailover(
+                        { id: _stepForFailover.id || _stepForFailover.text || '', text: _stepForFailover.text || '', kind: _stepForFailover.kind || '' },
+                        provider.model || provider.defaultModel || providerId,
+                        providerId,
+                        { retryAfter: null }
+                      );
+                      if (helperPick && !helperPick.success && helperPick.reason === 'max-failovers-reached') helperMaxReached = true;
+                    }
+                  } catch (e) { helperPick = null; helperMaxReached = false; }
+                  // Mark provider as rate limited
+                  if (!appState.rateLimitState) appState.rateLimitState = {};
+                  appState.rateLimitState[providerId] = {
+                    isLimited: true,
+                    retryAfter: null, // Provider didn't give a specific retry time
+                    limitedAt: Date.now(),
+                    model: provider.model || provider.defaultModel
+                  };
+                  saveAppState();
+              
+                  // Log the failover
+                  const nextProvider = appState.providers[availableChain[i + 1]];
+                  const nextName = nextProvider ? nextProvider.name : 'next provider';
+                  const oldModel = provider.model || provider.defaultModel || providerId;
+                  const newModel = nextProvider ? (nextProvider.model || nextProvider.defaultModel || nextProvider.id) : 'unknown';
+              
+                  logActivity(`${oldModel}-এর limit শেষ — ${newModel} দিয়ে চালিয়ে যাচ্ছি`, 'warning');
+              
+                  // Add to failover history
+                  if (!appState.failoverHistory) appState.failoverHistory = [];
+                  appState.failoverHistory.push({
+                    timestamp: Date.now(),
+                    oldModel,
+                    newModel,
+                    oldProvider: providerId,
+                    newProvider: availableChain[i + 1],
+                    reason: 'rate-limit',
+                    stepContext: stepContext ? { kind: stepContext.kind, text: stepContext.text } : null
+                  });
+                  // Keep only last 50 entries
+                  if (appState.failoverHistory.length > 50) {
+                    appState.failoverHistory = appState.failoverHistory.slice(-50);
+                  }
+                  saveAppState();
+              
+                  // Update header model picker if visible
+                  updateHeaderModelDisplay(newModel, availableChain[i + 1]);
+              
+                  failoverCount++;
+                  // M1: canonical per-step counter + switch history (Batch 8c)
+                  appState.failoverCounter = failoverCount;
+                  if (!appState.modelSwitchHistory) appState.modelSwitchHistory = [];
+                  appState.modelSwitchHistory.push({ from: oldModel, to: newModel, reason: 'rate-limit', at: Date.now() });
+                  if (appState.modelSwitchHistory.length > 50) appState.modelSwitchHistory = appState.modelSwitchHistory.slice(-50);
+                  // M1: visible chat note + session event for the failover
+                  try {
+                    if (typeof appendChatMessage === 'function') {
+                      appendChatMessage('system', '⚠️ ' + oldModel + '-এর limit শেষ — ' + newModel + ' দিয়ে চালিয়ে যাচ্ছি');
+                    }
+                  } catch (e) {}
+                  try {
+                    const _failoverSessionId = (stepContext && stepContext.sessionId) || appState.activeSessionId;
+                    const _failoverStep = (stepContext && typeof stepContext.stepIndex === 'number') ? stepContext.stepIndex : (appState.planStepIndex || 0);
+                    if (_failoverSessionId && typeof recordEvent === 'function') {
+                      recordEvent(_failoverSessionId, _failoverStep, 'failover', { from: oldModel, to: newModel, reason: 'rate-limit' });
+                    }
+                  } catch (e) {}
+                }
+            
+                if (helperMaxReached) {
+                  // This step already used its 3 failovers (across turns) — stop
+                  // here; the stop-error branch below throws the rate-limit stop.
+                  failoverCount = MAX_FAILOVERS_PER_STEP;
+                } else {
+                // Put this provider on cooldown
+                cooldowns[providerId] = now + cooldownMs;
                 chainState.cooldowns = cooldowns;
                 saveAppState();
+            
+                const nextProvider = appState.providers[availableChain[i + 1]];
+                const nextName = nextProvider ? nextProvider.name : 'next provider';
+                logActivity(`Provider ${provider.name} failed (${errorMsg.slice(0, 50)}) — trying ${nextName}…`, 'warning');
+            
+                // Update UI if settings modal is open
                 if (document.getElementById('providerFallbackChainList')) {
                   renderProviderFallbackChain();
                 }
-                logActivity(`Primary provider ${primaryProvider.name} recovered`, 'success');
-              }
-              return result;
-            } catch (err) {
-              // Primary failed - put on cooldown and continue to fallback chain
-              const errorMsg = err.message || String(err);
-              const shouldFallback = 
-                errorMsg.includes('429') || 
-                errorMsg.includes('500') || 
-                errorMsg.includes('502') || 
-                errorMsg.includes('503') || 
-                errorMsg.includes('504') || 
-                errorMsg.includes('timeout') || 
-                errorMsg.includes('Empty response') || 
-                errorMsg.includes('Network/CORS Error') || 
-                errorMsg.includes('Request timeout') || 
-                errorMsg.includes('stream idle');
-              
-              if (shouldFallback) {
-                chainState.primaryCooldownUntil = now + cooldownMs;
-                cooldowns[primaryProviderId] = now + cooldownMs;
-                chainState.cooldowns = cooldowns;
-                saveAppState();
-                if (document.getElementById('providerFallbackChainList')) {
-                  renderProviderFallbackChain();
+            
+                continue; // Try next provider
                 }
-                logActivity(`Primary ${primaryProvider.name} failed (${errorMsg.slice(0, 50)}) — trying fallback chain…`, 'warning');
-              } else {
-                throw err;
               }
+          
+              // M1: If auto-failover is disabled or max failovers reached, stop and ask
+              if (isRateLimitError && (!autoFailoverEnabled || failoverCount >= MAX_FAILOVERS_PER_STEP)) {
+                // Build a helpful error message
+                let errorMessage = 'সব model-এর limit শেষ — ';
+                let earliestRetry = null;
+            
+                // Find earliest retry time
+                for (const [pid, rl] of Object.entries(appState.rateLimitState || {})) {
+                  if (rl.retryAfter && (!earliestRetry || rl.retryAfter < earliestRetry)) {
+                    earliestRetry = rl.retryAfter;
+                  }
+                }
+            
+                if (earliestRetry) {
+                  const mins = Math.ceil((earliestRetry - Date.now()) / 60000);
+                  errorMessage += `${mins} мин পর আবার চেষ্টা করো`;
+                } else {
+                  errorMessage += 'কিছুক্ষণ পর আবার চেষ্টা করো';
+                }
+            
+                // If auto-failover is OFF, offer manual switch
+                if (!autoFailoverEnabled) {
+                  errorMessage += ' (Auto-failover OFF — ম্যানুয়ালি মডেল বদলান)';
+                } else if (failoverCount >= MAX_FAILOVERS_PER_STEP) {
+                  errorMessage += ` (${MAX_FAILOVERS_PER_STEP} বার failover হয়েছে)`;
+                }
+            
+                const finalError = new Error(errorMessage);
+                finalError.isRateLimitStop = true;
+                finalError.earliestRetry = earliestRetry;
+                throw finalError;
+              }
+          
+              // Don't fallback - rethrow
+              throw err;
             }
           }
+      
+          // All providers in chain failed
+          throw lastError || new Error('All providers in fallback chain failed');
         }
-        
-        // If primary is on cooldown, show when it's expected back
-        if (primaryCooldownUntil && primaryCooldownUntil > now) {
-          const remainingMs = primaryCooldownUntil - now;
-          const remainingSec = Math.ceil(remainingMs / 1000);
-          const mins = Math.floor(remainingSec / 60);
-          const secs = remainingSec % 60;
-          const timeStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
-          logActivity(`Primary on cooldown — back in ${timeStr}`, 'info');
-        }
-      }
-      
-      // Filter out providers on cooldown
-      const availableChain = chain.filter(id => {
-        const cooldownUntil = cooldowns[id];
-        return !cooldownUntil || cooldownUntil <= now;
-      });
-      
-      if (availableChain.length === 0) {
-        // All providers on cooldown, try the primary active provider
-        logActivity('All fallback providers on cooldown, trying primary...', 'warning');
-        return callLLM(messages);
-      }
-      
-      let lastError = null;
-      
-      for (let i = 0; i < availableChain.length; i++) {
-              const providerId = availableChain[i];
-              const provider = appState.providers[providerId];
-
-              if (!provider) continue;
-
-              try {
-                logActivity(`Trying provider: ${provider.name} (${i + 1}/${availableChain.length})${isAuxiliary ? ' [aux]' : ''}`, 'info');
-                const result = await callLLM(messages, providerId);
-
-                // Success - if we used a fallback provider, log it
-                if (i > 0) {
-                  logActivity(`Fallback succeeded with ${provider.name}${isAuxiliary ? ' (aux)' : ''}`, 'success');
-                }
-                return result;
-              } catch (err) {
-                lastError = err;
-                const errorMsg = err.message || String(err);
-
-                // Handle F5_FALLBACK error from rate limit hit - show visible message and trigger fallback
-                if (errorMsg.includes('F5_FALLBACK')) {
-                  // Show the rate limit message to user (without the F5_FALLBACK marker)
-                  const displayMsg = errorMsg.replace('|F5_FALLBACK', '');
-                  logActivity(displayMsg, 'error');
-                  // Force show the activity log panel
-                  const activityPanel = document.getElementById('activityLogPanel');
-                  if (activityPanel) activityPanel.style.display = 'block';
-                }
-
-                // Determine if this error should trigger fallback to next provider
-                const shouldFallback =
-                  errorMsg.includes('429') ||                    // Rate limited
-                  errorMsg.includes('500') ||                    // Server error
-                  errorMsg.includes('502') ||                    // Bad gateway
-                  errorMsg.includes('503') ||                    // Service unavailable
-                  errorMsg.includes('504') ||                    // Gateway timeout
-                  errorMsg.includes('timeout') ||                // Timeout
-                  errorMsg.includes('Empty response') ||         // Empty response
-                  errorMsg.includes('Network/CORS Error') ||     // Network/CORS
-                  errorMsg.includes('Request timeout') ||        // Request timeout
-                  errorMsg.includes('stream idle') ||            // Stream idle timeout
-                  errorMsg.includes('F5_FALLBACK');              // Model rate limit hit - offer fallback
-          
-          if (shouldFallback && i < availableChain.length - 1) {
-            // Put this provider on cooldown
-            cooldowns[providerId] = now + cooldownMs;
-            chainState.cooldowns = cooldowns;
-            saveAppState();
-            
-            const nextProvider = appState.providers[availableChain[i + 1]];
-            const nextName = nextProvider ? nextProvider.name : 'next provider';
-            logActivity(`Provider ${provider.name} failed (${errorMsg.slice(0, 50)}) — trying ${nextName}…`, 'warning');
-            
-            // Update UI if settings modal is open
-            if (document.getElementById('providerFallbackChainList')) {
-              renderProviderFallbackChain();
-            }
-            
-            continue; // Try next provider
-          }
-          
-          // Don't fallback - rethrow
-          throw err;
-        }
-      }
-      
-      // All providers in chain failed
-      throw lastError || new Error('All providers in fallback chain failed');
-    }
 
     // --- DuckDuckGo AI Flow ---
     async function callDuckDuckGo(messages, provider) {
@@ -35092,6 +36543,12 @@ Format:
         const midTask = (typeof agentWorking !== 'undefined' && agentWorking) || (session && (session.planStepIndex || 0) > 0);
         if (midTask && oldId && oldId !== id && session && typeof logModelSwitch === 'function') {
           logModelSwitch(session.id, id + '|' + (appState.providers[id].defaultModel || ''), 'just trying');
+          // M2: learn from this manual switch too (same model 3x -> learned preference)
+          try {
+            if (typeof learnModelPreference === 'function') {
+              learnModelPreference(getCurrentTaskTypeForLearning(), appState.providers[id].defaultModel || '', id);
+            }
+          } catch (e) {}
         }
       } catch (e) {}
     }
@@ -35532,8 +36989,37 @@ Format:
           if (tabName === 'androidPack') {
             renderAndroidPackTab();
           }
+          if (tabName === 'accounts') {
+            renderAccountsTab();
+          }
+          if (tabName === 'themes') {
+            renderThemePanel();
+          }
+          if (tabName === 'modelPrefs') {
+            renderTaskModelPreferences();
+          }
         });
       });
+
+      // Theme animations toggle
+      const themeAnimToggle = document.getElementById('themeAnimationsToggle');
+      if (themeAnimToggle) {
+        themeAnimToggle.checked = appState.themeAnimationEnabled !== false;
+        themeAnimToggle.addEventListener('change', (e) => {
+          appState.themeAnimationEnabled = e.target.checked;
+          saveAppState();
+          const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+          if (e.target.checked && !prefersReduced) {
+            const theme = document.documentElement.getAttribute('data-theme');
+            if (theme && ['blackhole', 'solarsystem', 'nature'].includes(theme)) {
+              startThemeAnimation(theme);
+            }
+          } else {
+            stopThemeAnimation();
+          }
+          logActivity(`Theme animations ${e.target.checked ? 'enabled' : 'disabled'}`, 'info');
+        });
+      }
 
       // Close modals on overlay click
       [modal, providerModal, testModal].forEach(m => {
@@ -38147,6 +39633,8 @@ Requirements:
 
     function initApp() {
       loadAppState();
+      initThemeEngine();
+      initAccountsStore();
       applyTranslations();
       updateHeaderUsageMeter();
       renderSessionPicker();
@@ -50359,6 +51847,13 @@ jobs:
       } catch (e) {}
       // Update session's current model (would affect next step)
       session.currentModel = newModel;
+      // M2: learn from manual mid-task switches (after 3 repeats this becomes the learned preference)
+      try {
+        const _swParts = String(newModel).split('|');
+        if (_swParts.length >= 2 && _swParts[1] && typeof learnModelPreference === 'function') {
+          learnModelPreference(getCurrentTaskTypeForLearning(), _swParts[1], _swParts[0]);
+        }
+      } catch (e) {}
       // Record as session event (G14)
       recordEvent(sessionId, session.planStepIndex || appState.planStepIndex || 0, 'model_switch', switchEvent);
       saveAppState();
@@ -51005,6 +52500,425 @@ await server.connect(transport);
       if (f.endsWith('.kt') || f.endsWith('.java')) return 'Android ' + f + ': Kotlin/Java source. ' + pack.guidance['Pitfalls'];
       return 'No guidance for topic: ' + topicOrFile;
     }
+
+    // ============ T1-T3: Theme Engine ============
+    let themeAnimationFrame = null;
+    let themeAnimationState = {
+      particles: [],
+      time: 0,
+      lastFrame: 0
+    };
+
+    function initThemeEngine() {
+      // Load saved theme
+      const savedTheme = localStorage.getItem('flamingocode-theme') || 'default';
+      applyTheme(savedTheme);
+      
+      // Listen for prefers-reduced-motion
+      const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+      mediaQuery.addEventListener('change', handleReducedMotionChange);
+      handleReducedMotionChange(mediaQuery);
+      
+      // Listen for visibility change
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+      
+      // Initialize theme canvas
+      initThemeCanvas();
+    }
+
+    function handleReducedMotionChange(e) {
+      const prefersReduced = e.matches || e === true;
+      document.body.classList.toggle('reduce-motion', prefersReduced);
+      if (prefersReduced) {
+        stopThemeAnimation();
+      } else {
+        const theme = document.documentElement.getAttribute('data-theme');
+        if (theme && ['blackhole', 'solarsystem', 'nature'].includes(theme)) {
+          startThemeAnimation(theme);
+        }
+      }
+    }
+
+    function handleVisibilityChange() {
+      if (document.hidden) {
+        stopThemeAnimation();
+      } else {
+        const theme = document.documentElement.getAttribute('data-theme');
+        const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (theme && ['blackhole', 'solarsystem', 'nature'].includes(theme) && !prefersReduced && !document.body.classList.contains('reduce-motion') && appState.themeAnimationEnabled !== false) {
+          startThemeAnimation(theme);
+        }
+      }
+    }
+
+    function applyTheme(themeName) {
+      const root = document.documentElement;
+      const canvas = document.getElementById('themeCanvas');
+      
+      // Stop current animation
+      stopThemeAnimation();
+      
+      // Remove all theme classes
+      root.removeAttribute('data-theme');
+      document.body.classList.remove('reduce-motion');
+      
+      if (themeName && themeName !== 'default') {
+        root.setAttribute('data-theme', themeName);
+      }
+      
+      // Save to localStorage
+      localStorage.setItem('flamingocode-theme', themeName);
+      appState.currentTheme = themeName;
+      saveAppState();
+      
+      // Start animation for animated themes
+      const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (themeName && ['blackhole', 'solarsystem', 'nature'].includes(themeName) && !prefersReduced && !document.body.classList.contains('reduce-motion')) {
+        startThemeAnimation(themeName);
+      } else if (canvas) {
+        canvas.style.display = 'none';
+      }
+      
+      // Update UI if theme panel is open
+      if (typeof renderThemePanel === 'function') renderThemePanel();
+    }
+
+    function initThemeCanvas() {
+      const canvas = document.getElementById('themeCanvas');
+      if (!canvas) return;
+      
+      // Set canvas size
+      const resizeCanvas = () => {
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.width = window.innerWidth * dpr;
+        canvas.height = window.innerHeight * dpr;
+        canvas.style.width = window.innerWidth + 'px';
+        canvas.style.height = window.innerHeight + 'px';
+        const ctx = canvas.getContext('2d');
+        ctx.scale(dpr, dpr);
+      };
+      
+      resizeCanvas();
+      window.addEventListener('resize', resizeCanvas);
+    }
+
+    function startThemeAnimation(themeName) {
+      const canvas = document.getElementById('themeCanvas');
+      if (!canvas) return;
+
+      // Respect prefers-reduced-motion and visibilitychange (handled by handleVisibilityChange)
+      const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (prefersReduced || document.body.classList.contains('reduce-motion')) {
+        return;
+      }
+      // Animations toggle (Settings) — off means no animated background
+      if (appState.themeAnimationEnabled === false) return;
+
+      canvas.style.display = 'block';
+      themeAnimationState.time = 0;
+      themeAnimationState.lastFrame = performance.now();
+
+      // Initialize particles based on theme
+      initThemeParticles(themeName);
+
+      const animate = (timestamp) => {
+        const dt = Math.min((timestamp - themeAnimationState.lastFrame) / 1000, 0.1);
+        themeAnimationState.lastFrame = timestamp;
+        themeAnimationState.time += dt;
+
+        const ctx = canvas.getContext('2d');
+        const width = canvas.width / (Math.min(window.devicePixelRatio || 1, 2));
+        const height = canvas.height / (Math.min(window.devicePixelRatio || 1, 2));
+
+        ctx.clearRect(0, 0, width, height);
+
+        if (themeName === 'blackhole') {
+          renderBlackHole(ctx, width, height, dt);
+        } else if (themeName === 'solarsystem') {
+          renderSolarSystem(ctx, width, height, dt);
+        } else if (themeName === 'nature') {
+          renderNature(ctx, width, height, dt);
+        }
+
+        themeAnimationFrame = requestAnimationFrame(animate);
+      };
+
+      themeAnimationFrame = requestAnimationFrame(animate);
+    }
+
+    function stopThemeAnimation() {
+      if (themeAnimationFrame) {
+        cancelAnimationFrame(themeAnimationFrame);
+        themeAnimationFrame = null;
+      }
+      const canvas = document.getElementById('themeCanvas');
+      if (canvas) {
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        canvas.style.display = 'none';
+      }
+    }
+
+    function initThemeParticles(themeName) {
+      themeAnimationState.particles = [];
+      const count = themeName === 'nature' ? 30 : (themeName === 'solarsystem' ? 12 : 50);
+      
+      for (let i = 0; i < count; i++) {
+        if (themeName === 'blackhole') {
+          themeAnimationState.particles.push({
+            angle: Math.random() * Math.PI * 2,
+            radius: 100 + Math.random() * 300,
+            speed: 0.02 + Math.random() * 0.05,
+            size: 1 + Math.random() * 2,
+            opacity: 0.2 + Math.random() * 0.5,
+            color: Math.random() > 0.5 ? '#ff6b35' : '#ffaa00'
+          });
+        } else if (themeName === 'solarsystem') {
+          themeAnimationState.particles.push({
+            angle: Math.random() * Math.PI * 2,
+            distance: 80 + i * 40,
+            speed: 0.01 + Math.random() * 0.02,
+            size: 3 + Math.random() * 8,
+            color: ['#ffd600', '#ffaa00', '#ff6b35', '#4ade80', '#00e676', '#79c0ff', '#bb86fc', '#a5d6ff'][i % 8],
+            isPlanet: i < 8
+          });
+        } else if (themeName === 'nature') {
+          themeAnimationState.particles.push({
+            x: Math.random() * window.innerWidth,
+            y: Math.random() * window.innerHeight,
+            vx: -0.2 + Math.random() * 0.4,
+            vy: -0.5 + Math.random() * 0.3,
+            size: 2 + Math.random() * 4,
+            opacity: 0.3 + Math.random() * 0.4,
+            rotation: Math.random() * Math.PI * 2,
+            rotationSpeed: -0.01 + Math.random() * 0.02,
+            type: Math.random() > 0.5 ? 'leaf' : 'pollen'
+          });
+        }
+      }
+    }
+
+    function renderBlackHole(ctx, width, height, dt) {
+      const cx = width / 2;
+      const cy = height / 2;
+      const time = themeAnimationState.time;
+      
+      // Draw accretion disk
+      for (let ring = 0; ring < 5; ring++) {
+        const ringRadius = 80 + ring * 30 + Math.sin(time * 0.5 + ring) * 5;
+        ctx.beginPath();
+        ctx.arc(cx, cy, ringRadius, 0, Math.PI * 2);
+        const gradient = ctx.createRadialGradient(cx, cy, ringRadius - 15, cx, cy, ringRadius + 15);
+        gradient.addColorStop(0, 'rgba(255,107,53,0)');
+        gradient.addColorStop(0.5, 'rgba(255,107,53,0.15)');
+        gradient.addColorStop(1, 'rgba(255,107,53,0)');
+        ctx.strokeStyle = gradient;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+      
+      // Draw central black hole
+      const bhGradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, 40);
+      bhGradient.addColorStop(0, '#000');
+      bhGradient.addColorStop(0.7, '#000');
+      bhGradient.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.beginPath();
+      ctx.arc(cx, cy, 40, 0, Math.PI * 2);
+      ctx.fillStyle = bhGradient;
+      ctx.fill();
+      
+      // Draw glowing ring
+      const ringGradient = ctx.createRadialGradient(cx, cy, 35, cx, cy, 45);
+      ringGradient.addColorStop(0, 'rgba(255,107,53,0)');
+      ringGradient.addColorStop(0.5, 'rgba(255,107,53,0.4)');
+      ringGradient.addColorStop(1, 'rgba(255,107,53,0)');
+      ctx.beginPath();
+      ctx.arc(cx, cy, 42 + Math.sin(time * 2) * 2, 0, Math.PI * 2);
+      ctx.strokeStyle = ringGradient;
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      
+      // Draw drifting stars/particles
+      for (const p of themeAnimationState.particles) {
+        p.angle += p.speed * dt * 60;
+        const x = cx + Math.cos(p.angle) * p.radius;
+        const y = cy + Math.sin(p.angle) * p.radius;
+        
+        ctx.beginPath();
+        ctx.arc(x, y, p.size, 0, Math.PI * 2);
+        ctx.fillStyle = p.color.replace(')', ', ' + p.opacity + ')').replace('rgb', 'rgba');
+        ctx.fill();
+        
+        // Slowly pull particles inward
+        p.radius = Math.max(45, p.radius - 0.1 * dt * 60);
+        if (p.radius <= 45) {
+          p.radius = 350 + Math.random() * 50;
+          p.angle = Math.random() * Math.PI * 2;
+        }
+      }
+    }
+
+    function renderSolarSystem(ctx, width, height, dt) {
+      const cx = width / 2;
+      const cy = height / 2;
+      const time = themeAnimationState.time;
+      
+      // Draw sun
+      const sunGradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, 50);
+      sunGradient.addColorStop(0, '#ffd600');
+      sunGradient.addColorStop(0.5, '#ffaa00');
+      sunGradient.addColorStop(1, 'rgba(255,170,0,0)');
+      ctx.beginPath();
+      ctx.arc(cx, cy, 50, 0, Math.PI * 2);
+      ctx.fillStyle = sunGradient;
+      ctx.fill();
+      
+      // Draw sun glow
+      const glowGradient = ctx.createRadialGradient(cx, cy, 40, cx, cy, 80);
+      glowGradient.addColorStop(0, 'rgba(255,214,0,0.3)');
+      glowGradient.addColorStop(1, 'rgba(255,214,0,0)');
+      ctx.beginPath();
+      ctx.arc(cx, cy, 70, 0, Math.PI * 2);
+      ctx.fillStyle = glowGradient;
+      ctx.fill();
+      
+      // Draw planets
+      const planets = themeAnimationState.particles.filter(p => p.isPlanet);
+      for (let i = 0; i < planets.length; i++) {
+        const p = planets[i];
+        p.angle += p.speed * dt * 60;
+        
+        const x = cx + Math.cos(p.angle) * p.distance;
+        const y = cy + Math.sin(p.angle) * p.distance;
+        
+        // Draw orbit path
+        ctx.beginPath();
+        ctx.arc(cx, cy, p.distance, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        
+        // Draw planet
+        const planetGradient = ctx.createRadialGradient(x - p.size/2, y - p.size/2, 0, x, y, p.size);
+        planetGradient.addColorStop(0, p.color);
+        planetGradient.addColorStop(1, shadeColor(p.color, -30));
+        ctx.beginPath();
+        ctx.arc(x, y, p.size, 0, Math.PI * 2);
+        ctx.fillStyle = planetGradient;
+        ctx.fill();
+      }
+      
+      // Draw distant stars
+      const stars = themeAnimationState.particles.filter(p => !p.isPlanet);
+      for (const s of stars) {
+        s.angle += s.speed * dt * 60;
+        const x = cx + Math.cos(s.angle) * s.distance;
+        const y = cy + Math.sin(s.angle) * s.distance;
+        
+        ctx.beginPath();
+        ctx.arc(x, y, s.size * 0.3, 0, Math.PI * 2);
+        ctx.fillStyle = s.color.replace(')', ', 0.3)').replace('rgb', 'rgba');
+        ctx.fill();
+      }
+    }
+
+    function renderNature(ctx, width, height, dt) {
+      const time = themeAnimationState.time;
+      
+      // Draw drifting leaves/pollen
+      for (const p of themeAnimationState.particles) {
+        p.x += p.vx * dt * 60;
+        p.y += p.vy * dt * 60;
+        p.rotation += p.rotationSpeed * dt * 60;
+        
+        // Wrap around screen
+        if (p.x < -20) p.x = width + 20;
+        if (p.x > width + 20) p.x = -20;
+        if (p.y < -20) p.y = height + 20;
+        if (p.y > height + 20) p.y = -20;
+        
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rotation);
+        
+        if (p.type === 'leaf') {
+          // Draw leaf
+          ctx.beginPath();
+          ctx.ellipse(0, 0, p.size, p.size * 0.6, 0, 0, Math.PI * 2);
+          const leafGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, p.size);
+          leafGradient.addColorStop(0, 'rgba(74,222,128,' + p.opacity + ')');
+          leafGradient.addColorStop(1, 'rgba(34,197,94,' + p.opacity + ')');
+          ctx.fillStyle = leafGradient;
+          ctx.fill();
+        } else {
+          // Draw pollen (small circle)
+          ctx.beginPath();
+          ctx.arc(0, 0, p.size * 0.4, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(250,204,21,' + p.opacity + ')';
+          ctx.fill();
+        }
+        
+        ctx.restore();
+      }
+    }
+
+    function shadeColor(color, percent) {
+      const num = parseInt(color.replace('#', ''), 16);
+      const amt = Math.round(2.55 * percent);
+      const R = (num >> 16) + amt;
+      const G = (num >> 8 & 0x00FF) + amt;
+      const B = (num & 0x0000FF) + amt;
+      return '#' + (0x1000000 + (R < 255 ? R < 1 ? 0 : R : 255) * 0x10000 + (G < 255 ? G < 1 ? 0 : G : 255) * 0x100 + (B < 255 ? B < 1 ? 0 : B : 255)).toString(16).slice(1);
+    }
+
+    function getAvailableThemes() {
+      return [
+        { id: 'default', name: 'FlamingoCode Dark', description: 'Default dark theme with blue accents', preview: ['#0b0d14', '#1a1e2e', '#3b82f6', '#10b981'], animated: false },
+        { id: 'qoder', name: 'Qoder', description: 'Dark theme with teal accent inspired by Qoder', preview: ['#0d1117', '#161b22', '#00d4aa', '#3fb950'], animated: false },
+        { id: 'blackhole', name: 'Black Hole', description: 'Dark accretion disk with glowing ring and drifting stars', preview: ['#030305', '#0a0a0f', '#ff6b35', '#00ff88'], animated: true },
+        { id: 'solarsystem', name: 'Solar System', description: 'Planets orbiting slowly around a glowing sun', preview: ['#050812', '#0c1428', '#ffd600', '#00e676'], animated: true },
+        { id: 'nature', name: 'Nature', description: 'Soft forest tones with slow-drifting leaves and pollen', preview: ['#0a120d', '#122016', '#4ade80', '#22c55e'], animated: true },
+        { id: 'glass', name: 'Glass', description: 'Translucent panels with backdrop blur — see through to background. Desktop transparency needs Electron stage.', preview: ['rgba(10,10,15,0.4)', 'rgba(16,16,22,0.5)', '#00d4aa', '#3fb950'], animated: false, note: 'True OS desktop transparency requires Electron (Stage 6). In browser, shows app backdrop layer through panels.' }
+      ];
+    }
+
+    function renderThemePanel() {
+      const container = document.getElementById('themeList');
+      if (!container) return;
+      
+      const themes = getAvailableThemes();
+      const currentTheme = appState.currentTheme || 'default';
+      
+      container.innerHTML = themes.map(theme => {
+        const isActive = theme.id === currentTheme;
+        const previewDots = theme.preview.map(c => `<div style="width: 20px; height: 20px; border-radius: 4px; background: ${c}; border: 1px solid var(--border);"></div>`).join('');
+        const animatedBadge = theme.animated ? '<span style="background: var(--accent); color: var(--accent-text); padding: 1px 6px; border-radius: 3px; font-size: 9px; margin-left: 6px;">ANIMATED</span>' : '';
+        const glassNote = theme.note ? `<div style="font-size: 10px; color: var(--text-dim); margin-top: 6px; padding: 6px; background: var(--bg); border-radius: 4px; border: 1px solid var(--border);">${escapeHtml(theme.note)}</div>` : '';
+        
+        return `
+          <div class="theme-card ${isActive ? 'active' : ''}" onclick="applyTheme('${theme.id}')" style="background: var(--bg-surface); border: 1px solid ${isActive ? 'var(--accent)' : 'var(--border)'}; border-radius: 8px; padding: 12px; cursor: pointer; transition: all 0.2s;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-weight: 600; color: var(--text-main);">${escapeHtml(theme.name)}</span>
+                ${animatedBadge}
+                ${isActive ? '<span style="color: var(--accent);">✓ Active</span>' : ''}
+              </div>
+            </div>
+            <div style="font-size: 11px; color: var(--text-dim); margin-bottom: 8px;">${escapeHtml(theme.description)}</div>
+            <div style="display: flex; gap: 4px; margin-bottom: 8px;">${previewDots}</div>
+            ${glassNote}
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Make theme functions globally accessible
+    window.applyTheme = applyTheme;
+    window.initThemeEngine = initThemeEngine;
+    window.getAvailableThemes = getAvailableThemes;
+    window.renderThemePanel = renderThemePanel;
+    window.themeAnimationState = themeAnimationState;
+
   </script>
 </body>
 </html>
