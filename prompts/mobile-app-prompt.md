@@ -9,7 +9,10 @@ Vanilla HTML/CSS/JS, no npm packages, no new dependencies.
 This batch builds FlamingoCode's mobile app (Android APK first — he is on
 Android; iOS later if feasible) and the phone→desktop connection, as IDEAS
 implemented originally — never Qoder's/Trae's name, logo, exact UI copy, or
-proprietary code. The Qoder mobile screenshots in
+proprietary code. **STACK (his decision 2026-10-28 ~00:42 +06): the native
+APK is built in Flutter (Dart) — one codebase, Android first, iOS later if
+feasible. Flutter is PHONE-ONLY: the desktop stays Electron + TypeScript
+(+ C++/Rust native modules) and the web app stays plain HTML/CSS/JS.** The Qoder mobile screenshots in
 `~/workspace/devforge/qoder-ui-notes.md` ("Mobile App UI") are UI
 REFERENCE for the phone screens — structure only, never his personal
 workspace/device/account names from them.
