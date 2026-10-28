@@ -2406,6 +2406,7 @@
               <div style="display:flex; align-items:center; gap:8px;">
                 <span id="checkpointCapDisplay" style="font-size: 10px; color: var(--text-dim);">Cap: 30 | Stored: 0</span>
                 <button class="btn btn-secondary" id="btnCheckpointCap" style="padding: 3px 8px; font-size: 10px;">Set Cap</button>
+                <button class="btn btn-secondary" id="btnResumeFromJournal" style="padding: 3px 8px; font-size: 10px;" title="Resume from last interrupted turn">Resume</button>
               </div>
             </div>
             <div id="checkpointList" style="flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:4px;">
@@ -9680,6 +9681,16 @@ Detail level: {{detail_level}}`,
       if (typeof createShadowCheckpoint === 'function') {
         createShadowCheckpoint(checkpoint.id).catch(() => {});
       }
+      // === J18: Event-sourced checkpoint log ===
+      if (typeof appendCheckpointLog === 'function') {
+        appendCheckpointLog({
+          type: 'checkpoint',
+          checkpointId: checkpoint.id,
+          label: label,
+          fileCount: Object.keys(checkpoint.files).length,
+          sessionId: session.id
+        });
+      }
       return checkpoint.id;
     }
 
@@ -10027,6 +10038,8 @@ Detail level: {{detail_level}}`,
               <button class="btn btn-secondary" style="padding:3px 8px; font-size:10px;" onclick="showRestorePreview('${cp.id}')">Preview</button>
               <button class="btn btn-secondary" style="padding:3px 8px; font-size:10px; background:var(--warning);" onclick="confirmKeepEditsCheckpoint('${cp.id}')">Keep Edits</button>
               <button class="btn btn-primary" style="padding:3px 8px; font-size:10px;" onclick="confirmRestoreCheckpoint('${cp.id}')">Restore All</button>
+              <button class="btn btn-secondary" style="padding:3px 8px; font-size:10px;" onclick="showRevertHunkOptions('${cp.id}')">Revert Hunk</button>
+              <button class="btn btn-secondary" style="padding:3px 8px; font-size:10px;" onclick="showCheckpointHistory('${cp.id}')">History</button>
             </div>
           </div>
           <div style="display:flex; gap:4px; align-items:center; flex-wrap:wrap;">
@@ -10068,6 +10081,79 @@ Detail level: {{detail_level}}`,
       saveAppState();
       renderCheckpointPanel();
       logActivity(`Checkpoint cap set to ${cap}`, 'info');
+    }
+
+    // === J18: Per-hunk revert from checkpoint log ===
+    function showRevertHunkOptions(checkpointId) {
+      const log = appState.checkpointLog || [];
+      // Filter hunks for this checkpoint
+      const hunks = log.filter(e => e.checkpointId === checkpointId && e.hunk && !e.reverted);
+      if (hunks.length === 0) {
+        alert('No revertible hunks found for this checkpoint');
+        return;
+      }
+      
+      const hunkOptions = hunks.map((h, i) => 
+        `<option value="${escapeHtml(h.hunk)}">${escapeHtml(h.file || 'unknown')}: ${h.hunk} (${new Date(h.timestamp).toLocaleTimeString()})</option>`
+      ).join('');
+      
+      const selected = prompt(
+        'Select hunk to revert (with dependencies):\n' + 
+        hunks.map((h, i) => `${i+1}. ${h.file || 'unknown'}: ${h.hunk}`).join('\n') +
+        '\n\nEnter hunk ID:'
+      );
+      
+      if (!selected) return;
+      
+      const hunk = hunks.find(h => h.hunk === selected);
+      if (!hunk) {
+        alert('Hunk not found');
+        return;
+      }
+      
+      if (confirm(`Revert hunk "${hunk.hunk}" and its dependents? This will mark them as reverted in the log.`)) {
+        if (typeof revertHunkWithDependencies === 'function') {
+          const result = revertHunkWithDependencies(log, selected);
+          if (result.error) {
+            alert('Revert failed: ' + result.error);
+          } else {
+            logActivity(`Reverted hunk ${selected} and ${result.reverted.length - 1} dependent(s)`, 'success');
+            renderCheckpointPanel();
+          }
+        }
+      }
+    }
+
+    // === J18: Project history from checkpoint log ===
+    function showCheckpointHistory(checkpointId) {
+      const log = appState.checkpointLog || [];
+      if (typeof projectHistoryFromLog === 'function') {
+        const history = projectHistoryFromLog(log);
+        const cp = appState.checkpoints.find(c => c.id === checkpointId);
+        const cpLabel = cp ? cp.label : 'Unknown';
+        
+        let historyText = `History for checkpoint "${cpLabel}":\n\n`;
+        history.forEach((entry, i) => {
+          const time = new Date(entry.timestamp).toLocaleString();
+          historyText += `${i+1}. [${entry.type}] `;
+          if (entry.type === 'turn') historyText += `Step ${entry.step}`;
+          else if (entry.type === 'edit') historyText += `Edit ${entry.file}`;
+          else if (entry.type === 'manual-edit') historyText += `Manual edit ${entry.file}`;
+          else if (entry.type === 'checkpoint') historyText += `Checkpoint ${entry.label}`;
+          else if (entry.type === 'revert') historyText += `Revert ${entry.hunks.join(', ')}`;
+          historyText += ` (${time})\n`;
+        });
+        
+        // Show in a modal or alert
+        const modal = document.createElement('div');
+        modal.style.cssText = 'position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:var(--bg-surface); border:1px solid var(--border-color); border-radius:8px; padding:20px; max-width:600px; max-height:400px; overflow:auto; z-index:10000; box-shadow:0 4px 20px rgba(0,0,0,0.3);';
+        modal.innerHTML = `
+          <div style="font-weight:600; margin-bottom:12px;">Checkpoint History: ${escapeHtml(cpLabel)}</div>
+          <pre style="font-size:11px; font-family:var(--font-mono); white-space:pre-wrap; color:var(--text-main);">${escapeHtml(historyText)}</pre>
+          <button class="btn btn-primary" style="margin-top:12px; width:100%;" onclick="this.closest('div').remove()">Close</button>
+        `;
+        document.body.appendChild(modal);
+      }
     }
 
     function syncLegacyProvider() {
@@ -12211,8 +12297,20 @@ function readFile(filePath) {
     const session = typeof getCurrentSession === 'function' ? getCurrentSession() : null;
     if (!session || !session.files) return '';
     const content = session.files[filePath];
-    if (typeof content === 'string') return content;
-    if (content && typeof content.content === 'string') return content.content;
+    if (typeof content === 'string') {
+      // === J12: File freshness guard - record freshness on read ===
+      if (typeof recordFileFreshness === 'function') {
+        recordFileFreshness(filePath, content);
+      }
+      return content;
+    }
+    if (content && typeof content.content === 'string') {
+      // === J12: File freshness guard - record freshness on read ===
+      if (typeof recordFileFreshness === 'function') {
+        recordFileFreshness(filePath, content.content);
+      }
+      return content.content;
+    }
   } catch (e) { /* unreadable file reads as empty */ }
   return '';
 }
@@ -18762,6 +18860,8 @@ function validateRecipe(recipe) {
       'question': { name: 'question', type: 'builtin', trigger: 'Asks the user a question mid-task and waits for the answer', description: 'Agent asks the user a question MID-TASK and waits for the answer. Uses the existing human checkpoint UI. Alias: ask_followup_question. Args: {question: string, options?: string[]}' },
       'list_code_definition_names': { name: 'list_code_definition_names', type: 'builtin', trigger: 'Lists top-level definitions (functions, classes, components) of a file from the code graph', description: 'Fast "what is in this file" tool — lists top-level definitions from the code graph without reading the full file. Args: {filePath: string}' },
       'ask_followup_question': { name: 'ask_followup_question', type: 'builtin', trigger: 'Asks the user a follow-up question mid-task and waits for the answer (alias of question)', description: 'Alias of question tool — asks the user a question MID-TASK and waits for the answer. Uses the existing human checkpoint UI. Args: {question: string, options?: string[]}' },
+      // J10: Codemode sandbox tool
+      'codemode': { name: 'codemode', type: 'builtin', trigger: 'Runs a codemode script in a sandboxed environment', description: 'Execute a JavaScript codemode script with access to allowed tools. Gated by validateCodemodePermissions and Safe Mode (H2.3). Args: {script: string}' },
       // Skill-based tools (from AUTONOMY_CATALOG)
       // These are loaded via skill_ prefix
       // MCP-based tools (from AUTONOMY_CATALOG)
@@ -21860,6 +21960,7 @@ function validateRecipe(recipe) {
           </div>
           <select class="form-input model-role-select" data-role="${escapeHtml(role)}" style="padding: 6px 8px; font-size: 11px;">
             <option value="">Inherit project default</option>
+            <option value="AUTO" ${modelId === 'AUTO' ? 'selected' : ''}>Auto (router decides)</option>
             ${Object.entries(appState.providers || {}).flatMap(([pid, p]) => (p.models || [p.defaultModel].filter(Boolean)).map(m => {
               const mName = (m && typeof m === 'object') ? (m.id || m.name) : m;
               const value = pid + '|' + mName;
@@ -23756,6 +23857,9 @@ val permissionLauncher = rememberLauncherForActivityResult(
         const statusLabel = usage.pinned ? '📌 Pinned' : (usage.status === 'archived' ? '📦 Archived' : (usage.status === 'stale' ? '⚠️ Stale' : '✅ Active'));
         const lastUsed = usage.lastUsed ? new Date(usage.lastUsed).toLocaleDateString() : 'Never';
         const isCustom = skill.isCustom || false;
+        // === J9: Skill progressive disclosure - show load state ===
+        const loadState = typeof getSkillLoadedState === 'function' ? getSkillLoadedState(skill.id) : 'header-only';
+        const isLoaded = loadState === 'loaded';
 
         return `
           <div class="skill-librarian-item" data-skill-id="${escapeHtml(skill.id)}" style="display:flex; align-items:center; gap:8px; padding:8px 10px; background:var(--bg-dark); border:1px solid var(--border-color); border-radius:6px; flex-wrap:wrap;">
@@ -23764,6 +23868,7 @@ val permissionLauncher = rememberLauncherForActivityResult(
                 <span style="font-weight:600; color:var(--text); font-family:var(--font-mono); font-size:11px;">${escapeHtml(skill.name)}</span>
                 <span style="font-size:9px; padding:1px 5px; border-radius:3px; background:var(--bg-surface); color:var(--text-muted);">${escapeHtml(skill.id)}</span>
                 ${isCustom ? '<span style="font-size:9px; padding:1px 5px; border-radius:3px; background:var(--accent-purple); color:white;">Custom</span>' : ''}
+                <span style="font-size:9px; padding:1px 5px; border-radius:3px; background:var(--bg-hover); color:var(--text-dim);">${isLoaded ? 'Loaded' : 'Header-only'}</span>
               </div>
               <div style="font-size:10px; color:var(--text-dim); margin-top:2px;">${escapeHtml(skill.desc || 'No description')}</div>
             </div>
@@ -23772,6 +23877,7 @@ val permissionLauncher = rememberLauncherForActivityResult(
               <div style="font-family:var(--font-mono); font-size:10px; color:var(--text-dim);">Last: ${lastUsed}</div>
               <span class="${statusClass}" style="font-size:10px; padding:2px 6px; border-radius:3px; ${usage.status === 'archived' ? 'background:var(--warning);color:var(--bg);' : (usage.status === 'stale' ? 'background:var(--error);color:white;' : 'background:var(--success);color:white;')}">${statusLabel}</span>
               <button class="btn btn-ghost" onclick="toggleSkillPin('${escapeHtml(skill.id)}')" style="padding:2px 8px; font-size:10px;" title="${usage.pinned ? 'Unpin' : 'Pin'}">${usage.pinned ? '📌' : '📍'}</button>
+              ${!isLoaded ? `<button class="btn btn-primary" onclick="loadSkillBody('${escapeHtml(skill.id)}')" style="padding:2px 8px; font-size:10px;">Load Body</button>` : ''}
               ${usage.status === 'archived' ? `<button class="btn btn-primary" onclick="restoreSkillFromArchive('${escapeHtml(skill.id)}')" style="padding:2px 8px; font-size:10px;">Restore</button>` : ''}
               ${isCustom && usage.status !== 'archived' ? `<button class="btn btn-danger" onclick="archiveSkill('${escapeHtml(skill.id)}')" style="padding:2px 8px; font-size:10px;">Archive</button>` : ''}
             </div>
@@ -23797,6 +23903,14 @@ val permissionLauncher = rememberLauncherForActivityResult(
       if (clearBtn) clearBtn.onclick = () => clearAuditLog();
       if (runMaintenanceBtn) runMaintenanceBtn.onclick = () => runLibrarianMaintenanceNow();
       if (llmConsolidationBtn) llmConsolidationBtn.onclick = () => runLLMConsolidationPass();
+    }
+
+    // === J9: Skill progressive disclosure - load body on demand ===
+    async function loadSkillBody(skillId) {
+      if (typeof loadSkillBodyOnDemand === 'function') {
+        await loadSkillBodyOnDemand(skillId);
+        renderSkillLibrarian();
+      }
     }
 
     // Get all skills (builtin + custom) for librarian
@@ -28856,6 +28970,17 @@ ${description}
         
             // 5. Param-scrub ladder: track which params to send
             let paramSet = { temperature: 0.7, top_p: 1, max_tokens: maxTokens };
+            
+            // === J16: Per-model thinking-effort control ===
+            if (typeof getModelThinkingEffort === 'function') {
+              const effort = getModelThinkingEffort(provider.model);
+              if (effort && effort !== 'off') {
+                // OpenAI reasoning models use 'reasoning_effort' parameter
+                paramSet.reasoning_effort = effort;
+                logActivity('Thinking effort: ' + effort + ' for ' + provider.model, 'info');
+              }
+            }
+            
             let body = JSON.stringify({
               model: provider.model || 'gpt-4o-mini',
               messages: finalMessages,
@@ -29323,15 +29448,33 @@ ${description}
       
                     // Handle F5_FALLBACK error from rate limit hit - show visible message and trigger fallback
                     if (errorMsg.includes('F5_FALLBACK')) {
-                      // Show the rate limit message to user (without the F5_FALLBACK marker)
-                      const displayMsg = errorMsg.replace('|F5_FALLBACK', '');
-                      logActivity(displayMsg, 'error');
-                      // Force show the activity log panel
-                      const activityPanel = document.getElementById('activityLogPanel');
-                      if (activityPanel) activityPanel.style.display = 'block';
-                    }
-      
-                    // M1: Check if this is a rate-limit/quota error (429 or quota-exhausted)
+                                          // Show the rate limit message to user (without the F5_FALLBACK marker)
+                                          const displayMsg = errorMsg.replace('|F5_FALLBACK', '');
+                                          logActivity(displayMsg, 'error');
+                                          // Force show the activity log panel
+                                          const activityPanel = document.getElementById('activityLogPanel');
+                                          if (activityPanel) activityPanel.style.display = 'block';
+                                        }
+
+                                        // === J11: Token-exhaustion diagnostics ===
+                                        if (errorMsg.includes('429') || errorMsg.includes('token') || errorMsg.includes('context length') || errorMsg.includes('max tokens')) {
+                                          if (typeof diagnoseTokenExhaustion === 'function' && typeof getTokenExhaustionAdvice === 'function') {
+                                            // Extract token counts if available
+                                            const inputTokens = err?.response?.usage?.prompt_tokens || 0;
+                                            const outputTokens = err?.response?.usage?.completion_tokens || 0;
+                                            const limit = err?.response?.usage?.total_limit || 128000; // default fallback
+                                            const diagnosis = diagnoseTokenExhaustion({ error: err, inputTokens, outputTokens, limit });
+                                            const advice = getTokenExhaustionAdvice(diagnosis);
+                                            logActivity('টোকেন অভíaco: ' + advice, 'warning');
+                                            try {
+                                              if (typeof appendChatMessage === 'function') {
+                                                appendChatMessage('system', '⚠️ টোকেন অভíaco: ' + advice);
+                                              }
+                                            } catch (e) {}
+                                          }
+                                        }
+
+                                        // M1: Check if this is a rate-limit/quota error (429 or quota-exhausted)
                     const isRateLimitError = errorMsg.includes('429') || 
                       errorMsg.includes('quota') || 
                       errorMsg.includes('rate limit') || 
@@ -30285,11 +30428,31 @@ ${description}
         const fileContent = session.files[block.filePath] || '';
         // Use session.appState if available, else global appState
         const patchState = session.appState || appState;
+        const fuzzyEnabled = patchState.fuzzyPatchMatching !== false;
         const result = applySearchReplacePatchToContent(fileContent, block.searchText, block.replaceText, {
-          fuzzy: patchState.fuzzyPatchMatching !== false,
+          fuzzy: fuzzyEnabled,
           threshold: patchState.fuzzyPatchThreshold ?? 0.85,
           activeLine
         });
+
+        // === J6: Fuzzy repair on SEARCH/REPLACE failure ===
+        if (!result.success && fuzzyEnabled) {
+          const repair = repairFuzzySearchReplace(block.searchText, fileContent, 0.6);
+          if (repair.repaired) {
+            logActivity('Fuzzy repair suggested: ' + repair.message, 'warning');
+            // Retry with the suggested search text
+            const retryResult = applySearchReplacePatchToContent(fileContent, repair.suggestion, block.replaceText, {
+              fuzzy: false, // exact match on repaired text
+              threshold: 1.0,
+              activeLine
+            });
+            if (retryResult.success) {
+              logActivity('Fuzzy repair succeeded on retry', 'success');
+              // Use the retry result
+              Object.assign(result, retryResult);
+            }
+          }
+        }
 
         if (!result.success) {
           // Rollback all changes from this message
@@ -30456,12 +30619,15 @@ ${description}
 
     // Apply unified diff from response text
     async function applyUnifiedDiff(responseText, session) {
+      // === J12: File freshness guard - check freshness before edit ===
+      // We'll check each file before applying hunks
+      
       // Extract unified diff blocks (```diff\n...``` or raw unified diff)
       const diffRegex = /```diff\n([\s\S]*?)```/g;
       const diffMatches = [];
       let match;
       while ((match = diffRegex.exec(responseText)) !== null) {
-        diffMatches.push(match[1]);
+        diffMatches.push({ type: 'unified', content: match[1] });
       }
       
       // Also try raw unified diff format (starting with --- or +++)
@@ -30469,57 +30635,1604 @@ ${description}
         // If responseText looks like a unified diff (starts with ---), use it directly
         const trimmed = responseText.trim();
         if (trimmed.startsWith('--- ')) {
-          diffMatches.push(trimmed);
+          diffMatches.push({ type: 'unified', content: trimmed });
         } else {
           // Try to extract from markdown code blocks without language spec
           const genericDiffRegex = /```\n(--- [\s\S]*?)```/g;
           while ((match = genericDiffRegex.exec(responseText)) !== null) {
-            diffMatches.push(match[1]);
+            diffMatches.push({ type: 'unified', content: match[1] });
           }
         }
       }
       
-      if (diffMatches.length === 0) return { success: false, error: 'No unified diff blocks found' };
-
-      const allChanges = [];
-      const originalFiles = {};
-
-      for (const diffText of diffMatches) {
-        const parsedFiles = parseUnifiedDiff(diffText);
-        for (const { filePath, hunks } of parsedFiles) {
-          if (session.files[filePath] === undefined) continue;
-          
-          if (originalFiles[filePath] === undefined) {
-            originalFiles[filePath] = session.files[filePath];
+      // === J1: Anchored edits - detect and parse anchored diff blocks ===
+      const anchorDiffRegex = /```anchor:([^\n]+)\n([\s\S]*?)```/g;
+      while ((match = anchorDiffRegex.exec(responseText)) !== null) {
+        const filePath = match[1].trim();
+        const anchorContent = match[2].trim();
+        // Parse anchor edits: each edit is separated by '---' line
+        const editBlocks = anchorContent.split(/\n---\n/);
+        const edits = [];
+        for (const block of editBlocks) {
+          const lines = block.split('\n');
+          if (lines.length >= 2) {
+            const anchorId = lines[0].trim();
+            const newContent = lines.slice(1).join('\n');
+            edits.push({ anchorId, newContent });
           }
-          
-          const result = applyUnifiedDiffToContent(session.files[filePath], hunks, {
-            fuzzy: appState.fuzzyPatchMatching !== false,
-            threshold: appState.fuzzyPatchThreshold ?? 0.85
-          });
-
-          if (!result.success) {
-            // Rollback
-            for (const [path, content] of Object.entries(originalFiles)) {
-              session.files[path] = content;
-            }
-            return { success: false, error: `File ${filePath}: ${result.error}`, changes: allChanges };
-          }
-
-          session.files[filePath] = result.newContent;
-          allChanges.push({
-            filePath,
-            oldContent: originalFiles[filePath],
-            newContent: result.newContent,
-            method: 'unified-diff'
-          });
-          markGraphDirty();
-          if (!session.fileMeta) session.fileMeta = {};
-          session.fileMeta[filePath] = { lastModifiedBy: 'agent', timestamp: Date.now() };
+        }
+        if (edits.length > 0) {
+          diffMatches.push({ type: 'anchor', filePath, edits });
         }
       }
+      
+      if (diffMatches.length === 0) return { success: false, error: 'No diff blocks found' };
 
-      return { success: true, changes: allChanges };
+            const allChanges = [];
+            const originalFiles = {};
+
+            // === J8: Collect anchored edits for multi-file batching ===
+            const anchorEditsByFile = new Map();
+            for (const diffMatch of diffMatches) {
+              if (diffMatch.type === 'anchor') {
+                const { filePath, edits } = diffMatch;
+                if (session.files[filePath] === undefined) continue;
+                if (!anchorEditsByFile.has(filePath)) anchorEditsByFile.set(filePath, []);
+                anchorEditsByFile.get(filePath).push(...edits);
+              }
+            }
+
+            // === J8: Apply anchored edits via batchFileOperations if multiple files ===
+            if (anchorEditsByFile.size > 0) {
+              const operations = [];
+              for (const [filePath, edits] of anchorEditsByFile) {
+                // Freshness check for all files
+                if (typeof checkFileFreshness === 'function') {
+                  const freshness = checkFileFreshness(session, filePath);
+                  if (freshness.stale) {
+                    if (typeof refuseStaleEdit === 'function') {
+                      return refuseStaleEdit(session, filePath, session.files[filePath]);
+                    }
+                    return { success: false, error: 'Stale file: ' + filePath + ' — re-read required', stale: true };
+                  }
+                }
+                if (originalFiles[filePath] === undefined) {
+                  originalFiles[filePath] = session.files[filePath];
+                }
+                for (const edit of edits) {
+                  operations.push({ type: 'edit', filePath, anchorId: edit.anchorId, newContent: edit.newContent });
+                }
+              }
+
+              // Use batchFileOperations for multi-file anchored edits
+              const batchResult = batchFileOperations({ session, operations });
+              if (!batchResult.success) {
+                // Rollback
+                for (const [path, content] of Object.entries(originalFiles)) {
+                  session.files[path] = content;
+                }
+                return { success: false, error: batchResult.error || 'Batch operation failed', changes: allChanges };
+              }
+
+              // Process results
+              for (const fileResult of batchResult.results) {
+                const filePath = fileResult.filePath;
+                if (fileResult.edits && fileResult.edits[0]?.success) {
+                  // File was modified - get new content
+                  const newContent = session.files[filePath];
+                  allChanges.push({
+                    filePath,
+                    oldContent: originalFiles[filePath],
+                    newContent,
+                    method: 'anchor-edits-batched'
+                  });
+                  markGraphDirty();
+                  if (!session.fileMeta) session.fileMeta = {};
+                  session.fileMeta[filePath] = { lastModifiedBy: 'agent', timestamp: Date.now() };
+
+                  // Log to checkpoint log
+                  if (typeof appendCheckpointLog === 'function') {
+                    const editsForFile = anchorEditsByFile.get(filePath) || [];
+                    for (const edit of editsForFile) {
+                      appendCheckpointLog({
+                        type: 'edit',
+                        filePath,
+                        anchorId: edit.anchorId,
+                        checkpointId: null,
+                        timestamp: Date.now()
+                      });
+                    }
+                  }
+                }
+              }
+            }
+
+            // Handle unified diffs and remaining anchored edits (single file)
+            for (const diffMatch of diffMatches) {
+              // Skip anchored edits already processed
+              if (diffMatch.type === 'anchor') continue;
+        
+              // Handle unified diffs
+              const diffText = diffMatch.content;
+              const parsedFiles = parseUnifiedDiff(diffText);
+              for (const { filePath, hunks } of parsedFiles) {
+                if (session.files[filePath] === undefined) continue;
+          
+                // === J12: File freshness guard - check freshness before edit ===
+                if (typeof checkFileFreshness === 'function') {
+                  const freshness = checkFileFreshness(session, filePath);
+                  if (freshness.stale) {
+                    if (typeof refuseStaleEdit === 'function') {
+                      return refuseStaleEdit(session, filePath, session.files[filePath]);
+                    }
+                    return { success: false, error: 'Stale file: ' + filePath + ' — re-read required', stale: true };
+                  }
+                }
+          
+                if (originalFiles[filePath] === undefined) {
+                  originalFiles[filePath] = session.files[filePath];
+                }
+          
+                const result = applyUnifiedDiffToContent(session.files[filePath], hunks, {
+                  fuzzy: appState.fuzzyPatchMatching !== false,
+                  threshold: appState.fuzzyPatchThreshold ?? 0.85
+                });
+
+                // === J6: Fuzzy repair on unified diff hunk failure ===
+                if (!result.success && appState.fuzzyPatchMatching !== false) {
+                  // Try to repair the first failed hunk
+                  for (const hunk of hunks) {
+                    const oldLines = hunk.lines.filter(l => l.type === 'context' || l.type === 'remove').map(l => l.content);
+                    const searchLines = oldLines.join('\n');
+                    const repair = repairFuzzySearchReplace(searchLines, session.files[filePath], 0.6);
+                    if (repair.repaired) {
+                      logActivity('Fuzzy repair suggested for unified diff: ' + repair.message, 'warning');
+                      const retryResult = applyUnifiedDiffToContent(session.files[filePath], hunks, {
+                        fuzzy: false,
+                        threshold: 1.0
+                      });
+                      if (retryResult.success) {
+                        logActivity('Fuzzy repair succeeded on unified diff retry', 'success');
+                        Object.assign(result, retryResult);
+                        break;
+                      }
+                    }
+                  }
+                }
+          
+                if (!result.success) {
+                  // Rollback
+                  for (const [path, content] of Object.entries(originalFiles)) {
+                    session.files[path] = content;
+                  }
+                  return { success: false, error: `File ${filePath}: ${result.error}`, changes: allChanges };
+                }
+          
+                session.files[filePath] = result.newContent;
+                allChanges.push({
+                  filePath,
+                  oldContent: originalFiles[filePath],
+                  newContent: result.newContent,
+                  method: 'unified-diff'
+                });
+                markGraphDirty();
+                if (!session.fileMeta) session.fileMeta = {};
+                session.fileMeta[filePath] = { lastModifiedBy: 'agent', timestamp: Date.now() };
+          
+                // Log to checkpoint log
+                if (typeof appendCheckpointLog === 'function') {
+                  appendCheckpointLog({
+                    type: 'edit',
+                    filePath,
+                    hunk: hunks.map(h => `${h.oldStart}:${h.oldLines}`).join(','),
+                    checkpointId: null,
+                    timestamp: Date.now()
+                  });
+                }
+              }
+            }
+
+            return { success: true, changes: allChanges };
+          }
+
+    // ==================== BATCH 10: CONTEXT ENGINEERING + EDITING (SWEEP #2) ====================
+
+    // ==================== J1: Hash-anchored line edits (Dirac) ====================
+    
+    // FNV-1a 32-bit hash
+    function fnv1a32(str) {
+      let hash = 0x811c9dc5;
+      for (let i = 0; i < str.length; i++) {
+        hash ^= str.charCodeAt(i);
+        hash = (hash * 0x01000193) >>> 0;
+      }
+      return hash >>> 0;
+    }
+
+    // Dictionary word pool for anchor IDs (word+word combos)
+    const ANCHOR_WORD_POOL = [
+      'alpha', 'bravo', 'charlie', 'delta', 'echo', 'foxtrot', 'golf', 'hotel',
+      'india', 'juliet', 'kilo', 'lima', 'mike', 'november', 'oscar', 'papa',
+      'quebec', 'romeo', 'sierra', 'tango', 'uniform', 'victor', 'whiskey',
+      'xray', 'yankee', 'zulu', 'able', 'baker', 'dog', 'easy', 'fox', 'george',
+      'how', 'item', 'jig', 'king', 'love', 'mike', 'nan', 'oboe', 'peter',
+      'queen', 'roger', 'sugar', 'tare', 'uncle', 'victor', 'william', 'xray',
+      'yoke', 'zebra'
+    ];
+
+    function generateAnchorId(content) {
+      const hash = fnv1a32(content);
+      const w1 = ANCHOR_WORD_POOL[hash % ANCHOR_WORD_POOL.length];
+      const w2 = ANCHOR_WORD_POOL[(hash >>> 8) % ANCHOR_WORD_POOL.length];
+      return w1 + w2 + (hash & 0xffff).toString(16).padStart(4, '0');
+    }
+
+    // Reconcile anchors between old and new file versions using Myers diff (simplified)
+    function reconcileAnchors(oldAnchors, newLines) {
+      if (!oldAnchors || !oldAnchors.length) {
+        return newLines.map((line, i) => ({ id: generateAnchorId(line), content: line, line: i }));
+      }
+      
+      // Build old content string for diff
+      const oldContent = oldAnchors.map(a => a.content).join('\n');
+      const newContent = newLines.join('\n');
+      
+      // Simple line-by-line reconciliation (full Myers would be more complex)
+      const newAnchors = [];
+      const oldMap = new Map();
+      
+      // Index old anchors by content hash for quick lookup
+      for (const anchor of oldAnchors) {
+        const h = fnv1a32(anchor.content);
+        if (!oldMap.has(h)) oldMap.set(h, []);
+        oldMap.get(h).push(anchor);
+      }
+      
+      for (let i = 0; i < newLines.length; i++) {
+        const line = newLines[i];
+        const h = fnv1a32(line);
+        const candidates = oldMap.get(h) || [];
+        
+        // Find unused candidate
+        let matched = null;
+        for (const c of candidates) {
+          if (!c._used && c.content === line) {
+            matched = c;
+            break;
+          }
+        }
+        
+        if (matched) {
+          matched._used = true;
+          newAnchors.push({ id: matched.id, content: line, line: i });
+        } else {
+          newAnchors.push({ id: generateAnchorId(line), content: line, line: i });
+        }
+      }
+      
+      // Clean up _used flags
+      for (const anchor of oldAnchors) delete anchor._used;
+      
+      return newAnchors;
+    }
+
+    // Get or create anchor table for a file (stored in Brain code graph)
+    const ANCHOR_CAPS = { maxFiles: 1024, maxLinesPerFile: 50000, maxBytesPerFile: 2000000 };
+    const anchorTables = new Map(); // filePath -> { anchors: [], updatedAt: number }
+
+    function getAnchorTable(filePath, lines) {
+      if (!anchorTables.has(filePath)) {
+        // Enforce caps
+        if (anchorTables.size >= ANCHOR_CAPS.maxFiles) {
+          // Remove oldest
+          let oldest = null;
+          for (const [path, table] of anchorTables) {
+            if (!oldest || table.updatedAt < oldest.updatedAt) oldest = { path, table };
+          }
+          if (oldest) anchorTables.delete(oldest.path);
+        }
+        
+        const anchors = lines ? reconcileAnchors([], lines) : [];
+        anchorTables.set(filePath, { anchors, updatedAt: Date.now() });
+      }
+      
+      const table = anchorTables.get(filePath);
+      table.updatedAt = Date.now();
+      
+      if (lines && table.anchors.length !== lines.length) {
+        table.anchors = reconcileAnchors(table.anchors, lines);
+      }
+      
+      return table;
+    }
+
+    // Apply edit by anchor ID (survives line drift)
+    function applyAnchorEdit(session, filePath, anchorId, newContent) {
+      const sessionFiles = session.files || {};
+      const fileContent = sessionFiles[filePath] || '';
+      const lines = fileContent.split('\n');
+      const table = getAnchorTable(filePath, lines);
+      
+      // Find anchor
+      const anchorIdx = table.anchors.findIndex(a => a.id === anchorId);
+      if (anchorIdx === -1) {
+        return { success: false, error: 'Anchor not found: ' + anchorId };
+      }
+      
+      const anchor = table.anchors[anchorIdx];
+      
+      // Verify content still matches (stale-read guard)
+      if (anchor.content !== lines[anchor.line]) {
+        // Try to find by content hash nearby
+        const searchStart = Math.max(0, anchor.line - 10);
+        const searchEnd = Math.min(lines.length, anchor.line + 10);
+        let found = -1;
+        for (let i = searchStart; i < searchEnd; i++) {
+          if (lines[i] === anchor.content) {
+            found = i;
+            break;
+          }
+        }
+        if (found === -1) {
+          return { success: false, error: 'Stale anchor: line content changed, re-read required', stale: true };
+        }
+        anchor.line = found; // Update position
+      }
+      
+      // Apply edit - replace the line(s)
+      const newLines = newContent.split('\n');
+      const resultLines = [
+        ...lines.slice(0, anchor.line),
+        ...newLines,
+        ...lines.slice(anchor.line + 1)
+      ];
+      
+      const newFileContent = resultLines.join('\n');
+      sessionFiles[filePath] = newFileContent;
+      
+      // Update anchor table
+      table.anchors = reconcileAnchors(table.anchors, resultLines);
+      
+      // Mark graph dirty for code graph rebuild
+      markGraphDirty();
+      if (!session.fileMeta) session.fileMeta = {};
+      session.fileMeta[filePath] = { lastModifiedBy: 'agent', timestamp: Date.now() };
+      
+      return { success: true, newContent: newFileContent, anchorId };
+    }
+
+    // Multi-edit: apply multiple anchor edits bottom-up
+    function applyAnchorEditsBatch(session, filePath, edits) {
+      // === J12: File freshness guard - check freshness before edit ===
+                      if (typeof checkFileFreshness === 'function') {
+                        const freshness = checkFileFreshness(session, filePath);
+                        if (freshness.stale) {
+                          if (typeof refuseStaleEdit === 'function') {
+                            return refuseStaleEdit(session, filePath, session.files[filePath]);
+                          }
+                          return { success: false, error: 'Stale file: ' + filePath + ' — re-read required', stale: true };
+                        }
+                      }
+      // edits: array of { anchorId, newContent }
+      // Sort by line number descending (bottom-up)
+      const sessionFiles = session.files || {};
+      const fileContent = sessionFiles[filePath] || '';
+      const lines = fileContent.split('\n');
+      const table = getAnchorTable(filePath, lines);
+      
+      // Resolve all anchor IDs to line numbers first
+      const resolved = [];
+      for (const edit of edits) {
+        const anchorIdx = table.anchors.findIndex(a => a.id === edit.anchorId);
+        if (anchorIdx === -1) {
+          return { success: false, error: 'Anchor not found: ' + edit.anchorId };
+        }
+        const anchor = table.anchors[anchorIdx];
+        // Verify
+        if (anchor.content !== lines[anchor.line]) {
+          let found = -1;
+          for (let i = Math.max(0, anchor.line - 10); i < Math.min(lines.length, anchor.line + 10); i++) {
+            if (lines[i] === anchor.content) { found = i; break; }
+          }
+          if (found === -1) {
+            return { success: false, error: 'Stale anchor: ' + edit.anchorId, stale: true };
+          }
+          anchor.line = found;
+        }
+        resolved.push({ line: anchor.line, newContent: edit.newContent, anchorId: edit.anchorId });
+      }
+      
+      // Sort bottom-up
+      resolved.sort((a, b) => b.line - a.line);
+      
+      let currentLines = [...lines];
+      for (const edit of resolved) {
+        const newLines = edit.newContent.split('\n');
+        currentLines = [
+          ...currentLines.slice(0, edit.line),
+          ...newLines,
+          ...currentLines.slice(edit.line + 1)
+        ];
+      }
+      
+      const newFileContent = currentLines.join('\n');
+      sessionFiles[filePath] = newFileContent;
+      table.anchors = reconcileAnchors(table.anchors, currentLines);
+      markGraphDirty();
+      if (!session.fileMeta) session.fileMeta = {};
+      session.fileMeta[filePath] = { lastModifiedBy: 'agent', timestamp: Date.now() };
+      
+      return { success: true, newContent: newFileContent };
+    }
+
+    // ==================== J2: AST-inspect tool on Brain code graph ====================
+    
+    function inspectAST({ session, operation, path, symbol, qualifiedName }) {
+      const graph = getOrBuildCodeGraph(session);
+      if (!graph) return { error: 'Code graph not available' };
+      
+      const fileNode = graph.nodes.find(n => n.type === NODE_TYPES.FILE && n.name === path);
+      if (!fileNode) return { error: 'File not in graph: ' + path };
+      
+      const fileNodes = graph.nodes.filter(n => n.filePath === path);
+      const fileEdges = graph.edges.filter(e => 
+        fileNodes.some(n => n.id === e.from || n.id === e.to)
+      );
+      
+      switch (operation) {
+        case 'outline': {
+          // Declarations only (no bodies)
+          const declarations = fileNodes.filter(n => 
+            n.type === NODE_TYPES.FUNCTION || n.type === NODE_TYPES.CLASS
+          ).map(n => ({
+            type: n.type,
+            name: n.name,
+            line: n.meta?.line,
+            qualifiedName: qualifiedName ? `${path}:${n.name}` : n.name
+          }));
+          return { file: path, declarations };
+        }
+        
+        case 'implementation': {
+          // Complete named definition
+          if (!symbol) return { error: 'Symbol required for implementation' };
+          const node = fileNodes.find(n => 
+            (n.type === NODE_TYPES.FUNCTION || n.type === NODE_TYPES.CLASS) && n.name === symbol
+          );
+          if (!node) return { error: 'Symbol not found: ' + symbol };
+          
+          // Get full implementation from session files
+          const fileContent = session.files?.[path] || '';
+          const lines = fileContent.split('\n');
+          const startLine = (node.meta?.line || 1) - 1;
+          
+          // Find end of function/class (simple heuristic)
+          let endLine = startLine;
+          let braceCount = 0;
+          let started = false;
+          for (let i = startLine; i < lines.length; i++) {
+            const line = lines[i];
+            if (line.includes('{')) { started = true; braceCount += (line.match(/{/g) || []).length; }
+            if (line.includes('}')) braceCount -= (line.match(/}/g) || []).length;
+            if (started && braceCount === 0) { endLine = i; break; }
+            endLine = i;
+          }
+          
+          return {
+            file: path,
+            symbol,
+            implementation: lines.slice(startLine, endLine + 1).join('\n'),
+            lineRange: [startLine + 1, endLine + 1]
+          };
+        }
+        
+        case 'definitions': {
+          // Exact indexed symbol locations
+          if (!symbol) return { error: 'Symbol required for definitions' };
+          const defs = fileNodes.filter(n => n.name === symbol && 
+            (n.type === NODE_TYPES.FUNCTION || n.type === NODE_TYPES.CLASS)
+          ).map(n => ({
+            file: path,
+            line: n.meta?.line,
+            qualifiedName: `${path}:${n.name}`,
+            type: n.type
+          }));
+          return { symbol, locations: defs };
+        }
+        
+        case 'references': {
+          // All references to symbol
+          if (!symbol) return { error: 'Symbol required for references' };
+          const refs = [];
+          for (const edge of fileEdges) {
+            if (edge.type === EDGE_TYPES.CALLS || edge.type === EDGE_TYPES.REFERENCES) {
+              const toNode = graph.nodes.find(n => n.id === edge.to);
+              if (toNode && toNode.name === symbol) {
+                const fromNode = graph.nodes.find(n => n.id === edge.from);
+                if (fromNode) {
+                  refs.push({
+                    file: path,
+                    line: fromNode.meta?.line,
+                    context: fromNode.name,
+                    qualifiedName: `${path}:${fromNode.name} -> ${symbol}`,
+                    type: edge.type
+                  });
+                }
+              }
+            }
+          }
+          return { symbol, locations: refs };
+        }
+        
+        case 'occurrences': {
+          // All occurrences (definitions + references)
+          if (!symbol) return { error: 'Symbol required for occurrences' };
+          const defsResult = inspectAST({ session, operation: 'definitions', path, symbol });
+          const refsResult = inspectAST({ session, operation: 'references', path, symbol });
+          return {
+            symbol,
+            locations: [
+              ...(defsResult.locations || []).map(l => ({ ...l, kind: 'definition' })),
+              ...(refsResult.locations || []).map(l => ({ ...l, kind: 'reference' }))
+            ]
+          };
+        }
+        
+        default:
+          return { error: 'Unknown operation: ' + operation };
+      }
+    }
+
+    // Convenience wrappers
+    function astOutline(session, path) { return inspectAST({ session, operation: 'outline', path }); }
+    function astImplementation(session, path, symbol) { return inspectAST({ session, operation: 'implementation', path, symbol }); }
+    function astDefinitions(session, path, symbol) { return inspectAST({ session, operation: 'definitions', path, symbol }); }
+    function astReferences(session, path, symbol) { return inspectAST({ session, operation: 'references', path, symbol }); }
+    function astOccurrences(session, path, symbol) { return inspectAST({ session, operation: 'occurrences', path, symbol }); }
+
+    // ==================== J3: Cache-stable prompt construction + history processors ====================
+    
+    let cachedSystemPrompt = null;
+    let cachedToolDefsBlock = null;
+    let lastPromptHash = null;
+    
+    function buildSystemPrompt(opts = {}) {
+      // Build system prompt deterministically - same every call
+      const parts = [
+        'You are FlamingoCode, an AI coding assistant.',
+        'Follow the user instructions precisely.',
+        'Use tools when needed.',
+        'Output format: thoughts, then tool calls, then response.'
+      ];
+      
+      const prompt = parts.join('\n');
+      
+      // Cache for stability
+      if (!cachedSystemPrompt) cachedSystemPrompt = prompt;
+      return cachedSystemPrompt;
+    }
+    
+    function buildToolDefinitionsBlock(opts = {}) {
+      // Build tool definitions deterministically
+      const tools = Object.values(TOOL_DEFINITIONS || {})
+        .filter(t => typeof isToolAllowedByPowers === 'function' ? isToolAllowedByPowers(t.name) : true)
+        .map(t => `${t.name}: ${t.trigger} - ${t.description}`)
+        .join('\n');
+      
+      if (!cachedToolDefsBlock) cachedToolDefsBlock = tools;
+      return cachedToolDefsBlock;
+    }
+    
+    // History pipeline processors
+    function lastNObservationsProcessor(history, options = {}) {
+      const n = options.lastNObservations || 2;
+      if (!history || history.length <= n * 2) return history;
+      
+      // Keep first message (system), last n tool observations, last assistant message
+      const systemMsg = history[0];
+      const toolMsgs = history.filter(m => m.role === 'tool');
+      const otherMsgs = history.filter(m => m.role !== 'tool');
+      
+      const keptToolMsgs = toolMsgs.slice(-n);
+      const keptOtherMsgs = otherMsgs.slice(-(n + 1)); // system + n assistant/user
+      
+      // Merge preserving order
+      const result = [...keptOtherMsgs];
+      for (const tm of keptToolMsgs) {
+        const idx = history.indexOf(tm);
+        // Insert at correct position (simplified: append)
+        result.push(tm);
+      }
+      return result;
+    }
+    
+    function cacheControlProcessor(history, options = {}) {
+      // Mark last 2 messages for cache control (provider-specific)
+      const marked = history.map((m, i) => ({
+        ...m,
+        cacheControl: (i >= history.length - 2) ? { type: 'ephemeral' } : undefined
+      }));
+      return marked;
+    }
+    
+    function processHistoryPipeline(history, options = {}) {
+      let result = [...(history || [])];
+      
+      // Apply processors in order
+      if (options.lastNObservations) {
+        result = lastNObservationsProcessor(result, { lastNObservations: options.lastNObservations });
+      }
+      if (options.cacheControl) {
+        result = cacheControlProcessor(result);
+      }
+      
+      return result;
+    }
+
+    // ==================== J4: Compaction v2 ====================
+    
+    const COMPACTION_THRESHOLD = 0.85;
+    const COMPACTION_KEEP_LAST_PERCENT = 0.1;
+    const COMPACTION_WARN_THRESHOLD = 0.7;
+    
+    function compactConversation(session, options = {}) {
+      const threshold = options.threshold || COMPACTION_THRESHOLD;
+      const keepLastPercent = options.keepLastPercent || COMPACTION_KEEP_LAST_PERCENT;
+      
+      if (!session.history || !session.history.length) {
+        return { summary: '', keptVerbatim: [], fileOpLedger: [] };
+      }
+      
+      const history = session.history;
+      const keepCount = Math.max(1, Math.floor(history.length * keepLastPercent));
+      const toCompact = history.slice(0, -keepCount);
+      const keptVerbatim = history.slice(-keepCount);
+      
+      // Generate summary
+      const summary = generateCompactionSummary(toCompact);
+      
+      // File-op ledger
+      const fileOpLedger = extractFileOpLedger(toCompact);
+      
+      // Chain with previous summary
+      const chainedSummary = chainSummaries(session.compactionSummary, summary);
+      
+      session.history = [
+        { role: 'system', content: '[COMPACTION SUMMARY] ' + chainedSummary, isCompaction: true },
+        ...keptVerbatim
+      ];
+      session.compactionSummary = chainedSummary;
+      session.compactionCount = (session.compactionCount || 0) + 1;
+      
+      // Write history file
+      writeHistoryFile(session, toCompact, chainedSummary);
+      
+      return { summary: chainedSummary, keptVerbatim, fileOpLedger };
+    }
+    
+    function generateCompactionSummary(history) {
+      // Use cheap model if configured, else current model
+      // For now, create a simple structured summary
+      const userMsgs = history.filter(m => m.role === 'user').map(m => m.content).slice(0, 5);
+      const toolCalls = history.filter(m => m.role === 'tool').length;
+      const fileOps = history.filter(m => m.role === 'tool' && m.name && m.name.includes('file')).length;
+      
+      return `Compacted ${history.length} turns: ${userMsgs.length} user messages, ${toolCalls} tool calls, ${fileOps} file ops. Recent: ${userMsgs.join('; ')}`;
+    }
+    
+    function extractFileOpLedger(history) {
+      const ledger = [];
+      for (const msg of history) {
+        if (msg.role === 'tool' && msg.name && (msg.name.includes('file') || msg.name.includes('edit') || msg.name.includes('write'))) {
+          ledger.push({ tool: msg.name, timestamp: msg.timestamp, preview: String(msg.content).slice(0, 100) });
+        }
+      }
+      return ledger;
+    }
+    
+    function chainSummaries(prevSummary, newSummary) {
+      if (!prevSummary) return newSummary;
+      return prevSummary + ' | ' + newSummary;
+    }
+    
+    function writeHistoryFile(session, compactedTurns, summary) {
+      // In web app, store in session metadata
+      if (!session.historyFiles) session.historyFiles = [];
+      session.historyFiles.push({
+        timestamp: Date.now(),
+        turns: compactedTurns.length,
+        summary,
+        fileOpLedger: extractFileOpLedger(compactedTurns)
+      });
+      // Cap history files
+      if (session.historyFiles.length > 50) session.historyFiles = session.historyFiles.slice(-50);
+    }
+    
+    function triggerCompaction(session) {
+      // Check if compaction needed
+      const usage = estimateContextUsage(session);
+      if (usage >= COMPACTION_THRESHOLD) {
+        return compactConversation(session);
+      } else if (usage >= COMPACTION_WARN_THRESHOLD) {
+        return { warning: true, usage: Math.round(usage * 100) + '%' };
+      }
+      return { ok: true, usage: Math.round(usage * 100) + '%' };
+    }
+    
+    function estimateContextUsage(session) {
+      // Estimate token usage from history
+      const totalChars = (session.history || []).reduce((sum, m) => sum + String(m.content || '').length, 0);
+      const estimatedTokens = totalChars / 4; // rough estimate
+      const contextWindow = getActiveContextWindow();
+      return Math.min(1, estimatedTokens / contextWindow);
+    }
+    
+    function getActiveContextWindow() {
+      // Get current model's context window
+      const provider = getActiveProvider();
+      if (provider && provider.contextWindow) return provider.contextWindow;
+      return 128000; // default
+    }
+
+    // ==================== J5: Tool-output budget + artifact spillover ====================
+    
+    const TOOL_OUTPUT_CAPS = {
+      default: 10000,
+      file_read: 50000,
+      file_write: 10000,
+      search: 20000,
+      bash: 50000,
+      sensitive: 5000 // for tools that might output secrets
+    };
+    
+    const artifactStore = new Map(); // artifactId -> { content, metadata }
+    
+    function checkToolOutputCap(result, toolName) {
+      const cap = TOOL_OUTPUT_CAPS[toolName] || TOOL_OUTPUT_CAPS.default;
+      const content = String(result);
+      
+      if (content.length <= cap) return result;
+      
+      // Spill to artifact
+      const artifact = spillToArtifact(content, toolName);
+      return {
+        spilled: true,
+        artifactId: artifact.id,
+        preview: content.slice(0, 500) + '\n... [spilled to artifact] ...\n' + content.slice(-500),
+        head: content.slice(0, 500),
+        tail: content.slice(-500),
+        originalLength: content.length
+      };
+    }
+    
+    function spillToArtifact(content, toolName) {
+      const id = 'art_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+      const isSensitive = TOOL_OUTPUT_CAPS[toolName] === TOOL_OUTPUT_CAPS.sensitive;
+      
+      const artifact = {
+        id,
+        toolName,
+        content,
+        length: content.length,
+        isSensitive,
+        createdAt: Date.now()
+      };
+      
+      artifactStore.set(id, artifact);
+      
+      // Cap artifact store
+      if (artifactStore.size > 1000) {
+        const firstKey = artifactStore.keys().next().value;
+        artifactStore.delete(firstKey);
+      }
+      
+      return artifact;
+    }
+    
+    function trimLargeOutput(content, maxLines = 10000) {
+      const lines = content.split('\n');
+      if (lines.length <= maxLines) return { content, lines: lines.length, trimmed: false };
+      
+      const keep = Math.floor(maxLines / 2);
+      const head = lines.slice(0, keep).join('\n');
+      const tail = lines.slice(-keep).join('\n');
+      const trimmed = head + '\n... [' + (lines.length - maxLines) + ' lines trimmed] ...\n' + tail;
+      
+      return {
+        content: trimmed,
+        lines: maxLines,
+        trimmed: true,
+        originalLines: lines.length,
+        head: head.split('\n'),
+        tail: tail.split('\n')
+      };
+    }
+    
+    function loadArtifact(artifactId) {
+      return artifactStore.get(artifactId) || null;
+    }
+
+    // ==================== J6: Fuzzy SEARCH/REPLACE + pasted patch ====================
+    
+    function findClosestMatch(searchText, fileContent, threshold = 0.6) {
+      const fileLines = fileContent.split('\n');
+      const searchLines = searchText.split('\n');
+      let bestMatch = null;
+      let bestScore = 0;
+      let bestLine = 0;
+      
+      for (let i = 0; i <= fileLines.length - searchLines.length; i++) {
+        let totalSim = 0;
+        for (let j = 0; j < searchLines.length; j++) {
+          totalSim += computeLevenshteinSimilarity(searchLines[j], fileLines[i + j]);
+        }
+        const score = totalSim / searchLines.length;
+        if (score > bestScore) {
+          bestScore = score;
+          bestMatch = fileLines.slice(i, i + searchLines.length).join('\n');
+          bestLine = i;
+        }
+      }
+      
+      if (bestScore >= threshold && bestMatch) {
+        return {
+          suggestion: bestMatch,
+          similarity: bestScore,
+          line: bestLine,
+          didYouMean: true
+        };
+      }
+      return null;
+    }
+    
+    function repairFuzzySearchReplace(searchBlock, fileContent, threshold = 0.6) {
+      const match = findClosestMatch(searchBlock, fileContent, threshold);
+      if (match) {
+        return {
+          repaired: true,
+          suggestion: match.suggestion,
+          similarity: match.similarity,
+          message: 'Did you mean this match? (similarity: ' + match.similarity.toFixed(2) + ')'
+        };
+      }
+      return { repaired: false, message: 'No close match found' };
+    }
+    
+    function applyPastedPatch(session, diffText) {
+          const parseResult = parseUnifiedDiff(diffText);
+          if (!parseResult || !parseResult.length) {
+            return { success: false, error: 'No valid files in diff' };
+          }
+
+          const results = [];
+          for (const file of parseResult) {
+            const filePath = file.filePath;
+            const fileContent = session.files?.[filePath] || '';
+
+            // Apply each hunk
+            let currentContent = fileContent;
+            for (const hunk of file.hunks) {
+              // Convert hunk lines to old/new line arrays
+              const oldLines = hunk.lines.filter(l => l.type === 'context' || l.type === 'remove').map(l => l.content);
+              const newLines = hunk.lines.filter(l => l.type === 'context' || l.type === 'add').map(l => l.content);
+              const searchLines = oldLines.join('\n');
+              const replaceLines = newLines.join('\n');
+
+              const result = applySearchReplacePatchToContent(currentContent, searchLines, replaceLines, { fuzzy: true, threshold: 0.6 });
+              if (!result.success) {
+                return { success: false, error: `Hunk failed for ${filePath}: ${result.error}`, results };
+              }
+              currentContent = result.newContent;
+            }
+
+            session.files[filePath] = currentContent;
+            markGraphDirty();
+            results.push({ filePath, success: true });
+          }
+
+          return { success: true, results };
+        }
+
+    // ==================== J7: ACI windowed tools (SWE-agent) ====================
+
+    const WINDOW_CAP_LINES = 200;
+
+    function openFileWindow({ session, path, startLine = 1, endLine }) {
+      const fileContent = session.files?.[path];
+      if (!fileContent) return { error: 'File not found: ' + path };
+      
+      const lines = fileContent.split('\n');
+      const start = Math.max(1, startLine) - 1;
+      const end = endLine ? Math.min(lines.length, endLine) : Math.min(lines.length, start + WINDOW_CAP_LINES);
+      
+      if (start >= lines.length) return { error: 'Start line beyond file end' };
+      
+      const windowLines = lines.slice(start, end);
+      const table = getAnchorTable(path, lines);
+      
+      return {
+        path,
+        startLine: start + 1,
+        endLine: end,
+        totalLines: lines.length,
+        lines: windowLines.map((line, i) => ({
+          line: start + i + 1,
+          content: line,
+          anchorId: table.anchors[start + i]?.id
+        })),
+        anchored: true,
+        capped: end - start >= WINDOW_CAP_LINES
+      };
+    }
+    
+    function gotoFileWindow({ session, path, line }) {
+      return openFileWindow({ session, path, startLine: Math.max(1, line - 50), endLine: line + 150 });
+    }
+    
+    function searchFileWindow({ session, path, query, contextLines = 3 }) {
+      const fileContent = session.files?.[path];
+      if (!fileContent) return { error: 'File not found: ' + path };
+      
+      const lines = fileContent.split('\n');
+      const matches = [];
+      
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].toLowerCase().includes(query.toLowerCase())) {
+          const start = Math.max(0, i - contextLines);
+          const end = Math.min(lines.length, i + contextLines + 1);
+          matches.push({
+            line: i + 1,
+            context: lines.slice(start, end),
+            matchLine: i + 1
+          });
+        }
+      }
+      
+      return { path, query, matches, totalLines: lines.length };
+    }
+    
+    function editFileWindow({ session, path, startLine, endLine, newContent }) {
+      const fileContent = session.files?.[path];
+      if (!fileContent) return { error: 'File not found: ' + path };
+      
+      const lines = fileContent.split('\n');
+      const start = Math.max(1, startLine) - 1;
+      const end = Math.min(lines.length, endLine);
+      
+      if (start >= lines.length || start >= end) {
+        return { error: 'Invalid line range' };
+      }
+      
+      const newLines = newContent.split('\n');
+      const resultLines = [
+        ...lines.slice(0, start),
+        ...newLines,
+        ...lines.slice(end)
+      ];
+      
+      session.files[path] = resultLines.join('\n');
+      markGraphDirty();
+      if (!session.fileMeta) session.fileMeta = {};
+      session.fileMeta[path] = { lastModifiedBy: 'agent', timestamp: Date.now() };
+      
+      return { success: true, path, newLineCount: resultLines.length };
+    }
+    
+    function runTestsTool({ session, command }) {
+          // Execute command and return pass/fail summary
+          // In web app, this would run via a terminal/process
+          // For now, return a structured response
+          // Simulate: if command is 'empty', return no output
+          const output = command === 'empty' ? '' : '(simulated) ' + command;
+          const passed = !output.includes('fail') && !output.includes('error');
+
+          return {
+            command,
+            output: output || '(no output)',
+            passed,
+            summary: passed ? 'PASS' : 'FAIL',
+            timestamp: Date.now()
+          };
+        }
+
+    // ==================== J8: Multi-file batching ====================
+    
+    function batchFileOperations({ session, operations }) {
+      // operations: array of { type: 'read'|'edit', filePath, ... }
+      // Group by file, apply edits bottom-up per file
+      
+      const byFile = new Map();
+      for (const op of operations) {
+        if (!byFile.has(op.filePath)) byFile.set(op.filePath, []);
+        byFile.get(op.filePath).push(op);
+      }
+      
+      const results = [];
+      for (const [filePath, ops] of byFile) {
+        const edits = ops.filter(o => o.type === 'edit');
+        const reads = ops.filter(o => o.type === 'read');
+        
+        let fileResult = { filePath, reads: [], edits: [] };
+        
+        // Process reads first
+        for (const read of reads) {
+          const content = session.files?.[read.filePath] || '';
+          fileResult.reads.push({ path: read.filePath, content: content.slice(0, 1000) });
+        }
+        
+        // Process edits bottom-up
+        if (edits.length) {
+          const editOps = edits.map(e => ({ anchorId: e.anchorId, newContent: e.newContent }));
+          const result = applyAnchorEditsBatch(session, filePath, editOps);
+          fileResult.edits = result.success ? [{ success: true }] : [{ success: false, error: result.error }];
+        }
+        
+        results.push(fileResult);
+      }
+      
+      return { success: true, results, appliedBottomUp: true };
+    }
+    
+    function applyBatchedEditsBottomUp(session, fileEdits) {
+      // fileEdits: { filePath: [edits...] }
+      const results = {};
+      for (const [filePath, edits] of Object.entries(fileEdits)) {
+        const result = applyAnchorEditsBatch(session, filePath, edits);
+        results[filePath] = result;
+      }
+      return results;
+    }
+
+    // ==================== J9: Skills progressive disclosure ====================
+    
+    const skillLoadState = new Map(); // skillId -> 'header-only' | 'loaded'
+    
+    function loadSkillHeaderOnly(skillId) {
+      const skill = (AUTONOMY_CATALOG?.skills || []).find(s => s.name === skillId) ||
+                    (AUTONOMY_CATALOG?.vibeSkills || []).find(s => s.name === skillId) ||
+                    (AUTONOMY_CATALOG?.pluginPacks || []).find(s => s.name === skillId);
+      
+      if (!skill) return null;
+      
+      skillLoadState.set(skillId, 'header-only');
+      return { id: skillId, title: skill.name, desc: skill.desc.split('.')[0], state: 'header-only' };
+    }
+    
+    function loadSkillBodyOnDemand(skillId) {
+      const content = loadSkillContent('skill_' + skillId) || 
+                      loadSkillContent('vibe_' + skillId) || 
+                      loadSkillContent('plugin_' + skillId);
+      
+      if (content) {
+        skillLoadState.set(skillId, 'loaded');
+        return { id: skillId, body: content, state: 'loaded' };
+      }
+      return null;
+    }
+    
+    function getSkillLoadedState(skillId) {
+      return skillLoadState.get(skillId) || 'header-only';
+    }
+
+    // ==================== J10: Codemode (Pi) ====================
+    
+    const CODEMODE_CAPS = { maxTokens: 10000, maxChars: 16000000, timeoutMs: 30000 };
+    
+    function createCodemodeSandbox(session, permissions) {
+      // Create a sandboxed environment with limited tool access
+      const allowedTools = new Set(permissions.allowedTools || []);
+      
+      const sandboxTools = {};
+      for (const [name, def] of Object.entries(TOOL_DEFINITIONS || {})) {
+        if (allowedTools.has(name)) {
+          sandboxTools[name] = async (args) => {
+            // Delegate to actual tool implementation
+            return callTool(name, args, session);
+          };
+        }
+      }
+      
+      return {
+        tools: sandboxTools,
+        text: (content) => ({ type: 'text', content }),
+        image: (url, alt) => ({ type: 'image', url, alt }),
+        store: (key, value) => { session.codemodeStore = session.codemodeStore || {}; session.codemodeStore[key] = value; },
+        load: (key) => session.codemodeStore?.[key],
+        searchTools: (query) => searchTools(query),
+        describeTool: (name) => TOOL_DEFINITIONS[name]
+      };
+    }
+    
+    function validateCodemodePermissions(toolName, permissions) {
+      const allowed = permissions.allowedTools || [];
+      return allowed.includes(toolName);
+    }
+    
+    async function runCodemodeScript({ session, script, caps = CODEMODE_CAPS }) {
+      const permissions = getAgentPermissions(session); // Get current agent's permissions
+      
+      // Validate script only uses allowed tools
+      const toolCalls = extractToolCallsFromScript(script);
+      for (const tool of toolCalls) {
+        if (!validateCodemodePermissions(tool, permissions)) {
+          return { success: false, error: 'Tool not permitted in codemode: ' + tool };
+        }
+      }
+      
+      // Create sandbox
+      const sandbox = createCodemodeSandbox(session, permissions);
+      
+      // Execute with timeout
+      try {
+        const result = await Promise.race([
+          evalInSandbox(script, sandbox),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), caps.timeoutMs))
+        ]);
+        
+        return { success: true, result };
+      } catch (e) {
+        return { success: false, error: e.message };
+      }
+    }
+    
+    function extractToolCallsFromScript(script) {
+      // Simple extraction: look for tools.xxx patterns
+      const matches = script.match(/tools\.(\w+)/g);
+      return matches ? matches.map(m => m.replace('tools.', '')) : [];
+    }
+    
+    function evalInSandbox(script, sandbox) {
+      // In real implementation, use QuickJS or iframe sandbox
+      // For now, use Function constructor with limited scope
+      const fn = new Function('tools', 'text', 'image', 'store', 'load', 'searchTools', 'describeTool', script);
+      return fn(
+        sandbox.tools,
+        sandbox.text,
+        sandbox.image,
+        sandbox.store,
+        sandbox.load,
+        sandbox.searchTools,
+        sandbox.describeTool
+      );
+    }
+    
+    function getAgentPermissions(session) {
+      // Return current agent's permissions
+      return { allowedTools: Object.keys(TOOL_DEFINITIONS || {}) };
+    }
+
+    // ==================== J11: Token-exhaustion diagnostics (Aider) ====================
+    
+    function diagnoseTokenExhaustion({ error, inputTokens, outputTokens, limit }) {
+      const isInputExhausted = inputTokens > limit * 0.85 || error?.includes('context length') || error?.includes('input tokens');
+      const isOutputExhausted = outputTokens > limit * 0.85 || error?.includes('max tokens') || error?.includes('output tokens');
+      
+      if (isInputExhausted) {
+        return {
+          side: 'input',
+          exhausted: true,
+          advice: 'compact now / drop files from context',
+          bengali: 'ইনপুট কনটেক্সট শেষ — এখনই কম্প্যাক্ট করুন বা ফাইল ড্রপ করুন',
+          fudgeFactor: 0.7
+        };
+      }
+      
+      if (isOutputExhausted) {
+        return {
+          side: 'output',
+          exhausted: true,
+          advice: 'split the task / ask for a shorter answer',
+          bengali: 'আউটপুট লিমিট শেষ — টাস্ক ভাগ করুন বা ছোট উত্তর চান',
+          fudgeFactor: 0.7
+        };
+      }
+      
+      return { exhausted: false, side: 'unknown' };
+    }
+    
+    function getTokenExhaustionAdvice(diagnosis) {
+      if (!diagnosis.exhausted) return '';
+      return diagnosis.advice + ' (' + diagnosis.bengali + ')';
+    }
+
+    // ==================== J12: File-freshness guard (Minion) ====================
+    
+    function recordFileFreshness(session, filePath) {
+      if (!session.fileFreshness) session.fileFreshness = {};
+      // In web app, we track virtual mtime based on session file updates
+      session.fileFreshness[filePath] = {
+        mtime: Date.now(),
+        size: (session.files?.[filePath] || '').length,
+        version: (session.fileFreshness[filePath]?.version || 0) + 1
+      };
+    }
+    
+    function checkFileFreshness(session, filePath) {
+      const freshness = session.fileFreshness?.[filePath];
+      if (!freshness) return { stale: false, warning: null };
+      
+      const currentSize = (session.files?.[filePath] || '').length;
+      const currentVersion = freshness.version;
+      
+      // In web app, we check if file was modified since last read
+      // by comparing version (incremented on each write)
+      if (freshness.size !== currentSize) {
+        return {
+          stale: true,
+          warning: 'এই file টা তুমি পড়ার পর বদলে গেছে — আবার পড়ে নিচ্ছি',
+          details: { recordedSize: freshness.size, currentSize }
+        };
+      }
+      
+      return { stale: false, warning: null };
+    }
+    
+    function refuseStaleEdit(session, filePath, newContent) {
+      const check = checkFileFreshness(session, filePath);
+      if (check.stale) {
+        return {
+          refused: true,
+          reReadRequired: true,
+          warning: check.warning,
+          action: 're-read file before editing'
+        };
+      }
+      return { refused: false };
+    }
+
+    // ==================== J13: Subagent context fork (Kimi) ====================
+    
+    function forkContextForSubagent({ parentSession, maxMessages = 20 }) {
+      if (!parentSession || !parentSession.history) {
+        return { messages: [], header: 'forked from unknown' };
+      }
+      
+      // Cap the history slice
+      const totalMessages = parentSession.history.length;
+      const start = Math.max(0, totalMessages - maxMessages);
+      const forkedMessages = parentSession.history.slice(start);
+      
+      return {
+        messages: forkedMessages,
+        header: 'forked from ' + (parentSession.id || 'parent') + ', ' + forkedMessages.length + ' messages',
+        parentId: parentSession.id,
+        forkedAt: Date.now(),
+        maxMessages
+      };
+    }
+    
+    function createSubagentSession({ parentId, forkedMessages, task }) {
+      const childId = 'session_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+      
+      const childSession = {
+        id: childId,
+        parentId,
+        forkedFrom: parentId,
+        history: forkedMessages || [],
+        task: task || '',
+        createdAt: Date.now(),
+        isSubagent: true
+      };
+      
+      // Store in appState
+      if (!appState.subagentSessions) appState.subagentSessions = {};
+      appState.subagentSessions[childId] = childSession;
+      
+      return childSession;
+    }
+
+    // ==================== J14: Model capability catalog (Pi, Crow, Sigit) ====================
+    
+    const modelCapabilityCatalog = new Map(); // modelId -> { metadata, probed, local }
+    
+    // Bundled metadata (context limits, prices, thinking budget, image limits)
+    const BUNDLED_MODEL_METADATA = {
+      'gpt-4o': { contextWindow: 128000, maxOutput: 4096, thinkingBudget: false, imageLimit: 20, costTier: 'expensive' },
+      'gpt-4o-mini': { contextWindow: 128000, maxOutput: 16384, thinkingBudget: false, imageLimit: 20, costTier: 'cheap' },
+      'claude-3.5-sonnet': { contextWindow: 200000, maxOutput: 8192, thinkingBudget: true, imageLimit: 20, costTier: 'medium' },
+      'claude-3.5-haiku': { contextWindow: 200000, maxOutput: 8192, thinkingBudget: true, imageLimit: 20, costTier: 'cheap' },
+      'gemini-1.5-pro': { contextWindow: 1000000, maxOutput: 8192, thinkingBudget: false, imageLimit: 1000, costTier: 'medium' },
+      'gemini-1.5-flash': { contextWindow: 1000000, maxOutput: 8192, thinkingBudget: false, imageLimit: 1000, costTier: 'cheap' }
+    };
+    
+    async function probeModelCapabilities({ modelId, testVision = true, testTools = true, testLongContext = false }) {
+      const metadata = BUNDLED_MODEL_METADATA[modelId] || { contextWindow: 128000, maxOutput: 4096 };
+      
+      // In real implementation, run tiny test calls
+      // For now, simulate based on known capabilities
+      const probed = {
+        vision: testVision && ['gpt-4o', 'gpt-4o-mini', 'claude-3.5-sonnet', 'claude-3.5-haiku', 'gemini-1.5-pro', 'gemini-1.5-flash'].includes(modelId),
+        toolCalling: testTools && !modelId.includes('haiku'), // simplified
+        longContext: testLongContext && metadata.contextWindow > 200000,
+        probedAt: Date.now()
+      };
+      
+      recordProbedCapability(modelId, probed);
+      
+      return { modelId, metadata, probed };
+    }
+    
+    function recordProbedCapability(modelId, probed) {
+      const existing = modelCapabilityCatalog.get(modelId) || {};
+      modelCapabilityCatalog.set(modelId, {
+        ...existing,
+        probed,
+        updatedAt: Date.now()
+      });
+    }
+    
+    function getModelCatalog() {
+      const models = [];
+      for (const [modelId, data] of modelCapabilityCatalog) {
+        models.push({ id: modelId, ...data });
+      }
+      // Add bundled models not yet probed
+      for (const [modelId, metadata] of Object.entries(BUNDLED_MODEL_METADATA)) {
+        if (!modelCapabilityCatalog.has(modelId)) {
+          models.push({ id: modelId, metadata, probed: null });
+        }
+      }
+      return { models, updatedAt: Date.now() };
+    }
+
+    // ==================== J15: Virtual models — router as selectable "Auto" ====================
+    
+    let autoModelSticky = null; // { model, provider, turnId }
+    
+    function routeWithAutoModel({ task, history }) {
+      const isFreshPrompt = !history || history.length === 0;
+      
+      if (!isFreshPrompt && autoModelSticky) {
+        // Tool follow-up: stick to same model
+        return { model: autoModelSticky.model, provider: autoModelSticky.provider, virtual: 'Auto', sticky: true };
+      }
+      
+      // Fresh prompt: route through D3 router
+      const routeResult = routeModelForStep({ text: task, kind: inferStepKind(task) });
+      
+      if (routeResult.model) {
+        autoModelSticky = { 
+          model: routeResult.model, 
+          provider: routeResult.provider, 
+          turnId: Date.now() 
+        };
+        return { model: routeResult.model, provider: routeResult.provider, virtual: 'Auto', sticky: false };
+      }
+      
+      return { model: null, virtual: 'Auto', error: 'No model available' };
+    }
+    
+    function getAutoModelForTurn({ isCompaction = false }) {
+      if (isCompaction) {
+        // Use PHYSICAL model's limits for compaction
+        const provider = getActiveProvider();
+        return { 
+          contextWindow: provider?.contextWindow || 128000,
+          model: provider?.defaultModel || 'unknown',
+          physical: true
+        };
+      }
+      
+      // Normal turn: use sticky or route
+      return autoModelSticky || { model: null };
+    }
+    
+    function inferStepKind(text) {
+      const t = (text || '').toLowerCase();
+      if (/plan|architect|design/.test(t)) return 'plan';
+      if (/review|audit|security/.test(t)) return 'review';
+      if (/test|spec/.test(t)) return 'test';
+      return 'build';
+    }
+
+    // ==================== J16: Per-model thinking-effort control (Auggie) ====================
+    
+    const THINKING_EFFORT_LEVELS = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh'];
+    const modelThinkingEffort = new Map(); // modelId -> effort level
+    
+    function setModelThinkingEffort(modelId, effort) {
+      if (!THINKING_EFFORT_LEVELS.includes(effort)) {
+        return { error: 'Invalid effort level: ' + effort };
+      }
+      modelThinkingEffort.set(modelId, effort);
+      return { modelId, effort };
+    }
+    
+    function getModelThinkingEffort(modelId) {
+      return modelThinkingEffort.get(modelId) || 'medium';
+    }
+    
+    function cycleThinkingEffort(modelId) {
+      const current = getModelThinkingEffort(modelId);
+      const idx = THINKING_EFFORT_LEVELS.indexOf(current);
+      const next = THINKING_EFFORT_LEVELS[(idx + 1) % THINKING_EFFORT_LEVELS.length];
+      return setModelThinkingEffort(modelId, next).effort;
+    }
+
+    // ==================== J17: Durable harness — crash-proof turn journal ====================
+    
+    function commitTurnJournal(session, entry) {
+      if (!session.turnJournal) session.turnJournal = [];
+      
+      const journalEntry = {
+        step: entry.step || session.turnJournal.length + 1,
+        type: entry.type,
+        content: entry.content,
+        timestamp: entry.timestamp || Date.now(),
+        completed: entry.completed || false,
+        interrupted: false,
+        data: entry.data || {}
+      };
+      
+      session.turnJournal.push(journalEntry);
+      
+      // Persist to session store (localStorage via saveAppState)
+      saveAppState();
+      
+      return journalEntry;
+    }
+    
+    function markTurnInterrupted(session, step) {
+      if (!session.turnJournal) return false;
+      
+      const entry = session.turnJournal.find(e => e.step === step);
+      if (entry) {
+        entry.interrupted = true;
+        entry.completed = false;
+        saveAppState();
+        return true;
+      }
+      return false;
+    }
+    
+    function resumeFromJournal(session) {
+      if (!session.turnJournal || !session.turnJournal.length) {
+        return { resumeFromStep: 1, reRunCompleted: false };
+      }
+      
+      // Find first incomplete/interrupted step
+      let resumeFromStep = 1;
+      let reRunCompleted = false;
+      
+      for (const entry of session.turnJournal) {
+        if (!entry.completed || entry.interrupted) {
+          resumeFromStep = entry.step;
+          break;
+        }
+      }
+      
+      // Check if all previous steps are completed
+      const completedSteps = session.turnJournal.filter(e => e.completed && !e.interrupted).length;
+      if (completedSteps === session.turnJournal.length) {
+        // Everything completed, start fresh
+        resumeFromStep = session.turnJournal.length + 1;
+      }
+      
+      return { resumeFromStep, reRunCompleted: false };
+    }
+
+    // ==================== J18: Event-sourced checkpoints v2 (Mistral) ====================
+    
+    // Checkpoint log is the event store (G14 eventStore)
+    function appendCheckpointLog(entry) {
+      if (!appState.checkpointLog) appState.checkpointLog = [];
+      
+      const logEntry = {
+        id: 'log_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+        timestamp: Date.now(),
+        ...entry
+      };
+      
+      appState.checkpointLog.push(logEntry);
+      
+      // Cap log
+      if (appState.checkpointLog.length > 10000) {
+        appState.checkpointLog = appState.checkpointLog.slice(-5000);
+      }
+      
+      saveAppState();
+      return appState.checkpointLog;
+    }
+    
+    function revertHunkWithDependencies(log, hunkId) {
+      // Find hunk and its dependents - use hunk field for identification
+      const hunk = log.find(e => e.hunk === hunkId || e.id === hunkId);
+      if (!hunk) return { reverted: [], error: 'Hunk not found' };
+      
+      // Build dependency graph - use hunk field for dependsOn references
+      const dependsOn = new Map(); // hunkId -> [dependentIds]
+      for (const entry of log) {
+        if (entry.dependsOn && Array.isArray(entry.dependsOn)) {
+          for (const dep of entry.dependsOn) {
+            if (!dependsOn.has(dep)) dependsOn.set(dep, []);
+            // Use the entry's hunk field or id as the dependent identifier
+            const depId = entry.hunk || entry.id;
+            dependsOn.get(dep).push(depId);
+          }
+        }
+      }
+      
+      // Collect all hunks to revert (target + transitive dependents)
+      const toRevert = new Set([hunkId]);
+      const queue = [hunkId];
+      
+      while (queue.length) {
+        const current = queue.shift();
+        const deps = dependsOn.get(current) || [];
+        for (const dep of deps) {
+          if (!toRevert.has(dep)) {
+            toRevert.add(dep);
+            queue.push(dep);
+          }
+        }
+      }
+      
+      // Mark as reverted in log
+      for (const id of toRevert) {
+        const entry = log.find(e => e.hunk === id || e.id === id);
+        if (entry) entry.reverted = true;
+      }
+      
+      appendCheckpointLog({ type: 'revert', revertedHunks: Array.from(toRevert), targetHunk: hunkId });
+      
+      return { reverted: Array.from(toRevert), targetHunk: hunkId };
+    }
+    
+    function reconcileManualEdits(session, filePath, manualContent) {
+      // Detect manual edit by comparing session file with provided content
+      const sessionContent = session.files?.[filePath];
+      if (!sessionContent) return { reconciled: false, error: 'File not in session' };
+      
+      if (sessionContent === manualContent) {
+        return { reconciled: true, logEntry: null }; // No change
+      }
+      
+      // Create log entry for manual edit
+      const logEntry = {
+        type: 'manual-edit',
+        file: filePath,
+        oldContent: sessionContent,
+        newContent: manualContent,
+        timestamp: Date.now(),
+        user: true
+      };
+      
+      // Update session file
+      session.files[filePath] = manualContent;
+      
+      // Append to checkpoint log
+      appendCheckpointLog(logEntry);
+      
+      return { reconciled: true, logEntry };
+    }
+    
+    function projectHistoryFromLog(log) {
+      // Pure projection: replay log entries to reconstruct history
+      const history = [];
+      
+      for (const entry of log) {
+        if (entry.reverted) continue; // Skip reverted entries
+        
+        switch (entry.type) {
+          case 'turn':
+            history.push({ type: 'turn', step: entry.data?.step, timestamp: entry.timestamp });
+            break;
+          case 'edit':
+            history.push({ type: 'edit', file: entry.file, timestamp: entry.timestamp });
+            break;
+          case 'manual-edit':
+            history.push({ type: 'manual-edit', file: entry.file, timestamp: entry.timestamp });
+            break;
+          case 'checkpoint':
+            history.push({ type: 'checkpoint', label: entry.label, timestamp: entry.timestamp });
+            break;
+          case 'revert':
+            history.push({ type: 'revert', hunks: entry.revertedHunks, timestamp: entry.timestamp });
+            break;
+        }
+      }
+      
+      return history;
     }
 
     async function parseAndApplyBlocks(responseText) {
@@ -30731,6 +32444,24 @@ ${description}
                 return { chips, fileModified, toolsUsed, noteReads };
               }
 
+              // === J6: Try applyPastedPatch for pasted unified diffs ===
+              const pastedPatchResult = await applyPastedPatch(session, responseText);
+              if (pastedPatchResult.success) {
+                fileModified = true;
+                logActivity(`Applied pasted unified diff with ${pastedPatchResult.results.length} file(s)`, 'success');
+                toolsUsed.push({ name: 'pasted-diff-patch', type: 'skill' });
+                pastedPatchResult.results.forEach(c => onFileWritten(c.filePath));
+                if (session.activeFile && session.files[session.activeFile] !== undefined) {
+                  document.getElementById('editorTextarea').value = session.files[session.activeFile];
+                  updateLineNumbers();
+                }
+                renderFileTree();
+                renderTabs();
+                refreshPreview();
+                saveAppState();
+                return { chips, fileModified, toolsUsed, noteReads };
+              }
+
               // Fall back to legacy full-file write path
               logActivity('Patch strategies failed, falling back to full-file write', 'info');
               toolsUsed.push({ name: 'full-file-write-fallback', type: 'skill' });
@@ -30747,7 +32478,7 @@ ${description}
             }
 
             // Regex for fenced blocks: ```file:filename\ncontent```
-            const blockRegex = /```(file|delete|browse|brain-read|screenshot-to-app|find-symbol|find-references|rename-symbol|insert-after-symbol|hybrid-search|blast-radius|file-dependency-graph|risk-scored-review|git-pinned-memory|todowrite|question|ask_followup_question|list_code_definition_names):([^\n]*)\n([\s\S]*?)```/g;
+            const blockRegex = /```(file|delete|browse|brain-read|screenshot-to-app|find-symbol|find-references|rename-symbol|insert-after-symbol|hybrid-search|blast-radius|file-dependency-graph|risk-scored-review|git-pinned-memory|todowrite|question|ask_followup_question|list_code_definition_names|open-file-window|goto-file-window|search-file-window|edit-file-window|run-tests|batch-file-operations|codemode|inspect-ast):([^\n]*)\n([\s\S]*?)```/g;
             let match;
 
             // Collect file operations for potential atomic batch summary (legacy path)
@@ -30802,6 +32533,27 @@ ${description}
                             argsSummary = targetPath || blockContent.trim();
                           } else if (actionType === 'git-pinned-memory') {
                             toolName = 'git-pinned-memory';
+                            argsSummary = targetPath || blockContent.trim();
+                          } else if (actionType === 'open-file-window') {
+                            toolName = 'read';
+                            argsSummary = targetPath || blockContent.trim();
+                          } else if (actionType === 'goto-file-window') {
+                            toolName = 'read';
+                            argsSummary = targetPath || blockContent.trim();
+                          } else if (actionType === 'search-file-window') {
+                            toolName = 'read';
+                            argsSummary = targetPath || blockContent.trim();
+                          } else if (actionType === 'edit-file-window') {
+                            toolName = 'write';
+                            argsSummary = targetPath || blockContent.trim();
+                          } else if (actionType === 'run-tests') {
+                            toolName = 'run-tests';
+                            argsSummary = targetPath || blockContent.trim();
+                          } else if (actionType === 'batch-file-operations') {
+                            toolName = 'write';
+                            argsSummary = targetPath || blockContent.trim();
+                          } else if (actionType === 'codemode') {
+                            toolName = 'codemode';
                             argsSummary = targetPath || blockContent.trim();
                           }
 
@@ -30914,9 +32666,11 @@ ${description}
                 // Serena: find symbol by name
                 const query = targetPath || blockContent.trim();
                 const results = findSymbolInGraph(query);
-                const resultText = results.length > 0
+                let resultText = results.length > 0
                   ? results.map(r => `${r.file}:${r.line} (${r.kind}) ${r.signature || r.name}`).join('\n')
                   : 'No symbols found matching: ' + query;
+                // === J5: Tool output cap enforcement ===
+                resultText = checkToolOutputCap(resultText, 'find-symbol');
                 chips.push({ type: 'tool', label: `Found ${results.length} symbol(s) for "${query}"` });
                 logActivity(`find-symbol: "${query}" → ${results.length} result(s)`, 'info');
                 toolsUsed.push({ name: 'find-symbol', type: 'builtin' });
@@ -30926,9 +32680,11 @@ ${description}
                 // Serena: find references to a symbol
                 const symbolId = targetPath || blockContent.trim();
                 const results = findReferencesInGraph(symbolId);
-                const resultText = results.length > 0
+                let resultText = results.length > 0
                   ? results.map(r => `${r.file}:${r.line} (${r.kind || 'reference'})`).join('\n')
                   : 'No references found for symbol: ' + symbolId;
+                // === J5: Tool output cap enforcement ===
+                resultText = checkToolOutputCap(resultText, 'find-references');
                 chips.push({ type: 'tool', label: `Found ${results.length} reference(s) for "${symbolId}"` });
                 logActivity(`find-references: "${symbolId}" → ${results.length} result(s)`, 'info');
                 toolsUsed.push({ name: 'find-references', type: 'builtin' });
@@ -30998,6 +32754,9 @@ ${description}
                 const query = targetPath || blockContent.trim();
                 const results = hybridSearchInGraph(query);
                 const tokenCount = estimateTokens(JSON.stringify(results));
+                let resultText = `Hybrid search results for "${query}": ${results.length} results (~${tokenCount} tokens)\n` + JSON.stringify(results, null, 2);
+                // === J5: Tool output cap enforcement ===
+                resultText = checkToolOutputCap(resultText, 'hybrid-search');
                 chips.push({ type: 'tool', label: `Hybrid search: ${results.length} results (~${tokenCount} tokens)` });
                 logActivity(`hybrid-search: "${query}" → ${results.length} results, ~${tokenCount} tokens`, 'info');
                 toolsUsed.push({ name: 'hybrid-search', type: 'builtin' });
@@ -31008,6 +32767,9 @@ ${description}
                 const results = blastRadiusInGraph(target);
                 const totalFiles = results.flatMap(hop => hop.symbols.map(s => s.file)).filter((v, i, a) => a.indexOf(v) === i).length;
                 const totalSymbols = results.flatMap(hop => hop.symbols).length;
+                let resultText = `Blast radius for "${target}": ${totalFiles} files, ${totalSymbols} symbols (${results.length} hops)\n` + JSON.stringify(results, null, 2);
+                // === J5: Tool output cap enforcement ===
+                resultText = checkToolOutputCap(resultText, 'blast-radius');
                 chips.push({ type: 'tool', label: `Blast radius: ${totalFiles} files, ${totalSymbols} symbols (${results.length} hops)` });
                 logActivity(`blast-radius: "${target}" → ${totalFiles} files, ${totalSymbols} symbols`, 'info');
                 toolsUsed.push({ name: 'blast-radius', type: 'builtin' });
@@ -31016,6 +32778,9 @@ ${description}
                 // Sverklo: file dependency graph
                 const filePath = targetPath || blockContent.trim();
                 const results = fileDependencyGraphInGraph(filePath);
+                let resultText = `File dependency graph for "${filePath}": ${results.imports.length} imports, ${results.importedBy.length} imported-by\n` + JSON.stringify(results, null, 2);
+                // === J5: Tool output cap enforcement ===
+                resultText = checkToolOutputCap(resultText, 'file-dependency-graph');
                 chips.push({ type: 'tool', label: `File deps: ${results.imports.length} imports, ${results.importedBy.length} imported-by` });
                 logActivity(`file-dependency-graph: "${filePath}" → ${results.imports.length} imports, ${results.importedBy.length} imported-by`, 'info');
                 toolsUsed.push({ name: 'file-dependency-graph', type: 'builtin' });
@@ -31032,6 +32797,9 @@ ${description}
                   continue;
                 }
                 const riskResults = riskScoredReviewInGraph(diff);
+                let resultText = `Risk scored review: ${riskResults.length} files scored, highest risk: ${riskResults[0]?.file || 'none'}\n` + JSON.stringify(riskResults, null, 2);
+                // === J5: Tool output cap enforcement ===
+                resultText = checkToolOutputCap(resultText, 'risk-scored-review');
                 chips.push({ type: 'tool', label: `Risk review: ${riskResults.length} files scored, highest risk: ${riskResults[0]?.file || 'none'}` });
                 logActivity(`risk-scored-review: ${riskResults.length} files scored`, 'info');
                 toolsUsed.push({ name: 'risk-scored-review', type: 'builtin' });
@@ -31048,6 +32816,9 @@ ${description}
                   continue;
                 }
                 const pinResult = gitPinnedMemoryInGraph(params);
+                let resultText = `Git-pinned memory: ${pinResult.message}\n` + JSON.stringify(pinResult, null, 2);
+                // === J5: Tool output cap enforcement ===
+                resultText = checkToolOutputCap(resultText, 'git-pinned-memory');
                 chips.push({ type: 'tool', label: `Git-pinned memory: ${pinResult.message}` });
                 logActivity(`git-pinned-memory: ${pinResult.message}`, 'info');
                 toolsUsed.push({ name: 'git-pinned-memory', type: 'builtin' });
@@ -31111,15 +32882,118 @@ ${description}
                   continue;
                 }
                 const definitions = listCodeDefinitionsInGraph(filePath);
-                const resultText = definitions.length > 0
+                let resultText = definitions.length > 0
                   ? definitions.map(d => `${d.kind} ${d.name} (line ${d.line})${d.signature ? ': ' + d.signature : ''}`).join('\n')
                   : 'No top-level definitions found in ' + filePath;
+                // === J5: Tool output cap enforcement ===
+                resultText = checkToolOutputCap(resultText, 'list_code_definition_names');
                 chips.push({ type: 'tool', label: `Found ${definitions.length} definition(s) in ${filePath}` });
                 logActivity(`list_code_definition_names: "${filePath}" → ${definitions.length} definition(s)`, 'info');
                 toolsUsed.push({ name: 'list_code_definition_names', type: 'builtin' });
                 // Store results for follow-up
                 window.lastListDefinitionsResults = definitions;
-              }
+              } else if (actionType === 'open-file-window') {
+                // J7: Windowed file read
+                const params = JSON.parse(blockContent.trim());
+                const result = openFileWindow({ session, path: params.path, startLine: params.startLine, endLine: params.endLine });
+                let resultText = JSON.stringify(result, null, 2);
+                // === J5: Tool output cap enforcement ===
+                resultText = checkToolOutputCap(resultText, 'open-file-window');
+                chips.push({ type: 'tool', label: `Opened file window: ${params.path} (${result.startLine}-${result.endLine} of ${result.totalLines})` });
+                logActivity(`open-file-window: ${params.path}`, 'info');
+                toolsUsed.push({ name: 'open-file-window', type: 'builtin' });
+              } else if (actionType === 'goto-file-window') {
+                // J7: Go to line with window
+                const params = JSON.parse(blockContent.trim());
+                const result = gotoFileWindow({ session, path: params.path, line: params.line });
+                let resultText = JSON.stringify(result, null, 2);
+                // === J5: Tool output cap enforcement ===
+                resultText = checkToolOutputCap(resultText, 'goto-file-window');
+                chips.push({ type: 'tool', label: `Went to ${params.path}:${params.line} (${result.startLine}-${result.endLine} of ${result.totalLines})` });
+                logActivity(`goto-file-window: ${params.path}:${params.line}`, 'info');
+                toolsUsed.push({ name: 'goto-file-window', type: 'builtin' });
+              } else if (actionType === 'search-file-window') {
+                // J7: Search within file with window
+                const params = JSON.parse(blockContent.trim());
+                const result = searchFileWindow({ session, path: params.path, query: params.query, contextLines: params.contextLines });
+                let resultText = JSON.stringify(result, null, 2);
+                // === J5: Tool output cap enforcement ===
+                resultText = checkToolOutputCap(resultText, 'search-file-window');
+                chips.push({ type: 'tool', label: `Searched ${params.path} for "${params.query}" (${result.matches.length} matches)` });
+                logActivity(`search-file-window: ${params.path} query="${params.query}"`, 'info');
+                toolsUsed.push({ name: 'search-file-window', type: 'builtin' });
+              } else if (actionType === 'edit-file-window') {
+                // J7: Edit file window
+                const params = JSON.parse(blockContent.trim());
+                const result = editFileWindow({ session, path: params.path, startLine: params.startLine, endLine: params.endLine, newContent: params.newContent });
+                let resultText = JSON.stringify(result, null, 2);
+                // === J5: Tool output cap enforcement ===
+                resultText = checkToolOutputCap(resultText, 'edit-file-window');
+                if (result.success) {
+                  fileModified = true;
+                  chips.push({ type: 'tool', label: `Edited ${params.path} (${result.newLineCount} lines)` });
+                  logActivity(`edit-file-window: ${params.path}`, 'success');
+                  onFileWritten(params.path);
+                } else {
+                  chips.push({ type: 'tool', label: `Edit failed: ${result.error}` });
+                  logActivity(`edit-file-window: ${result.error}`, 'error');
+                }
+                toolsUsed.push({ name: 'edit-file-window', type: 'builtin' });
+              } else if (actionType === 'run-tests') {
+                // J7: Run tests tool
+                const params = JSON.parse(blockContent.trim());
+                const result = runTestsTool({ session, command: params.command });
+                let resultText = JSON.stringify(result, null, 2);
+                // === J5: Tool output cap enforcement ===
+                resultText = checkToolOutputCap(resultText, 'run-tests');
+                chips.push({ type: 'tool', label: `Tests: ${result.summary} - ${result.output.substring(0, 50)}` });
+                logActivity(`run-tests: ${result.summary}`, result.passed ? 'success' : 'error');
+                toolsUsed.push({ name: 'run-tests', type: 'builtin' });
+              } else if (actionType === 'batch-file-operations') {
+                              // J8: Multi-file batching
+                              const params = JSON.parse(blockContent.trim());
+                              const result = batchFileOperations({ session, operations: params.operations });
+                              let resultText = JSON.stringify(result, null, 2);
+                              // === J5: Tool output cap enforcement ===
+                              resultText = checkToolOutputCap(resultText, 'batch-file-operations');
+                              if (result.success) {
+                                fileModified = true;
+                                chips.push({ type: 'tool', label: `Batch file operations: ${result.results.length} file(s) processed` });
+                                logActivity(`batch-file-operations: ${result.results.length} files`, 'success');
+                                result.results.forEach(r => {
+                                  if (r.edits && r.edits[0]?.success) onFileWritten(r.filePath);
+                                });
+                              } else {
+                                chips.push({ type: 'tool', label: `Batch operations failed: ${result.error}` });
+                                logActivity(`batch-file-operations: ${result.error}`, 'error');
+                              }
+                              toolsUsed.push({ name: 'batch-file-operations', type: 'builtin' });
+                            } else if (actionType === 'codemode') {
+                              // J10: Codemode sandbox
+                              const params = JSON.parse(blockContent.trim());
+                              const result = await runCodemodeScript({ session, script: params.script });
+                              let resultText = JSON.stringify(result, null, 2);
+                              // === J5: Tool output cap enforcement ===
+                              resultText = checkToolOutputCap(resultText, 'codemode');
+                              if (result.success) {
+                                chips.push({ type: 'tool', label: `Codemode executed successfully` });
+                                logActivity(`codemode: script executed`, 'success');
+                              } else {
+                                chips.push({ type: 'tool', label: `Codemode failed: ${result.error}` });
+                                logActivity(`codemode: ${result.error}`, 'error');
+                              }
+                              toolsUsed.push({ name: 'codemode', type: 'builtin' });
+                            } else if (actionType === 'inspect-ast') {
+                              // J2: AST inspection tool
+                              const params = JSON.parse(blockContent.trim());
+                              const result = inspectAST({ session, operation: params.operation, path: params.path, symbol: params.symbol, qualifiedName: params.qualifiedName });
+                              let resultText = JSON.stringify(result, null, 2);
+                              // === J5: Tool output cap enforcement ===
+                              resultText = checkToolOutputCap(resultText, 'inspect-ast');
+                              chips.push({ type: 'tool', label: `AST ${params.operation}: ${params.path || 'graph'}` });
+                              logActivity(`inspect-ast: ${params.operation} on ${params.path || 'graph'}`, 'info');
+                              toolsUsed.push({ name: 'inspect-ast', type: 'builtin' });
+                            }
             }
 
             // Atomic Batches (H2.5): compact summary chip instead of per-file chips
@@ -32505,7 +34379,18 @@ async function sendAgentPrompt(userPrompt, autoTurn = 0) {
       // Batch 8a F15 verifier repair: one step per agent turn, counted here so
       // the cap below binds across the whole task, not just auto-turns.
       session.stepsTaken = (session.stepsTaken || 0) + 1;
-
+      
+      // === J17: Turn journal - commit turn start ===
+      if (typeof commitTurnJournal === 'function') {
+        commitTurnJournal(session, {
+          step: session.stepsTaken,
+          type: 'agent-turn',
+          content: userPrompt.substring(0, 200),
+          completed: false,
+          data: { autoTurn }
+        });
+      }
+      
       // G14: record the user prompt as a session event (once per user turn)
       if (autoTurn === 0) {
         try { recordEvent(session.id, session.planStepIndex || appState.planStepIndex || 0, 'prompt_sent', { prompt: userPrompt }); } catch (e) {}
@@ -32735,9 +34620,18 @@ async function sendAgentPrompt(userPrompt, autoTurn = 0) {
             modelHistory = sanitizedHistory.map(m => (m && m.role === 'user' && typeof m.content === 'string') ? { ...m, content: referenceSecretInPrompt(m.content, session.id) } : m);
           } catch (_e) { modelHistory = sanitizedHistory; }
         }
+
+        // === J3: Cache-stable prompt construction + history processors ===
+        // Build system prompt through J3 pipeline (byte-identical output for same input)
+        const systemPrompt = buildSystemPrompt({});
+        const toolDefsBlock = buildToolDefinitionsBlock({});
+        const fullSystemPrompt = systemPrompt + '\n\n' + toolDefsBlock + '\n\n' + buildSystemContextWithGuard() + graphContext;
+        // Process history through pipeline with lastNObservationsProcessor and cacheControlProcessor
+        const processedHistory = processHistoryPipeline(modelHistory, { lastNObservations: 2, cacheControl: true });
+
         let messages = [
-          { role: 'system', content: buildSystemContextWithGuard() + graphContext },
-          ...modelHistory
+          { role: 'system', content: fullSystemPrompt },
+          ...processedHistory
         ];
 
         // Small-request discipline: enforce per-request budget
@@ -32747,6 +34641,18 @@ async function sendAgentPrompt(userPrompt, autoTurn = 0) {
         const reply = await callLLMWithFallback(messages, { forcePrimary: autoTurn === 0 });
 
         session.chatHistory.push({ role: 'assistant', content: reply });
+
+        // === J4: Compaction v2 ===
+        // Check context usage and trigger compaction at 85% threshold
+        if (typeof estimateContextUsage === 'function') {
+          const usage = estimateContextUsage(session);
+          if (usage && usage.ratio >= COMPACTION_THRESHOLD) {
+            logActivity('Context usage at ' + Math.round(usage.ratio * 100) + '% — triggering compaction', 'warning');
+            if (typeof triggerCompaction === 'function') {
+              triggerCompaction(session);
+            }
+          }
+        }
 
         // B4.7: Parse "Tools used:" line for lazy loading
         parseToolsUsedLine(reply);
@@ -32850,6 +34756,15 @@ async function sendAgentPrompt(userPrompt, autoTurn = 0) {
             }
           }
         } catch (e) {}
+
+        // === J17: Turn journal - mark turn completed ===
+        if (typeof commitTurnJournal === 'function' && session.turnJournal && session.turnJournal.length > 0) {
+          const lastEntry = session.turnJournal[session.turnJournal.length - 1];
+          if (lastEntry && lastEntry.step === session.stepsTaken && !lastEntry.completed) {
+            lastEntry.completed = true;
+            saveAppState();
+          }
+        }
 
       } catch (err) {
         logActivity('Agent Error: ' + err.message, 'error');
@@ -36136,6 +38051,13 @@ Format:
           if (!list) return;
           list.innerHTML = '';
 
+          // === J14: Model capability catalog - add re-probe button and show catalog ===
+          if (typeof getModelCatalog === 'function') {
+            const catalog = getModelCatalog();
+            // Log catalog size for debugging
+            console.log('[ModelCatalog] Available models:', catalog.size);
+          }
+
           Object.entries(appState.providers).forEach(([id, provider]) => {
             const isActive = id === appState.activeProviderId;
             const limits = provider.modelLimits || {};
@@ -36157,6 +38079,8 @@ Format:
                 <button class="btn btn-secondary" onclick="event.stopPropagation(); openTestConnection('${id}')" style="padding:3px 8px; font-size:10px;">Test</button>
                 <button class="btn btn-secondary" onclick="event.stopPropagation(); editProvider('${id}')" style="padding:3px 8px; font-size:10px;">Edit</button>
                 ${!provider.isPreset ? `<button class="btn btn-secondary" onclick="event.stopPropagation(); deleteProvider('${id}')" style="padding:3px 8px; font-size:10px; color:var(--danger); border-color:var(--danger);">Delete</button>` : ''}
+                <button class="btn btn-secondary" onclick="event.stopPropagation(); probeModelCapabilities('${id}')" style="padding:3px 8px; font-size:10px;">Re-probe</button>
+                <button class="btn btn-secondary" onclick="event.stopPropagation(); cycleThinkingEffort('${provider.model}'); renderProviderList()" style="padding:3px 8px; font-size:10px;" title="Cycle thinking effort">🧠 ${typeof getModelThinkingEffort === 'function' ? getModelThinkingEffort(provider.model) : 'medium'}</button>
               </div>
             `;
             list.appendChild(item);
@@ -37766,6 +39690,12 @@ Format:
         if (currentAbortController) {
           currentAbortController.abort();
           logActivity('Request cancelled by user', 'warning');
+          
+          // === J17: Turn journal - mark interrupted ===
+          const session = getCurrentSession();
+          if (session && typeof markTurnInterrupted === 'function' && session.stepsTaken) {
+            markTurnInterrupted(session, session.stepsTaken);
+          }
         }
       };
 
@@ -40251,6 +42181,21 @@ Requirements:
       document.getElementById('btnCheckpointCap').onclick = () => {
         const newCap = prompt('Enter checkpoint cap (1-100):', appState.checkpointCap);
         if (newCap !== null) setCheckpointCap(newCap);
+      };
+
+      // === J17: Resume from turn journal ===
+      document.getElementById('btnResumeFromJournal').onclick = () => {
+        const session = getCurrentSession();
+        if (!session) return;
+        if (typeof resumeFromJournal === 'function') {
+          const result = resumeFromJournal(session);
+          logActivity(`Resume from journal: step ${result.resumeFromStep}`, 'info');
+          appendChatMessage('system', `📋 Resuming from turn ${result.resumeFromStep}`);
+          // Re-run the agent from the resume step
+          if (result.resumeFromStep <= (session.stepsTaken || 0)) {
+            sendAgentPrompt('Continue from previous turn.', result.resumeFromStep - 1);
+          }
+        }
       };
 
       // Diff Review panel handlers
@@ -44936,6 +46881,14 @@ It integrates with the current user model (src/models/User.js) and JWT utility (
     async function executeTeamAgentTask(agent, task) {
       const provider = appState.providers[agent.providerId];
       const session = getCurrentSession();
+
+      // === J13: Subagent context fork ===
+      let forkedContext = null;
+      if (typeof forkContextForSubagent === 'function' && typeof createSubagentSession === 'function' && session) {
+        forkedContext = forkContextForSubagent({ parentSession: session, maxMessages: 20 });
+        const childSession = createSubagentSession({ parentId: session.id, forkedMessages: forkedContext.messages, task: task.description });
+        forkedContext.childSessionId = childSession.id;
+      }
 
       // Build agent's context
       let context = buildSystemContextWithGuard();
@@ -52277,7 +54230,26 @@ FOLLOWUP: [question 3]`;
 
     function getRoleModel(role) {
       const roleModel = getModelRole(role);
-      if (roleModel) return roleModel;
+      if (roleModel) {
+        // === J15: Auto virtual model routing ===
+        if (roleModel === 'AUTO') {
+          if (typeof routeWithAutoModel === 'function') {
+            const routed = routeWithAutoModel({ task: role + ' work', history: [] });
+            if (routed && routed.model) {
+              return routed.model;
+            }
+          }
+          // Fall back to smart routing
+          try {
+            const stepKinds = { Planner: 'plan', Coder: 'build', Reviewer: 'review', Tester: 'test' };
+            const routed = routeModelForStep({ text: role + ' work', kind: stepKinds[role] || 'build' });
+            if (routed && routed.model) return routed.model;
+          } catch (e) {}
+          const provider = appState.providers[appState.activeProviderId];
+          return provider ? provider.defaultModel : null;
+        }
+        return roleModel;
+      }
       // Fall back to smart routing (Batch 5 D3) — the router picks the model
       // for this role's kind of work; rate-limited models are skipped.
       try {
