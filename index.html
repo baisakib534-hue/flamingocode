@@ -22841,6 +22841,10 @@ function validateRecipe(recipe) {
       const sm = appState.safeMode;
       if (!sm) return { allowed: true, reason: 'Safe Mode not initialized', requiresUserInput: false };
 
+      // M1+M2 gates are Safe Mode gates: skipped when Safe Mode is off
+      // (pre-repair semantics — F1 regression: approvalMode 'off' must
+      // let writes through, as before Batch 13).
+      if (sm.approvalMode !== 'off') {
       // M1: Rung enforcement — check if action is allowed at current rung (D-B13-1)
       const actionClass = classifyAction(actionText, actionType);
       if (!canActionRunAtRung(actionClass, appState.approvalRung)) {
@@ -22902,6 +22906,7 @@ function validateRecipe(recipe) {
       }
       // policyDecision.decision === 'allowed'
       recordReceipt(actionText, actionClass, 'allowed', 0, appState.approvalRung);
+      } // end M1+M2 gates (skipped when Safe Mode is off)
 
       // Step 0: Per-tool permissions evaluator (Batch 7.4)
       // Extract toolName and argsSummary from actionText if not provided
@@ -23272,7 +23277,11 @@ function validateRecipe(recipe) {
     }
     
     function getRungStandard(rung) {
-      return appState.rungStandards[rung] || appState.rungStandards['read-only'];
+      // Defensive (F1 regression): rungStandards may be missing in legacy
+      // saved state or minimal test harnesses — never throw, fall back
+      // to the read-only standard.
+      const standards = appState.rungStandards || {};
+      return standards[rung] || standards['read-only'] || { allowReadOnly: true, allowAdditive: false, allowDestructive: false, allowCommit: false, allowPush: false };
     }
     
     function canActionRunAtRung(actionClass, rung) {
@@ -23360,7 +23369,7 @@ function validateRecipe(recipe) {
     }
 
     function evaluatePolicy(actionText, actionClass, context) {
-          const policy = appState.governancePolicy.parsed;
+          const policy = appState.governancePolicy ? appState.governancePolicy.parsed : null;
           if (!policy) {
             return { decision: 'blocked', reason: 'No governance policy loaded (fail-closed)' };
           }

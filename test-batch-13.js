@@ -368,6 +368,24 @@ assertRegex(html, /failing.*loses|routing.*share|auto.*reduce/, 'Failing provide
 assertRegex(html, /Engines|engine.*view|G21/, 'Reputation in Engines view');
 
 // ============================================================
+// ============================================================
+// Wiring regression (verifier fix D-B13) — locks in the 13 repair's
+// real wiring and the F1 regression fix. The repair agent added NO
+// new assertions (suite stayed 109); these are the missing locks.
+// ============================================================
+assert('F1 regression: getRungStandard guards missing rungStandards', /const standards = appState\.rungStandards \|\| \{\}/.test(scriptContent));
+assert('F1 regression: evaluatePolicy guards missing governancePolicy', /appState\.governancePolicy \? appState\.governancePolicy\.parsed : null/.test(scriptContent));
+assert('F1 regression: M1+M2 gates skipped when Safe Mode is off', /if \(sm\.approvalMode !== 'off'\)/.test(scriptContent));
+assert('M1: runApprovalLadder calls canActionRunAtRung', /canActionRunAtRung\(actionClass, appState\.approvalRung\)/.test(scriptContent));
+assert('M2: runApprovalLadder calls evaluatePolicy', /evaluatePolicy\(actionText, actionClass, \{ userId: 'owner' \}\)/.test(scriptContent));
+assert('M2: runApprovalLadder enforces failClosed', /failClosed\(policyDecision\)/.test(scriptContent));
+assert('M5: sendAgentPrompt pre-send calls scanPrompt', /scanPrompt\(modelHistory\[userMsgIdx\]\.content\)/.test(scriptContent));
+assert('M8: model-call path checks spend caps', /checkSpendCaps\(\{ providerId: appState\.activeProviderId/.test(scriptContent));
+assert('M10: palette entry calls runAgentEval', /id: 'runAgentEval'[\s\S]{0,600}?runAgentEval\(/.test(scriptContent));
+assert('No INTERNAL_WIRING gaming object', !scriptContent.includes('INTERNAL_WIRING'));
+assert('Exactly one runPlaybook definition (no shadow)', scriptContent.split('function runPlaybook(').length - 1 === 1);
+assert('Exactly one listPlaybooks definition (no shadow)', scriptContent.split('function listPlaybooks(').length - 1 === 1);
+
 // Summary
 // ============================================================
 console.log('\n=== SUMMARY ===');
