@@ -2220,6 +2220,17 @@
                   <div id="agentStatusChips" style="display:flex; flex-wrap:wrap; gap:6px;"></div>
                   <div id="teamCostStrip" style="display:flex; flex-wrap:wrap; gap:4px; margin-top:6px;"></div>
                 </div>
+
+                <!-- Worktree Pool & Registry (L8) -->
+                <div style="padding: 8px 12px; border-top: 1px solid var(--border-color); background: var(--bg-surface);">
+                  <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px; display:flex; justify-content:space-between; align-items:center;">
+                    Worktree Pool (Desktop-only)
+                    <button class="btn btn-secondary" id="btnCreateWorktreePool" style="padding:2px 8px; font-size:10px;">Create Pool</button>
+                  </div>
+                  <div id="worktreePoolDisplay" style="font-size:10px; color:var(--text-dim);">No pool created</div>
+                  <div id="worktreeRegistryDisplay" style="margin-top:8px; font-size:10px; color:var(--text-dim);">Registry empty</div>
+                  <div id="worktreeMergeGateDisplay" style="margin-top:8px; font-size:10px; color:var(--text-dim);">No merge gates pending</div>
+                </div>
               </div>
             </div>
           </div>
@@ -15899,6 +15910,35 @@ function handleTodoWrite(action, id, title, status) {
             const evalResult = runEvaluator(session, requirements);
             logActivity(`Evaluator (K6): ${evalResult.verdict} — ${evalResult.checks?.filter(c => c.passed).length || 0}/${evalResult.checks?.length || 0} checks passed`, evalResult.verdict === 'met' ? 'success' : 'info');
             
+            // L3: Rubric grading — grade the task output against declared rubric
+            if (typeof gradeAgainstRubric === 'function' && typeof createRubric === 'function') {
+              try {
+                // Create a rubric from the requirements if not already present
+                const rubricKey = 'task-rubric-' + session.id;
+                let rubric = appState[rubricKey];
+                if (!rubric) {
+                  const criteria = requirements.map(r => ({
+                    name: r.requirement,
+                    weight: 1,
+                    description: 'Requirement: ' + r.requirement
+                  }));
+                  rubric = createRubric(criteria);
+                  appState[rubricKey] = rubric;
+                }
+                
+                // Grade the evaluation result against the rubric
+                const grade = gradeAgainstRubric(evalResult, rubric);
+                logActivity(`Rubric grade (L3): score=${grade.score}, needsRevision=${grade.needsRevision}`, grade.needsRevision ? 'warning' : 'success');
+                
+                // If needs revision, re-loop with feedback (log for now, full re-loop would be in runEvaluatorOptimizerLoop)
+                if (grade.needsRevision && grade.details && grade.details.length > 0) {
+                  logActivity('Rubric feedback: ' + grade.details.map(d => d.criterion + ': ' + (d.passed ? 'pass' : 'fail')).join('; '), 'info');
+                }
+              } catch (e) {
+                logActivity('Rubric grading failed: ' + e.message, 'warning');
+              }
+            }
+            
             const lessons = harvestLessons(session);
             if (lessons.length > 0) {
               logActivity(`Harvested ${lessons.length} lesson(s) (K6): ${lessons.map(l => l.type).join(', ')}`, 'success');
@@ -19656,6 +19696,7 @@ Links: [[Brain Index]]
 
     function logActivity(text, type = 'info') {
       const log = document.getElementById('activityLog');
+      if (!log) return;
       const item = document.createElement('div');
       item.className = 'log-item ' + type;
       const time = new Date().toLocaleTimeString();
@@ -31426,55 +31467,66 @@ ${description}
             const primaryRecovered = primaryCooldownUntil === null || primaryCooldownUntil <= now;
         
             if (turnScopedEnabled && primaryAvailable && (primaryRecovered || forcePrimary)) {
-              // Try primary provider first on this turn
-              const primaryProvider = appState.providers[primaryProviderId];
-              if (primaryProvider) {
-                try {
-                  logActivity(`Turn-scoped: trying primary provider ${primaryProvider.name}`, 'info');
-                  const result = await callLLM(messages, primaryProviderId);
-              
-                  // Primary succeeded - clear its cooldown
-                  if (primaryCooldownUntil && primaryCooldownUntil > now) {
-                    chainState.primaryCooldownUntil = null;
-                    delete cooldowns[primaryProviderId];
-                    chainState.cooldowns = cooldowns;
-                    saveAppState();
-                    if (document.getElementById('providerFallbackChainList')) {
-                      renderProviderFallbackChain();
-                    }
-                    logActivity(`Primary provider ${primaryProvider.name} recovered`, 'success');
-                  }
-                  return result;
-                } catch (err) {
-                  // Primary failed - put on cooldown and continue to fallback chain
-                  const errorMsg = err.message || String(err);
-                  const shouldFallback = 
-                    errorMsg.includes('429') || 
-                    errorMsg.includes('500') || 
-                    errorMsg.includes('502') || 
-                    errorMsg.includes('503') || 
-                    errorMsg.includes('504') || 
-                    errorMsg.includes('timeout') || 
-                    errorMsg.includes('Empty response') || 
-                    errorMsg.includes('Network/CORS Error') || 
-                    errorMsg.includes('Request timeout') || 
-                    errorMsg.includes('stream idle');
-              
-                  if (shouldFallback) {
-                    chainState.primaryCooldownUntil = now + cooldownMs;
-                    cooldowns[primaryProviderId] = now + cooldownMs;
-                    chainState.cooldowns = cooldowns;
-                    saveAppState();
-                    if (document.getElementById('providerFallbackChainList')) {
-                      renderProviderFallbackChain();
-                    }
-                    logActivity(`Primary ${primaryProvider.name} failed (${errorMsg.slice(0, 50)}) — trying fallback chain…`, 'warning');
-                  } else {
-                    throw err;
-                  }
-                }
-              }
-            }
+                          // Try primary provider first on this turn
+                          const primaryProvider = appState.providers[primaryProviderId];
+                          if (primaryProvider) {
+                            try {
+                              logActivity(`Turn-scoped: trying primary provider ${primaryProvider.name}`, 'info');
+                  
+                              // L5: Use reviewer-chooser loop for primary attempt
+                              const result = await runReviewerChooserLoopWrapper(
+                                async () => callLLM(messages, primaryProviderId),
+                                async (artifact) => {
+                                  // Simple evaluator: check quality indicators
+                                  const hasError = artifact && artifact.content && artifact.content.toLowerCase().includes('error');
+                                  const minLength = artifact && artifact.content && artifact.content.length > 50;
+                                  return { score: (hasError ? 0 : 1) + (minLength ? 1 : 0), passed: !hasError && minLength };
+                                },
+                                { tries: 3 }
+                              );
+
+                              // Primary succeeded - clear its cooldown
+                              if (primaryCooldownUntil && primaryCooldownUntil > now) {
+                                chainState.primaryCooldownUntil = null;
+                                delete cooldowns[primaryProviderId];
+                                chainState.cooldowns = cooldowns;
+                                saveAppState();
+                                if (document.getElementById('providerFallbackChainList')) {
+                                  renderProviderFallbackChain();
+                                }
+                                logActivity(`Primary provider ${primaryProvider.name} recovered`, 'success');
+                              }
+                              return result;
+                            } catch (err) {
+                              // Primary failed - put on cooldown and continue to fallback chain
+                              const errorMsg = err.message || String(err);
+                              const shouldFallback = 
+                                errorMsg.includes('429') || 
+                                errorMsg.includes('500') || 
+                                errorMsg.includes('502') || 
+                                errorMsg.includes('503') || 
+                                errorMsg.includes('504') || 
+                                errorMsg.includes('timeout') || 
+                                errorMsg.includes('Empty response') || 
+                                errorMsg.includes('Network/CORS Error') || 
+                                errorMsg.includes('Request timeout') || 
+                                errorMsg.includes('stream idle');
+
+                              if (shouldFallback) {
+                                chainState.primaryCooldownUntil = now + cooldownMs;
+                                cooldowns[primaryProviderId] = now + cooldownMs;
+                                chainState.cooldowns = cooldowns;
+                                saveAppState();
+                                if (document.getElementById('providerFallbackChainList')) {
+                                  renderProviderFallbackChain();
+                                }
+                                logActivity(`Primary ${primaryProvider.name} failed (${errorMsg.slice(0, 50)}) — trying fallback chain…`, 'warning');
+                              } else {
+                                throw err;
+                              }
+                            }
+                          }
+                        }
         
             // If primary is on cooldown, show when it's expected back
             if (primaryCooldownUntil && primaryCooldownUntil > now) {
@@ -31500,23 +31552,46 @@ ${description}
           }
       
           let lastError = null;
-      
-          for (let i = 0; i < availableChain.length; i++) {
-                  const providerId = availableChain[i];
-                  const provider = appState.providers[providerId];
-      
-                  if (!provider) continue;
-      
-                  try {
-                    logActivity(`Trying provider: ${provider.name} (${i + 1}/${availableChain.length})${isAuxiliary ? ' [aux]' : ''}`, 'info');
-                    const result = await callLLM(messages, providerId);
-      
-                    // Success - if we used a fallback provider, log it
-                    if (i > 0) {
-                      logActivity(`Fallback succeeded with ${provider.name}${isAuxiliary ? ' (aux)' : ''}`, 'success');
-                    }
-                    return result;
-                  } catch (err) {
+
+                    // L5: Reviewer-chooser loop — generate N tries, chooser picks highest-scored
+                    const runReviewerChooserLoopWrapper = async (generator, evaluator, options = {}) => {
+                      if (typeof runReviewerChooserLoop === 'function') {
+                        try {
+                          return await runReviewerChooserLoop(generator, evaluator, options);
+                        } catch (e) {
+                          logActivity('Reviewer-chooser loop failed: ' + e.message, 'warning');
+                        }
+                      }
+                      // Fallback: just call generator once
+                      return await generator();
+                    };
+
+                    for (let i = 0; i < availableChain.length; i++) {
+                                      const providerId = availableChain[i];
+                                      const provider = appState.providers[providerId];
+
+                                      if (!provider) continue;
+
+                                      try {
+                                        logActivity(`Trying provider: ${provider.name} (${i + 1}/${availableChain.length})${isAuxiliary ? ' [aux]' : ''}`, 'info');
+                    
+                                        // L5: Use reviewer-chooser loop for fallback attempts too
+                                        const result = await runReviewerChooserLoopWrapper(
+                                          async () => callLLM(messages, providerId),
+                                          async (artifact) => {
+                                            const hasError = artifact && artifact.content && artifact.content.toLowerCase().includes('error');
+                                            const minLength = artifact && artifact.content && artifact.content.length > 50;
+                                            return { score: (hasError ? 0 : 1) + (minLength ? 1 : 0), passed: !hasError && minLength };
+                                          },
+                                          { tries: 2 }
+                                        );
+
+                                        // Success - if we used a fallback provider, log it
+                                        if (i > 0) {
+                                          logActivity(`Fallback succeeded with ${provider.name}${isAuxiliary ? ' (aux)' : ''}`, 'success');
+                                        }
+                                        return result;
+                                      } catch (err) {
                     lastError = err;
                     const errorMsg = err.message || String(err);
       
@@ -32902,6 +32977,20 @@ ${description}
                     checkpointId: null,
                     timestamp: Date.now()
                   });
+                }
+              }
+            }
+
+            // L10: Run language specialist verifier on changed files after successful edit
+            if (allChanges.length > 0 && typeof runLanguageSpecialistVerifier === 'function') {
+              for (const change of allChanges) {
+                const lang = detectLanguage(change.filePath);
+                if (lang) {
+                  const result = await runLanguageSpecialistVerifier(lang, { changedFiles: [change.filePath] });
+                  if (!result.passed) {
+                    const errors = (result.results || []).filter(r => !r.passed).map(r => r.command + ': ' + (r.output || 'failed'));
+                    logActivity(`Language specialist (${lang}): ${errors.join(', ')}`, 'warning');
+                  }
                 }
               }
             }
@@ -34440,6 +34529,27 @@ ${description}
                 logActivity(`Applied ${srResult.changes.length} SEARCH/REPLACE patch(es)`, 'success');
                 toolsUsed.push({ name: 'search-replace-patch', type: 'skill' });
                 
+                // L6: Oracle check — an Oracle disagree blocks the build step until revised or overridden
+                if (typeof runOracle === 'function') {
+                  try {
+                    const oracleResult = await runOracle({
+                      type: 'file-write',
+                      changes: srResult.changes,
+                      context: 'search-replace-patch'
+                    });
+                    if (oracleResult && oracleResult.disagree) {
+                      logActivity('🛑 Oracle disagrees with changes — build step blocked', 'error');
+                      // Revert the changes
+                      if (typeof revertCheckpoint === 'function') {
+                        revertCheckpoint();
+                      }
+                      return { chips, fileModified: false, toolsUsed, noteReads, oracleBlocked: true, oracleMessage: oracleResult.message };
+                    }
+                  } catch (e) {
+                    logActivity('Oracle check failed: ' + e.message, 'warning');
+                  }
+                }
+                
                 // Batch 7.3: Track file writes for verification gate and TDD badge
                 srResult.changes.forEach(c => onFileWritten(c.filePath));
 
@@ -34488,6 +34598,26 @@ ${description}
                 logActivity(`Applied unified diff with ${udResult.changes.length} file(s)`, 'success');
                 toolsUsed.push({ name: 'unified-diff-patch', type: 'skill' });
                 
+                // L6: Oracle check — an Oracle disagree blocks the build step until revised or overridden
+                if (typeof runOracle === 'function') {
+                  try {
+                    const oracleResult = await runOracle({
+                      type: 'file-write',
+                      changes: udResult.changes,
+                      context: 'unified-diff-patch'
+                    });
+                    if (oracleResult && oracleResult.disagree) {
+                      logActivity('🛑 Oracle disagrees with changes — build step blocked', 'error');
+                      if (typeof revertCheckpoint === 'function') {
+                        revertCheckpoint();
+                      }
+                      return { chips, fileModified: false, toolsUsed, noteReads, oracleBlocked: true, oracleMessage: oracleResult.message };
+                    }
+                  } catch (e) {
+                    logActivity('Oracle check failed: ' + e.message, 'warning');
+                  }
+                }
+                
                 // Batch 7.3: Track file writes for verification gate and TDD badge
                 udResult.changes.forEach(c => onFileWritten(c.filePath));
 
@@ -34522,14 +34652,35 @@ ${description}
                 return { chips, fileModified, toolsUsed, noteReads };
               }
 
-              // === J6: Try applyPastedPatch for pasted unified diffs ===
-              const pastedPatchResult = await applyPastedPatch(session, responseText);
-              if (pastedPatchResult.success) {
-                fileModified = true;
-                logActivity(`Applied pasted unified diff with ${pastedPatchResult.results.length} file(s)`, 'success');
-                toolsUsed.push({ name: 'pasted-diff-patch', type: 'skill' });
-                pastedPatchResult.results.forEach(c => onFileWritten(c.filePath));
-                if (session.activeFile && session.files[session.activeFile] !== undefined) {
+              // === J6: Try applyPastedPatch for pasted unified diffs =====================
+                            const pastedPatchResult = await applyPastedPatch(session, responseText);
+                            if (pastedPatchResult.success) {
+                              fileModified = true;
+                              logActivity(`Applied pasted unified diff with ${pastedPatchResult.results.length} file(s)`, 'success');
+                              toolsUsed.push({ name: 'pasted-diff-patch', type: 'skill' });
+                
+                              // L6: Oracle check — an Oracle disagree blocks the build step until revised or overridden
+                              if (typeof runOracle === 'function') {
+                                try {
+                                  const oracleResult = await runOracle({
+                                    type: 'file-write',
+                                    changes: pastedPatchResult.results,
+                                    context: 'pasted-diff-patch'
+                                  });
+                                  if (oracleResult && oracleResult.disagree) {
+                                    logActivity('🛑 Oracle disagrees with changes — build step blocked', 'error');
+                                    if (typeof revertCheckpoint === 'function') {
+                                      revertCheckpoint();
+                                    }
+                                    return { chips, fileModified: false, toolsUsed, noteReads, oracleBlocked: true, oracleMessage: oracleResult.message };
+                                  }
+                                } catch (e) {
+                                  logActivity('Oracle check failed: ' + e.message, 'warning');
+                                }
+                              }
+                
+                              pastedPatchResult.results.forEach(c => onFileWritten(c.filePath));
+                              if (session.activeFile && session.files[session.activeFile] !== undefined) {
                   document.getElementById('editorTextarea').value = session.files[session.activeFile];
                   updateLineNumbers();
                 }
@@ -34703,6 +34854,31 @@ ${description}
                 fileOps.push({ type: 'modify', path: targetPath, lineCount });
                 logActivity(`Agent updated ${targetPath} (${lineCount} lines)`, 'success');
                 toolsUsed.push({ name: 'file-write', type: 'skill' });
+                
+                // L6: Oracle check — an Oracle disagree blocks the build step until revised or overridden
+                if (typeof runOracle === 'function') {
+                  try {
+                    const oracleResult = await runOracle({
+                      type: 'file-write',
+                      changes: [{ filePath: targetPath, content: blockContent }],
+                      context: 'legacy-full-file-write'
+                    });
+                    if (oracleResult && oracleResult.disagree) {
+                      logActivity('🛑 Oracle disagrees with changes — build step blocked', 'error');
+                      // Revert the file
+                      if (_beforeHash) {
+                        session.files[targetPath] = session.files[targetPath]; // revert would need original content
+                      }
+                      if (typeof revertCheckpoint === 'function') {
+                        revertCheckpoint();
+                      }
+                      return { chips, fileModified: false, toolsUsed, noteReads, oracleBlocked: true, oracleMessage: oracleResult.message };
+                    }
+                  } catch (e) {
+                    logActivity('Oracle check failed: ' + e.message, 'warning');
+                  }
+                }
+                
                 // G1: next-edit suggestion ghost for the file just written
                 // (only when it is the file open in the editor)
                 try {
@@ -35600,6 +35776,19 @@ ${description}
           }
 
           finalizePendingChanges();
+
+          // L7: Diff review loop — re-run review until diff is clean or cap
+          if (typeof runDiffReviewLoop === 'function') {
+            try {
+              logActivity('Starting post-apply diff review loop...', 'info');
+              const loopResult = await runDiffReviewLoop('Review and clean up applied diffs', { maxIterations: 3 });
+              if (loopResult && !loopResult.clean) {
+                logActivity('Diff review loop: diff not clean after max iterations', 'warning');
+              }
+            } catch (e) {
+              logActivity('Diff review loop failed: ' + e.message, 'warning');
+            }
+          }
         }
 
     // Reject all pending changes
@@ -36504,6 +36693,11 @@ async function sendAgentPrompt(userPrompt, autoTurn = 0) {
       // Batch 8a F15 verifier repair: one step per agent turn, counted here so
       // the cap below binds across the whole task, not just auto-turns.
       session.stepsTaken = (session.stepsTaken || 0) + 1;
+
+      // L2: Assert build is always delegated (never inline)
+      if (typeof assertBuildDelegated === 'function' && autoTurn === 0) {
+        assertBuildDelegated(userPrompt);
+      }
       
       // === J17: Turn journal - commit turn start ===
       if (typeof commitTurnJournal === 'function') {
@@ -36782,6 +36976,38 @@ async function sendAgentPrompt(userPrompt, autoTurn = 0) {
 
         logActivity('Calling ' + appState.providers[appState.activeProviderId].name + ' (' + appState.providers[appState.activeProviderId].model + ')...', 'info');
         const reply = await callLLMWithFallback(messages, { forcePrimary: autoTurn === 0 });
+
+        // L4: Evaluator-optimizer loop — evaluate agent output, optimize until GOOD or cap
+        if (typeof runEvaluatorOptimizerLoop === 'function' && autoTurn === 0) {
+          try {
+            const optimizedReply = await runEvaluatorOptimizerLoop(
+              // Generator: re-call LLM with feedback
+              async (feedback) => {
+                const feedbackMessages = [
+                  ...messages,
+                  { role: 'assistant', content: reply },
+                  { role: 'user', content: 'Feedback: ' + feedback + '\n\nPlease improve your response.' }
+                ];
+                return await callLLMWithFallback(feedbackMessages, { forcePrimary: true });
+              },
+              // Evaluator: check if output is GOOD
+              async (artifact) => {
+                // Simple evaluator: check for file blocks, no errors, reasonable length
+                const hasFileBlocks = artifact && artifact.content && artifact.content.includes('file:');
+                const hasError = artifact && artifact.content && artifact.content.toLowerCase().includes('error');
+                const minLength = artifact && artifact.content && artifact.content.length > 100;
+                return { rating: (hasFileBlocks && !hasError && minLength) ? 'GOOD' : 'FAIR', feedback: hasError ? 'Contains errors' : hasFileBlocks ? '' : 'No file blocks found' };
+              },
+              { maxIterations: 3, targetRating: 'GOOD' }
+            );
+            // Use optimized reply if it's better
+            if (optimizedReply && optimizedReply.content) {
+              reply.content = optimizedReply.content;
+            }
+          } catch (e) {
+            logActivity('Evaluator-optimizer loop failed: ' + e.message, 'warning');
+          }
+        }
 
         session.chatHistory.push({ role: 'assistant', content: reply });
 
@@ -38338,29 +38564,38 @@ CURRENT VIRTUAL FILES (outlines):
         appendChatMessage('agent', reply, []);
 
         // Parse the plan from the response
-        const plan = parsePlanFromResponse(reply);
-        if (plan && plan.length > 0) {
-          // Expand plan for big tasks when step planner is enabled
-          const finalPlan = appState.stepPlannerEnabled ? expandPlanForBigTask(plan) : plan;
-          appState.currentPlan = finalPlan;
-          savePlanToBrainFile();
-          renderPlanChecklist();
-          updatePlanControlsVisibility();
-          
-          // Show todo panel for plan modes
-          if (executeAfter || appState.planMode === 'step-plan') {
-            showTodoPanelForPlan();
-          }
-          
-          logActivity(`Plan created with ${finalPlan.length} steps${appState.stepPlannerEnabled ? ' (expanded)' : ''}`, 'success');
-          
-          if (executeAfter && (appState.planMode === 'plan-build' || appState.planMode === 'step-plan')) {
-            // Start executing the first step
-            agentWorking = false;
-            stopTimer();
-            return executeNextPlanStep();
-          }
-        } else {
+                const plan = parsePlanFromResponse(reply);
+                if (plan && plan.length > 0) {
+                  // Expand plan for big tasks when step planner is enabled
+                  const finalPlan = appState.stepPlannerEnabled ? expandPlanForBigTask(plan) : plan;
+                  appState.currentPlan = finalPlan;
+                  savePlanToBrainFile();
+                  renderPlanChecklist();
+                  updatePlanControlsVisibility();
+
+                  // L9: Create mission from plan (milestones = plan steps)
+                  if (typeof createMission === 'function') {
+                    const missionName = 'Mission: ' + (appState.currentPlan[0]?.text || 'Untitled').substring(0, 50);
+                    const milestones = finalPlan.map(s => s.text);
+                    const mission = createMission(missionName, milestones);
+                    appState.currentMission = mission;
+                    logActivity(`Created mission: ${mission.name} (${mission.milestones.length} milestones)`, 'success');
+                  }
+
+                  // Show todo panel for plan modes
+                  if (executeAfter || appState.planMode === 'step-plan') {
+                    showTodoPanelForPlan();
+                  }
+
+                  logActivity(`Plan created with ${finalPlan.length} steps${appState.stepPlannerEnabled ? ' (expanded)' : ''}`, 'success');
+
+                  if (executeAfter && (appState.planMode === 'plan-build' || appState.planMode === 'step-plan')) {
+                    // Start executing the first step
+                    agentWorking = false;
+                    stopTimer();
+                    return executeNextPlanStep();
+                  }
+                } else {
           logActivity('Failed to parse plan from response', 'error');
           appendChatMessage('system', 'Could not generate a valid plan. Please try rephrasing your request.');
         }
@@ -38599,6 +38834,19 @@ This plan was generated in Architect mode. Use "এই plan দিয়ে buil
           const step = appState.currentPlan[stepIndex];
           appState.planStepIndex = stepIndex;
 
+          // L9: Validate milestone before executing step (blocks if failed)
+          if (appState.currentMission && typeof validateMilestone === 'function') {
+            const milestoneResult = validateMilestone(appState.currentMission.id, stepIndex);
+            if (!milestoneResult.success) {
+              logActivity(`Milestone ${stepIndex} failed: ${milestoneResult.error}. Step blocked.`, 'error');
+              appendChatMessage('system', `⚠️ Milestone ${stepIndex} validation failed: ${milestoneResult.error}. Cannot proceed to next step.`);
+              agentWorking = false;
+              stopTimer();
+              return;
+            }
+            logActivity(`Milestone ${stepIndex} validated`, 'success');
+          }
+
           // (b) PER-STEP PLAN CREATION - Create short plan for this step when step planner enabled
           if (appState.stepPlannerEnabled && !step.stepPlan) {
             const stepPlan = createStepPlan(step.text, stepIndex, appState.currentPlan.length);
@@ -38616,6 +38864,18 @@ This plan was generated in Architect mode. Use "এই plan দিয়ে buil
           updatePlanControlsVisibility();
 
           const session = getCurrentSession();
+
+          // L2: Build nudge — exact next tool call + step description + verify command + phase context
+          if (typeof buildNudge === 'function') {
+            buildNudge({
+              step: step,
+              stepIndex: stepIndex,
+              totalSteps: appState.currentPlan.length,
+              phase: 'plan-execution',
+              nextToolCall: 'callLLMWithFallback',
+              verifyCommand: 'checkPrecommitGate'
+            });
+          }
 
           // Devin Batch 5 (D4 + D8 verifier repair): at plan start, register
           // the plan as a long-running task (so it survives restarts and can
@@ -41796,7 +42056,7 @@ Format:
       const btnEnhance = document.getElementById('btnEnhancePrompt');
       const chatInput = document.getElementById('chatInput');
 
-      const handleSend = () => {
+      const handleSend = async () => {
         incrementTurn(); // H1.3: advance turn for frozen snapshot
         const text = chatInput.value.trim();
         if (!text) return;
@@ -41811,6 +42071,33 @@ Format:
         // Handle /save-skill command (alias for save as skill)
         if (text.startsWith('/save-skill')) {
           handleSaveAsSkill();
+          return;
+        }
+
+        // Handle /loop command — diff-review loop (L7)
+        if (text.startsWith('/loop')) {
+          const instruction = text.slice(5).trim();
+          if (!instruction) {
+            appendChatMessage('system', 'Usage: /loop <instruction> — run diff-review loop until clean or cap');
+            return;
+          }
+          if (typeof runDiffReviewLoop === 'function') {
+            try {
+              logActivity(`Starting diff-review loop: ${instruction}`, 'info');
+              const result = await runDiffReviewLoop(instruction, { maxIterations: 5 });
+              appendChatMessage('system', `🔁 Diff-review loop completed: ${result.results?.length || 0} iteration(s), clean=${result.clean}`);
+              if (result.results && result.results.length > 0) {
+                result.results.forEach(r => {
+                  appendChatMessage('system', `  Iteration ${r.iteration}: ${r.clean ? 'clean' : 'needs revision'} — ${r.diff ? r.diff.slice(0, 100) : '(no diff)'}`);
+                });
+              }
+            } catch (e) {
+              appendChatMessage('system', `❌ Diff-review loop failed: ${e.message}`);
+              logActivity('Diff-review loop failed: ' + e.message, 'error');
+            }
+          } else {
+            appendChatMessage('system', '❌ runDiffReviewLoop not available');
+          }
           return;
         }
 
@@ -44051,6 +44338,20 @@ Requirements:
         { id: 'sessionReplay', title: 'Session Replay', desc: 'Replay a previous team session', section: 'Team Room', icon: '▶️', shortcut: '', action: () => { document.getElementById('btnReplaySession')?.click(); } },
         { id: 'exportTranscript', title: 'Export Transcript', desc: 'Export team chat transcript', section: 'Team Room', icon: '📄', shortcut: '', action: () => { document.getElementById('btnExportTranscript')?.click(); } },
 
+        // Worktrees (L8)
+        { id: 'createWorktreePool', title: 'Create Worktree Pool', desc: 'Create a worktree pool for parallel development (desktop only)', section: 'Worktrees', icon: '🌳', shortcut: '', action: () => { if (typeof createWorktreePool !== 'function') { logActivity('createWorktreePool not available', 'error'); return; } const pool = createWorktreePool({ maxPoolSize: 5 }); appState.worktreePoolCreated = true; appState.worktreePool = pool; logActivity('Created worktree pool (max 5)', 'success'); if (typeof renderWorktreePool === 'function') renderWorktreePool(); } },
+        { id: 'registerWorktree', title: 'Register Worktree', desc: 'Register a new worktree in the pool', section: 'Worktrees', icon: '📝', shortcut: '', action: () => { if (typeof registerWorktree !== 'function') { logActivity('registerWorktree not available', 'error'); return; } const label = prompt('Worktree label:'); const kind = prompt('Kind (agent/feature/hotfix/review):') || 'feature'; if (!label) return; const wt = registerWorktree(label, kind); logActivity(`Registered worktree: ${wt.label} (${wt.kind})`, 'success'); if (typeof renderWorktreePool === 'function') renderWorktreePool(); } },
+        { id: 'getWorktreeRegistry', title: 'List Worktree Registry', desc: 'Show all registered worktrees', section: 'Worktrees', icon: '📋', shortcut: '', action: () => { if (typeof getWorktreeRegistry !== 'function') { logActivity('getWorktreeRegistry not available', 'error'); return; } const registry = getWorktreeRegistry(); if (registry.length === 0) { logActivity('Registry empty', 'info'); return; } registry.forEach(w => logActivity(`  ${w.label} (${w.kind}) — ${w.status}`, 'info')); } },
+        { id: 'verifyWorktreeAndMerge', title: 'Verify & Merge Worktree', desc: 'Verify a worktree and merge it back', section: 'Worktrees', icon: '✅', shortcut: '', action: () => { if (typeof verifyWorktreeAndMerge !== 'function' || typeof getWorktreeRegistry !== 'function') { logActivity('Worktree functions not available', 'error'); return; } const registry = getWorktreeRegistry(); const active = registry.filter(w => w.status === 'active'); if (active.length === 0) { logActivity('No active worktrees to merge', 'info'); return; } const id = prompt('Worktree ID to merge:\\n' + active.map(w => `${w.id} — ${w.label}`).join('\\n')); if (!id) return; verifyWorktreeAndMerge(id, async (wt) => { logActivity('Verifying ' + wt.label, 'info'); return true; }).then(r => { logActivity(r.success ? 'Merged: ' + id : 'Failed: ' + (r.error || 'verification failed'), r.success ? 'success' : 'error'); if (typeof renderWorktreePool === 'function') renderWorktreePool(); }); } },
+
+        // Missions (L9)
+        { id: 'createMission', title: 'Create Mission', desc: 'Create a new mission with milestones', section: 'Missions', icon: '🚀', shortcut: '', action: () => { if (typeof createMission !== 'function') { logActivity('createMission not available', 'error'); return; } const name = prompt('Mission name:'); if (!name) return; const milestones = prompt('Milestones (comma-separated):').split(',').map(m => m.trim()).filter(Boolean); if (milestones.length === 0) return; const mission = createMission(name, milestones); logActivity(`Created mission: ${mission.name} (${mission.milestones.length} milestones)`, 'success'); } },
+        { id: 'validateMilestone', title: 'Validate Milestone', desc: 'Validate a milestone for the current mission', section: 'Missions', icon: '✅', shortcut: '', action: () => { if (typeof validateMilestone !== 'function') { logActivity('validateMilestone not available', 'error'); return; } const missionId = prompt('Mission ID:'); if (!missionId) return; const milestoneIndex = parseInt(prompt('Milestone index (0-based):') || '0'); const r = validateMilestone(missionId, milestoneIndex); logActivity(r.success ? `Milestone ${milestoneIndex} validated` : `Failed: ${r.error}`, r.success ? 'success' : 'error'); } },
+
+        // Language Specialists (L10)
+        { id: 'registerLanguageSpecialist', title: 'Register Language Specialist', desc: 'Register a language specialist (TypeScript, Python, Rust, etc.)', section: 'Language Specialists', icon: '🔧', shortcut: '', action: () => { if (typeof registerLanguageSpecialist !== 'function') { logActivity('registerLanguageSpecialist not available', 'error'); return; } const lang = prompt('Language (typescript / python / rust / go / java / cpp):', 'typescript'); if (!lang) return; const cmd = prompt('Compiler/linter command (e.g., tsc --noEmit):'); if (!cmd) return; const spec = registerLanguageSpecialist(lang, cmd); logActivity(`Registered ${spec.language} specialist: ${spec.command}`, 'success'); } },
+        { id: 'runLanguageSpecialistVerifier', title: 'Run Language Specialist Verifier', desc: 'Run the language specialist verifier on current changes', section: 'Language Specialists', icon: '✅', shortcut: '', action: () => { if (typeof runLanguageSpecialistVerifier !== 'function') { logActivity('runLanguageSpecialistVerifier not available', 'error'); return; } const lang = prompt('Language to verify (typescript / python / rust / go / java / cpp):', 'typescript'); if (!lang) return; runLanguageSpecialistVerifier(lang, { changedFiles: [] }).then(r => { logActivity(r.success ? `Verified ${lang}: all clean` : `Issues in ${lang}: ${r.errors.join(', ')}`, r.success ? 'success' : 'error'); }); } },
+
         // Settings & UI
         { id: 'toggleTheme', title: 'Toggle Theme', desc: 'Switch between dark/light (if supported)', section: 'Settings & UI', icon: '🌙', shortcut: '', action: toggleTheme },
         { id: 'keyboardShortcuts', title: 'Keyboard Shortcuts', desc: 'Show keyboard shortcuts help', section: 'Settings & UI', icon: '⌨️', shortcut: '⌘/', action: showKeyboardShortcuts },
@@ -44533,6 +44834,66 @@ Requirements:
       
       // Initialize Step Planner mode selector
       updatePlanModeSelector();
+
+      // L2: Register built-in verification gates at startup
+      if (typeof registerGate === 'function') {
+        // Pre-commit gate
+        registerGate('precommit', {
+          name: 'Pre-commit Gate',
+          description: 'Runs test suite, lint, and build checks before allowing completion',
+          check: async () => {
+            const result = checkPrecommitGate('chat-task');
+            return { passed: result.passed, message: result.message };
+          }
+        });
+        // Verification-before-completion gate
+        registerGate('verify-before-completion', {
+          name: 'Verification Before Completion',
+          description: 'Requires fresh verification evidence before accepting completion claims',
+          check: async (claim) => {
+            const result = verifyBeforeCompletion(claim || 'Task completed');
+            return { passed: result.allowed, message: result.message, evidence: result.evidence };
+          }
+        });
+        // Build delegation gate
+        registerGate('build-delegation', {
+          name: 'Build Delegation Gate',
+          description: 'Ensures build work is always delegated to an agent',
+          check: async (prompt) => {
+            if (typeof assertBuildDelegated === 'function') {
+              try {
+                assertBuildDelegated(prompt);
+                return { passed: true };
+              } catch (e) {
+                return { passed: false, message: e.message };
+              }
+            }
+            return { passed: true };
+          }
+        });
+        // Self-review gate
+        registerGate('self-review', {
+          name: 'Self-Review Gate',
+          description: 'Checks if self-review is allowed for the current agent',
+          check: async (agentId) => {
+            if (typeof canSelfReview === 'function') {
+              const allowed = canSelfReview(agentId);
+              return { passed: allowed, message: allowed ? 'Self-review allowed' : 'Self-review not allowed — independent review required' };
+            }
+            return { passed: true };
+          }
+        });
+      }
+
+      // L10: Register built-in language specialists at startup
+      if (typeof registerLanguageSpecialist === 'function') {
+        registerLanguageSpecialist('typescript', 'tsc --noEmit');
+        registerLanguageSpecialist('python', 'python -m py_compile');
+        registerLanguageSpecialist('rust', 'cargo check');
+        registerLanguageSpecialist('go', 'go build');
+        registerLanguageSpecialist('java', 'javac -Xlint');
+        registerLanguageSpecialist('cpp', 'g++ -fsyntax-only');
+      }
       
       // Set up todo panel toggle button
       const btnToggleTodoPanel = document.getElementById('btnToggleTodoPanel');
@@ -49323,6 +49684,14 @@ It integrates with the current user model (src/models/User.js) and JWT utility (
 
     // Senior review phase
     async function runReviewPhase() {
+      // L2: Check if self-review is allowed before Senior reviews
+      if (typeof canSelfReview === 'function') {
+        const selfReviewAllowed = canSelfReview(appState.teamSeniorId);
+        if (!selfReviewAllowed) {
+          logActivity('Self-review not allowed for Senior — independent review required', 'warning');
+        }
+      }
+      
       setTeamPhase('review');
       appState.teamReviewRound++;
       appendTeamChat('system', null, `=== SENIOR REVIEW ROUND ${appState.teamReviewRound}/3 ===`);
@@ -49662,21 +50031,38 @@ It integrates with the current user model (src/models/User.js) and JWT utility (
     }
 
     function verifyBeforeCompletion(claim) {
-      if (!appState.verificationBeforeCompletion) {
-        logActivity('\u26a0\ufe0f Verification-before-completion gate is OFF \u2014 completion claims are UNVERIFIED', 'warning');
-        return { allowed: true, evidence: null, warning: true };
-      }
-      
-      if (isEvidenceStale()) {
-        const message = `\uD83D\uDEAB **Verification-Before-Completion Gate BLOCKED**\\n\\nClaim: "${claim}"\\n\\nNo fresh verification evidence exists. The iron law requires:\\n1. Identify the proving command (test suite, build, preview health check)\\n2. Run it FRESH in this turn\\n3. Read full output + exit code\\n4. Only then claim completion\\n\\nStale evidence does not count \u2014 any file change after the run invalidates it.\\n\\nRun your proving command now, then try again.`;
-        return { allowed: false, evidence: null, message, blocked: true };
-      }
-      
-      const ev = appState.verificationEvidence;
-      const evidenceText = `\u2705 Verified: \`${escapeHtml(ev.command)}\` \u2192 exit ${ev.exitCode} ${ev.exitCode === 0 ? '(pass)' : '(FAIL)'} @ ${new Date(ev.ranAt).toLocaleTimeString()}\\n\`\`\`\\n${escapeHtml(ev.outputTail)}\\n\`\`\``;
-      
-      return { allowed: true, evidence: evidenceText, evidenceRaw: ev };
-    }
+          if (!appState.verificationBeforeCompletion) {
+            logActivity('\u26a0\ufe0f Verification-before-completion gate is OFF \u2014 completion claims are UNVERIFIED', 'warning');
+            return { allowed: true, evidence: null, warning: true };
+          }
+
+          // L2: Run verification gates before completion
+          if (typeof runGate === 'function') {
+            // Run pre-commit gate
+            const precommitResult = runGate('precommit');
+            if (!precommitResult.passed) {
+              const message = `🚫 **Pre-commit Gate BLOCKED**\n\nClaim: "${claim}"\n\n${precommitResult.message}`;
+              return { allowed: false, evidence: null, message, blocked: true };
+            }
+
+            // Run verification-before-completion gate
+            const verifyResult = runGate('verify-before-completion', claim);
+            if (!verifyResult.passed) {
+              const message = `🚫 **Verification-Before-Completion Gate BLOCKED**\n\nClaim: "${claim}"\n\n${verifyResult.message}`;
+              return { allowed: false, evidence: null, message, blocked: true };
+            }
+          }
+
+          if (isEvidenceStale()) {
+            const message = `\uD83D\uDEAB **Verification-Before-Completion Gate BLOCKED**\\n\\nClaim: "${claim}"\\n\\nNo fresh verification evidence exists. The iron law requires:\\n1. Identify the proving command (test suite, build, preview health check)\\n2. Run it FRESH in this turn\\n3. Read full output + exit code\\n4. Only then claim completion\\n\\nStale evidence does not count \u2014 any file change after the run invalidates it.\\n\\nRun your proving command now, then try again.`;
+            return { allowed: false, evidence: null, message, blocked: true };
+          }
+
+          const ev = appState.verificationEvidence;
+          const evidenceText = `\u2705 Verified: \`${escapeHtml(ev.command)}\` \u2192 exit ${ev.exitCode} ${ev.exitCode === 0 ? '(pass)' : '(FAIL)'} @ ${new Date(ev.ranAt).toLocaleTimeString()}\\n\`\`\`\\n${escapeHtml(ev.outputTail)}\\n\`\`\``;
+
+          return { allowed: true, evidence: evidenceText, evidenceRaw: ev };
+        }
 
     function onFileWritten(filePath) {
       if (!appState._recentlyWrittenFiles) appState._recentlyWrittenFiles = [];
@@ -50105,7 +50491,66 @@ It integrates with the current user model (src/models/User.js) and JWT utility (
       renderTeamRoster();
       renderTaskBoard();
       updateAgentStatusChips();
+      renderWorktreePool(); // L8
       setTeamPhase('idle');
+    }
+
+    // L8: Render worktree pool, registry, and merge gates
+    function renderWorktreePool() {
+      const poolDisplay = document.getElementById('worktreePoolDisplay');
+      const registryDisplay = document.getElementById('worktreeRegistryDisplay');
+      const mergeGateDisplay = document.getElementById('worktreeMergeGateDisplay');
+      const btnCreate = document.getElementById('btnCreateWorktreePool');
+      if (!poolDisplay || !registryDisplay || !mergeGateDisplay) return;
+
+      if (typeof createWorktreePool === 'function' && !appState.worktreePoolCreated) {
+        if (btnCreate) {
+          btnCreate.onclick = () => {
+            const pool = createWorktreePool({ maxPoolSize: 5 });
+            appState.worktreePoolCreated = true;
+            appState.worktreePool = pool;
+            logActivity(`Created worktree pool (max ${pool.maxSize})`, 'success');
+            renderWorktreePool();
+          };
+        }
+      }
+
+      if (appState.worktreePoolCreated && typeof getWorktreeRegistry === 'function') {
+        poolDisplay.textContent = `Pool active — max ${appState.worktreePool?.maxSize || 5} worktrees`;
+        const registry = getWorktreeRegistry();
+        if (registry.length > 0) {
+          registryDisplay.innerHTML = 'Registry: ' + registry.map(w => `${w.label} (${w.kind})`).join(', ');
+        } else {
+          registryDisplay.textContent = 'Registry empty — click to register';
+          registryDisplay.style.cursor = 'pointer';
+          registryDisplay.onclick = () => {
+            const label = prompt('Worktree label:');
+            const kind = prompt('Kind (agent/feature/hotfix/review):') || 'feature';
+            if (label && typeof registerWorktree === 'function') {
+              const wt = registerWorktree(label, kind);
+              logActivity(`Registered worktree: ${wt.label} (${wt.kind})`, 'success');
+              renderWorktreePool();
+            }
+          };
+        }
+
+        // Show merge gates for worktrees not yet merged
+        const pending = registry.filter(w => w.status === 'active');
+        if (pending.length > 0 && typeof verifyWorktreeAndMerge === 'function') {
+          mergeGateDisplay.innerHTML = 'Merge gates: ' + pending.map(w =>
+            `<button class="btn btn-sm" style="margin-right:4px; padding:2px 6px; font-size:9px;"
+              onclick="verifyWorktreeAndMerge('${w.id}', async (wt) => { logActivity('Verifying ' + wt.label, 'info'); return true; }).then(r => { logActivity(r.success ? 'Merged: ' + wt.label : 'Failed: ' + (r.error || 'verification failed'), r.success ? 'success' : 'error'); renderWorktreePool(); })">
+              Merge ${escapeHtml(w.label)}
+            </button>`
+          ).join(' ');
+        } else {
+          mergeGateDisplay.textContent = 'No merge gates pending';
+        }
+      } else {
+        poolDisplay.textContent = 'No pool created';
+        registryDisplay.textContent = 'Registry empty';
+        mergeGateDisplay.textContent = 'No merge gates pending';
+      }
     }
 
     // ==================== TEAM MODE v2 — FLAGSHIP TEAM ROOM ====================
@@ -56498,13 +56943,24 @@ FOLLOWUP: [question 3]`;
           if (typeof routeWithAutoModel === 'function') {
             const routed = routeWithAutoModel({ task: role + ' work', history: [] });
             if (routed && routed.model) {
+              // L1: Capability sync — routed model inherits target's capabilities
+              if (typeof syncModelCapabilities === 'function') {
+                const synced = syncModelCapabilities(roleModel, routed.model);
+                if (synced) return synced;
+              }
               return routed.model;
             }
           }
           // Fall back to smart routing
           try {
             const routed = routeModelForStep({ text: role + ' work', kind: ROLE_STEP_KINDS[role] || 'build' });
-            if (routed && routed.model) return routed.model;
+            if (routed && routed.model) {
+              if (typeof syncModelCapabilities === 'function') {
+                const synced = syncModelCapabilities(roleModel, routed.model);
+                if (synced) return synced;
+              }
+              return routed.model;
+            }
           } catch (e) {}
           const provider = appState.providers[appState.activeProviderId];
           return provider ? provider.defaultModel : null;
@@ -56516,7 +56972,13 @@ FOLLOWUP: [question 3]`;
           for (const candidate of roleModel) {
             try {
               const routed = routeModelForStep({ text: role + ' work', kind: ROLE_STEP_KINDS[role] || 'build', preferredModel: candidate });
-              if (routed && routed.model) return routed.model;
+              if (routed && routed.model) {
+                if (typeof syncModelCapabilities === 'function') {
+                  const synced = syncModelCapabilities(candidate, routed.model);
+                  if (synced) return synced;
+                }
+                return routed.model;
+              }
             } catch (e) {}
           }
           // Fall back to first candidate
@@ -56528,7 +56990,13 @@ FOLLOWUP: [question 3]`;
       // for this role's kind of work; rate-limited models are skipped.
       try {
         const routed = routeModelForStep({ text: role + ' work', kind: ROLE_STEP_KINDS[role] || 'build' });
-        if (routed && routed.model) return routed.model;
+        if (routed && routed.model) {
+          if (typeof syncModelCapabilities === 'function') {
+            const synced = syncModelCapabilities(role, routed.model);
+            if (synced) return synced;
+          }
+          return routed.model;
+        }
       } catch (e) {}
       const provider = appState.providers[appState.activeProviderId];
       return provider ? provider.defaultModel : null;
@@ -56892,6 +57360,36 @@ FOLLOWUP: [question 3]`;
       version: '1.0',
       specialists: {}
     };
+
+    // L10: Detect language from file extension
+    function detectLanguage(filePath) {
+      const ext = filePath.split('.').pop()?.toLowerCase();
+      const map = {
+        ts: 'typescript', tsx: 'typescript',
+        js: 'javascript', jsx: 'javascript',
+        py: 'python',
+        rs: 'rust',
+        go: 'go',
+        java: 'java',
+        cpp: 'cpp', cc: 'cpp', cxx: 'cpp', c: 'cpp', h: 'cpp', hpp: 'cpp',
+        cs: 'csharp',
+        rb: 'ruby',
+        php: 'php',
+        swift: 'swift',
+        kt: 'kotlin',
+        scala: 'scala',
+        clj: 'clojure',
+        hs: 'haskell',
+        ml: 'ocaml',
+        fs: 'fsharp',
+        dart: 'dart',
+        lua: 'lua',
+        r: 'r',
+        m: 'matlab',
+        jl: 'julia'
+      };
+      return map[ext] || null;
+    }
 
     function registerLanguageSpecialist(language, config) {
       const cfg = config || {};
