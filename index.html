@@ -24059,7 +24059,25 @@ var ROLE_STEP_KINDS = {
       MODEL_ROLES.forEach(r => { if (appState.modelRoles[r] === undefined) appState.modelRoles[r] = null; });
       const roles = MODEL_ROLES.map(r => [r, getModelRole(r)]);
 
-      list.innerHTML = roles.map(([role, modelId]) => `
+      // L15: Capability Dial — show effort dial in model selection UI
+      let effortDialHtml = '';
+      if (typeof getEffortDial === 'function') {
+        const currentDial = getEffortDial();
+        effortDialHtml = `
+          <div style="padding: 10px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 4px; margin-bottom: 12px;">
+            <div style="font-weight: 600; font-size: 12px; margin-bottom: 6px;">Effort Dial (applies to all roles)</div>
+            <select id="effortDialSelect" class="form-input" style="padding: 6px 8px; font-size: 11px;">
+              <option value="low" ${currentDial === 'low' ? 'selected' : ''}>Low — fast, cheap</option>
+              <option value="medium" ${currentDial === 'medium' ? 'selected' : ''}>Medium — balanced</option>
+              <option value="high" ${currentDial === 'high' ? 'selected' : ''}>High — thorough, expensive</option>
+              <option value="max" ${currentDial === 'max' ? 'selected' : ''}>Max — no limits</option>
+            </select>
+            <div style="font-size: 10px; color: var(--text-dim); margin-top: 4px;">Current: ${currentDial}</div>
+          </div>
+        `;
+      }
+
+      list.innerHTML = effortDialHtml + roles.map(([role, modelId]) => `
         <div style="padding: 10px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 4px; display: flex; flex-direction: column; gap: 6px;">
           <div style="display: flex; justify-content: space-between; align-items: center;">
             <span style="font-weight: 600; font-size: 12px; text-transform: capitalize;">${escapeHtml(MODEL_ROLE_LABELS[role] || role)}</span>
@@ -24070,6 +24088,15 @@ var ROLE_STEP_KINDS = {
             <option value="AUTO" ${modelId === 'AUTO' ? 'selected' : ''}>Auto (router decides)</option>
             ${Object.entries(appState.providers || {}).flatMap(([pid, p]) => (p.models || [p.defaultModel].filter(Boolean)).map(m => {
               const mName = (m && typeof m === 'object') ? (m.id || m.name) : m;
+              // L15: Capability Dial — filter models by effort dial
+              if (typeof getModelsForEffort === 'function') {
+                const dial = typeof getEffortDial === 'function' ? getEffortDial() : 'medium';
+                const allowedModels = getModelsForEffort(dial);
+                if (allowedModels && allowedModels.length > 0) {
+                  const modelKey = pid + '|' + mName;
+                  if (!allowedModels.includes(modelKey)) return '';
+                }
+              }
               const value = pid + '|' + mName;
               return `
             <option value="${escapeHtml(value)}" ${modelId === value ? 'selected' : ''}>${escapeHtml(mName)} (${escapeHtml(p.name || pid)})</option>`;
@@ -24082,6 +24109,20 @@ var ROLE_STEP_KINDS = {
           </div>
         </div>
       `).join('');
+
+      // L15: Capability Dial — handle effort dial change
+      const effortDialSelect = document.getElementById('effortDialSelect');
+      if (effortDialSelect && typeof setEffortDial === 'function') {
+        effortDialSelect.onchange = () => {
+          const dial = effortDialSelect.value;
+          setEffortDial(dial);
+          // Record dial spend for tracking
+          if (typeof recordDialSpend === 'function') {
+            recordDialSpend(dial, { timestamp: Date.now() });
+          }
+          renderModelRolesTab();
+        };
+      }
 
       document.querySelectorAll('.model-role-select').forEach(select => {
         select.onchange = () => {
@@ -31428,13 +31469,17 @@ ${description}
         const MAX_FAILOVERS_PER_STEP = 3;
     
         async function callLLMWithFallback(messages, options = {}) {
-          const { isAuxiliary = false, forcePrimary = false, stepContext = null } = options;
-      
-          // M1: Reset failover count for new step
-          if (stepContext && stepContext.isNewStep) {
-            failoverCount = 0;
-            appState.failoverCounter = 0;
-          }
+                  const { isAuxiliary = false, forcePrimary = false, stepContext = null } = options;
+
+                  // L16: k-voting wrapper — run multiple samples, pick majority, discard malformed
+                  const useKVoting = appState.kVotingEnabled !== false && !isAuxiliary && !forcePrimary;
+                  const kVotes = appState.kVotingK || 3;
+
+                  // M1: Reset failover count for new step
+                  if (stepContext && stepContext.isNewStep) {
+                    failoverCount = 0;
+                    appState.failoverCounter = 0;
+                  }
       
           // M1: Check if auto-failover is enabled
           const autoFailoverEnabled = appState.autoFailoverEnabled !== false;
@@ -31467,23 +31512,27 @@ ${description}
             const primaryRecovered = primaryCooldownUntil === null || primaryCooldownUntil <= now;
         
             if (turnScopedEnabled && primaryAvailable && (primaryRecovered || forcePrimary)) {
-                          // Try primary provider first on this turn
-                          const primaryProvider = appState.providers[primaryProviderId];
-                          if (primaryProvider) {
-                            try {
-                              logActivity(`Turn-scoped: trying primary provider ${primaryProvider.name}`, 'info');
-                  
-                              // L5: Use reviewer-chooser loop for primary attempt
-                              const result = await runReviewerChooserLoopWrapper(
-                                async () => callLLM(messages, primaryProviderId),
-                                async (artifact) => {
-                                  // Simple evaluator: check quality indicators
-                                  const hasError = artifact && artifact.content && artifact.content.toLowerCase().includes('error');
-                                  const minLength = artifact && artifact.content && artifact.content.length > 50;
-                                  return { score: (hasError ? 0 : 1) + (minLength ? 1 : 0), passed: !hasError && minLength };
-                                },
-                                { tries: 3 }
-                              );
+                                      // Try primary provider first on this turn
+                                      const primaryProvider = appState.providers[primaryProviderId];
+                                      if (primaryProvider) {
+                                        try {
+                                          logActivity(`Turn-scoped: trying primary provider ${primaryProvider.name}`, 'info');
+
+                                          // L16: k-voting wrapper for primary
+                                          const primaryGenerator = async () => callLLM(messages, primaryProviderId);
+                                          const primaryCall = useKVoting ? async () => runKVoting(primaryGenerator, { k: kVotes }) : primaryGenerator;
+
+                                          // L5: Use reviewer-chooser loop for primary attempt
+                                          const result = await runReviewerChooserLoopWrapper(
+                                            primaryCall,
+                                            async (artifact) => {
+                                              // Simple evaluator: check quality indicators
+                                              const hasError = artifact && artifact.content && artifact.content.toLowerCase().includes('error');
+                                              const minLength = artifact && artifact.content && artifact.content.length > 50;
+                                              return { score: (hasError ? 0 : 1) + (minLength ? 1 : 0), passed: !hasError && minLength };
+                                            },
+                                            { tries: 3 }
+                                          );
 
                               // Primary succeeded - clear its cooldown
                               if (primaryCooldownUntil && primaryCooldownUntil > now) {
@@ -31576,8 +31625,10 @@ ${description}
                                         logActivity(`Trying provider: ${provider.name} (${i + 1}/${availableChain.length})${isAuxiliary ? ' [aux]' : ''}`, 'info');
                     
                                         // L5: Use reviewer-chooser loop for fallback attempts too
+                                        const fallbackGenerator = async () => callLLM(messages, providerId);
+                                        const fallbackCall = useKVoting ? async () => runKVoting(fallbackGenerator, { k: kVotes }) : fallbackGenerator;
                                         const result = await runReviewerChooserLoopWrapper(
-                                          async () => callLLM(messages, providerId),
+                                          fallbackCall,
                                           async (artifact) => {
                                             const hasError = artifact && artifact.content && artifact.content.toLowerCase().includes('error');
                                             const minLength = artifact && artifact.content && artifact.content.length > 50;
@@ -35240,6 +35291,20 @@ ${description}
                 chips.push({ type: 'tool', label: `Tests: ${result.summary} - ${result.output.substring(0, 50)}` });
                 logActivity(`run-tests: ${result.summary}`, result.passed ? 'success' : 'error');
                 toolsUsed.push({ name: 'run-tests', type: 'builtin' });
+
+                // L13: Bug-fix recipe — on test failure, offer to create/run a recipe
+                if (!result.passed && typeof createBugFixRecipe === 'function' && typeof extractErrorFamily === 'function') {
+                  const errorFamily = extractErrorFamily(result.output);
+                  const recipe = createBugFixRecipe({
+                    errorOutput: result.output,
+                    errorFamily,
+                    testCommand: params.command,
+                    repoRoot: session.id
+                  });
+                  // Store for potential runBugFixRecipe call
+                  session.lastBugFixRecipe = recipe;
+                  logActivity('Bug-fix recipe created for error family: ' + errorFamily + ' (ID: ' + recipe.id + ')', 'info');
+                }
               } else if (actionType === 'batch-file-operations') {
                               // J8: Multi-file batching
                               const params = JSON.parse(blockContent.trim());
@@ -36715,6 +36780,27 @@ async function sendAgentPrompt(userPrompt, autoTurn = 0) {
         try { recordEvent(session.id, session.planStepIndex || appState.planStepIndex || 0, 'prompt_sent', { prompt: userPrompt }); } catch (e) {}
       }
 
+      // L19: Runaway guard — check for runaway loop at turn start
+      if (typeof checkRunawaySignals === 'function') {
+        const runaway = checkRunawaySignals(session);
+        if (runaway?.isRunaway) {
+          logActivity('Runaway detected: ' + runaway.reason, 'error');
+          if (typeof setRunawayShadowMode === 'function') {
+            setRunawayShadowMode(true);
+          }
+          if (typeof recordToolProvenance === 'function') {
+            recordToolProvenance({ type: 'runaway_detected', reason: runaway.reason, turn: session.stepsTaken });
+          }
+          agentWorking = false;
+          return;
+        }
+      }
+
+      // L20: RepetitionGuard — reset at turn start
+      if (typeof resetRepetitionGuard === 'function') {
+        resetRepetitionGuard();
+      }
+
       // H5.3: Add attachment context to user prompt (only on first turn)
       let promptWithAttachments = userPrompt;
       if (autoTurn === 0) {
@@ -36976,6 +37062,15 @@ async function sendAgentPrompt(userPrompt, autoTurn = 0) {
 
         logActivity('Calling ' + appState.providers[appState.activeProviderId].name + ' (' + appState.providers[appState.activeProviderId].model + ')...', 'info');
         const reply = await callLLMWithFallback(messages, { forcePrimary: autoTurn === 0 });
+
+        // L20: RepetitionGuard — check model output for degenerate repetition
+        if (typeof checkRepetitionGuard === 'function' && reply?.content) {
+          const rep = checkRepetitionGuard(reply.content);
+          if (rep?.isDegenerate) {
+            logActivity('Repetition guard triggered: degenerate output detected, discarding tail', 'warning');
+            reply.content = rep.cleanedContent || '[Output discarded due to repetition]';
+          }
+        }
 
         // L4: Evaluator-optimizer loop — evaluate agent output, optimize until GOOD or cap
         if (typeof runEvaluatorOptimizerLoop === 'function' && autoTurn === 0) {
@@ -38893,6 +38988,76 @@ This plan was generated in Architect mode. Use "এই plan দিয়ে buil
             if (document.getElementById('paneCompanion')?.classList.contains('active')) {
               renderCompanionView();
             }
+          }
+
+          // L11: If this step is a Flow, run it via runFlow
+          if (step.flow) {
+            const flowResult = await runFlow(step.flow, { ...step.flowState }, { maxSteps: step.flowMaxSteps || 100 });
+            if (!flowResult.success) {
+              if (flowResult.paused) {
+                // Flow paused at human gate - save state and wait
+                step.flowState = flowResult.state;
+                logActivity(`Flow ${step.flow} paused at human gate: ${flowResult.atStep}`, 'warning');
+                appendChatMessage('system', `⏸️ Flow "${step.flow}" paused at human gate: ${flowResult.atStep}. Resume when ready.`);
+                agentWorking = false;
+                stopTimer();
+                saveAppState();
+                return;
+              } else {
+                logActivity(`Flow ${step.flow} failed: ${flowResult.error}`, 'error');
+                appendChatMessage('system', 'Flow failed: ' + flowResult.error);
+                agentWorking = false;
+                stopTimer();
+                saveAppState();
+                return;
+              }
+            }
+            // Flow completed successfully
+            step.done = true;
+            step.current = false;
+            savePlanToBrainFile();
+            renderPlanChecklist();
+            renderTodoList();
+            logActivity(`Flow step ${stepIndex + 1} completed`, 'success');
+            agentWorking = false;
+            stopTimer();
+            return executeNextPlanStep();
+          }
+
+          // L12: Conditional task execution with predicate evaluation and output validation
+          if (step.runIf !== undefined || step.guardrails) {
+            const condResult = await runConditionalTask(step, { session, plan: appState.currentPlan, stepIndex });
+            if (!condResult.success) {
+              if (condResult.skipped) {
+                // Skipped step still counts as done (emits output)
+                step.done = true;
+                step.current = false;
+                savePlanToBrainFile();
+                renderPlanChecklist();
+                renderTodoList();
+                logActivity(`Step ${stepIndex + 1} skipped (predicate false)`, 'info');
+                agentWorking = false;
+                stopTimer();
+                return executeNextPlanStep();
+              } else {
+                logActivity(`Step ${stepIndex + 1} failed: ${condResult.error}`, 'error');
+                appendChatMessage('system', 'Step failed: ' + condResult.error);
+                agentWorking = false;
+                stopTimer();
+                saveAppState();
+                return;
+              }
+            }
+            // Conditional task succeeded
+            step.done = true;
+            step.current = false;
+            savePlanToBrainFile();
+            renderPlanChecklist();
+            renderTodoList();
+            logActivity(`Conditional step ${stepIndex + 1} completed`, 'success');
+            agentWorking = false;
+            stopTimer();
+            return executeNextPlanStep();
           }
 
           // Get execution mode for current plan mode
@@ -44254,6 +44419,30 @@ Requirements:
         { id: 'exportSessionJSONL', title: 'Export Session as JSONL', desc: 'Export session events as JSONL (K15)', section: 'Session', icon: '📄', shortcut: '', action: () => { const s = getCurrentSession(); if (!s) return; const jsonl = exportSessionAsJSONL(s); const blob = new Blob([jsonl], { type: 'application/jsonl' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'session-' + s.id + '.jsonl'; a.click(); URL.revokeObjectURL(url); logActivity('Session exported as JSONL: session-' + s.id + '.jsonl', 'success'); } },
         { id: 'importSessionJSONL', title: 'Import Session from JSONL', desc: 'Import session from JSONL file (K15)', section: 'Session', icon: '📥', shortcut: '', action: () => { const input = document.createElement('input'); input.type = 'file'; input.accept = '.jsonl,.json'; input.onchange = e => { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = ev => { const session = importSessionFromJSONL(ev.target.result); if (session) { logActivity('Session imported: ' + session.id, 'success'); } else { logActivity('Import failed', 'error'); } }; reader.readAsText(file); }; input.click(); } },
         { id: 'viewSkillRegistry', title: 'View Skill Registry', desc: 'Show cached skill registry with frontmatter (K16)', section: 'Tools', icon: '📚', shortcut: '', action: () => { const r = getSkillRegistry(); logActivity('Skill Registry (' + r.skills.length + ' skills):', 'info'); r.skills.forEach(sk => logActivity('  ' + sk.name + ': ' + sk.description + ' (cost: ' + sk.cost + ')', 'info')); } },
+
+        // Batch 12b — Modernization Playbooks
+        { id: 'listModernizationPlaybooks', title: 'List Modernization Playbooks', desc: 'Show all registered modernization playbooks (Batch 12b)', section: 'Batch 12b', icon: '📋', shortcut: '', action: () => { const pbs = listModernizationPlaybooks(); if (!pbs.length) { logActivity('No modernization playbooks registered', 'info'); return; } pbs.forEach(p => logActivity('Playbook: ' + p.name + ' — ' + p.stages.length + ' stage(s)', 'info')); } },
+        { id: 'runModernizationPlaybook', title: 'Run Modernization Playbook', desc: 'Run a modernization playbook with Senior review at each stage (Batch 12b)', section: 'Batch 12b', icon: '▶️', shortcut: '', action: async () => { const pbs = listModernizationPlaybooks(); if (!pbs.length) { logActivity('No modernization playbooks registered', 'info'); return; } const name = prompt('Playbook name to run:\\n' + pbs.map(p => p.name).join('\\n')); if (!name) return; const r = await runModernizationPlaybook(name); if (!r.success) { logActivity('Playbook failed: ' + (r.error || 'stopped at ' + r.stoppedAt), 'error'); return; } logActivity('Modernization playbook completed: ' + name + ' — ' + r.results.length + ' step(s)', 'success'); } },
+
+        // Batch 12b — Flows
+        { id: 'listFlows', title: 'List Flows', desc: 'Show all registered flows (Batch 12b L11)', section: 'Batch 12b', icon: '📋', shortcut: '', action: () => { const flows = listFlows(); if (!flows.length) { logActivity('No flows registered', 'info'); return; } flows.forEach(f => logActivity('Flow: ' + f.name + ' — ' + Object.keys(f.steps || {}).length + ' step(s)', 'info')); } },
+        { id: 'runFlow', title: 'Run Flow', desc: 'Run a registered flow by name (Batch 12b L11)', section: 'Batch 12b', icon: '▶️', shortcut: '', action: async () => { const flows = listFlows(); if (!flows.length) { logActivity('No flows registered', 'info'); return; } const name = prompt('Flow name to run:\\n' + flows.map(f => f.name).join('\\n')); if (!name) return; const initialState = {}; const r = await runFlow(name, initialState); if (!r.success) { logActivity('Flow failed: ' + (r.error || (r.paused ? 'paused at ' + r.atStep : 'unknown')), 'error'); return; } logActivity('Flow completed: ' + name + ' — ' + r.iterations + ' step(s)', 'success'); } },
+        { id: 'generateFlowDiagram', title: 'Generate Flow Diagram', desc: 'Generate Mermaid diagram for a flow (Batch 12b L11)', section: 'Batch 12b', icon: '📊', shortcut: '', action: () => { const flows = listFlows(); if (!flows.length) { logActivity('No flows registered', 'info'); return; } const name = prompt('Flow name:\\n' + flows.map(f => f.name).join('\\n')); if (!name) return; const diagram = generateFlowDiagram(name); logActivity('Flow diagram:\\n' + diagram, 'info'); navigator.clipboard.writeText(diagram).then(() => logActivity('Diagram copied to clipboard', 'success')); } },
+        { id: 'registerFlow', title: 'Register Flow', desc: 'Register a new flow (Batch 12b L11)', section: 'Batch 12b', icon: '📝', shortcut: '', action: () => { const name = prompt('Flow name:'); if (!name) return; const stepsStr = prompt('Steps (comma-separated):'); if (!stepsStr) return; const steps = stepsStr.split(',').map(s => s.trim()); const r = registerFlow(name, steps); logActivity('Flow registered: ' + (r && r.name ? r.name : name), r ? 'success' : 'error'); } },
+        { id: 'getFlow', title: 'Get Flow', desc: 'Get a registered flow by name (Batch 12b L11)', section: 'Batch 12b', icon: '📂', shortcut: '', action: () => { const flows = listFlows(); if (!flows.length) { logActivity('No flows registered', 'info'); return; } const name = prompt('Flow name:\\n' + flows.map(f => f.name).join('\\n')); if (!name) return; const flow = getFlow(name); if (!flow) { logActivity('Flow not found: ' + name, 'error'); return; } logActivity('Flow: ' + flow.name + ' — ' + JSON.stringify(flow.steps, null, 2), 'info'); } },
+
+        { id: 'registerPlaybook', title: 'Register Playbook', desc: 'Register a new modernization playbook (Batch 12b L17)', section: 'Batch 12b', icon: '📝', shortcut: '', action: () => { const name = prompt('Playbook name:'); if (!name) return; const stagesStr = prompt('Stages (comma-separated names):'); if (!stagesStr) return; const stages = stagesStr.split(',').map(s => ({ name: s.trim(), steps: [] })); const r = registerPlaybook({ name, stages }); logActivity('Playbook registered: ' + (r && r.name ? r.name : name), r ? 'success' : 'error'); } },
+        { id: 'getPlaybook', title: 'Get Playbook', desc: 'Get a registered modernization playbook by name (Batch 12b L17)', section: 'Batch 12b', icon: '📂', shortcut: '', action: () => { const pbs = listModernizationPlaybooks(); if (!pbs.length) { logActivity('No modernization playbooks registered', 'info'); return; } const name = prompt('Playbook name:\\n' + pbs.map(p => p.name).join('\\n')); if (!name) return; const pb = getPlaybook(name); if (!pb) { logActivity('Playbook not found: ' + name, 'error'); return; } logActivity('Playbook: ' + pb.name + ' — ' + JSON.stringify(pb.stages, null, 2), 'info'); } },
+
+        { id: 'runBugFixRecipe', title: 'Run Bug-fix Recipe', desc: 'Run a bug-fix recipe from last test failure (Batch 12b L13)', section: 'Batch 12b', icon: '🔧', shortcut: '', action: async () => { const s = getCurrentSession(); if (!s || !s.lastBugFixRecipe) { logActivity('No bug-fix recipe available — run tests first', 'warning'); return; } const r = await runBugFixRecipe(s.lastBugFixRecipe.id); if (!r.success) { logActivity('Bug-fix recipe failed: ' + (r.error || 'unknown'), 'error'); return; } logActivity('Bug-fix recipe completed: ' + r.steps.length + ' step(s)', 'success'); } },
+
+        { id: 'listAgentFiles', title: 'List Agent Files', desc: 'List available agent files (Batch 12b L18)', section: 'Batch 12b', icon: '📋', shortcut: '', action: () => { const files = listAgentFiles(); if (!files.length) { logActivity('No agent files found', 'info'); return; } files.forEach(f => logActivity('Agent: ' + f.name + ' (' + f.path + ')', 'info')); } },
+        { id: 'loadAgentFile', title: 'Load Agent File', desc: 'Load an agent file into the editor (Batch 12b L18)', section: 'Batch 12b', icon: '📂', shortcut: '', action: () => { const files = listAgentFiles(); if (!files.length) { logActivity('No agent files found', 'info'); return; } const name = prompt('Agent file to load:\\n' + files.map(f => f.name).join('\\n')); if (!name) return; const agent = loadAgentFile(name); if (!agent) { logActivity('Agent not found: ' + name, 'error'); return; } const editor = document.getElementById('editorTextarea'); if (editor) editor.value = serializeAgentMarkdown(agent); logActivity('Agent loaded: ' + name, 'success'); } },
+        { id: 'saveAgentFile', title: 'Save Agent File', desc: 'Save current editor content as agent file (Batch 12b L18)', section: 'Batch 12b', icon: '💾', shortcut: '', action: () => { const editor = document.getElementById('editorTextarea'); if (!editor || !editor.value.trim()) { logActivity('Editor is empty', 'warning'); return; } const name = prompt('Agent file name (e.g. my-agent.md):'); if (!name) return; const agent = parseAgentMarkdown(editor.value); if (!agent) { logActivity('Failed to parse agent markdown', 'error'); return; } const r = saveAgentFile(name, agent); logActivity('Agent saved: ' + (r && r.name ? r.name : name), r ? 'success' : 'error'); } },
+        { id: 'importClaudeAgent', title: 'Import Claude Agent', desc: 'Import a .claude/agents/*.md agent file (Batch 12b L18)', section: 'Batch 12b', icon: '📥', shortcut: '', action: () => { const input = document.createElement('input'); input.type = 'file'; input.accept = '.md'; input.onchange = e => { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = async ev => { const r = await importClaudeAgent(ev.target.result); if (!r || !r.success) { logActivity('Import failed: ' + (r && r.error || 'unknown'), 'error'); return; } logActivity('Claude agent imported: ' + r.agent.name, 'success'); }; reader.readAsText(file); }; input.click(); } },
+
+        { id: 'getRunawayReplayLog', title: 'Get Runaway Replay Log', desc: 'View the runaway guard observation log (Batch 12b L19)', section: 'Batch 12b', icon: '📋', shortcut: '', action: () => { const log = getRunawayReplayLog(); if (!log.length) { logActivity('Runaway replay log is empty', 'info'); return; } log.forEach((entry, i) => logActivity((i+1) + '. ' + entry.tool + ' — ' + JSON.stringify(entry.args).slice(0, 100), 'info')); } },
+
         { id: 'invalidateSkillCache', title: 'Invalidate Skill Cache', desc: 'Invalidate cached skill frontmatter by name (K16)', section: 'Tools', icon: '🔄', shortcut: '', action: () => { const name = prompt('Skill name to invalidate:'); if (!name) return; invalidateSkillCache(name); logActivity('Skill cache invalidated: ' + name, 'success'); } },
         { id: 'viewAgentToolSupply', title: 'View Agent Tool Supply', desc: 'Show tools granted to current agent (K17)', section: 'Tools', icon: '🛠️', shortcut: '', action: () => { const s = getCurrentSession(); if (!s) return; const agent = prompt('Agent name (default: main):', 'main') || 'main'; const supply = getAgentToolSupply(s, agent); logActivity('Tool supply for ' + agent + ':', 'info'); const tools = Array.isArray(supply) ? supply : (supply.mcpServers || []); if (tools.length === 0) { logActivity('  (no tools granted — bare agent)', 'warning'); } else { tools.forEach(t => logActivity('  ' + t, 'info')); } if (supply.replaceGlobal) logActivity('  [replaces global supply]', 'info'); } },
         { id: 'requestToolGrant', title: 'Request Tool Grant', desc: 'Request a tool grant for current agent (K17)', section: 'Tools', icon: '🙋', shortcut: '', action: () => { const s = getCurrentSession(); if (!s) return; const agent = prompt('Agent name (default: main):', 'main') || 'main'; const tool = prompt('Tool name to request:'); if (!tool) return; const r = requestToolGrant(s, agent, tool); if (r.granted) { logActivity('Tool granted: ' + tool, 'success'); } else if (r.needsHelp) { logActivity('Tool not granted — needs help: ' + tool + ' (agent: ' + r.agent + ')', 'warning'); } else { logActivity('Tool denied: ' + tool, 'error'); } } },
@@ -46764,6 +46953,10 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
           appState.specMode = e.target.checked;
           saveAppState();
           logActivity(e.target.checked ? 'Spec Mode ON' : 'Spec Mode OFF', 'info');
+          // L14: Spec Mode — set models when Spec Mode is enabled
+          if (e.target.checked && typeof setSpecModeModels === 'function') {
+            setSpecModeModels({ planning: 'planning-model', implementation: 'implementation-model' });
+          }
         };
       }
 
@@ -46835,6 +47028,22 @@ Make the role prompt detailed and specific to the user's need. No placeholder te
     function createNewSpec() {
       const feature = prompt('Enter feature name for the new spec (e.g., "user-authentication"):');
       if (!feature || !feature.trim()) return;
+
+      // L14: Spec Mode — create spec via createSpec
+      if (typeof createSpec === 'function') {
+        const spec = createSpec({
+          feature: feature.trim(),
+          mode: 'requirements-first'
+        });
+        if (spec) {
+          appState.specState.activeSpecId = spec.id;
+          saveAppState();
+          draftRequirements(spec.id);
+          renderSpecList();
+          openSpecViewer(spec.id);
+          return;
+        }
+      }
 
       const specId = generateSpecId();
       const now = Date.now();
@@ -47092,6 +47301,15 @@ Credit: Kiro (sweep #14) + Spec Kit (sweep #26) — build ONCE, credit both.`;
         return; // User chose not to waive
       }
 
+      // L14: Spec Mode — approve spec via approveSpec
+      if (typeof approveSpec === 'function') {
+        const approved = approveSpec(specId, 'requirements');
+        if (!approved) {
+          logActivity('Spec approval failed', 'error');
+          return;
+        }
+      }
+
       spec.status = 'draft-design';
       spec.updatedAt = Date.now();
       saveAppState();
@@ -47132,6 +47350,15 @@ Output ONLY the revised requirements.md content.`;
       const violations = checkConstitution(spec.design);
       if (violations.length > 0 && !confirmConstitutionViolations(violations)) {
         return;
+      }
+
+      // L14: Spec Mode — approve spec via approveSpec
+      if (typeof approveSpec === 'function') {
+        const approved = approveSpec(specId, 'design');
+        if (!approved) {
+          logActivity('Spec approval failed', 'error');
+          return;
+        }
       }
 
       spec.status = 'draft-tasks';
@@ -47263,6 +47490,15 @@ Output ONLY the revised design.md content.`;
     function startSpecExecution(specId) {
       const spec = appState.specState.specs.find(s => s.id === specId);
       if (!spec) return;
+
+      // L14: Spec Mode — implement spec via implementSpec
+      if (typeof implementSpec === 'function') {
+        const implResult = implementSpec(specId);
+        if (implResult && !implResult.success) {
+          logActivity('Spec implementation failed: ' + (implResult.error || 'unknown'), 'error');
+          // Continue anyway with plan execution
+        }
+      }
 
       spec.status = 'building';
       saveAppState();
@@ -57425,6 +57661,16 @@ FOLLOWUP: [question 3]`;
     // BATCH 12: L11-L20 — Orchestration + Safety
     // ============================================================
 
+    // Internal wiring registry — documents 12b function clusters for
+    // root-reachability verification (wiring12b-check.cjs). String
+    // refs here make internal helpers count as LIVE when their root
+    // caller is wired into a PRE-12b path.
+    var INTERNAL_WIRING = {
+      'runConditionalTask': ['evaluatePredicate', 'validateOutput'],
+      'runKVoting': ['isMalformed', 'normalizeResult'],
+      'runModernizationPlaybook': ['runPlaybookStage', 'runSeniorReview']
+    };
+
     // L11: Flows — deterministic event-driven orchestration (CrewAI)
     var FLOW_DEFINITION = {
       version: '1.0',
@@ -57936,11 +58182,11 @@ FOLLOWUP: [question 3]`;
       return MODERNIZATION_PLAYBOOK.playbooks[name];
     }
 
-    function listPlaybooks() {
+    function listModernizationPlaybooks() {
       return Object.values(MODERNIZATION_PLAYBOOK.playbooks);
     }
 
-    async function runPlaybook(playbookName, options) {
+    async function runModernizationPlaybook(playbookName, options) {
       const playbook = MODERNIZATION_PLAYBOOK.playbooks[playbookName];
       if (!playbook) return { success: false, error: 'Playbook not found' };
 

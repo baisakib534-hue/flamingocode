@@ -338,8 +338,8 @@ const {
   MODERNIZATION_PLAYBOOK,
   registerPlaybook,
   getPlaybook,
-  listPlaybooks,
-  runPlaybook,
+  listModernizationPlaybooks,
+  runModernizationPlaybook,
   runPlaybookStage,
   runSeniorReview,
   // L18
@@ -719,8 +719,8 @@ console.log('\n--- L17: Modernization playbook ---');
 assertExists(MODERNIZATION_PLAYBOOK, 'MODERNIZATION_PLAYBOOK exists');
 assertExists(registerPlaybook, 'registerPlaybook function exists');
 assertExists(getPlaybook, 'getPlaybook function exists');
-assertExists(listPlaybooks, 'listPlaybooks function exists');
-assertExists(runPlaybook, 'runPlaybook function exists');
+assertExists(listModernizationPlaybooks, 'listModernizationPlaybooks function exists');
+assertExists(runModernizationPlaybook, 'runModernizationPlaybook function exists');
 assertExists(runPlaybookStage, 'runPlaybookStage function exists');
 assertExists(runSeniorReview, 'runSeniorReview function exists');
 
@@ -734,8 +734,8 @@ assert(playbook && playbook.stages.length === 3, 'Playbook registered with 3 sta
 assert(playbook.stages[0].seniorReview === true, 'Stage 1 has senior review');
 assert(playbook.stages[2].seniorReview === false, 'Stage 3 no senior review');
 
-// Test runPlaybook runs stages with senior review at each
-const pbResult = await runPlaybook('upgrade-router');
+// Test runModernizationPlaybook runs stages with senior review at each
+const pbResult = await runModernizationPlaybook('upgrade-router');
 assert(pbResult.success === true, 'Playbook runs successfully');
 assert(pbResult.results.length >= 3, 'Results for each stage');
 assert(pbResult.results.some(r => r.stage.includes('senior review')), 'Senior review results included');
