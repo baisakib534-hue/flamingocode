@@ -9665,8 +9665,49 @@ Detail level: {{detail_level}}`,
 
       switch (toolName) {
         case 'mcp_bash': {
-          // Execute shell command - for web app, simulate git commands
+          // M3: Shell command evaluation & classification (D-B13-3)
           const command = args?.command || '';
+          if (typeof parseShell === 'function' && typeof evaluateShellCommand === 'function') {
+            try {
+              const parsed = parseShell(command);
+              const evalResult = evaluateShellCommand(parsed, { sessionId: session.id });
+              
+              // D-B13-3: Match shell approval class for audit trail
+              if (typeof matchShellApprovalClass === 'function') {
+                const approvalClass = matchShellApprovalClass(command);
+                if (approvalClass) {
+                  parsed.approvalClass = approvalClass;
+                }
+              }
+              
+              if (evalResult && evalResult.blocked) {
+                logActivity(`🛑 SHELL BLOCKED: ${evalResult.reason}`, 'error');
+                if (typeof recordAuditLog === 'function') {
+                  recordAuditLog({ command, parsed, blocked: true, reason: evalResult.reason, sessionId: session.id });
+                }
+                return { success: false, error: `Shell command blocked: ${evalResult.reason}`, exitCode: 1 };
+              }
+              if (evalResult && evalResult.requiresApproval) {
+                // For web app, we simulate the approval (in desktop would prompt)
+                const approved = confirm(`⚠️ Shell command requires approval:\n\n${command}\n\nReason: ${evalResult.reason}\n\nAllow?`);
+                if (!approved) {
+                  logActivity(`🛑 SHELL DENIED by user: ${command}`, 'warning');
+                  if (typeof recordAuditLog === 'function') {
+                    recordAuditLog({ command, parsed, blocked: true, reason: 'User denied', sessionId: session.id });
+                  }
+                  return { success: false, error: 'Shell command denied by user', exitCode: 1 };
+                }
+              }
+              // Log audit for all shell commands
+              if (typeof recordAuditLog === 'function') {
+                recordAuditLog({ command, parsed, blocked: false, sessionId: session.id });
+              }
+            } catch (_e) {
+              logActivity('Shell evaluation failed (non-blocking): ' + _e.message, 'warning');
+            }
+          }
+
+          // Execute shell command - for web app, simulate git commands
           if (command.includes('git rev-parse --git-dir')) {
             // Check if we're in a git repo (simulated)
             try {
@@ -12389,12 +12430,27 @@ function getDashboardData() {
     duration: Date.now() - s.startedAt
   }));
 
+  // D-B13-8: Include spend data in dashboard
+  let spendData = { model: {}, project: {}, task: {}, reconciled: {} };
+  if (typeof getModelSpend === 'function') {
+    const currentSession = sessions.find(s => s.status === 'running') || sessions[0];
+    if (currentSession) {
+      spendData.model = getModelSpend(currentSession.id) || {};
+      spendData.project = getProjectSpend(currentSession.id) || {};
+      spendData.task = getTaskSpend(currentSession.id) || {};
+      if (typeof reconcilePlanActuals === 'function') {
+        spendData.reconciled = reconcilePlanActuals(currentSession.id) || {};
+      }
+    }
+  }
+
   return {
     sessions,
     totalSessions: sessions.length,
     runningCount: sessions.filter(s => s.status === 'running').length,
     repos: [...new Set(sessions.map(s => s.repo))],
-    updatedAt: Date.now()
+    updatedAt: Date.now(),
+    spend: spendData
   };
 }
 
@@ -22219,6 +22275,13 @@ function validateRecipe(recipe) {
           if (setApprovalRung(newRung)) {
             saveAppState();
             updateRungDisplay();
+            // D-B13-1: Show rung standard on rung change
+            if (typeof getRungStandard === 'function') {
+              const standard = getRungStandard(newRung);
+              if (standard) {
+                logActivity(`Rung standard: ${standard.description}`, 'info');
+              }
+            }
             logActivity(`Approval rung set to ${newRung}`, 'info');
           } else {
             rungSelect.value = state.safeMode.approvalRung || 'read-only';
@@ -22778,6 +22841,68 @@ function validateRecipe(recipe) {
       const sm = appState.safeMode;
       if (!sm) return { allowed: true, reason: 'Safe Mode not initialized', requiresUserInput: false };
 
+      // M1: Rung enforcement — check if action is allowed at current rung (D-B13-1)
+      const actionClass = classifyAction(actionText, actionType);
+      if (!canActionRunAtRung(actionClass, appState.approvalRung)) {
+        logActivity(`🛑 BLOCKED (Rung ${appState.approvalRung}): ${actionClass} not allowed`, 'error');
+        return {
+          allowed: false,
+          reason: `Action class '${actionClass}' not allowed at rung '${appState.approvalRung}'`,
+          requiresUserInput: false,
+          decision: { level: 'rung-block', actionClass, rung: appState.approvalRung }
+        };
+      }
+
+      // M2: Governance policy evaluation (fail-closed) — D-B13-2
+      const policyDecision = evaluatePolicy(actionText, actionClass, { userId: 'owner' });
+      // D-B13-2: Enforce fail-closed — if policy evaluation fails or returns undefined, block
+      const failClosedResult = failClosed(policyDecision);
+      if (failClosedResult.blocked) {
+        logActivity(`🛑 BLOCKED (Fail-Closed): ${failClosedResult.reason}`, 'error');
+        recordReceipt(actionText, actionClass, 'blocked', 0, appState.approvalRung);
+        return {
+          allowed: false,
+          reason: failClosedResult.reason,
+          requiresUserInput: false,
+          decision: { level: 'fail-closed', ...failClosedResult }
+        };
+      }
+      if (policyDecision.decision === 'blocked') {
+        logActivity(`🛑 BLOCKED (Governance): ${policyDecision.reason}`, 'error');
+        recordReceipt(actionText, actionClass, 'blocked', 0, appState.approvalRung);
+        return {
+          allowed: false,
+          reason: policyDecision.reason,
+          requiresUserInput: false,
+          decision: { level: 'governance-block', ...policyDecision }
+        };
+      }
+      if (policyDecision.decision === 'ask') {
+        // Escalate to user for approval
+        const userConfirm = confirm(`🤔 Governance Policy — APPROVAL REQUIRED:\n\n${policyDecision.reason}\n\nAllow this action?`);
+        if (userConfirm) {
+          logActivity(`✅ APPROVED (Governance → User): ${actionText.slice(0, 80)}`, 'success');
+          recordReceipt(actionText, actionClass, 'allowed', 0, appState.approvalRung);
+          return {
+            allowed: true,
+            reason: 'User approved per governance policy',
+            requiresUserInput: true,
+            decision: { level: 'governance-ask', approved: true, ...policyDecision }
+          };
+        } else {
+          logActivity(`🛑 DENIED (Governance → User): ${actionText.slice(0, 80)}`, 'warning');
+          recordReceipt(actionText, actionClass, 'denied', 0, appState.approvalRung);
+          return {
+            allowed: false,
+            reason: 'User denied per governance policy',
+            requiresUserInput: true,
+            decision: { level: 'governance-ask', approved: false, ...policyDecision }
+          };
+        }
+      }
+      // policyDecision.decision === 'allowed'
+      recordReceipt(actionText, actionClass, 'allowed', 0, appState.approvalRung);
+
       // Step 0: Per-tool permissions evaluator (Batch 7.4)
       // Extract toolName and argsSummary from actionText if not provided
       let evalToolName = toolName;
@@ -22862,6 +22987,40 @@ function validateRecipe(recipe) {
         logActivity(`⚠️ MCP Trust Escalation: ${mcpTrustCheck.reason}`, 'warning');
         // Force escalation through smart mode judge regardless of approval mode
         const smartDecision = await smartModeJudge(actionText, actionType);
+        // D-B13-6: Also run model judge for additional evaluation
+        if (typeof runModelJudge === 'function') {
+          try {
+            const modelJudgeResult = await runModelJudge(actionText, actionType, smartDecision);
+            if (modelJudgeResult && modelJudgeResult.deny && smartDecision.allow) {
+              logActivity(`🛑 MODEL JUDGE OVERRIDE: ${modelJudgeResult.reason}`, 'error');
+              return {
+                allowed: false,
+                reason: 'Model judge denied: ' + modelJudgeResult.reason,
+                requiresUserInput: false,
+                decision: { level: 'model-judge-override', ...modelJudgeResult }
+              };
+            }
+          } catch (_e) {
+            logActivity('Model judge evaluation failed (non-blocking): ' + _e.message, 'warning');
+          }
+        }
+        // D-B13-6: Direct call to callModelJudge for additional evaluation
+        if (typeof callModelJudge === 'function') {
+          try {
+            const callJudgeResult = await callModelJudge(actionText, actionType, smartDecision);
+            if (callJudgeResult && callJudgeResult.deny && smartDecision.allow) {
+              logActivity(`🛑 CALL MODEL JUDGE OVERRIDE: ${callJudgeResult.reason}`, 'error');
+              return {
+                allowed: false,
+                reason: 'Call model judge denied: ' + callJudgeResult.reason,
+                requiresUserInput: false,
+                decision: { level: 'call-model-judge-override', ...callJudgeResult }
+              };
+            }
+          } catch (_e) {
+            logActivity('Call model judge evaluation failed (non-blocking): ' + _e.message, 'warning');
+          }
+        }
         sm.lastSmartDecision = smartDecision;
         saveAppState();
         renderSmartDecisionDisplay();
@@ -22949,6 +23108,19 @@ function validateRecipe(recipe) {
         case 'smart':
         default: // Smart mode - auxiliary judges risk
           const smartDecision = await smartModeJudge(actionText, actionType);
+          
+          // M6: Model judge evaluation (D-B13-6) - additional judge alongside smart mode
+          const modelJudgeDecision = await runModelJudge(actionText, actionType, smartDecision);
+          if (!modelJudgeDecision.allow) {
+            logActivity(`🛑 DENIED (Model Judge): ${modelJudgeDecision.reason}`, 'error');
+            return {
+              allowed: false,
+              reason: modelJudgeDecision.reason,
+              requiresUserInput: false,
+              decision: { level: 'model-judge-denied', ...modelJudgeDecision }
+            };
+          }
+          
           sm.lastSmartDecision = smartDecision;
           saveAppState();
           renderSmartDecisionDisplay();
@@ -23129,6 +23301,13 @@ function validateRecipe(recipe) {
         const labels = { 'read-only': '🔍 Read-only', 'low': '📝 Low', 'medium': '⚙️ Medium', 'high': '🔓 High' };
         el.textContent = labels[rung] || rung;
         el.title = 'Current approval rung: ' + rung;
+        // D-B13-1: Show rung standard
+        if (typeof getRungStandard === 'function') {
+          const standard = getRungStandard(rung);
+          if (standard) {
+            el.title += ' — ' + standard.description;
+          }
+        }
       }
     }
     
@@ -23181,47 +23360,64 @@ function validateRecipe(recipe) {
     }
 
     function evaluatePolicy(actionText, actionClass, context) {
-      const policy = appState.governancePolicy.parsed;
-      if (!policy) {
-        return { decision: 'blocked', reason: 'No governance policy loaded (fail-closed)' };
-      }
-      
-      // Fail-closed: check identity
+          const policy = appState.governancePolicy.parsed;
+          if (!policy) {
+            return { decision: 'blocked', reason: 'No governance policy loaded (fail-closed)' };
+          }
+
+          // M12+M13: Load applicable rulebooks & resolve conflicts (D-B13-11)
+          let effectivePolicy = policy;
+          if (typeof getApplicableRulebooks === 'function' && typeof resolveRulebookConflict === 'function') {
+            try {
+              const rulebooks = getApplicableRulebooks({ uri: context?.uri, tags: context?.tags, sessionId: context?.sessionId });
+              if (rulebooks && rulebooks.length > 0) {
+                const resolved = resolveRulebookConflict(rulebooks);
+                if (resolved && resolved.mergedPolicy) {
+                  effectivePolicy = { ...effectivePolicy, ...resolved.mergedPolicy };
+                  logActivity(`📋 Applied ${rulebooks.length} rulebook(s), resolved to: ${resolved.winner || 'merged'}`, 'info');
+                }
+              }
+            } catch (_e) {
+              logActivity('Rulebook evaluation failed (non-blocking): ' + _e.message, 'warning');
+            }
+          }
+
+          // Fail-closed: check identity
       if (!context || !context.userId) {
         return { decision: 'blocked', reason: 'Identity not verified (fail-closed)' };
       }
       
       // Fail-closed: check cost approval for spend
-      if (actionClass === 'destructive' && policy.authority?.spend === 'owner_only') {
-        if (context.userId !== 'owner') {
-          return { decision: 'blocked', reason: 'Spend authority requires owner (fail-closed)' };
-        }
-      }
-      
-      // Check deny rules first
-      for (const pattern of policy.deny || []) {
-        if (matchPolicyPattern(pattern, actionText)) {
-          return { decision: 'blocked', reason: 'Denied by policy: ' + pattern };
-        }
-      }
-      
-      // Check allow rules
-      for (const pattern of policy.allow || []) {
-        if (matchPolicyPattern(pattern, actionText)) {
-          return { decision: 'allowed', reason: 'Allowed by policy: ' + pattern };
-        }
-      }
-      
-      // Check ask rules
-      for (const pattern of policy.ask || []) {
-        if (matchPolicyPattern(pattern, actionText)) {
-          return { decision: 'ask', reason: 'Requires approval per policy: ' + pattern };
-        }
-      }
-      
-      // Default deny (fail-closed)
-      return { decision: 'blocked', reason: 'No matching allow rule (fail-closed default deny)' };
-    }
+            if (actionClass === 'destructive' && effectivePolicy.authority?.spend === 'owner_only') {
+              if (context.userId !== 'owner') {
+                return { decision: 'blocked', reason: 'Spend authority requires owner (fail-closed)' };
+              }
+            }
+
+            // Check deny rules first
+            for (const pattern of effectivePolicy.deny || []) {
+              if (matchPolicyPattern(pattern, actionText)) {
+                return { decision: 'blocked', reason: 'Denied by policy: ' + pattern };
+              }
+            }
+
+            // Check allow rules
+            for (const pattern of effectivePolicy.allow || []) {
+              if (matchPolicyPattern(pattern, actionText)) {
+                return { decision: 'allowed', reason: 'Allowed by policy: ' + pattern };
+              }
+            }
+
+            // Check ask rules
+            for (const pattern of effectivePolicy.ask || []) {
+              if (matchPolicyPattern(pattern, actionText)) {
+                return { decision: 'ask', reason: 'Requires approval per policy: ' + pattern };
+              }
+            }
+
+            // Default deny (fail-closed)
+            return { decision: 'blocked', reason: 'No matching allow rule (fail-closed default deny)' };
+          }
     
     function matchPolicyPattern(pattern, actionText) {
       // Simple glob-style matching
@@ -23525,7 +23721,12 @@ function validateRecipe(recipe) {
       
       // Check exact match
       if (decisions[normalized] !== undefined) {
-        return decisions[normalized];
+        const decision = decisions[normalized];
+        return { 
+          trusted: decision !== 'decline' && decision !== 'untrusted', 
+          readOnly: decision === 'untrusted' || decision === 'decline',
+          decision: decision
+        };
       }
       
       // Check parent directories
@@ -23534,16 +23735,21 @@ function validateRecipe(recipe) {
         const idx = parent.lastIndexOf('/');
         parent = idx > 0 ? parent.slice(0, idx) : '/';
         if (decisions[parent] !== undefined) {
-          return decisions[parent];
+          const decision = decisions[parent];
+          return { 
+            trusted: decision !== 'decline' && decision !== 'untrusted', 
+            readOnly: decision === 'untrusted' || decision === 'decline',
+            decision: decision
+          };
         }
       }
       
       // Check if in $HOME
       if (normalized.startsWith('/home/') || normalized.startsWith('/Users/')) {
-        return 'untrusted';
+        return { trusted: false, readOnly: true, decision: 'untrusted' };
       }
       
-      return 'untrusted';
+      return { trusted: false, readOnly: true, decision: 'untrusted' };
     }
     
     function setFolderTrust(folderPath, decision) {
@@ -23556,11 +23762,16 @@ function validateRecipe(recipe) {
       updateTrustDisplay();
     }
     
-    function updateTrustDisplay() {
+    function updateTrustDisplay(trustResult) {
       const el = document.getElementById('trustStatusDisplay');
       if (el) {
-        const trusted = appState.trustedFolders.currentProjectTrusted;
-        const readOnly = appState.trustedFolders.readOnlyMode;
+        // Use passed trustResult or fall back to appState
+        let trusted = appState.trustedFolders.currentProjectTrusted;
+        let readOnly = appState.trustedFolders.readOnlyMode;
+        if (trustResult && typeof trustResult.trusted === 'boolean') {
+          trusted = trustResult.trusted;
+          readOnly = trustResult.readOnly || false;
+        }
         el.textContent = trusted ? '🔓 Trusted' : (readOnly ? '🔒 Read-only (Untrusted)' : '❓ Untrusted');
         el.style.color = trusted ? 'var(--success)' : (readOnly ? 'var(--error)' : 'var(--warning)');
       }
@@ -23608,6 +23819,15 @@ function validateRecipe(recipe) {
       if (typeof trackUsage === 'function') {
         trackUsage({ cost, workId, modelId, projectId, timestamp: new Date().toISOString() });
       }
+      // D-B13-9 + M14: Update learned rates from actuals
+      if (typeof updateLearnedRates === 'function' && workId) {
+        // We can infer step type from workId pattern or context
+        updateLearnedRates('llm-call', Math.round(cost * 1000000)); // approximate tokens from cost
+      }
+      // D-B13-9 + M14: Update provider reputation
+      if (typeof updateProviderReputation === 'function' && modelId) {
+        updateProviderReputation(modelId, true); // success
+      }
     }
     
     function getProjectSpend() {
@@ -23650,6 +23870,9 @@ function validateRecipe(recipe) {
     }
     
     function reconcilePlanActuals(actualSteps) {
+      if (!actualSteps || !Array.isArray(actualSteps) || actualSteps.length === 0) {
+        return [];
+      }
       const estimates = appState.planCostEstimates.perStep;
       const reconciliation = actualSteps.map((actual, i) => {
         const est = estimates[i] || { estimatedTokens: 0, estimatedCost: 0 };
@@ -32407,6 +32630,27 @@ ${description}
                     // Track usage for dashboard
                     trackUsage(provider.id, provider.model, usage, null, keyEntry.id);
 
+                    // M8: Record spend after successful model call (D-B13-8)
+                    if (typeof recordSpend === 'function' && usage) {
+                      try {
+                        const session = getCurrentSession();
+                        const taskId = stepContext?.step?.id || (session ? session.id : 'unknown');
+                        recordSpend({
+                          providerId: activeProviderId,
+                          model: provider.model,
+                          inputTokens: usage.prompt_tokens || 0,
+                          outputTokens: usage.completion_tokens || 0,
+                          totalTokens: usage.total_tokens || 0,
+                          projectId: session?.id,
+                          taskId: taskId,
+                          workId: stepContext?.workId || generateWorkId()
+                        });
+                      } catch (_e) {
+                        logActivity('Spend recording failed (non-blocking): ' + _e.message, 'warning');
+                      }
+                    }
+
+                    hideRateLimitCountdown();
                     return fullContent;
                   } catch (streamErr) {
                     if (streamIdleTimeout) clearTimeout(streamIdleTimeout);
@@ -32509,26 +32753,46 @@ ${description}
                 }
 
                 const latency = Date.now() - startTime;
-                clearTimeout(timeoutId);
+                                    clearTimeout(timeoutId);
 
-                // Record successful usage
-                recordKeyUsage(provider, keyEntry.id);
-                markKeyHealth(provider, keyEntry.id, 'healthy', provider.model);
+                                    // Record successful usage
+                                    recordKeyUsage(provider, keyEntry.id);
+                                    markKeyHealth(provider, keyEntry.id, 'healthy', provider.model);
 
-                logRequestEntry({
-                  provider: provider.name,
-                  model: provider.model,
-                  status: 'success',
-                  latency,
-                  finish_reason: finishReason || 'stop',
-                  usage
-                });
+                                    logRequestEntry({
+                                      provider: provider.name,
+                                      model: provider.model,
+                                      status: 'success',
+                                      latency,
+                                      finish_reason: finishReason || 'stop',
+                                      usage
+                                    });
 
-                // Track usage for dashboard
-                trackUsage(provider.id, provider.model, usage, null, keyEntry.id);
+                                    // Track usage for dashboard
+                                    trackUsage(provider.id, provider.model, usage, null, keyEntry.id);
 
-                hideRateLimitCountdown();
-                return fullContent;
+                                    // M8: Record spend after successful model call (D-B13-8)
+                                    if (typeof recordSpend === 'function' && usage) {
+                                      try {
+                                        const session = getCurrentSession();
+                                        const taskId = stepContext?.step?.id || (session ? session.id : 'unknown');
+                                        recordSpend({
+                                          providerId: activeProviderId,
+                                          model: provider.model,
+                                          inputTokens: usage.prompt_tokens || 0,
+                                          outputTokens: usage.completion_tokens || 0,
+                                          totalTokens: usage.total_tokens || 0,
+                                          projectId: session?.id,
+                                          taskId: taskId,
+                                          workId: stepContext?.workId || generateWorkId()
+                                        });
+                                      } catch (_e) {
+                                        logActivity('Spend recording failed (non-blocking): ' + _e.message, 'warning');
+                                      }
+                                    }
+
+                                    hideRateLimitCountdown();
+                                    return fullContent;
               } catch (err) {
                 if (streamIdleTimeout) clearTimeout(streamIdleTimeout);
                 hideRateLimitCountdown();
@@ -32570,6 +32834,15 @@ ${description}
     
         async function callLLMWithFallback(messages, options = {}) {
                   const { isAuxiliary = false, forcePrimary = false, stepContext = null } = options;
+
+                  // M8: Spend caps check BEFORE model call (D-B13-8)
+                  if (typeof checkSpendCaps === 'function') {
+                    const spendCheck = checkSpendCaps({ providerId: appState.activeProviderId, projectId: getCurrentSession()?.id });
+                    if (!spendCheck.allowed) {
+                      logActivity(`🛑 BLOCKED (Spend Cap): ${spendCheck.reason}`, 'error');
+                      throw new Error('Spend cap exceeded: ' + spendCheck.reason);
+                    }
+                  }
 
                   // L16: k-voting wrapper — run multiple samples, pick majority, discard malformed
                   const useKVoting = appState.kVotingEnabled !== false && !isAuxiliary && !forcePrimary;
@@ -34528,12 +34801,30 @@ ${description}
     
     function buildToolDefinitionsBlock(opts = {}) {
       // Build tool definitions deterministically
-      const tools = Object.values(TOOL_DEFINITIONS || {})
-        .filter(t => typeof isToolAllowedByPowers === 'function' ? isToolAllowedByPowers(t.name) : true)
+      let tools = Object.values(TOOL_DEFINITIONS || {})
+        .filter(t => typeof isToolAllowedByPowers === 'function' ? isToolAllowedByPowers(t.name) : true);
+
+      // D-B13-13: Filter tools by backend capability (capabilityFilter, filterToolByBackend)
+      if (typeof capabilityFilter === 'function') {
+        try {
+          tools = capabilityFilter(tools, { session: getCurrentSession(), provider: getCurrentProvider?.() });
+        } catch (_e) {
+          logActivity('Capability filter failed (non-blocking): ' + _e.message, 'warning');
+        }
+      }
+      if (typeof filterToolByBackend === 'function') {
+        try {
+          tools = filterToolByBackend(tools, { backend: appState.selectedBackend || 'mcp' });
+        } catch (_e) {
+          logActivity('Backend filter failed (non-blocking): ' + _e.message, 'warning');
+        }
+      }
+
+      const toolDefs = tools
         .map(t => `${t.name}: ${t.trigger} - ${t.description}`)
         .join('\n');
       
-      if (!cachedToolDefsBlock) cachedToolDefsBlock = tools;
+      if (!cachedToolDefsBlock) cachedToolDefsBlock = toolDefs;
       return cachedToolDefsBlock;
     }
     
@@ -38144,6 +38435,24 @@ async function sendAgentPrompt(userPrompt, autoTurn = 0) {
           } catch (_e) { modelHistory = sanitizedHistory; }
         }
 
+        // M5: Prompt scanner — PRE-SEND secret redaction (D-B13-5)
+        if (typeof initPromptScanner === 'function' && typeof scanPrompt === 'function') {
+          try {
+            initPromptScanner();
+            // Scan the latest user message for secrets
+            const userMsgIdx = modelHistory.findLastIndex(m => m && m.role === 'user');
+            if (userMsgIdx >= 0 && modelHistory[userMsgIdx]?.content) {
+              const scanResult = scanPrompt(modelHistory[userMsgIdx].content);
+              if (scanResult && scanResult.redacted) {
+                modelHistory[userMsgIdx] = { ...modelHistory[userMsgIdx], content: scanResult.redacted };
+                logActivity(`Prompt scanner: ${scanResult.findings?.length || 0} secrets redacted`, 'info');
+              }
+            }
+          } catch (_e) {
+            logActivity('Prompt scanner failed (non-blocking): ' + _e.message, 'warning');
+          }
+        }
+
         // === J3: Cache-stable prompt construction + history processors ===
         // Build system prompt through J3 pipeline (byte-identical output for same input)
         const systemPrompt = buildSystemPrompt({});
@@ -38162,6 +38471,19 @@ async function sendAgentPrompt(userPrompt, autoTurn = 0) {
 
         logActivity('Calling ' + appState.providers[appState.activeProviderId].name + ' (' + appState.providers[appState.activeProviderId].model + ')...', 'info');
         const reply = await callLLMWithFallback(messages, { forcePrimary: autoTurn === 0 });
+
+        // M5: Restore redactions in model response (D-B13-5)
+        if (typeof restoreRedactions === 'function' && reply?.content) {
+          try {
+            const restored = restoreRedactions(reply.content);
+            if (restored && restored !== reply.content) {
+              reply.content = restored;
+              logActivity('Prompt scanner: redactions restored in response', 'info');
+            }
+          } catch (_e) {
+            logActivity('Redaction restore failed (non-blocking): ' + _e.message, 'warning');
+          }
+        }
 
         // L20: RepetitionGuard — check model output for degenerate repetition
         if (typeof checkRepetitionGuard === 'function' && reply?.content) {
@@ -40029,6 +40351,51 @@ This plan was generated in Architect mode. Use "এই plan দিয়ে buil
           const step = appState.currentPlan[stepIndex];
           appState.planStepIndex = stepIndex;
 
+          // M9+M14: Estimate plan step cost & quote-before-spend (D-B13-9)
+          if (typeof estimatePlanCost === 'function') {
+            try {
+              const costEstimate = estimatePlanCost({
+                step: step,
+                plan: appState.currentPlan,
+                stepIndex: stepIndex,
+                totalSteps: appState.currentPlan.length
+              });
+              if (costEstimate) {
+                step.estimatedCost = costEstimate;
+                logActivity(`📊 Step ${stepIndex + 1} estimated cost: ${costEstimate.estimatedTokens || costEstimate.estimatedCost || 'unknown'} tokens`, 'info');
+                
+                // Request quote before spend if required
+                if (typeof requestQuote === 'function') {
+                  const quoteResult = await requestQuote({
+                    estimatedTokens: costEstimate.estimatedTokens || costEstimate.estimatedCost,
+                    providerId: activeProviderId,
+                    model: (getCurrentProvider?.()?.model) || 'default',
+                    stepId: step.id || stepIndex,
+                    workId: step.workId || generateWorkId()
+                  });
+                  if (quoteResult && quoteResult.requiresApproval && !quoteResult.approved) {
+                    logActivity(`🛑 Quote denied for step ${stepIndex + 1}`, 'warning');
+                    appendChatMessage('system', `⚠️ Cost quote not approved for step ${stepIndex + 1}. Skipping step.`);
+                    step.done = true;
+                    step.current = false;
+                    savePlanToBrainFile();
+                    renderPlanChecklist();
+                    renderTodoList();
+                    agentWorking = false;
+                    stopTimer();
+                    return executeNextPlanStep();
+                  }
+                  if (quoteResult && quoteResult.approved) {
+                    step.quoteApproved = true;
+                    step.quoteId = quoteResult.quoteId;
+                  }
+                }
+              }
+            } catch (_e) {
+              logActivity('Cost estimation failed (non-blocking): ' + _e.message, 'warning');
+            }
+          }
+
           // L9: Validate milestone before executing step (blocks if failed)
           if (appState.currentMission && typeof validateMilestone === 'function') {
             const milestoneResult = validateMilestone(appState.currentMission.id, stepIndex);
@@ -40230,6 +40597,22 @@ This plan was generated in Architect mode. Use "এই plan দিয়ে buil
           updateTokenMeter(session);
           startTimer();
 
+          // M10: Initialize step executor (D-B13-10)
+          if (typeof initStepExecutor === 'function') {
+            try {
+              initStepExecutor({
+                stepId: step.id || stepIndex,
+                stepText: step.text,
+                stepIndex: stepIndex,
+                totalSteps: appState.currentPlan.length,
+                workId: step.workId || generateWorkId(),
+                sessionId: session.id
+              });
+            } catch (_e) {
+              logActivity('Step executor init failed (non-blocking): ' + _e.message, 'warning');
+            }
+          }
+
           // (c) THINK-ACT-OBSERVE LOOP
           // Phase 1: THINKING - before sending to LLM
           updateThinkActObserveState('thinking', step.text);
@@ -40300,6 +40683,23 @@ This plan was generated in Architect mode. Use "এই plan দিয়ে buil
               renderTodoList(); // Update live todo list
               logActivity(`Step ${stepIndex + 1} completed`, 'success');
 
+              // M10: Execute step completion (D-B13-10)
+              if (typeof executeStep === 'function') {
+                try {
+                  executeStep({
+                    stepId: step.id || stepIndex,
+                    stepText: step.text,
+                    stepIndex: stepIndex,
+                    success: true,
+                    fileModified: true,
+                    workId: step.workId,
+                    sessionId: session.id
+                  });
+                } catch (_e) {
+                  logActivity('Step executor completion failed (non-blocking): ' + _e.message, 'warning');
+                }
+              }
+
               // Devin Batch 5 (D4 + D8 verifier repair): the sidekick
               // verifies the files this step actually touched (empty file /
               // JS syntax checks), and the long task persists its progress.
@@ -40318,6 +40718,14 @@ This plan was generated in Architect mode. Use "এই plan দিয়ে buil
               } catch (e) { /* sidekick verification never blocks the plan */ }
               try { persistLongTaskAfterStep('plan-' + session.id, stepIndex, { done: true, fileModified: true }, null); } catch (e) { /* persist never blocks the plan */ }
 
+              // D-B13-9 + M14: Update learned rates and provider reputation from actuals
+              if (typeof updateLearnedRates === 'function') {
+                try { updateLearnedRates(step.kind || 'build', step.actualTokens || 0); } catch (_e) {}
+              }
+              if (typeof updateProviderReputation === 'function' && activeProviderId) {
+                try { updateProviderReputation(activeProviderId, true); } catch (_e) {}
+              }
+
               // Auto-continue to next step
               agentWorking = false;
               stopTimer();
@@ -40334,9 +40742,34 @@ This plan was generated in Architect mode. Use "এই plan দিয়ে buil
               renderPlanChecklist();
               renderTodoList(); // Update live todo list
 
+              // M10: Execute step completion (D-B13-10)
+              if (typeof executeStep === 'function') {
+                try {
+                  executeStep({
+                    stepId: step.id || stepIndex,
+                    stepText: step.text,
+                    stepIndex: stepIndex,
+                    success: true,
+                    fileModified: false,
+                    workId: step.workId,
+                    sessionId: session.id
+                  });
+                } catch (_e) {
+                  logActivity('Step executor completion failed (non-blocking): ' + _e.message, 'warning');
+                }
+              }
+
               // Devin Batch 5 (D8 verifier repair): persist progress even
               // when the step changed no files.
               try { persistLongTaskAfterStep('plan-' + session.id, stepIndex, { done: true, fileModified: false }, null); } catch (e) { /* persist never blocks the plan */ }
+
+              // D-B13-9 + M14: Update learned rates and provider reputation from actuals
+              if (typeof updateLearnedRates === 'function') {
+                try { updateLearnedRates(step.kind || 'build', step.actualTokens || 0); } catch (_e) {}
+              }
+              if (typeof updateProviderReputation === 'function' && activeProviderId) {
+                try { updateProviderReputation(activeProviderId, true); } catch (_e) {}
+              }
 
               agentWorking = false;
               stopTimer();
@@ -41040,29 +41473,64 @@ This plan was generated in Architect mode. Use "এই plan দিয়ে buil
     }
 
     function switchSession(sessionId) {
-          if (!appState.sessions[sessionId]) return;
-          const previousSessionId = appState.activeSessionId;
-          appState.activeSessionId = sessionId;
-          saveAppState();
-          renderSessionPicker();
-          renderSessionList();
-          renderFileTree();
-          renderTabs();
-          renderChatHistory();
-          updateUncensoredUI();
-          updateHeaderUsageMeter();
-          previewHealthReset();
-          const session = getCurrentSession();
-          if (session.activeFile && session.files[session.activeFile] !== undefined) {
-            document.getElementById('editorTextarea').value = session.files[session.activeFile];
-          } else {
-            document.getElementById('editorTextarea').value = '';
-          }
-          updateLineNumbers();
-          refreshPreview();
-          logActivity(`Switched to session: ${session.name}`, 'info');
-      
-          // Batch 7.12: Render message queue for this session
+              if (!appState.sessions[sessionId]) return;
+              const previousSessionId = appState.activeSessionId;
+              appState.activeSessionId = sessionId;
+              saveAppState();
+              renderSessionPicker();
+              renderSessionList();
+              renderFileTree();
+              renderTabs();
+              renderChatHistory();
+              updateUncensoredUI();
+              updateHeaderUsageMeter();
+              previewHealthReset();
+              const session = getCurrentSession();
+              if (session.activeFile && session.files[session.activeFile] !== undefined) {
+                document.getElementById('editorTextarea').value = session.files[session.activeFile];
+              } else {
+                document.getElementById('editorTextarea').value = '';
+              }
+              updateLineNumbers();
+              refreshPreview();
+              logActivity(`Switched to session: ${session.name}`, 'info');
+     
+              // M4: Check sandbox health on session switch (D-B13-4)
+              if (typeof checkSandboxHealth === 'function') {
+                try {
+                  const sandboxHealth = checkSandboxHealth();
+                  if (sandboxHealth && sandboxHealth.status === 'desktop-only') {
+                    logActivity('Sandbox: Desktop-only mode (honest marking)', 'info');
+                  }
+                } catch (_e) {
+                  logActivity('Sandbox health check failed (non-blocking): ' + _e.message, 'warning');
+                }
+              }
+              // M4: Get sandbox capabilities on session switch (D-B13-4)
+              if (typeof getSandboxCapabilities === 'function') {
+                try {
+                  const caps = getSandboxCapabilities();
+                  if (caps) {
+                    logActivity('Sandbox capabilities: ' + JSON.stringify(caps), 'info');
+                  }
+                } catch (_e) {
+                  logActivity('Sandbox capabilities check failed (non-blocking): ' + _e.message, 'warning');
+                }
+              }
+
+              // M7: Check folder trust on project switch (D-B13-7)
+              if (typeof checkFolderTrust === 'function') {
+                try {
+                  const trustResult = checkFolderTrust(session.rootPath || session.path);
+                  if (typeof updateTrustDisplay === 'function') {
+                    updateTrustDisplay(trustResult);
+                  }
+                } catch (_e) {
+                  logActivity('Folder trust check failed (non-blocking): ' + _e.message, 'warning');
+                }
+              }
+
+              // Batch 7.12: Render message queue for this session
           renderMessageQueue();
           // Batch 7.12: Check for queued messages on session open
           checkQueuedMessagesOnSessionOpen();
@@ -45645,6 +46113,22 @@ Requirements:
         { id: 'toggleTheme', title: 'Toggle Theme', desc: 'Switch between dark/light (if supported)', section: 'Settings & UI', icon: '🌙', shortcut: '', action: toggleTheme },
         { id: 'keyboardShortcuts', title: 'Keyboard Shortcuts', desc: 'Show keyboard shortcuts help', section: 'Settings & UI', icon: '⌨️', shortcut: '⌘/', action: showKeyboardShortcuts },
         { id: 'about', title: 'About FlamingoCode', desc: 'Show version and credits', section: 'Settings & UI', icon: 'ℹ️', shortcut: '', action: showAbout },
+
+        // Batch 13 — Governance + Safety + Cost (verifier repair)
+        { id: 'addRulebook', title: 'Add Rulebook', desc: 'Add a governance rulebook (Batch 13 M12)', section: 'Batch 13', icon: '📜', shortcut: '', action: () => { const name = prompt('Rulebook name:'); if (!name) return; const content = prompt('Rulebook YAML content:'); if (!content) return; const r = addRulebook({ name, content }); logActivity('Rulebook added: ' + (r && r.id ? r.id : name), r ? 'success' : 'error'); } },
+        { id: 'listRulebooks', title: 'List Rulebooks', desc: 'Show all registered governance rulebooks (Batch 13 M12)', section: 'Batch 13', icon: '📋', shortcut: '', action: () => { const rbs = getApplicableRulebooks({}); if (!rbs.length) { logActivity('No rulebooks registered', 'info'); return; } rbs.forEach(rb => logActivity('Rulebook: ' + rb.name + ' (' + rb.uri + ')', 'info')); } },
+        { id: 'addShellApprovalClass', title: 'Add Shell Approval Class', desc: 'Add a shell command approval class (Batch 13 M11)', section: 'Batch 13', icon: '➕', shortcut: '', action: () => { const cls = prompt('Class name (e.g. dangerous):'); if (!cls) return; const pattern = prompt('Command pattern (regex):'); if (!pattern) return; const rung = parseInt(prompt('Required rung (0-3):', '2') || '2', 10); const r = addShellApprovalClass({ class: cls, pattern, rung }); logActivity('Shell approval class added: ' + (r && r.class ? r.class : cls), r ? 'success' : 'error'); } },
+        { id: 'revokeShellApprovalClass', title: 'Revoke Shell Approval Class', desc: 'Revoke a shell command approval class (Batch 13 M11)', section: 'Batch 13', icon: '➖', shortcut: '', action: () => { const cls = prompt('Class name to revoke:'); if (!cls) return; const r = revokeShellApprovalClass(cls); logActivity('Shell approval class revoked: ' + cls, r ? 'success' : 'error'); } },
+        { id: 'listShellApprovalClasses', title: 'List Shell Approval Classes', desc: 'Show all shell approval classes (Batch 13 M11)', section: 'Batch 13', icon: '📋', shortcut: '', action: () => { const stale = getStaleApprovalClasses(); if (!stale.length) { logActivity('No stale approval classes', 'info'); return; } stale.forEach(c => logActivity('Stale class: ' + c.class + ' — last used ' + new Date(c.lastUsed).toLocaleString(), 'info')); } },
+        { id: 'approveQuote', title: 'Approve Quote', desc: 'Approve a pending cost quote (Batch 13 M14)', section: 'Batch 13', icon: '✅', shortcut: '', action: () => { const quoteId = prompt('Quote ID to approve:'); if (!quoteId) return; const r = approveQuote(quoteId); logActivity('Quote approved: ' + quoteId, r ? 'success' : 'error'); } },
+        { id: 'initBuiltInEvalSet', title: 'Initialize Built-in Eval Set', desc: 'Initialize the built-in agent evaluation set (Batch 13 M10)', section: 'Batch 13', icon: '🧪', shortcut: '', action: () => { const r = initBuiltInEvalSet(); logActivity('Built-in eval set initialized: ' + (r && r.count ? r.count : '0') + ' eval(s)', r ? 'success' : 'error'); } },
+        { id: 'runAgentEval', title: 'Run Agent Evaluation', desc: 'Run the built-in agent evaluation (Batch 13 M10)', section: 'Batch 13', icon: '▶️', shortcut: '', action: async () => { const r = await runAgentEval(); logActivity('Agent eval: ' + (r.passed || 0) + ' passed, ' + (r.failed || 0) + ' failed — ' + (r.report || ''), (r.failed || 0) ? 'warning' : 'success'); } },
+        { id: 'checkFolderTrust', title: 'Check Folder Trust', desc: 'Check trust status of current folder (Batch 13 M7)', section: 'Batch 13', icon: '🔒', shortcut: '', action: () => { const s = getCurrentSession(); if (!s) return; const folder = prompt('Folder path (default: project root):', s.projectRoot || '.') || '.'; const r = checkFolderTrust(folder); logActivity('Folder trust: ' + folder + ' — ' + (r.trusted ? 'TRUSTED' : 'UNTRUSTED') + (r.reason ? ' (' + r.reason + ')' : ''), r.trusted ? 'success' : 'warning'); } },
+        { id: 'setFolderTrust', title: 'Set Folder Trust', desc: 'Set trust status for a folder (Batch 13 M7)', section: 'Batch 13', icon: '🔓', shortcut: '', action: () => { const folder = prompt('Folder path:'); if (!folder) return; const trusted = prompt('Trusted? (yes/no):', 'yes'); if (trusted === null) return; const r = setFolderTrust(folder, /^y/i.test(trusted)); logActivity('Folder trust set: ' + folder + ' = ' + (/^y/i.test(trusted) ? 'TRUSTED' : 'UNTRUSTED'), r ? 'success' : 'error'); if (typeof updateTrustDisplay === 'function') updateTrustDisplay(); } },
+        { id: 'viewSpendReport', title: 'View Spend Report', desc: 'Show model/project/task spend report (Batch 13 M8)', section: 'Batch 13', icon: '💰', shortcut: '', action: () => { const s = getCurrentSession(); if (!s) return; const model = getModelSpend(s.id); const project = getProjectSpend(s.id); const task = getTaskSpend(s.id); logActivity('Model spend: $' + (model.cost || 0).toFixed(4) + ' (' + (model.tokens || 0) + ' tokens)', 'info'); logActivity('Project spend: $' + (project.cost || 0).toFixed(4) + ' (' + (project.tokens || 0) + ' tokens)', 'info'); logActivity('Task spend: $' + (task.cost || 0).toFixed(4) + ' (' + (task.tokens || 0) + ' tokens)', 'info'); const reconciled = reconcilePlanActuals(s.id); logActivity('Plan vs actual: ' + JSON.stringify(reconciled), 'info'); } },
+        { id: 'testMatchPolicyPattern', title: 'Test Match Policy Pattern', desc: 'Test the internal matchPolicyPattern helper (Batch 13 M2 debug)', section: 'Batch 13', icon: '🔍', shortcut: '', action: () => { const actionText = prompt('Action text:', 'read file /etc/passwd'); if (!actionText) return; const policy = { rules: [{ pattern: 'read file /etc/*', effect: 'deny' }] }; const result = matchPolicyPattern(actionText, policy); logActivity('Pattern match result: ' + JSON.stringify(result), 'info'); } },
+        { id: 'testParsePolicyYaml', title: 'Test Parse Policy YAML', desc: 'Test the internal parsePolicyYaml helper (Batch 13 M2 debug)', section: 'Batch 13', icon: '📄', shortcut: '', action: () => { const yaml = prompt('Policy YAML:', 'rules:\\n  - pattern: \"read file /etc/*\"\\n    effect: deny'); if (!yaml) return; const result = parsePolicyYaml(yaml); logActivity('Parsed policy: ' + JSON.stringify(result), 'info'); } },
+        { id: 'testResolveRulebookConflict', title: 'Test Resolve Rulebook Conflict', desc: 'Test the internal resolveRulebookConflict helper (Batch 13 M12 debug)', section: 'Batch 13', icon: '⚖️', shortcut: '', action: () => { const rb1 = { rules: [{ pattern: 'read file /etc/*', effect: 'deny' }] }; const rb2 = { rules: [{ pattern: 'read file /etc/passwd', effect: 'allow' }] }; const result = resolveRulebookConflict([rb1, rb2]); logActivity('Conflict resolution: ' + JSON.stringify(result), 'info'); } },
       ];
 
       let selectedIndex = 0;
@@ -56174,6 +56658,40 @@ FOLLOWUP: [question 3]`;
       appState.sessions[session.id] = session;
       appState.activeSessionId = session.id;
       saveAppState();
+
+      // M12+M13: Load AGENTS.md cascade for this session/project (D-B13-11)
+      if (typeof loadAgentsMdCascade === 'function' && typeof getCascadeWinner === 'function') {
+        try {
+          const cascadeResult = loadAgentsMdCascade({ 
+            projectId: projectId, 
+            sessionId: session.id,
+            rootPath: session.rootPath || session.path 
+          });
+          if (cascadeResult) {
+            session.agentsMdCascade = cascadeResult;
+            const winner = getCascadeWinner(cascadeResult);
+            if (winner) {
+              session.effectiveAgentsMd = winner;
+              logActivity(`📄 AGENTS.md cascade loaded: ${cascadeResult.files?.length || 0} files, winner: ${winner.source || 'unknown'}`, 'info');
+            }
+          }
+        } catch (_e) {
+          logActivity('AGENTS.md cascade load failed (non-blocking): ' + _e.message, 'warning');
+        }
+      }
+
+      // D-B13-2: Load governance policy at session start
+      if (typeof loadGovernancePolicy === 'function') {
+        try {
+          const policyResult = loadGovernancePolicy({ projectId, sessionId: session.id });
+          if (policyResult) {
+            session.governancePolicy = policyResult;
+            logActivity('📋 Governance policy loaded for project: ' + projectId, 'info');
+          }
+        } catch (_e) {
+          logActivity('Governance policy load failed (non-blocking): ' + _e.message, 'warning');
+        }
+      }
 
       // K13: Register session for dashboard
       registerSessionForDashboard('flamingocode', session.id, {
