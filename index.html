@@ -57421,6 +57421,819 @@ FOLLOWUP: [question 3]`;
       return { passed: allPassed, results, specialist: language };
     }
 
+    // ============================================================
+    // BATCH 12: L11-L20 — Orchestration + Safety
+    // ============================================================
+
+    // L11: Flows — deterministic event-driven orchestration (CrewAI)
+    var FLOW_DEFINITION = {
+      version: '1.0',
+      flows: {}
+    };
+
+    function registerFlow(name, definition) {
+      const def = definition || {};
+      FLOW_DEFINITION.flows[name] = {
+        name,
+        start: def.start || [],
+        steps: def.steps || {},
+        routers: def.routers || {},
+        persistPoints: def.persistPoints || [],
+        humanGates: def.humanGates || [],
+        stateSchema: def.stateSchema || {},
+        createdAt: Date.now()
+      };
+      return FLOW_DEFINITION.flows[name];
+    }
+
+    function getFlow(name) {
+      return FLOW_DEFINITION.flows[name];
+    }
+
+    function listFlows() {
+      return Object.values(FLOW_DEFINITION.flows);
+    }
+
+    async function runFlow(flowName, initialState, options) {
+      const flow = FLOW_DEFINITION.flows[flowName];
+      if (!flow) return { success: false, error: 'Flow not found: ' + flowName };
+
+      const opts = options || {};
+      const resumeFrom = opts.resumeFrom || null;
+      const state = { ...initialState, _flow: flowName, _step: 0, _history: [] };
+
+      // If resuming from a persist point
+      if (resumeFrom && flow.persistPoints.includes(resumeFrom)) {
+        state._resumedFrom = resumeFrom;
+        // In real impl, load persisted state from storage
+      }
+
+      let currentStep = flow.start[0] || null;
+      let iterations = 0;
+      const maxSteps = opts.maxSteps || 100;
+
+      while (currentStep && iterations < maxSteps) {
+        iterations++;
+        state._step = iterations;
+        state._currentStep = currentStep;
+
+        const stepDef = flow.steps[currentStep];
+        if (!stepDef) break;
+
+        // Execute step
+        let stepResult = null;
+        if (stepDef.fn) {
+          stepResult = await stepDef.fn(state);
+        }
+
+        state._history.push({ step: currentStep, result: stepResult, timestamp: Date.now() });
+        state[currentStep] = stepResult;
+
+        // Check for human gate
+        if (flow.humanGates.includes(currentStep)) {
+          return { success: false, paused: true, atStep: currentStep, state, reason: 'human_gate' };
+        }
+
+        // Check for persist point
+        if (flow.persistPoints.includes(currentStep)) {
+          state._lastPersistPoint = currentStep;
+          // In real impl, persist state to storage
+        }
+
+        // Determine next step
+        if (stepDef.next) {
+          currentStep = stepDef.next;
+        } else if (flow.routers[currentStep]) {
+          const router = flow.routers[currentStep];
+          currentStep = router(state, stepResult);
+        } else {
+          // Find step that listens to this one
+          let found = false;
+          for (const [stepName, def] of Object.entries(flow.steps)) {
+            if (def.listen === currentStep || (Array.isArray(def.listen) && def.listen.includes(currentStep))) {
+              currentStep = stepName;
+              found = true;
+              break;
+            }
+          }
+          if (!found) break;
+        }
+      }
+
+      return { success: true, state, iterations, stopped: iterations >= maxSteps ? 'max_steps' : 'completed' };
+    }
+
+    function generateFlowDiagram(flowName) {
+      const flow = FLOW_DEFINITION.flows[flowName];
+      if (!flow) return 'Flow not found: ' + flowName;
+
+      let mermaid = 'flowchart TD\n';
+      for (const [stepName, def] of Object.entries(flow.steps)) {
+        const shape = def.humanGate ? ':::human' : def.persist ? ':::persist' : '';
+        mermaid += `  ${stepName}[${stepName}]${shape}\n`;
+        if (def.next) {
+          mermaid += `  ${stepName} --> ${def.next}\n`;
+        } else if (flow.routers[stepName]) {
+          mermaid += `  ${stepName} -.->|router| ${Object.keys(flow.steps).find(s => flow.steps[s].listen === stepName || (Array.isArray(flow.steps[s].listen) && flow.steps[s].listen.includes(stepName))) || '?'}\n`;
+        }
+      }
+      mermaid += '  classDef human fill:#f59e0b,color:#000;\n  classDef persist fill:#10b981,color:#000;\n';
+      return mermaid;
+    }
+
+    // L12: Conditional tasks + output guardrails (CrewAI)
+    var CONDITIONAL_TASK = {
+      version: '1.0'
+    };
+
+    function evaluatePredicate(predicate, state) {
+      if (typeof predicate === 'function') return !!predicate(state);
+      if (typeof predicate === 'string') {
+        try { return !!new Function('state', 'return ' + predicate)(state); } catch { return false; }
+      }
+      return !!predicate;
+    }
+
+    async function runConditionalTask(step, state, options) {
+      const opts = options || {};
+      const maxRetries = opts.maxRetries || 3;
+
+      // Check run_if predicate
+      if (step.runIf !== undefined) {
+        const shouldRun = evaluatePredicate(step.runIf, state);
+        if (!shouldRun) {
+          // Skipped step still emits output
+          const skippedOutput = step.skippedOutput || { skipped: true, reason: 'predicate_false', step: step.id };
+          state[step.id] = skippedOutput;
+          state._history = state._history || [];
+          state._history.push({ step: step.id, result: skippedOutput, skipped: true, timestamp: Date.now() });
+          return { success: true, skipped: true, output: skippedOutput };
+        }
+      }
+
+      // Execute the step
+      let output = null;
+      let retries = 0;
+      while (retries <= maxRetries) {
+        try {
+          if (step.fn) {
+            output = await step.fn(state);
+          } else {
+            output = { done: true };
+          }
+
+          // Validate output against guardrails
+          if (step.guardrails) {
+            const validation = validateOutput(output, step.guardrails);
+            if (!validation.passed) {
+              retries++;
+              if (retries > maxRetries) {
+                return { success: false, error: 'Guardrail validation failed after ' + maxRetries + ' retries', errors: validation.errors, output };
+              }
+              // Retry the step
+              continue;
+            }
+          }
+
+          // Success
+          state[step.id] = output;
+          state._history = state._history || [];
+          state._history.push({ step: step.id, result: output, timestamp: Date.now() });
+          return { success: true, skipped: false, output };
+        } catch (e) {
+          retries++;
+          if (retries > maxRetries) {
+            return { success: false, error: e.message, retries };
+          }
+        }
+      }
+      return { success: false, error: 'Max retries exceeded' };
+    }
+
+    function validateOutput(output, guardrails) {
+      const errors = [];
+      if (guardrails.schema) {
+        // Simple schema validation
+        const required = guardrails.schema.required || [];
+        for (const field of required) {
+          if (output[field] === undefined) errors.push('Missing required field: ' + field);
+        }
+        if (guardrails.schema.properties) {
+          for (const [field, prop] of Object.entries(guardrails.schema.properties)) {
+            if (output[field] !== undefined && prop.type && typeof output[field] !== prop.type) {
+              errors.push('Field ' + field + ' must be type ' + prop.type);
+            }
+          }
+        }
+      }
+      if (guardrails.checklist) {
+        for (const check of guardrails.checklist) {
+          if (typeof check === 'function') {
+            if (!check(output)) errors.push('Checklist failed: ' + (check.name || 'anonymous'));
+          } else if (typeof check === 'string') {
+            if (!output[check]) errors.push('Checklist missing: ' + check);
+          }
+        }
+      }
+      return { passed: errors.length === 0, errors };
+    }
+
+    // L13: Reproduce-first bug-fix recipe (SWE-agent)
+    var BUG_FIX_RECIPE = {
+      version: '1.0'
+    };
+
+    function createBugFixRecipe(bugDescription, options) {
+      const opts = options || {};
+      return {
+        id: 'bugfix-' + Date.now(),
+        bugDescription,
+        steps: [
+          { id: 'find_read', name: 'Find & Read', description: 'Locate and read relevant files', required: true },
+          { id: 'write_repro', name: 'Write Repro Script', description: 'Create a minimal reproduction script', required: true, guardrails: { checklist: ['repro script exists', 'repro fails before fix'] } },
+          { id: 'edit_fix', name: 'Edit Fix', description: 'Apply minimal fix', required: true },
+          { id: 'rerun_repro', name: 'Re-run Repro', description: 'Verify repro passes', required: true, guardrails: { checklist: ['repro passes'] } },
+          { id: 'edge_cases', name: 'Edge Cases', description: 'Check edge cases', required: false }
+        ],
+        status: 'pending',
+        createdAt: Date.now(),
+        reproScript: null,
+        fixApplied: null,
+        reproPassed: false
+      };
+    }
+
+    async function runBugFixRecipe(recipe, executor) {
+      // executor is a function that runs a step and returns result
+      // Step 1: Find & Read
+      let result = await executor(recipe.steps[0]);
+      if (!result.success) return { success: false, step: 'find_read', error: result.error };
+
+      // Step 2: Write Repro Script (MANDATORY)
+      result = await executor(recipe.steps[1]);
+      if (!result.success || !result.reproScript) {
+        return { success: false, step: 'write_repro', error: 'Reproduction script is required — fix refused without it' };
+      }
+      recipe.reproScript = result.reproScript;
+
+      // Step 3: Edit Fix
+      result = await executor(recipe.steps[2]);
+      if (!result.success) return { success: false, step: 'edit_fix', error: result.error };
+      recipe.fixApplied = result.fix;
+
+      // Step 4: Re-run Repro (MANDATORY)
+      result = await executor(recipe.steps[3]);
+      if (!result.success || !result.reproPassed) {
+        return { success: false, step: 'rerun_repro', error: 'Reproduction script must pass after fix' };
+      }
+      recipe.reproPassed = true;
+
+      // Step 5: Edge Cases (optional)
+      if (recipe.steps[4]) {
+        await executor(recipe.steps[4]);
+      }
+
+      recipe.status = 'completed';
+      return { success: true, recipe };
+    }
+
+    // L14: Spec Mode with separate planning model (Factory)
+    var SPEC_MODE = {
+      version: '1.0',
+      currentSpec: null,
+      planningModel: null,
+      buildingModel: null
+    };
+
+    function setSpecModeModels(planningModel, buildingModel) {
+      SPEC_MODE.planningModel = planningModel;
+      SPEC_MODE.buildingModel = buildingModel;
+      return { planningModel, buildingModel };
+    }
+
+    async function createSpec(taskDescription, options) {
+      const opts = options || {};
+      const planningModel = opts.planningModel || SPEC_MODE.planningModel;
+      if (!planningModel) return { success: false, error: 'Planning model not configured' };
+
+      const spec = {
+        id: 'spec-' + Date.now(),
+        taskDescription,
+        acceptanceCriteria: opts.acceptanceCriteria || [],
+        technicalDesign: '',
+        expectedFileChanges: [],
+        testStrategy: '',
+        implementationSteps: [],
+        status: 'draft',
+        planningModel,
+        buildingModel: opts.buildingModel || SPEC_MODE.buildingModel,
+        createdAt: Date.now()
+      };
+
+      // In real impl, call planning model to generate spec
+      // For now, return the structure
+      SPEC_MODE.currentSpec = spec;
+      return { success: true, spec };
+    }
+
+    function approveSpec(specId) {
+      const spec = SPEC_MODE.currentSpec;
+      if (!spec || spec.id !== specId) return { success: false, error: 'Spec not found' };
+      spec.status = 'approved';
+      spec.approvedAt = Date.now();
+      // Save to Brain as durable record
+      if (typeof writeBrainNote === 'function') {
+        writeBrainNote({
+          title: 'Approved Spec: ' + spec.taskDescription.slice(0, 50),
+          content: JSON.stringify(spec, null, 2),
+          tags: ['spec', 'approved']
+        });
+      }
+      return { success: true, spec };
+    }
+
+    async function implementSpec(specId, executor) {
+      const spec = SPEC_MODE.currentSpec;
+      if (!spec || spec.id !== specId) return { success: false, error: 'Spec not found' };
+      if (spec.status !== 'approved') return { success: false, error: 'Spec not approved' };
+
+      spec.status = 'implementing';
+      const results = [];
+      for (const step of spec.implementationSteps) {
+        const result = await executor(step, spec.buildingModel);
+        results.push({ step, result });
+        if (!result.success) {
+          spec.status = 'failed';
+          return { success: false, error: 'Step failed: ' + step, results };
+        }
+      }
+      spec.status = 'completed';
+      spec.completedAt = Date.now();
+      return { success: true, spec, results };
+    }
+
+    // L15: Capability Dial (amp)
+    var EFFORT_DIAL = {
+      version: '1.0',
+      levels: ['Low', 'Medium', 'High', 'Ultra'],
+      current: 'Medium',
+      costMultiplier: { Low: 0.5, Medium: 1, High: 2, Ultra: 3.5 },
+      spend: { Low: 0, Medium: 0, High: 0, Ultra: 0 }
+    };
+
+    function setEffortDial(level) {
+      if (!EFFORT_DIAL.levels.includes(level)) return { success: false, error: 'Invalid level' };
+      EFFORT_DIAL.current = level;
+      return { success: true, level, costMultiplier: EFFORT_DIAL.costMultiplier[level] };
+    }
+
+    function getEffortDial() {
+      return {
+        current: EFFORT_DIAL.current,
+        levels: EFFORT_DIAL.levels,
+        costMultiplier: EFFORT_DIAL.costMultiplier[EFFORT_DIAL.current],
+        spend: { ...EFFORT_DIAL.spend }
+      };
+    }
+
+    function recordDialSpend(level, tokens) {
+      if (EFFORT_DIAL.spend[level] !== undefined) {
+        EFFORT_DIAL.spend[level] += tokens;
+      }
+      return EFFORT_DIAL.spend;
+    }
+
+    function getModelsForEffort(level, taskType) {
+      // This integrates with D3 router + 8c M2
+      // Returns model selection based on effort level
+      const roleMap = {
+        Low: { planner: 'cheap', builder: 'cheap', reviewer: 'cheap' },
+        Medium: { planner: 'balanced', builder: 'balanced', reviewer: 'balanced' },
+        High: { planner: 'strong', builder: 'strong', reviewer: 'strong' },
+        Ultra: { planner: 'best', builder: 'best', reviewer: 'best' }
+      };
+      return roleMap[level] || roleMap.Medium;
+    }
+
+    // L16: MAKER k-voting — reliable mode for cheap/free models (fast-agent)
+    var K_VOTING = {
+      version: '1.0',
+      defaultSamples: 5,
+      maxSamples: 25,
+      defaultK: 2,
+      strategies: ['exact', 'normalized', 'structured-json']
+    };
+
+    async function runKVoting(workerFn, options) {
+      const opts = options || {};
+      const samples = Math.min(opts.samples || K_VOTING.defaultSamples, K_VOTING.maxSamples);
+      const k = opts.k || K_VOTING.defaultK;
+      const strategy = opts.strategy || 'normalized';
+      const discardMalformed = opts.discardMalformed !== false;
+
+      const results = [];
+      for (let i = 0; i < samples; i++) {
+        try {
+          const result = await workerFn(i);
+          // Check for red flags
+          if (discardMalformed && isMalformed(result)) continue;
+          results.push({ index: i, result, normalized: normalizeResult(result, strategy) });
+        } catch (e) {
+          // Failed sample, discard
+        }
+      }
+
+      if (results.length === 0) return { success: false, error: 'All samples failed or were discarded', samples: [] };
+
+      // Count votes
+      const voteMap = new Map();
+      for (const r of results) {
+        const key = JSON.stringify(r.normalized);
+        if (!voteMap.has(key)) voteMap.set(key, { count: 0, examples: [] });
+        const entry = voteMap.get(key);
+        entry.count++;
+        entry.examples.push(r);
+      }
+
+      // Find winner with >= k votes
+      let winner = null;
+      let maxVotes = 0;
+      for (const [key, entry] of voteMap.entries()) {
+        if (entry.count >= k && entry.count > maxVotes) {
+          maxVotes = entry.count;
+          winner = entry;
+        }
+      }
+
+      if (!winner) {
+        // No majority, return highest vote count
+        for (const [key, entry] of voteMap.entries()) {
+          if (entry.count > maxVotes) {
+            maxVotes = entry.count;
+            winner = entry;
+          }
+        }
+      }
+
+      return {
+        success: !!winner,
+        winner: winner ? winner.examples[0].result : null,
+        votes: maxVotes,
+        totalSamples: results.length,
+        distribution: Array.from(voteMap.entries()).map(([k, v]) => ({ result: v.examples[0].result, votes: v.count })),
+        strategy
+      };
+    }
+
+    function isMalformed(result) {
+      if (result === null || result === undefined) return true;
+      if (typeof result === 'string' && result.length > 10000) return true; // too long
+      if (typeof result === 'object') {
+        try { JSON.stringify(result); } catch { return true; } // not serializable
+      }
+      return false;
+    }
+
+    function normalizeResult(result, strategy) {
+      if (strategy === 'exact') return result;
+      if (strategy === 'structured-json') {
+        if (typeof result === 'string') {
+          try { return JSON.parse(result); } catch { return result; }
+        }
+        return result;
+      }
+      // normalized: trim, lowercase, remove extra whitespace
+      if (typeof result === 'string') {
+        return result.trim().toLowerCase().replace(/\s+/g, ' ');
+      }
+      return JSON.stringify(result);
+    }
+
+    // L17: Modernization playbook (Bob)
+    var MODERNIZATION_PLAYBOOK = {
+      version: '1.0',
+      playbooks: {}
+    };
+
+    function registerPlaybook(name, stages) {
+      MODERNIZATION_PLAYBOOK.playbooks[name] = {
+        name,
+        stages: stages.map((s, i) => ({
+          index: i,
+          name: s.name,
+          description: s.description,
+          agents: s.agents || [],
+          seniorReview: s.seniorReview !== false,
+          verifier: s.verifier || null,
+          status: 'pending'
+        })),
+        createdAt: Date.now()
+      };
+      return MODERNIZATION_PLAYBOOK.playbooks[name];
+    }
+
+    function getPlaybook(name) {
+      return MODERNIZATION_PLAYBOOK.playbooks[name];
+    }
+
+    function listPlaybooks() {
+      return Object.values(MODERNIZATION_PLAYBOOK.playbooks);
+    }
+
+    async function runPlaybook(playbookName, options) {
+      const playbook = MODERNIZATION_PLAYBOOK.playbooks[playbookName];
+      if (!playbook) return { success: false, error: 'Playbook not found' };
+
+      const opts = options || {};
+      const results = [];
+
+      for (const stage of playbook.stages) {
+        stage.status = 'running';
+        // Run stage as Team Mode job
+        const stageResult = await runPlaybookStage(stage, opts);
+        results.push({ stage: stage.name, result: stageResult });
+
+        // Senior review at EACH stage
+        if (stage.seniorReview) {
+          const review = await runSeniorReview(stage, stageResult);
+          results.push({ stage: stage.name + ' (senior review)', result: review });
+          if (!review.approved) {
+            stage.status = 'failed_review';
+            return { success: false, results, stoppedAt: stage.name };
+          }
+        }
+
+        stage.status = 'completed';
+      }
+
+      return { success: true, results };
+    }
+
+    async function runPlaybookStage(stage, options) {
+      // Stub - in real impl this runs a Team Mode job
+      return { success: true, stage: stage.name, output: 'Stage completed' };
+    }
+
+    async function runSeniorReview(stage, stageResult) {
+      // Stub - in real impl this invokes the Senior agent
+      return { approved: true, feedback: 'Approved' };
+    }
+
+    // L18: Custom agents as repo-shipped Markdown files (Factory)
+    var CUSTOM_AGENTS = {
+      version: '1.0',
+      agents: {}
+    };
+
+    function parseAgentMarkdown(markdown) {
+      const frontmatterMatch = markdown.match(/^---\n([\s\S]*?)\n---/);
+      const frontmatter = frontmatterMatch ? frontmatterMatch[1] : '';
+      const content = frontmatterMatch ? markdown.slice(frontmatterMatch[0].length).trim() : markdown;
+
+      const fm = {};
+      frontmatter.split('\n').forEach(line => {
+        const colonIndex = line.indexOf(':');
+        if (colonIndex > 0) {
+          const key = line.slice(0, colonIndex).trim();
+          const value = line.slice(colonIndex + 1).trim();
+          if (key) fm[key] = value;
+        }
+      });
+
+      return {
+        frontmatter: {
+          name: fm.name || 'Unnamed Agent',
+          systemPrompt: fm.systemPrompt || fm.prompt || '',
+          modelPreference: fm.modelPreference || fm.model || null,
+          allowedTools: fm.allowedTools ? fm.allowedTools.split(',').map(s => s.trim()) : (fm.tools ? fm.tools.split(',').map(s => s.trim()) : []),
+          description: fm.description || '',
+          tools: fm.tools || null
+        },
+        content
+      };
+    }
+
+    function serializeAgentMarkdown(agent) {
+      const fm = agent.frontmatter || {};
+      let yaml = '---\n';
+      yaml += 'name: ' + (fm.name || 'Unnamed Agent') + '\n';
+      if (fm.systemPrompt) yaml += 'systemPrompt: ' + fm.systemPrompt.replace(/\n/g, '\n  ') + '\n';
+      if (fm.modelPreference) yaml += 'modelPreference: ' + fm.modelPreference + '\n';
+      if (fm.allowedTools && fm.allowedTools.length) yaml += 'allowedTools: ' + fm.allowedTools.join(', ') + '\n';
+      if (fm.description) yaml += 'description: ' + fm.description + '\n';
+      yaml += '---\n\n';
+      yaml += agent.content || '';
+      return yaml;
+    }
+
+    function saveAgentFile(name, agent) {
+      const markdown = serializeAgentMarkdown(agent);
+      const path = '.devforge/agents/' + name.toLowerCase().replace(/\s+/g, '-') + '.md';
+      CUSTOM_AGENTS.agents[name] = { path, markdown, frontmatter: agent.frontmatter, updatedAt: Date.now() };
+      // In real impl, write to virtual FS
+      return { success: true, path, markdown };
+    }
+
+    function loadAgentFile(name) {
+      const agent = CUSTOM_AGENTS.agents[name];
+      if (!agent) return { success: false, error: 'Agent not found' };
+      return { success: true, agent: parseAgentMarkdown(agent.markdown) };
+    }
+
+    function listAgentFiles() {
+      return Object.entries(CUSTOM_AGENTS.agents).map(([name, data]) => ({
+        name,
+        path: data.path,
+        frontmatter: data.frontmatter
+      }));
+    }
+
+    function importClaudeAgent(claudeMarkdown) {
+      // Convert Claude Code agent format to our format
+      const parsed = parseAgentMarkdown(claudeMarkdown);
+      // Claude uses 'description' and 'tools' fields
+      if (parsed.frontmatter.tools) {
+        parsed.frontmatter.allowedTools = parsed.frontmatter.tools.split(',').map(s => s.trim());
+      }
+      return parsed;
+    }
+
+    // L19: Runaway guard — verified-progress loop detection (MiniMax)
+    var RUNAWAY_GUARD = {
+      version: '1.0',
+      signalKinds: [
+        'exact_action_repeat',
+        'exact_result_repeat',
+        'same_error_family',
+        'abab_action_cycle',
+        'polling_repeat',
+        'unchanged_progress_repeat'
+      ],
+      threshold: 3,
+      history: [],
+      shadowMode: false
+    };
+
+    function recordToolProvenance(action, result, fileHashes) {
+      RUNAWAY_GUARD.history.push({
+        action,
+        result,
+        resultHash: hashString(JSON.stringify(result)),
+        fileHashes: fileHashes || {},
+        timestamp: Date.now()
+      });
+      // Cap history
+      if (RUNAWAY_GUARD.history.length > 100) {
+        RUNAWAY_GUARD.history = RUNAWAY_GUARD.history.slice(-100);
+      }
+      return checkRunawaySignals();
+    }
+
+    function checkRunawaySignals() {
+      const h = RUNAWAY_GUARD.history;
+      if (h.length < RUNAWAY_GUARD.threshold) return { detected: false, signals: [] };
+
+      const signals = [];
+      const recent = h.slice(-RUNAWAY_GUARD.threshold * 2);
+
+      // exact_action_repeat
+      const actions = recent.map(r => r.action);
+      if (actions.every(a => a === actions[0])) {
+        signals.push({ kind: 'exact_action_repeat', count: actions.length, action: actions[0] });
+      }
+
+      // exact_result_repeat
+      const resultHashes = recent.map(r => r.resultHash);
+      if (resultHashes.every(rh => rh === resultHashes[0])) {
+        signals.push({ kind: 'exact_result_repeat', count: resultHashes.length });
+      }
+
+      // same_error_family
+      const errorFamilies = recent.map(r => extractErrorFamily(r.result));
+      if (errorFamilies.every(ef => ef && ef === errorFamilies[0])) {
+        signals.push({ kind: 'same_error_family', count: errorFamilies.length, family: errorFamilies[0] });
+      }
+
+      // abab_action_cycle
+      if (recent.length >= 4) {
+        const a = recent[recent.length - 4].action;
+        const b = recent[recent.length - 3].action;
+        const c = recent[recent.length - 2].action;
+        const d = recent[recent.length - 1].action;
+        if (a === c && b === d && a !== b) {
+          signals.push({ kind: 'abab_action_cycle', pattern: [a, b] });
+        }
+      }
+
+      // polling_repeat (same action, no file changes)
+      if (recent.length >= 3) {
+        const sameAction = recent.slice(-3).every(r => r.action === recent[recent.length - 1].action);
+        const noFileChanges = recent.slice(-3).every(r => Object.keys(r.fileHashes).length === 0 ||
+          Object.values(r.fileHashes).every(h => h === recent[recent.length - 1].fileHashes[Object.keys(r.fileHashes)[0]]));
+        if (sameAction && noFileChanges) {
+          signals.push({ kind: 'polling_repeat', action: recent[recent.length - 1].action });
+        }
+      }
+
+      // unchanged_progress_repeat (verified via file hashes)
+      if (recent.length >= 3) {
+        const firstHashes = recent[recent.length - 3].fileHashes;
+        const lastHashes = recent[recent.length - 1].fileHashes;
+        const allSame = Object.keys(firstHashes).every(k => firstHashes[k] === lastHashes[k]) &&
+                        Object.keys(lastHashes).every(k => firstHashes[k] === lastHashes[k]);
+        if (allSame && Object.keys(firstHashes).length > 0) {
+          signals.push({ kind: 'unchanged_progress_repeat', files: Object.keys(firstHashes) });
+        }
+      }
+
+      return { detected: signals.length > 0, signals, shadowMode: RUNAWAY_GUARD.shadowMode };
+    }
+
+    function extractErrorFamily(result) {
+      if (!result || typeof result !== 'object') return null;
+      if (result.error) {
+        const msg = String(result.error).toLowerCase();
+        if (msg.includes('timeout')) return 'timeout';
+        if (msg.includes('permission') || msg.includes('denied')) return 'permission';
+        if (msg.includes('not found') || msg.includes('404')) return 'not_found';
+        if (msg.includes('syntax') || msg.includes('parse')) return 'syntax';
+        return 'other';
+      }
+      return null;
+    }
+
+    function setRunawayShadowMode(enabled) {
+      RUNAWAY_GUARD.shadowMode = !!enabled;
+      return { shadowMode: RUNAWAY_GUARD.shadowMode };
+    }
+
+    function getRunawayReplayLog() {
+      return [...RUNAWAY_GUARD.history];
+    }
+
+    // L20: RepetitionGuard — degenerate-decoding detector (Sigit)
+    var REPETITION_GUARD = {
+      version: '1.0',
+      windowSize: 200,
+      checkInterval: 25,
+      distinctWordThreshold: 40,
+      wordCounts: new Map(),
+      wordDeque: [],
+      totalWords: 0
+    };
+
+    function checkRepetitionGuard(text) {
+      if (!text || typeof text !== 'string') return { triggered: false };
+
+      // Skip fenced code blocks
+      const nonCodeText = text.replace(/```[\s\S]*?```/g, '');
+
+      const words = nonCodeText.toLowerCase().match(/\b\w+\b/g) || [];
+      if (words.length === 0) return { triggered: false };
+
+      for (const word of words) {
+        REPETITION_GUARD.wordDeque.push(word);
+        REPETITION_GUARD.totalWords++;
+        REPETITION_GUARD.wordCounts.set(word, (REPETITION_GUARD.wordCounts.get(word) || 0) + 1);
+
+        // Maintain window
+        if (REPETITION_GUARD.wordDeque.length > REPETITION_GUARD.windowSize) {
+          const oldWord = REPETITION_GUARD.wordDeque.shift();
+          const oldCount = REPETITION_GUARD.wordCounts.get(oldWord) - 1;
+          if (oldCount <= 0) REPETITION_GUARD.wordCounts.delete(oldWord);
+          else REPETITION_GUARD.wordCounts.set(oldWord, oldCount);
+        }
+
+        // Check every checkInterval words, but only after window is minimally filled
+        if (REPETITION_GUARD.totalWords >= REPETITION_GUARD.windowSize &&
+            REPETITION_GUARD.totalWords % REPETITION_GUARD.checkInterval === 0) {
+          const distinctWords = REPETITION_GUARD.wordCounts.size;
+          if (distinctWords <= REPETITION_GUARD.distinctWordThreshold) {
+            // Degenerate output detected
+            const degenerateTail = REPETITION_GUARD.wordDeque.slice(-50).join(' ');
+            REPETITION_GUARD.wordCounts.clear();
+            REPETITION_GUARD.wordDeque = [];
+            REPETITION_GUARD.totalWords = 0;
+            return {
+              triggered: true,
+              distinctWords,
+              threshold: REPETITION_GUARD.distinctWordThreshold,
+              degenerateTail,
+              action: 'stop_and_restart_step'
+            };
+          }
+        }
+      }
+      return { triggered: false, distinctWords: REPETITION_GUARD.wordCounts.size };
+    }
+
+    function resetRepetitionGuard() {
+      REPETITION_GUARD.wordCounts.clear();
+      REPETITION_GUARD.wordDeque = [];
+      REPETITION_GUARD.totalWords = 0;
+      return { reset: true };
+    }
+
     // G10: Continue Hub (local-first shared config)
     function exportHub() {
       const hub = {

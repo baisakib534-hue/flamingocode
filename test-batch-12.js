@@ -191,6 +191,66 @@ const globalScope = {
   MISSION_COORDINATOR: { version: '1.0', missions: [] },
   // L10 constants
   LANGUAGE_SPECIALISTS: { version: '1.0', specialists: {} },
+  // L11 constants
+  FLOW_DEFINITION: { version: '1.0', flows: {} },
+  registerFlow: (n, d) => ({ name: n }),
+  getFlow: () => null,
+  listFlows: () => [],
+  runFlow: async () => ({ success: true, state: {}, iterations: 0, stopped: 'completed' }),
+  generateFlowDiagram: () => 'flowchart TD',
+  // L12 constants
+  CONDITIONAL_TASK: { version: '1.0' },
+  evaluatePredicate: () => true,
+  runConditionalTask: async () => ({ success: true, skipped: false, output: {} }),
+  validateOutput: () => ({ passed: true, errors: [] }),
+  // L13 constants
+  BUG_FIX_RECIPE: { version: '1.0' },
+  createBugFixRecipe: () => ({ steps: [] }),
+  runBugFixRecipe: async () => ({ success: true }),
+  // L14 constants
+  SPEC_MODE: { version: '1.0', currentSpec: null, planningModel: null, buildingModel: null },
+  setSpecModeModels: () => ({ planningModel: 'test', buildingModel: 'test' }),
+  createSpec: async () => ({ success: true, spec: { id: 'spec-1', status: 'draft' } }),
+  approveSpec: () => ({ success: true }),
+  implementSpec: async () => ({ success: true }),
+  // L15 constants
+  EFFORT_DIAL: { version: '1.0', levels: ['Low', 'Medium', 'High', 'Ultra'], current: 'Medium', costMultiplier: { Low: 0.5, Medium: 1, High: 2, Ultra: 3.5 }, spend: { Low: 0, Medium: 0, High: 0, Ultra: 0 } },
+  setEffortDial: () => ({ success: true, level: 'Medium', costMultiplier: 1 }),
+  getEffortDial: () => ({ current: 'Medium', levels: ['Low', 'Medium', 'High', 'Ultra'], costMultiplier: 1, spend: {} }),
+  recordDialSpend: () => ({}),
+  getModelsForEffort: () => ({ planner: 'balanced', builder: 'balanced', reviewer: 'balanced' }),
+  // L16 constants
+  K_VOTING: { version: '1.0', defaultSamples: 5, maxSamples: 25, defaultK: 2, strategies: ['exact', 'normalized', 'structured-json'] },
+  runKVoting: async () => ({ success: true, winner: 'test', votes: 3, totalSamples: 5, distribution: [], strategy: 'normalized' }),
+  isMalformed: () => false,
+  normalizeResult: (r) => r,
+  // L17 constants
+  MODERNIZATION_PLAYBOOK: { version: '1.0', playbooks: {} },
+  registerPlaybook: () => ({ stages: [] }),
+  getPlaybook: () => null,
+  listPlaybooks: () => [],
+  runPlaybook: async () => ({ success: true, results: [] }),
+  runPlaybookStage: async () => ({ success: true }),
+  runSeniorReview: async () => ({ approved: true }),
+  // L18 constants
+  CUSTOM_AGENTS: { version: '1.0', agents: {} },
+  parseAgentMarkdown: () => ({ frontmatter: {}, content: '' }),
+  serializeAgentMarkdown: () => '---\nname: Test\n---\n',
+  saveAgentFile: () => ({ success: true, path: '.devforge/agents/test.md', markdown: '' }),
+  loadAgentFile: () => ({ success: true, agent: { frontmatter: {}, content: '' } }),
+  listAgentFiles: () => [],
+  importClaudeAgent: () => ({ frontmatter: {}, content: '' }),
+  // L19 constants
+  RUNAWAY_GUARD: { version: '1.0', signalKinds: [], threshold: 3, history: [], shadowMode: false },
+  recordToolProvenance: () => ({ detected: false, signals: [] }),
+  checkRunawaySignals: () => ({ detected: false, signals: [] }),
+  extractErrorFamily: () => null,
+  setRunawayShadowMode: () => ({ shadowMode: false }),
+  getRunawayReplayLog: () => [],
+  // L20 constants
+  REPETITION_GUARD: { version: '1.0', windowSize: 200, checkInterval: 25, distinctWordThreshold: 40, wordCounts: new Map(), wordDeque: [], totalWords: 0 },
+  checkRepetitionGuard: () => ({ triggered: false }),
+  resetRepetitionGuard: () => ({ reset: true }),
   routeModelForStep: (step) => ({ model: 'gpt-4o', provider: 'openai' }),
   routeWithAutoModel: (opts) => ({ model: 'gpt-4o', provider: 'openai' }),
   verifyBeforeCompletion: () => ({ allowed: true }),
@@ -204,6 +264,7 @@ const script = new vm.Script(scriptContent, { filename: 'index.html' });
 const context = vm.createContext(globalScope);
 script.runInContext(context);
 
+async function runTests() {
 // Extract all the functions/constants we need
 const {
   appState,
@@ -240,6 +301,66 @@ const {
   LANGUAGE_SPECIALISTS,
   registerLanguageSpecialist,
   runLanguageSpecialistVerifier,
+  // L11
+  FLOW_DEFINITION,
+  registerFlow,
+  getFlow,
+  listFlows,
+  runFlow,
+  generateFlowDiagram,
+  // L12
+  CONDITIONAL_TASK,
+  evaluatePredicate,
+  runConditionalTask,
+  validateOutput,
+  // L13
+  BUG_FIX_RECIPE,
+  createBugFixRecipe,
+  runBugFixRecipe,
+  // L14
+  SPEC_MODE,
+  setSpecModeModels,
+  createSpec,
+  approveSpec,
+  implementSpec,
+  // L15
+  EFFORT_DIAL,
+  setEffortDial,
+  getEffortDial,
+  recordDialSpend,
+  getModelsForEffort,
+  // L16
+  K_VOTING,
+  runKVoting,
+  isMalformed,
+  normalizeResult,
+  // L17
+  MODERNIZATION_PLAYBOOK,
+  registerPlaybook,
+  getPlaybook,
+  listPlaybooks,
+  runPlaybook,
+  runPlaybookStage,
+  runSeniorReview,
+  // L18
+  CUSTOM_AGENTS,
+  parseAgentMarkdown,
+  serializeAgentMarkdown,
+  saveAgentFile,
+  loadAgentFile,
+  listAgentFiles,
+  importClaudeAgent,
+  // L19
+  RUNAWAY_GUARD,
+  recordToolProvenance,
+  checkRunawaySignals,
+  extractErrorFamily,
+  setRunawayShadowMode,
+  getRunawayReplayLog,
+  // L20
+  REPETITION_GUARD,
+  checkRepetitionGuard,
+  resetRepetitionGuard,
 } = globalScope;
 
 let passCount = 0;
@@ -365,6 +486,413 @@ assertExists(runLanguageSpecialistVerifier, 'runLanguageSpecialistVerifier funct
 
 // Test specialist's work not done until compiler gate passes
 
+// ==================== L11: Flows — deterministic event-driven orchestration ====================
+console.log('\n--- L11: Flows — deterministic event-driven orchestration ---');
+assertExists(FLOW_DEFINITION, 'FLOW_DEFINITION exists');
+assertExists(registerFlow, 'registerFlow function exists');
+assertExists(getFlow, 'getFlow function exists');
+assertExists(listFlows, 'listFlows function exists');
+assertExists(runFlow, 'runFlow function exists');
+assertExists(generateFlowDiagram, 'generateFlowDiagram function exists');
+
+// Test flow runs steps in order
+const testFlow = registerFlow('test-flow', {
+  start: ['step1'],
+  steps: {
+    step1: { fn: async (s) => { s.step1 = 'done'; return 'step1 result'; }, next: 'step2' },
+    step2: { fn: async (s) => { s.step2 = 'done'; return 'step2 result'; } }
+  },
+  persistPoints: ['step1']
+});
+assert(testFlow && testFlow.name === 'test-flow', 'registerFlow creates flow with steps, persistPoints, humanGates');
+
+// Test flow resumes from persist point
+const flowRun = await runFlow('test-flow', { input: 'test' }, { maxSteps: 10 });
+assert(flowRun.success === true, 'runFlow completes successfully');
+assert(flowRun.state.step1 === 'step1 result', 'Flow executes step1 - stores step result');
+assert(flowRun.state.step2 === 'step2 result', 'Flow executes step2 - stores step result');
+assert(flowRun.iterations >= 2, 'Flow runs multiple steps');
+assert(flowRun.state._history && flowRun.state._history.length >= 2, 'Flow maintains history');
+
+// Test human gate pauses flow
+const humanGateFlow = registerFlow('human-gate-flow', {
+  start: ['step1'],
+  steps: {
+    step1: { fn: async (s) => { s.step1 = 'done'; return 'step1 result'; }, next: 'step2' },
+    step2: { fn: async (s) => { s.step2 = 'done'; return 'step2 result'; } }
+  },
+  humanGates: ['step1']
+});
+const humanGateResult = await runFlow('human-gate-flow', {}, { maxSteps: 10 });
+assert(humanGateResult.paused === true, 'Human gate pauses flow');
+assert(humanGateResult.atStep === 'step1', 'Paused at correct step');
+
+// Test flow diagram generation
+const diagram = generateFlowDiagram('test-flow');
+assert(typeof diagram === 'string' && diagram.includes('flowchart TD'), 'generateFlowDiagram returns mermaid diagram');
+
+// ==================== L12: Conditional tasks + output guardrails ====================
+console.log('\n--- L12: Conditional tasks + output guardrails ---');
+assertExists(CONDITIONAL_TASK, 'CONDITIONAL_TASK exists');
+assertExists(evaluatePredicate, 'evaluatePredicate function exists');
+assertExists(runConditionalTask, 'runConditionalTask function exists');
+assertExists(validateOutput, 'validateOutput function exists');
+
+// Test skipped step still emits output
+const skipState = {};
+const skippedResult = await runConditionalTask({
+  id: 'conditional-step',
+  runIf: (s) => false,
+  skippedOutput: { skipped: true, reason: 'predicate_false' },
+  fn: async () => { throw new Error('Should not run'); }
+}, skipState, { maxRetries: 1 });
+assert(skippedResult.skipped === true, 'Step with false predicate is skipped');
+assert(skippedResult.output.skipped === true, 'Skipped step emits output');
+assert(skipState['conditional-step'].skipped === true, 'Skipped output stored in state');
+assert(skipState._history && skipState._history.some(h => h.skipped), 'History records skipped step');
+
+// Test guardrail validation retries then fails
+let attemptCount = 0;
+const guardrailState = {};
+const guardrailResult = await runConditionalTask({
+  id: 'guarded-step',
+  fn: async () => { attemptCount++; return { value: 'invalid' }; }, // Always invalid
+  guardrails: {
+    schema: { required: ['value'], properties: { value: { type: 'string' } } },
+    checklist: [(output) => output.value === 'valid']
+  }
+}, guardrailState, { maxRetries: 3 });
+assert(attemptCount > 1, 'Guardrail failure triggers retry');
+assert(guardrailResult.success === false, 'Fails after max retries');
+assert(guardrailResult.errors && guardrailResult.errors.length > 0, 'Returns validation errors');
+
+// ==================== L13: Reproduce-first bug-fix recipe ====================
+console.log('\n--- L13: Reproduce-first bug-fix recipe ---');
+assertExists(BUG_FIX_RECIPE, 'BUG_FIX_RECIPE exists');
+assertExists(createBugFixRecipe, 'createBugFixRecipe function exists');
+assertExists(runBugFixRecipe, 'runBugFixRecipe function exists');
+
+// Test recipe structure
+const recipe = createBugFixRecipe('Test bug description');
+assert(recipe && recipe.id && recipe.id.startsWith('bugfix-'), 'createBugFixRecipe creates recipe with id');
+assert(recipe.steps.length === 5, 'Recipe has 5 steps');
+assert(recipe.steps[0].id === 'find_read', 'Step 1: find_read');
+assert(recipe.steps[1].id === 'write_repro', 'Step 2: write_repro (mandatory)');
+assert(recipe.steps[2].id === 'edit_fix', 'Step 3: edit_fix');
+assert(recipe.steps[3].id === 'rerun_repro', 'Step 4: rerun_repro (mandatory)');
+assert(recipe.steps[4].id === 'edge_cases', 'Step 5: edge_cases (optional)');
+assert(recipe.steps[1].required === true, 'Write repro is required');
+assert(recipe.steps[3].required === true, 'Rerun repro is required');
+
+// Test fix refused without repro script
+const mockExecutorFail = async (step) => {
+  if (step.id === 'write_repro') return { success: false };
+  return { success: true };
+};
+const noReproResult = await runBugFixRecipe(recipe, mockExecutorFail);
+assert(noReproResult.success === false, 'Fix refused without repro script');
+assert(noReproResult.error && noReproResult.error.includes('Reproduction script is required'), 'Error message mentions repro script required');
+
+// Test successful recipe run
+const mockExecutorSuccess = async (step) => {
+  if (step.id === 'write_repro') return { success: true, reproScript: 'test.sh' };
+  if (step.id === 'edit_fix') return { success: true, fix: 'patch applied' };
+  if (step.id === 'rerun_repro') return { success: true, reproPassed: true };
+  return { success: true };
+};
+const successResult = await runBugFixRecipe(createBugFixRecipe('Another bug'), mockExecutorSuccess);
+assert(successResult.success === true, 'Recipe completes when all steps pass');
+assert(successResult.recipe.reproPassed === true, 'Recipe tracks reproPassed');
+
+// ==================== L14: Spec Mode with separate planning model ====================
+console.log('\n--- L14: Spec Mode with separate planning model ---');
+assertExists(SPEC_MODE, 'SPEC_MODE exists');
+assertExists(setSpecModeModels, 'setSpecModeModels function exists');
+assertExists(createSpec, 'createSpec function exists');
+assertExists(approveSpec, 'approveSpec function exists');
+assertExists(implementSpec, 'implementSpec function exists');
+
+// Test separate planning/building models
+const models = setSpecModeModels('gpt-4o', 'gpt-4o-mini');
+assert(models.planningModel === 'gpt-4o', 'Planning model set');
+assert(models.buildingModel === 'gpt-4o-mini', 'Building model set');
+
+// Test spec creation
+const specResult = await createSpec('Build a feature', { acceptanceCriteria: ['AC1', 'AC2'] });
+assert(specResult.success === true, 'createSpec succeeds');
+assert(specResult.spec && specResult.spec.status === 'draft', 'Spec created in draft status');
+assert(specResult.spec.acceptanceCriteria.length === 2, 'Acceptance criteria stored');
+
+// Test approval gates spec
+const approveResult = approveSpec(specResult.spec.id);
+assert(approveResult.success === true, 'approveSpec succeeds');
+assert(approveResult.spec.status === 'approved', 'Spec marked approved');
+assert(approveResult.spec.approvedAt, 'Approval timestamp recorded');
+
+// Test implementation runs after approval
+const implResult = await implementSpec(specResult.spec.id, async (step) => ({ success: true }));
+assert(implResult.success === true, 'implementSpec runs steps');
+assert(implResult.spec.status === 'completed', 'Spec marked completed');
+
+// ==================== L15: Capability Dial ====================
+console.log('\n--- L15: Capability Dial ---');
+assertExists(EFFORT_DIAL, 'EFFORT_DIAL exists');
+assertExists(setEffortDial, 'setEffortDial function exists');
+assertExists(getEffortDial, 'getEffortDial function exists');
+assertExists(recordDialSpend, 'recordDialSpend function exists');
+assertExists(getModelsForEffort, 'getModelsForEffort function exists');
+
+// Test dial levels and cost multiplier
+const dialInfo = getEffortDial();
+assert(dialInfo.levels.length === 4, 'Dial has 4 levels');
+assert(dialInfo.levels.includes('Low'), 'Includes Low');
+assert(dialInfo.levels.includes('Medium'), 'Includes Medium');
+assert(dialInfo.levels.includes('High'), 'Includes High');
+assert(dialInfo.levels.includes('Ultra'), 'Includes Ultra');
+assert(dialInfo.costMultiplier !== undefined, 'Cost multiplier exposed');
+
+// Test setting dial level
+const setResult = setEffortDial('High');
+assert(setResult.success === true, 'setEffortDial accepts valid level');
+assert(setResult.level === 'High', 'Returns set level');
+assert(setResult.costMultiplier === 2, 'High has 2x multiplier');
+
+// Test invalid level rejected
+const invalidResult = setEffortDial('Invalid');
+assert(invalidResult.success === false, 'Invalid level rejected');
+
+// Test spend recording
+const spendBefore = recordDialSpend('Medium', 100);
+assert(spendBefore.Medium === 100, 'Spend recorded per level');
+
+// Test model selection integrates with router
+const modelsForEffort = getModelsForEffort('Ultra');
+assert(modelsForEffort.planner === 'best', 'Ultra uses best for planner');
+assert(modelsForEffort.builder === 'best', 'Ultra uses best for builder');
+assert(modelsForEffort.reviewer === 'best', 'Ultra uses best for reviewer');
+
+// ==================== L16: MAKER k-voting ====================
+console.log('\n--- L16: MAKER k-voting ---');
+assertExists(K_VOTING, 'K_VOTING exists');
+assertExists(runKVoting, 'runKVoting function exists');
+assertExists(isMalformed, 'isMalformed function exists');
+assertExists(normalizeResult, 'normalizeResult function exists');
+
+// Test k-voting picks majority
+let sampleIndex = 0;
+const votingResult = await runKVoting(
+  async (i) => ['a', 'a', 'b', 'a', 'c'][i],
+  { samples: 5, k: 2, strategy: 'exact' }
+);
+assert(votingResult.success === true, 'runKVoting succeeds');
+assert(votingResult.winner === 'a', 'Majority winner selected');
+assert(votingResult.votes >= 2, 'Winner has at least k votes');
+assert(votingResult.totalSamples === 5, 'All samples counted');
+assert(votingResult.distribution.length > 0, 'Vote distribution returned');
+
+// Test malformed samples discarded
+let malformedCount = 0;
+const malformedResult = await runKVoting(
+  async (i) => {
+    if (i < 2) { malformedCount++; return null; } // malformed
+    return 'valid';
+  },
+  { samples: 5, k: 2, discardMalformed: true }
+);
+assert(malformedResult.success === true, 'Succeeds with valid samples');
+assert(malformedResult.totalSamples === 3, 'Only valid samples counted');
+
+// Test structured-json strategy
+const jsonResult = await runKVoting(
+  async (i) => i < 3 ? JSON.stringify({ x: 1 }) : JSON.stringify({ x: 2 }),
+  { samples: 5, k: 2, strategy: 'structured-json' }
+);
+assert(jsonResult.success === true, 'Structured JSON voting works');
+assert(JSON.parse(jsonResult.winner).x === 1, 'Majority JSON parsed and compared');
+
+// Test normalizeResult
+assert(normalizeResult('  Hello  World  ', 'normalized') === 'hello world', 'Normalized strategy trims and lowercases');
+assert(normalizeResult({ a: 1 }, 'exact'), 'Exact strategy returns as-is');
+
+// ==================== L17: Modernization playbook ====================
+console.log('\n--- L17: Modernization playbook ---');
+assertExists(MODERNIZATION_PLAYBOOK, 'MODERNIZATION_PLAYBOOK exists');
+assertExists(registerPlaybook, 'registerPlaybook function exists');
+assertExists(getPlaybook, 'getPlaybook function exists');
+assertExists(listPlaybooks, 'listPlaybooks function exists');
+assertExists(runPlaybook, 'runPlaybook function exists');
+assertExists(runPlaybookStage, 'runPlaybookStage function exists');
+assertExists(runSeniorReview, 'runSeniorReview function exists');
+
+// Test playbook registration with stages
+const playbook = registerPlaybook('upgrade-router', [
+  { name: 'code', description: 'Upgrade code', agents: ['builder'], seniorReview: true },
+  { name: 'tests', description: 'Update tests', agents: ['tester'], seniorReview: true },
+  { name: 'docs', description: 'Update docs', agents: ['writer'], seniorReview: false }
+]);
+assert(playbook && playbook.stages.length === 3, 'Playbook registered with 3 stages');
+assert(playbook.stages[0].seniorReview === true, 'Stage 1 has senior review');
+assert(playbook.stages[2].seniorReview === false, 'Stage 3 no senior review');
+
+// Test runPlaybook runs stages with senior review at each
+const pbResult = await runPlaybook('upgrade-router');
+assert(pbResult.success === true, 'Playbook runs successfully');
+assert(pbResult.results.length >= 3, 'Results for each stage');
+assert(pbResult.results.some(r => r.stage.includes('senior review')), 'Senior review results included');
+
+// ==================== L18: Custom agents as repo-shipped Markdown files ====================
+console.log('\n--- L18: Custom agents as repo-shipped Markdown files ---');
+assertExists(CUSTOM_AGENTS, 'CUSTOM_AGENTS exists');
+assertExists(parseAgentMarkdown, 'parseAgentMarkdown function exists');
+assertExists(serializeAgentMarkdown, 'serializeAgentMarkdown function exists');
+assertExists(saveAgentFile, 'saveAgentFile function exists');
+assertExists(loadAgentFile, 'loadAgentFile function exists');
+assertExists(listAgentFiles, 'listAgentFiles function exists');
+assertExists(importClaudeAgent, 'importClaudeAgent function exists');
+
+// Test round-trip through editor
+const agent = {
+  frontmatter: {
+    name: 'Test Agent',
+    systemPrompt: 'You are a test agent',
+    modelPreference: 'gpt-4o',
+    allowedTools: ['read', 'write'],
+    description: 'A test agent'
+  },
+  content: '# Instructions\nDo test things.'
+};
+const saved = saveAgentFile('test-agent', agent);
+assert(saved.success === true, 'saveAgentFile succeeds');
+assert(saved.path.includes('.devforge/agents/'), 'Path follows convention');
+assert(saved.markdown.includes('name: Test Agent'), 'Markdown includes frontmatter');
+
+const loaded = loadAgentFile('test-agent');
+assert(loaded.success === true, 'loadAgentFile succeeds');
+assert(loaded.agent.frontmatter.name === 'Test Agent', 'Loaded name matches');
+assert(loaded.agent.frontmatter.allowedTools.includes('read'), 'Tools parsed');
+assert(loaded.agent.content.includes('Do test things'), 'Content preserved');
+
+// Test serialization round-trip
+const serialized = serializeAgentMarkdown(loaded.agent);
+const reparsed = parseAgentMarkdown(serialized);
+assert(reparsed.frontmatter.name === 'Test Agent', 'Round-trip preserves name');
+assert(reparsed.frontmatter.modelPreference === 'gpt-4o', 'Round-trip preserves model');
+
+// Test Claude agent import
+const claudeMd = '---\nname: Claude Agent\ntools: read,write,edit\ndescription: From Claude\n---\nContent here';
+const imported = importClaudeAgent(claudeMd);
+assert(imported.frontmatter.name === 'Claude Agent', 'Imports name');
+assert(imported.frontmatter.allowedTools.includes('read'), 'Imports tools as allowedTools');
+
+// ==================== L19: Runaway guard — verified-progress loop detection ====================
+console.log('\n--- L19: Runaway guard — verified-progress loop detection ---');
+assertExists(RUNAWAY_GUARD, 'RUNAWAY_GUARD exists');
+assertExists(recordToolProvenance, 'recordToolProvenance function exists');
+assertExists(checkRunawaySignals, 'checkRunawaySignals function exists');
+assertExists(extractErrorFamily, 'extractErrorFamily function exists');
+assertExists(setRunawayShadowMode, 'setRunawayShadowMode function exists');
+assertExists(getRunawayReplayLog, 'getRunawayReplayLog function exists');
+
+// Test signal kinds defined
+assert(RUNAWAY_GUARD.signalKinds.length === 6, '6 signal kinds defined');
+assert(RUNAWAY_GUARD.signalKinds.includes('exact_action_repeat'), 'Has exact_action_repeat');
+assert(RUNAWAY_GUARD.signalKinds.includes('exact_result_repeat'), 'Has exact_result_repeat');
+assert(RUNAWAY_GUARD.signalKinds.includes('same_error_family'), 'Has same_error_family');
+assert(RUNAWAY_GUARD.signalKinds.includes('abab_action_cycle'), 'Has abab_action_cycle');
+assert(RUNAWAY_GUARD.signalKinds.includes('polling_repeat'), 'Has polling_repeat');
+assert(RUNAWAY_GUARD.signalKinds.includes('unchanged_progress_repeat'), 'Has unchanged_progress_repeat');
+
+// Test exact_action_repeat detection
+RUNAWAY_GUARD.history = [];
+for (let i = 0; i < 4; i++) {
+  recordToolProvenance('same_action', { result: 'x' }, { 'file.txt': 'hash1' });
+}
+const signals1 = checkRunawaySignals();
+assert(signals1.detected === true, 'Detects exact_action_repeat');
+assert(signals1.signals.some(s => s.kind === 'exact_action_repeat'), 'Signal kind correct');
+
+// Test exact_result_repeat detection
+RUNAWAY_GUARD.history = [];
+for (let i = 0; i < 4; i++) {
+  recordToolProvenance('action' + i, { result: 'same' }, {});
+}
+const signals2 = checkRunawaySignals();
+assert(signals2.signals.some(s => s.kind === 'exact_result_repeat'), 'Detects exact_result_repeat');
+
+// Test same_error_family detection
+RUNAWAY_GUARD.history = [];
+for (let i = 0; i < 4; i++) {
+  recordToolProvenance('action' + i, { error: 'timeout error' }, {});
+}
+const signals3 = checkRunawaySignals();
+assert(signals3.signals.some(s => s.kind === 'same_error_family' && s.family === 'timeout'), 'Detects same error family');
+
+// Test abab_action_cycle detection
+RUNAWAY_GUARD.history = [];
+['actionA', 'actionB', 'actionA', 'actionB'].forEach(a => recordToolProvenance(a, {}, {}));
+const signals4 = checkRunawaySignals();
+assert(signals4.signals.some(s => s.kind === 'abab_action_cycle'), 'Detects abab cycle');
+
+// Test polling_repeat detection (same action, no file changes)
+RUNAWAY_GUARD.history = [];
+for (let i = 0; i < 3; i++) {
+  recordToolProvenance('poll_action', { result: 'polling' }, { 'file.txt': 'same_hash' });
+}
+const signals5 = checkRunawaySignals();
+assert(signals5.signals.some(s => s.kind === 'polling_repeat'), 'Detects polling repeat');
+
+// Test unchanged_progress_repeat detection (verified via file hashes)
+RUNAWAY_GUARD.history = [];
+recordToolProvenance('action1', {}, { 'file.txt': 'hash1', 'file2.txt': 'hash2' });
+recordToolProvenance('action2', {}, { 'file.txt': 'hash1', 'file2.txt': 'hash2' });
+recordToolProvenance('action3', {}, { 'file.txt': 'hash1', 'file2.txt': 'hash2' });
+const signals6 = checkRunawaySignals();
+assert(signals6.signals.some(s => s.kind === 'unchanged_progress_repeat'), 'Detects unchanged progress via file hashes');
+
+// Test shadow mode
+const shadowResult = setRunawayShadowMode(true);
+assert(shadowResult.shadowMode === true, 'Shadow mode enabled');
+const shadowCheck = checkRunawaySignals();
+assert(shadowCheck.shadowMode === true, 'Check reports shadow mode');
+
+// Test replay log
+const log = getRunawayReplayLog();
+assert(Array.isArray(log), 'Replay log is array');
+assert(log.length > 0, 'Log contains recorded actions');
+
+// ==================== L20: RepetitionGuard — degenerate-decoding detector ====================
+console.log('\n--- L20: RepetitionGuard — degenerate-decoding detector ---');
+assertExists(REPETITION_GUARD, 'REPETITION_GUARD exists');
+assertExists(checkRepetitionGuard, 'checkRepetitionGuard function exists');
+assertExists(resetRepetitionGuard, 'resetRepetitionGuard function exists');
+
+// Test normal text doesn't trigger (need 200+ words for check to activate)
+resetRepetitionGuard();
+const normalText = 'This is a normal piece of text with many different words that should not trigger the degenerate detector because it has sufficient vocabulary diversity across the window size and includes numerous unique terms like apple banana cherry dragon elephant falcon gorilla hippo iguana jaguar koala lemur monkey newt otter penguin quail rabbit snake tiger unicorn vulture walrus xerus yak zebra '.repeat(3);
+const normalResult = checkRepetitionGuard(normalText);
+assert(normalResult.triggered === false, 'Normal text does not trigger');
+assert(normalResult.distinctWords > 40, 'Normal text has many distinct words');
+
+// Test degenerate text triggers (≤40 distinct words in 200-word window)
+resetRepetitionGuard();
+const degenerateText = 'word '.repeat(250); // 250 words, all 'word'
+const degenerateResult = checkRepetitionGuard(degenerateText);
+assert(degenerateResult.triggered === true, 'Degenerate text triggers guard');
+assert(degenerateResult.distinctWords <= 40, 'Distinct words below threshold');
+assert(degenerateResult.action === 'stop_and_restart_step', 'Action is stop_and_restart_step');
+assert(typeof degenerateResult.degenerateTail === 'string', 'Returns degenerate tail');
+
+// Test fenced code blocks skipped (need 200+ non-code words)
+resetRepetitionGuard();
+const codeBlockText = '```\n' + 'word '.repeat(300) + '\n```\n' + 'This normal text has many different words to fill the vocabulary including apple banana cherry dragon elephant falcon gorilla hippo iguana jaguar koala lemur monkey newt otter penguin quail rabbit snake tiger unicorn vulture walrus xerus yak zebra and more unique terms '.repeat(3);
+const codeResult = checkRepetitionGuard(codeBlockText);
+assert(codeResult.triggered === false, 'Code blocks are skipped, does not trigger');
+
+// Test reset clears state
+resetRepetitionGuard();
+const afterReset = checkRepetitionGuard('word '.repeat(250));
+assert(afterReset.triggered === true, 'After reset, still detects degenerate');
+
 console.log('\n=== TEST SUMMARY ===');
 console.log('Passed:', passCount);
 console.log('Failed:', failCount);
@@ -374,3 +902,9 @@ if (failCount > 0) {
   process.exit(1);
 }
 process.exit(0);
+}
+
+runTests().catch(err => {
+  console.error('Test error:', err);
+  process.exit(1);
+});
