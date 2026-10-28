@@ -57661,16 +57661,6 @@ FOLLOWUP: [question 3]`;
     // BATCH 12: L11-L20 — Orchestration + Safety
     // ============================================================
 
-    // Internal wiring registry — documents 12b function clusters for
-    // root-reachability verification (wiring12b-check.cjs). String
-    // refs here make internal helpers count as LIVE when their root
-    // caller is wired into a PRE-12b path.
-    var INTERNAL_WIRING = {
-      'runConditionalTask': ['evaluatePredicate', 'validateOutput'],
-      'runKVoting': ['isMalformed', 'normalizeResult'],
-      'runModernizationPlaybook': ['runPlaybookStage', 'runSeniorReview']
-    };
-
     // L11: Flows — deterministic event-driven orchestration (CrewAI)
     var FLOW_DEFINITION = {
       version: '1.0',

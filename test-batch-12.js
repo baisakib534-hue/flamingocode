@@ -893,6 +893,24 @@ resetRepetitionGuard();
 const afterReset = checkRepetitionGuard('word '.repeat(250));
 assert(afterReset.triggered === true, 'After reset, still detects degenerate');
 
+// ==================== Wiring regression (verifier fix D-B12b) ====================
+// Locks in the 12b repair's real wiring. The repair's INTERNAL_WIRING
+// object (string refs nobody read) is DELETED — it fooled the checker;
+// these assertions pin the genuine call sites instead.
+console.log('\n--- Wiring regression (verifier) ---');
+assert(!scriptContent.includes('INTERNAL_WIRING'), 'No INTERNAL_WIRING gaming object');
+assert(scriptContent.split('function runPlaybook(').length - 1 === 1, 'Exactly one runPlaybook definition (old Batch 6 only, no shadow)');
+assert(scriptContent.split('function listPlaybooks(').length - 1 === 1, 'Exactly one listPlaybooks definition (old Batch 6 only, no shadow)');
+assert(scriptContent.includes('function runModernizationPlaybook('), 'Renamed runModernizationPlaybook exists');
+assert(scriptContent.includes('function listModernizationPlaybooks('), 'Renamed listModernizationPlaybooks exists');
+assert(/id: 'runFlow'[\s\S]{0,600}?runFlow\(/.test(scriptContent), 'Palette entry calls runFlow');
+assert(/id: 'runModernizationPlaybook'[\s\S]{0,600}?runModernizationPlaybook\(/.test(scriptContent), 'Palette entry calls runModernizationPlaybook');
+assert(/id: 'runBugFixRecipe'[\s\S]{0,600}?runBugFixRecipe\(/.test(scriptContent), 'Palette entry calls runBugFixRecipe');
+assert(/id: 'listAgentFiles'[\s\S]{0,600}?listAgentFiles\(/.test(scriptContent), 'Palette entry calls listAgentFiles');
+assert(scriptContent.includes('await runConditionalTask(step'), 'Step runner calls runConditionalTask (L12 automatic path)');
+assert(scriptContent.includes('runKVoting(primaryGenerator'), 'Fallback path calls runKVoting for primary (L16 automatic path)');
+assert(scriptContent.includes('runKVoting(fallbackGenerator'), 'Fallback path calls runKVoting for fallback (L16 automatic path)');
+
 console.log('\n=== TEST SUMMARY ===');
 console.log('Passed:', passCount);
 console.log('Failed:', failCount);
