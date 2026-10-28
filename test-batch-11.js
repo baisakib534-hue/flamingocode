@@ -698,6 +698,12 @@ const brainNotes = getBrainNotes(proposalSession);
 const durableNote = brainNotes.find(n => n.content.includes('try-catch'));
 assert(durableNote, 'Approved proposal becomes Brain note');
 
+// Regression (verifier fix D-B11-23): K8 propose must be reachable from the
+// live command palette, not just defined — the palette registry entry is the
+// wire (setupCommandPalette renders the registry; clicking runs the action).
+assert(scriptContent.includes("id: 'proposeKnowledgeItem'"), 'Command palette has a Propose Knowledge Item entry');
+assert(/id: 'proposeKnowledgeItem'[\s\S]{0,600}?proposeKnowledgeItem\(s,/.test(scriptContent), 'Palette entry calls proposeKnowledgeItem with the session');
+
 // ==================== K9: Codemaps ====================
 console.log('\n--- K9: Codemaps ---');
 assertExists(createCodemap, 'createCodemap');
