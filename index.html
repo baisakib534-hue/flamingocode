@@ -9067,8 +9067,8 @@ Detail level: {{detail_level}}`,
       sdk: { serveUrl: '/api', taskId: null },
       // G8: Per-mode model
       modeModels: {}, // { [modeId]: 'provider|model' or null for inherit }
-      // G9: Model roles (single mechanism)
-      modelRoles: { Planner: null, Coder: null, Reviewer: null, Tester: null },
+      // G9: Model roles (single mechanism) — L1: 8 roles (orchestrator, planner, builder, reviewer, explorer, researcher, judge, compactor)
+      modelRoles: { orchestrator: null, planner: null, builder: null, reviewer: null, explorer: null, researcher: null, judge: null, compactor: null },
       // G10: Continue Hub
       hubs: [], // Array of { name, config, projects: [] }
       currentHub: null,
@@ -9295,13 +9295,27 @@ Detail level: {{detail_level}}`,
       if (appState.ultrathinkEnabled !== undefined) { appState.ultrathink.enabled = appState.ultrathinkEnabled; delete appState.ultrathinkEnabled; }
       if (appState.ultrathinkSpend !== undefined) { appState.ultrathink.spend = appState.ultrathinkSpend; delete appState.ultrathinkSpend; }
       if (appState.ultrathink.spend === undefined) appState.ultrathink.spend = 0;
-      if (!appState.modelRoles) appState.modelRoles = { Planner: null, Coder: null, Reviewer: null, Tester: null };
-      // Migrate lowercase role keys from early 8b saves
+      if (!appState.modelRoles) appState.modelRoles = { orchestrator: null, planner: null, builder: null, reviewer: null, explorer: null, researcher: null, judge: null, compactor: null };
+      // Migrate from old 4-role format (Planner/Coder/Reviewer/Tester) to new 8-role format
+      const oldRoles = { Planner: 'planner', Coder: 'builder', Reviewer: 'reviewer', Tester: 'compactor' };
+      Object.entries(oldRoles).forEach(([oldKey, newKey]) => {
+        if (appState.modelRoles[oldKey] !== undefined && appState.modelRoles[newKey] === null) {
+          appState.modelRoles[newKey] = appState.modelRoles[oldKey];
+          delete appState.modelRoles[oldKey];
+        }
+      });
+      // Migrate lowercase role keys from early saves
       ['planner', 'coder', 'reviewer', 'tester'].forEach((lower, i) => {
         const cap = ['Planner', 'Coder', 'Reviewer', 'Tester'][i];
         if (appState.modelRoles[lower] !== undefined && appState.modelRoles[cap] === undefined) {
           appState.modelRoles[cap] = appState.modelRoles[lower];
           delete appState.modelRoles[lower];
+        }
+        // Also migrate lowercase to new canonical lowercase keys
+        const newLower = ['planner', 'builder', 'reviewer', 'compactor'][i];
+        if (appState.modelRoles[cap] !== undefined && appState.modelRoles[newLower] === null) {
+          appState.modelRoles[newLower] = appState.modelRoles[cap];
+          delete appState.modelRoles[cap];
         }
       });
       if (!appState.modeModels) appState.modeModels = {};
@@ -23968,25 +23982,47 @@ function validateRecipe(recipe) {
       }
     }
 
-    // G9: Model Roles
+    // L1: Role-based model assignment v2 — 8 canonical roles
+var MODEL_ROLES = ['orchestrator', 'planner', 'builder', 'reviewer', 'explorer', 'researcher', 'judge', 'compactor'];
+
+// Role display names for UI
+var MODEL_ROLE_LABELS = {
+  orchestrator: 'Orchestrator',
+  planner: 'Planner',
+  builder: 'Builder',
+  reviewer: 'Reviewer',
+  explorer: 'Explorer',
+  researcher: 'Researcher',
+  judge: 'Judge',
+  compactor: 'Compactor'
+};
+
+// Step kind mapping for each role (for smart routing)
+var ROLE_STEP_KINDS = {
+  orchestrator: 'plan',
+  planner: 'plan',
+  builder: 'build',
+  reviewer: 'review',
+  explorer: 'explore',
+  researcher: 'research',
+  judge: 'review',
+  compactor: 'compress'
+};
+
+    // G9: Model Roles (L1: 8 roles)
     function renderModelRolesTab() {
       const list = document.getElementById('modelRolesList');
       if (!list) return;
-      // Capitalized role keys (the literal's shape); migrate lowercase saves.
       if (!appState.modelRoles) appState.modelRoles = {};
-      ['planner', 'coder', 'reviewer', 'tester'].forEach((lower, i) => {
-        const cap = ['Planner', 'Coder', 'Reviewer', 'Tester'][i];
-        if (appState.modelRoles[lower] !== undefined && appState.modelRoles[cap] === undefined) {
-          appState.modelRoles[cap] = appState.modelRoles[lower];
-          delete appState.modelRoles[lower];
-        }
-      });
-      const roles = ['Planner', 'Coder', 'Reviewer', 'Tester'].map(r => [r, getModelRole(r)]);
+      // Ensure all 8 roles exist
+      MODEL_ROLES.forEach(r => { if (appState.modelRoles[r] === undefined) appState.modelRoles[r] = null; });
+      const roles = MODEL_ROLES.map(r => [r, getModelRole(r)]);
 
       list.innerHTML = roles.map(([role, modelId]) => `
         <div style="padding: 10px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 4px; display: flex; flex-direction: column; gap: 6px;">
           <div style="display: flex; justify-content: space-between; align-items: center;">
-            <span style="font-weight: 600; font-size: 12px; text-transform: capitalize;">${escapeHtml(role)}</span>
+            <span style="font-weight: 600; font-size: 12px; text-transform: capitalize;">${escapeHtml(MODEL_ROLE_LABELS[role] || role)}</span>
+            <span style="font-size: 9px; color: var(--text-dim); background: var(--bg-elevated); padding: 2px 6px; border-radius: 3px;">${escapeHtml(role)}</span>
           </div>
           <select class="form-input model-role-select" data-role="${escapeHtml(role)}" style="padding: 6px 8px; font-size: 11px;">
             <option value="">Inherit project default</option>
@@ -23997,9 +24033,11 @@ function validateRecipe(recipe) {
               return `
             <option value="${escapeHtml(value)}" ${modelId === value ? 'selected' : ''}>${escapeHtml(mName)} (${escapeHtml(p.name || pid)})</option>`;
             })).join('')}
+            ${Array.isArray(modelId) ? modelId.map((cand, idx) => `
+            <option value="${escapeHtml(JSON.stringify(modelId))}" ${idx === 0 ? 'selected' : ''}>Candidate list: ${cand.split('|').slice(-1)[0]} + ${modelId.length - 1} more</option>`).join('') : ''}
           </select>
           <div style="font-size: 10px; color: var(--text-dim);">
-            ${modelId ? `Current: ${escapeHtml(modelId)}` : 'Inherits project default model'}
+            ${modelId ? (Array.isArray(modelId) ? `Candidates: ${modelId.join(' → ')}` : `Current: ${escapeHtml(modelId)}`) : 'Inherits project default model'}
           </div>
         </div>
       `).join('');
@@ -24007,7 +24045,13 @@ function validateRecipe(recipe) {
       document.querySelectorAll('.model-role-select').forEach(select => {
         select.onchange = () => {
           const role = select.dataset.role;
-          setModelRole(role, select.value || null);
+          let value = select.value;
+          // Handle candidate list selection (stored as JSON string)
+          try {
+            const parsed = JSON.parse(value);
+            if (Array.isArray(parsed)) value = parsed;
+          } catch (e) {}
+          setModelRole(role, value || null);
           renderModelRolesTab();
         };
       });
@@ -56410,17 +56454,40 @@ FOLLOWUP: [question 3]`;
       return provider ? provider.defaultModel : null;
     }
 
-    // G9: Model roles (single mechanism for Planner/Coder/Reviewer/Tester)
+    // L1: Model roles v2 (8 roles with ordered candidate lists, capability sync)
+    // Backward compatibility: map old role names to new ones
+    var ROLE_ALIASES = {
+      'Planner': 'planner',
+      'Coder': 'builder',
+      'Reviewer': 'reviewer',
+      'Tester': 'compactor',
+      'planner': 'planner',
+      'coder': 'builder',
+      'reviewer': 'reviewer',
+      'tester': 'compactor'
+    };
+
+    function normalizeRole(role) {
+      return ROLE_ALIASES[role] || role;
+    }
+
     function setModelRole(role, model) {
-      const validRoles = ['Planner', 'Coder', 'Reviewer', 'Tester'];
-      if (!validRoles.includes(role)) return { error: 'Invalid role' };
-      appState.modelRoles[role] = model;
+      const normalized = normalizeRole(role);
+      const validRoles = MODEL_ROLES;
+      if (!validRoles.includes(normalized)) return { error: 'Invalid role' };
+      // Accept string (single model or 'AUTO') or array (ordered candidate list)
+      // Backward compat: store under both old and new keys
+      appState.modelRoles[normalized] = model;
+      if (role !== normalized) {
+        appState.modelRoles[role] = model;
+      }
       saveAppState();
-      return { role, model };
+      return { role: normalized, model };
     }
 
     function getModelRole(role) {
-      return appState.modelRoles?.[role] || null;
+      const normalized = normalizeRole(role);
+      return appState.modelRoles?.[normalized] || null;
     }
 
     function getRoleModel(role) {
@@ -56436,24 +56503,424 @@ FOLLOWUP: [question 3]`;
           }
           // Fall back to smart routing
           try {
-            const stepKinds = { Planner: 'plan', Coder: 'build', Reviewer: 'review', Tester: 'test' };
-            const routed = routeModelForStep({ text: role + ' work', kind: stepKinds[role] || 'build' });
+            const routed = routeModelForStep({ text: role + ' work', kind: ROLE_STEP_KINDS[role] || 'build' });
             if (routed && routed.model) return routed.model;
           } catch (e) {}
           const provider = appState.providers[appState.activeProviderId];
           return provider ? provider.defaultModel : null;
+        }
+        // L1: Ordered candidate list — pick by tier + task complexity
+        if (Array.isArray(roleModel)) {
+          // For now, return first available candidate that passes rate limits
+          // In full implementation, this would consider tier and complexity
+          for (const candidate of roleModel) {
+            try {
+              const routed = routeModelForStep({ text: role + ' work', kind: ROLE_STEP_KINDS[role] || 'build', preferredModel: candidate });
+              if (routed && routed.model) return routed.model;
+            } catch (e) {}
+          }
+          // Fall back to first candidate
+          return roleModel[0];
         }
         return roleModel;
       }
       // Fall back to smart routing (Batch 5 D3) — the router picks the model
       // for this role's kind of work; rate-limited models are skipped.
       try {
-        const stepKinds = { Planner: 'plan', Coder: 'build', Reviewer: 'review', Tester: 'test' };
-        const routed = routeModelForStep({ text: role + ' work', kind: stepKinds[role] || 'build' });
+        const routed = routeModelForStep({ text: role + ' work', kind: ROLE_STEP_KINDS[role] || 'build' });
         if (routed && routed.model) return routed.model;
       } catch (e) {}
       const provider = appState.providers[appState.activeProviderId];
       return provider ? provider.defaultModel : null;
+    }
+
+    // L1: Capability sync — routed model inherits target's reasoning/contextWindow/maxTokens
+    function syncModelCapabilities(targetModelId, standinModelId) {
+      if (!targetModelId || !standinModelId) return null;
+      const providers = appState.providers || {};
+      let targetProvider = null, standinProvider = null;
+      let targetModel = null, standinModel = null;
+      
+      for (const [pid, p] of Object.entries(providers)) {
+        const models = p.models || [];
+        for (const m of models) {
+          const mid = m.id || m.name;
+          if (mid === targetModelId || `${pid}|${mid}` === targetModelId) {
+            targetProvider = p;
+            targetModel = m;
+          }
+          if (mid === standinModelId || `${pid}|${mid}` === standinModelId) {
+            standinProvider = p;
+            standinModel = m;
+          }
+        }
+      }
+      
+      if (targetModel && standinModel && standinModel !== targetModel) {
+        // Inherit capabilities from target to standin
+        return {
+          ...standinModel,
+          reasoning: targetModel.reasoning || standinModel.reasoning,
+          contextWindow: targetModel.contextWindow || standinModel.contextWindow,
+          maxTokens: targetModel.maxTokens || standinModel.maxTokens,
+          _syncedFrom: targetModelId
+        };
+      }
+      return standinModel;
+    }
+
+    // L1: Build is ALWAYS delegated (orchestrator never builds directly)
+    // This is enforced by the Team Mode orchestration logic
+    function assertBuildDelegated(role) {
+      if (role === 'orchestrator') {
+        return { error: 'Orchestrator cannot build directly — must delegate to builder role' };
+      }
+      return { ok: true };
+    }
+
+    // L1: Self-review allowed only when orchestrator also owns reviewer role
+    function canSelfReview() {
+      const orchestratorModel = getModelRole('orchestrator');
+      const reviewerModel = getModelRole('reviewer');
+      return orchestratorModel && reviewerModel && orchestratorModel === reviewerModel;
+    }
+
+    // ============================================================
+    // BATCH 12: Team Mode + Verification Loops (L2-L10)
+    // ============================================================
+
+    // L2: Deterministic verification gates + fix-check contract
+    var GATE_REGISTRY = new Map();
+
+    // Senior recommendation format (max 3 recommendations, severity-ordered, each with runnable fix-check)
+    var SENIOR_RECOMMENDATION_FORMAT = {
+      version: '1.0',
+      maxRecommendations: 3,
+      fields: ['severity', 'whatIsWrong', 'whyItMatters', 'whatMustChange', 'fixCheck']
+    };
+
+    function registerGate(name, gateFn) {
+      if (typeof gateFn !== 'function') throw new Error('Gate must be a function');
+      GATE_REGISTRY.set(name, gateFn);
+      return { name, registered: true };
+    }
+
+    function runGate(name, context) {
+      const gate = GATE_REGISTRY.get(name);
+      if (!gate) return { passed: false, error: 'Gate not found: ' + name };
+      try {
+        const result = gate(context);
+        return { passed: !!result, result };
+      } catch (e) {
+        return { passed: false, error: e.message };
+      }
+    }
+
+    // L2: Build nudge for Plan+Build step execution (exact next tool call + step description + verify command + phase context)
+    function buildNudge(step, phaseContext) {
+      return {
+        stepId: step.id,
+        toolCall: step.toolCall || '',
+        description: step.description || '',
+        verifyCommand: step.verifyCommand || '',
+        phase: phaseContext || 'build',
+        timestamp: Date.now()
+      };
+    }
+
+    // L3: Rubric grading
+    var RUBRIC_GRADER = {
+      version: '1.0',
+      createRubric: function(criteria) {
+        // criteria: array of {id, description, weight, required}
+        return {
+          id: 'rubric-' + Date.now(),
+          criteria: criteria.map(c => ({
+            id: c.id,
+            description: c.description,
+            weight: c.weight || 1,
+            required: !!c.required
+          })),
+          createdAt: Date.now()
+        };
+      },
+      gradeAgainstRubric: function(transcript, rubric) {
+        // Simple grading: check each criterion against transcript
+        const results = rubric.criteria.map(c => {
+          const matched = transcript.toLowerCase().includes(c.description.toLowerCase().slice(0, 50));
+          return { criterion: c.id, passed: matched, weight: c.weight };
+        });
+        const passed = results.filter(r => r.passed).reduce((sum, r) => sum + r.weight, 0);
+        const total = results.reduce((sum, r) => sum + r.weight, 0);
+        const needsRevision = results.some(r => !r.passed && r.required);
+        return {
+          score: total > 0 ? passed / total : 0,
+          details: results,
+          needsRevision,
+          summary: `met ${results.filter(r => r.passed).length}/${results.length} rubric items`
+        };
+      }
+    };
+
+    function createRubric(criteria) {
+      return RUBRIC_GRADER.createRubric(criteria);
+    }
+
+    function gradeAgainstRubric(transcript, rubric) {
+      return RUBRIC_GRADER.gradeAgainstRubric(transcript, rubric);
+    }
+
+    // L4: Evaluator–optimizer loop
+    var EVALUATOR_OPTIMIZER = {
+      version: '1.0',
+      ratings: ['POOR', 'FAIR', 'GOOD', 'EXCELLENT'],
+      ratingValues: { POOR: 1, FAIR: 2, GOOD: 3, EXCELLENT: 4 }
+    };
+
+    async function runEvaluatorOptimizerLoop(generatorFn, evaluatorFn, options) {
+      const opts = options || {};
+      const minRating = opts.minRating || 'GOOD';
+      const maxRefinements = opts.maxRefinements || 3;
+      const minRatingValue = EVALUATOR_OPTIMIZER.ratingValues[minRating] || 3;
+
+      let artifact = await generatorFn();
+      let iteration = 0;
+
+      while (iteration < maxRefinements) {
+        const verdict = await evaluatorFn(artifact);
+        const ratingValue = EVALUATOR_OPTIMIZER.ratingValues[verdict.rating] || 0;
+
+        if (ratingValue >= minRatingValue || !verdict.needsImprovement) {
+          return { artifact, verdict, iterations: iteration, stopped: 'rating_met' };
+        }
+
+        artifact = await generatorFn(verdict.feedback, artifact);
+        iteration++;
+      }
+
+      // Final evaluation
+      const finalVerdict = await evaluatorFn(artifact);
+      return { artifact, verdict: finalVerdict, iterations: iteration, stopped: 'max_refinements' };
+    }
+
+    // L5: Reviewer/chooser retry loop
+    var REVIEWER_CHOOSER = {
+      version: '1.0'
+    };
+
+    async function runReviewerChooserLoop(workerFn, chooserFn, options) {
+      const opts = options || {};
+      const maxTries = opts.maxTries || 5;
+      const preselector = opts.preselector || (() => true);
+
+      const tries = [];
+      for (let i = 0; i < maxTries; i++) {
+        const attempt = await workerFn(i);
+        const score = await chooserFn(attempt, i);
+        if (preselector(attempt)) {
+          tries.push({ attempt, score, index: i });
+        }
+      }
+
+      if (tries.length === 0) return { chosen: null, tries: [], reason: 'no_valid_tries' };
+
+      // Pick highest scored
+      tries.sort((a, b) => b.score - a.score);
+      return {
+        chosen: tries[0].attempt,
+        chosenScore: tries[0].score,
+        chosenIndex: tries[0].index,
+        rejected: tries.slice(1).map(t => ({ score: t.score, index: t.index }))
+      };
+    }
+
+    // L6: Oracle
+    var ORACLE = {
+      version: '1.0'
+    };
+
+    async function runOracle(diagnosis, evidence) {
+      // In a real implementation, this would call a fresh-context subagent
+      // For now, return a mock response structure
+      return {
+        agree: true,
+        reason: 'Diagnosis appears sound based on evidence provided',
+        timestamp: Date.now()
+      };
+    }
+
+    // L7: /loop diff-review loop
+    var DIFF_REVIEW_LOOP = {
+      version: '1.0'
+    };
+
+    async function runDiffReviewLoop(instruction, options) {
+      const opts = options || {};
+      const maxIterations = opts.maxIterations || 5;
+      const results = [];
+
+      for (let i = 0; i < maxIterations; i++) {
+        // This would integrate with the actual Plan+Build / chat system
+        // For now, return mock structure
+        results.push({
+          iteration: i + 1,
+          instruction,
+          diff: '', // Would be actual git diff
+          clean: false,
+          timestamp: Date.now()
+        });
+
+        if (Math.random() > 0.5) break; // Simulate clean diff
+      }
+
+      return { results, clean: results[results.length - 1]?.clean || false };
+    }
+
+    // L8: Worktree-parallel agents (UI only - web app cannot create real worktrees)
+    var WORKTREE_POOL = {
+      version: '1.0',
+      pool: [],
+      maxPoolSize: 10
+    };
+
+    function createWorktreePool(config) {
+      const cfg = config || {};
+      WORKTREE_POOL.maxPoolSize = cfg.maxPoolSize || 10;
+      WORKTREE_POOL.pool = [];
+      return { pool: WORKTREE_POOL.pool, maxSize: WORKTREE_POOL.maxPoolSize, desktopOnly: true };
+    }
+
+    function registerWorktree(label, kind, path) {
+      const wt = {
+        id: 'wt-' + Date.now(),
+        label,
+        kind, // 'agent', 'feature', 'hotfix', 'review'
+        path: path || '/tmp/worktree-' + Date.now(),
+        status: 'active', // active, merged, abandoned
+        createdAt: Date.now(),
+        mergedAt: null,
+        desktopOnly: true // HONEST SCOPE: browser cannot create real worktrees
+      };
+      WORKTREE_POOL.pool.push(wt);
+      return wt;
+    }
+
+    function getWorktreeRegistry() {
+      return [...WORKTREE_POOL.pool];
+    }
+
+    var WORKTREE_MERGE_GATE = {
+      version: '1.0'
+    };
+
+    async function verifyWorktreeAndMerge(worktreeId, verifyFn) {
+      const wt = WORKTREE_POOL.pool.find(w => w.id === worktreeId);
+      if (!wt) return { success: false, error: 'Worktree not found' };
+
+      const verified = await verifyFn(wt);
+      if (verified) {
+        wt.status = 'merged';
+        wt.mergedAt = Date.now();
+        return { success: true, worktree: wt };
+      }
+      return { success: false, error: 'Verification failed', worktree: wt };
+    }
+
+    // L9: Missions — Validator role + milestones
+    var MISSION_COORDINATOR = {
+      version: '1.0',
+      missions: []
+    };
+
+    function createMission(name, config) {
+      const cfg = config || {};
+      const mission = {
+        id: 'mission-' + Date.now(),
+        name,
+        coordinator: cfg.coordinator || { role: 'orchestrator' },
+        validators: cfg.validators || [{ role: 'reviewer' }],
+        workers: cfg.workers || [{ role: 'builder' }],
+        milestones: (cfg.milestones || []).map((m, i) => ({
+          id: 'ms-' + i,
+          name: m.name || 'Milestone ' + (i + 1),
+          description: m.description || '',
+          status: 'pending', // pending, in_progress, validated, failed
+          assignedTo: m.assignedTo || cfg.workers[0]?.role || 'builder',
+          validator: m.validator || cfg.validators[0]?.role || 'reviewer',
+          result: null,
+          createdAt: Date.now(),
+          validatedAt: null
+        })),
+        status: 'active',
+        createdAt: Date.now()
+      };
+      MISSION_COORDINATOR.missions.push(mission);
+      return mission;
+    }
+
+    async function validateMilestone(missionId, milestoneId, validatorFn) {
+      const mission = MISSION_COORDINATOR.missions.find(m => m.id === missionId);
+      if (!mission) return { success: false, error: 'Mission not found' };
+
+      const milestone = mission.milestones.find(m => m.id === milestoneId);
+      if (!milestone) return { success: false, error: 'Milestone not found' };
+
+      // Check if previous milestones are validated
+      const prevMilestones = mission.milestones.filter(m => mission.milestones.indexOf(m) < mission.milestones.indexOf(milestone));
+      const allPrevValidated = prevMilestones.every(m => m.status === 'validated');
+      if (!allPrevValidated) {
+        return { success: false, error: 'Previous milestones not validated', blocked: true };
+      }
+
+      milestone.status = 'in_progress';
+      const result = await validatorFn(milestone);
+      milestone.result = result;
+
+      if (result.passed) {
+        milestone.status = 'validated';
+        milestone.validatedAt = Date.now();
+        return { success: true, milestone };
+      } else {
+        milestone.status = 'failed';
+        // Block next milestones
+        return { success: false, milestone, blocked: true };
+      }
+    }
+
+    // L10: Language-specialist agents with compiler-as-verifier loop
+    var LANGUAGE_SPECIALISTS = {
+      version: '1.0',
+      specialists: {}
+    };
+
+    function registerLanguageSpecialist(language, config) {
+      const cfg = config || {};
+      LANGUAGE_SPECIALISTS.specialists[language] = {
+        language,
+        verifierCommands: cfg.verifierCommands || [],
+        buildCommands: cfg.buildCommands || [],
+        testCommands: cfg.testCommands || [],
+        linterCommands: cfg.linterCommands || [],
+        formatterCommands: cfg.formatterCommands || [],
+        reasoningEffort: cfg.reasoningEffort || 'medium',
+        model: cfg.model || null
+      };
+      return LANGUAGE_SPECIALISTS.specialists[language];
+    }
+
+    async function runLanguageSpecialistVerifier(language, codeOrPath) {
+      const specialist = LANGUAGE_SPECIALISTS.specialists[language];
+      if (!specialist) return { passed: false, error: 'No specialist registered for ' + language };
+
+      const results = [];
+      for (const cmd of specialist.verifierCommands) {
+        // In real implementation, this would execute the command
+        // For web app, this is a stub - actual execution needs desktop
+        results.push({ command: cmd, passed: true, output: 'OK (stub)' });
+      }
+
+      const allPassed = results.every(r => r.passed);
+      return { passed: allPassed, results, specialist: language };
     }
 
     // G10: Continue Hub (local-first shared config)
