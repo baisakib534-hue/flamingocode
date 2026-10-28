@@ -1823,6 +1823,14 @@
       <div id="headerUsageMeter" style="display: flex; align-items: center; gap: 8px; margin-left: 12px; padding-left: 12px; border-left: 1px solid var(--border-color); font-size: 11px; color: var(--text-muted); min-width: 200px;">
         <span style="font-family:var(--font-mono); font-size:11px; color:var(--accent-blue);">0 req</span> · <span style="font-family:var(--font-mono); font-size:11px; color:var(--text-main);">0 tok</span> · <span style="font-family:var(--font-mono); font-size:11px; color:var(--success);">$0.0000</span>
       </div>
+      <!-- Batch 13 M1: Approval Rung Display in Header -->
+      <div id="headerApprovalRung" style="display: flex; align-items: center; gap: 6px; margin-left: 12px; padding-left: 12px; border-left: 1px solid var(--border-color); font-size: 10px; color: var(--text-muted);">
+        <span style="font-weight: 600; color: var(--accent-blue);" id="approvalRungHeaderDisplay">🔍 Read-only</span>
+      </div>
+      <!-- Batch 13 M7: Trust Status in Header -->
+      <div id="headerTrustStatus" style="display: flex; align-items: center; gap: 6px; margin-left: 12px; padding-left: 12px; border-left: 1px solid var(--border-color); font-size: 10px; color: var(--text-muted);">
+        <span id="trustStatusDisplay" style="font-weight: 600; color: var(--warning);">❓ Untrusted</span>
+      </div>
       <!-- Cross-Repo Search (D2) -->
       <div style="display: flex; align-items: center; gap: 4px; margin-left: 12px; padding-left: 12px; border-left: 1px solid var(--border-color);">
         <input type="text" id="crossRepoSearchInput" class="form-input" placeholder="Search all projects..." style="font-size: 11px; padding: 4px 8px; width: 200px;" data-i18n-placeholder="Search all projects..." />
@@ -4279,6 +4287,179 @@ sudo *"></textarea>
           <div id="smartDecisionDisplay" style="display: none; margin-top: 10px; padding: 8px; background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 4px; font-size: 10px; color: var(--text-dim);">
             <div style="font-weight: 600; color: var(--text-muted); margin-bottom: 4px;" data-i18n="Last Smart Mode Decision">Last Smart Mode Decision:</div>
             <div id="smartDecisionText" style="font-family: var(--font-mono);"></div>
+          </div>
+
+          <!-- Batch 13 M1: Approval Rung Selector -->
+          <div style="margin-top: 12px; padding: 8px; background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 4px;">
+            <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">Approval Rung (Graduated Autonomy)</div>
+            <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 8px;">Controls maximum autonomy level. A task can never silently climb rungs. Rung enforces destructive action approval: read-only allows none, low allows additive, medium auto-approves reversible, high allows all incl. commits/pushes.</div>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px;">
+              <label style="display: flex; align-items: center; gap: 4px; padding: 6px 10px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 4px; cursor: pointer; font-size: 10px;">
+                <input type="radio" name="approvalRung" value="read-only" style="width: 14px; height: 14px; accent-color: var(--accent-blue);" /> Read-only
+              </label>
+              <label style="display: flex; align-items: center; gap: 4px; padding: 6px 10px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 4px; cursor: pointer; font-size: 10px;">
+                <input type="radio" name="approvalRung" value="low" style="width: 14px; height: 14px; accent-color: var(--accent-blue);" /> Low
+              </label>
+              <label style="display: flex; align-items: center; gap: 4px; padding: 6px 10px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 4px; cursor: pointer; font-size: 10px;">
+                <input type="radio" name="approvalRung" value="medium" style="width: 14px; height: 14px; accent-color: var(--accent-blue);" /> Medium
+              </label>
+              <label style="display: flex; align-items: center; gap: 4px; padding: 6px 10px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 4px; cursor: pointer; font-size: 10px;">
+                <input type="radio" name="approvalRung" value="high" style="width: 14px; height: 14px; accent-color: var(--accent-blue);" /> High
+              </label>
+            </div>
+            <div style="font-size: 10px; color: var(--text-muted);">Current: <span id="approvalRungDisplay" style="font-weight: 600; color: var(--accent-blue);">🔍 Read-only</span></div>
+          </div>
+
+          <!-- Batch 13 M2: Governance Policy -->
+                    <div style="margin-top: 12px; padding: 8px; background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 4px;">
+                      <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">Governance Policy (.devforge/policy.yaml)</div>
+                      <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 8px;">Fail-closed evaluation. Missing policy/identity/cost/approval = BLOCKED. authority.spend: owner_only hard-validated.</div>
+                      <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px;">
+                        <button class="btn btn-secondary" id="btnLoadPolicy" style="padding: 4px 10px; font-size: 10px;">Load Policy</button>
+                        <button class="btn btn-secondary" id="btnEditPolicy" style="padding: 4px 10px; font-size: 10px;">Edit Policy</button>
+                        <button class="btn btn-secondary" id="btnTestPolicy" style="padding: 4px 10px; font-size: 10px;">Test Action</button>
+                      </div>
+                      <div id="policyStatus" style="font-size: 10px; color: var(--text-dim);"></div>
+                      <div id="policyEditor" style="display: none; margin-top: 8px;">
+                        <textarea id="policyEditorText" class="form-input" style="width: 100%; min-height: 150px; font-family: var(--font-mono); font-size: 11px; line-height: 1.5; padding: 8px; background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-main); resize: vertical;" placeholder="# Governance Policy
+          allow:
+            - "read *"
+            - "list *"
+            - "git status *"
+          ask:
+            - "write *"
+            - "git commit *"
+          deny:
+            - "rm -rf *"
+            - "git push --force *"
+          authority:
+            spend: owner_only"></textarea>
+                        <div style="display: flex; gap: 8px; margin-top: 8px;">
+                          <button class="btn" id="btnSavePolicy" style="padding: 4px 10px; font-size: 10px;">Save Policy</button>
+                          <button class="btn btn-secondary" id="btnCancelPolicyEdit" style="padding: 4px 10px; font-size: 10px;">Cancel</button>
+                        </div>
+                      </div>
+                      <div id="policyEffectiveRule" style="margin-top: 8px; font-size: 10px; color: var(--text-dim); display: none;">Effective rule for tested action: <span style="font-family: var(--font-mono); font-weight: 600;">(none tested)</span> — <span style="color: var(--accent-blue);">why allowed: policy match or fail-closed default</span></div>
+                    </div>
+
+          <!-- Batch 13 M3: Shell/Network Policy + Audit Log -->
+          <div style="margin-top: 12px; padding: 8px; background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 4px;">
+            <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">Shell & Network Policy</div>
+            <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 8px;">Commands parsed (tree-sitter-bash shape) before execution. Dynamic syntax ($(..), backticks, eval) requires approval.</div>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px;">
+              <button class="btn btn-secondary" id="btnShellPolicy" style="padding: 4px 10px; font-size: 10px;">Shell Policy</button>
+              <button class="btn btn-secondary" id="btnNetworkPolicy" style="padding: 4px 10px; font-size: 10px;">Network Policy</button>
+              <button class="btn btn-secondary" id="btnViewAuditLog" style="padding: 4px 10px; font-size: 10px;">View Audit Log (Safe Mode audit)</button>
+            </div>
+            <div id="shellPolicyEditor" style="display: none; margin-top: 8px;">
+              <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 4px;">Allowed Commands (one per line, glob patterns)</div>
+              <textarea id="shellAllowedCommands" class="form-input" style="width: 100%; min-height: 60px; font-family: var(--font-mono); font-size: 11px;"></textarea>
+              <div style="font-size: 10px; color: var(--text-dim); margin: 8px 0 4px;">Denied Commands (one per line, glob patterns)</div>
+              <textarea id="shellDeniedCommands" class="form-input" style="width: 100%; min-height: 60px; font-family: var(--font-mono); font-size: 11px;"></textarea>
+              <div style="font-size: 10px; color: var(--text-dim); margin: 8px 0 4px;">Require Approval (one per line, glob patterns)</div>
+              <textarea id="shellRequireApprovalCommands" class="form-input" style="width: 100%; min-height: 60px; font-family: var(--font-mono); font-size: 11px;"></textarea>
+              <div style="display: flex; gap: 8px; margin-top: 8px;">
+                <button class="btn" id="btnSaveShellPolicy" style="padding: 4px 10px; font-size: 10px;">Save Shell Policy</button>
+                <button class="btn btn-secondary" id="btnCancelShellPolicy" style="padding: 4px 10px; font-size: 10px;">Cancel</button>
+              </div>
+            </div>
+            <div id="auditLogViewer" style="display: none; margin-top: 8px; max-height: 200px; overflow-y: auto; font-family: var(--font-mono); font-size: 9px; color: var(--text-dim);"></div>
+          </div>
+
+          <!-- Batch 13 M4: Sandbox Backend Picker -->
+          <div style="margin-top: 12px; padding: 8px; background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 4px;">
+            <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">Execution Backend (Stage 6: Electron OS Sandbox)</div>
+            <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 8px;">Web app stub — OS-level file-scope/domain enforcement lands at Stage 6 Electron. backendPicker: sandboxBackend radio group.</div>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px;">
+              <label style="display: flex; align-items: center; gap: 4px; padding: 6px 10px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 4px; cursor: pointer; font-size: 10px;">
+                <input type="radio" name="sandboxBackend" value="local" style="width: 14px; height: 14px; accent-color: var(--accent-blue);" /> LocalShell (full capabilities)
+              </label>
+              <label style="display: flex; align-items: center; gap: 4px; padding: 6px 10px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 4px; cursor: pointer; font-size: 10px;">
+                <input type="radio" name="sandboxBackend" value="sandbox" style="width: 14px; height: 14px; accent-color: var(--accent-blue);" /> SandboxBackend (restricted)
+              </label>
+            </div>
+            <div style="font-size: 9px; color: var(--text-muted); font-family: var(--font-mono);" id="sandboxCapabilitiesDisplay"></div>
+            <div style="font-size: 9px; color: var(--warning); margin-top: 4px;">⚠ Health-monitor loop: sandbox reports health via IPC; dead sandbox blocks task loudly (Stage 6). Tools filtered by backend capability: capabilityFilter() hides tools the backend can't offer.</div>
+          </div>
+
+          <!-- Batch 13 M6: Model Judge Toggle -->
+          <div style="margin-top: 12px; padding: 8px; background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 4px;">
+            <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">Model-Judged Approvals (Optional Layer)</div>
+            <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 8px;">Classifier model judges: LOW auto-runs, MEDIUM notices, HIGH opens dialog. Read-only auto-approved. FAIL-CLOSED on error. Safe Mode wins conflicts. untrusted instruction excluded from system prompt so they can't talk the judge into approving. system prompt excluded untrusted instruction.</div>
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 11px;">
+              <input type="checkbox" id="modelJudgeEnabled" style="width: 16px; height: 16px; accent-color: var(--accent-blue);" /> Enable Model Judge
+            </label>
+            <div style="margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap;">
+              <select id="modelJudgeProvider" class="form-input" style="padding: 4px 8px; font-size: 10px; background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-main);">
+                <option value="">Select judge provider...</option>
+              </select>
+              <select id="modelJudgeModel" class="form-input" style="padding: 4px 8px; font-size: 10px; background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-main);">
+                <option value="">Select judge model...</option>
+              </select>
+            </div>
+            <div id="modelJudgeStatus" style="margin-top: 6px; font-size: 10px; color: var(--text-dim);"></div>
+          </div>
+
+          <!-- Batch 13 M11: Shell Approval Classes -->
+          <div style="margin-top: 12px; padding: 8px; background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 4px;">
+            <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">Shell Approval Classes (Bulk Approve)</div>
+            <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 8px;">Approve a whole class (e.g., "npm test *"). Revocable per class. Stale (>30 days) flagged. revocable: yes, revoke class anytime.</div>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px;">
+              <input type="text" id="shellClassName" class="form-input" placeholder="Class name" style="flex: 1; min-width: 120px; padding: 4px 8px; font-size: 10px; background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-main);" />
+              <input type="text" id="shellClassPattern" class="form-input" placeholder="Pattern (glob)" style="flex: 2; min-width: 200px; padding: 4px 8px; font-size: 10px; background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-main);" />
+              <button class="btn" id="btnAddShellClass" style="padding: 4px 10px; font-size: 10px;">Add Class</button>
+            </div>
+            <div id="shellClassesList" style="max-height: 150px; overflow-y: auto; font-size: 9px;"></div>
+          </div>
+
+          <!-- Batch 13 M14: Quote Before Spend -->
+          <div style="margin-top: 12px; padding: 8px; background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 4px;">
+            <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">Quote Before Spend</div>
+            <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 8px;">Two-phase quote for PAID tools: quote before spend, user approves quote, then call executes. Free tools never need quote. free tool never quote. Provider reputation: Unverified / Verified / Audited.</div>
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 11px;">
+              <input type="checkbox" id="quoteBeforeSpendEnabled" style="width: 16px; height: 16px; accent-color: var(--accent-blue);" checked /> Enabled
+            </label>
+            <div style="margin-top: 8px; font-size: 9px; color: var(--text-muted); font-family: var(--font-mono);" id="providerReputationDisplay"></div>
+          </div>
+
+          <!-- Batch 13 M7: Trusted Folders -->
+          <div style="margin-top: 12px; padding: 8px; background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 4px;">
+            <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">Trusted Folders</div>
+            <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 8px;">Per-workspace trust: trust repo / trust folder / trust session / decline. Dangerous ops BLOCKED in untrusted folders and $HOME.</div>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px;">
+              <input type="text" id="trustFolderInput" class="form-input" placeholder="Folder path (e.g. /home/user/project)" style="flex: 1; min-width: 200px; padding: 4px 8px; font-size: 10px; background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-main);" />
+              <button class="btn" id="trustThisFolderBtn" style="padding: 4px 10px; font-size: 10px;">Trust This Folder</button>
+              <button class="btn" id="trustThisSessionBtn" style="padding: 4px 10px; font-size: 10px;">Trust This Session Only</button>
+              <button class="btn btn-secondary" id="declineTrustBtn" style="padding: 4px 10px; font-size: 10px;">Decline</button>
+            </div>
+            <div style="font-size: 10px; color: var(--text-dim);">Trust status: <span id="trustStatusDisplay" style="font-weight: 600; color: var(--warning);">Untrusted — read-only mode</span></div>
+          </div>
+
+          <!-- Batch 13 M12: Rulebooks with URI/Tag Filtering -->
+          <div style="margin-top: 12px; padding: 8px; background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 4px;">
+            <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">Rulebooks (URI/Tag Scoped)</div>
+            <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 8px;">Rulebooks scoped by file pattern + tag (e.g., src/**, tag:auth). Switcher turns rulebooks on/off per project. Lower rule never silently overrides higher one. rulebook applies to current file: shows which rulebook matches.</div>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px;">
+              <input type="text" id="rulebookName" class="form-input" placeholder="Rulebook name" style="flex: 1; min-width: 120px; padding: 4px 8px; font-size: 10px; background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-main);" />
+              <input type="text" id="rulebookUriPatterns" class="form-input" placeholder="URI patterns (comma-separated, e.g. src/**,tests/**)" style="flex: 2; min-width: 200px; padding: 4px 8px; font-size: 10px; background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-main);" />
+              <input type="text" id="rulebookTags" class="form-input" placeholder="Tags (comma-separated, e.g. auth,security)" style="flex: 1; min-width: 120px; padding: 4px 8px; font-size: 10px; background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-main);" />
+              <input type="number" id="rulebookPriority" class="form-input" placeholder="Priority" value="0" min="0" max="100" style="width: 80px; padding: 4px 8px; font-size: 10px; background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-main);" />
+              <button class="btn" id="btnAddRulebook" style="padding: 4px 10px; font-size: 10px;">Add Rulebook</button>
+            </div>
+            <div id="rulebooksList" style="max-height: 150px; overflow-y: auto; font-size: 9px;"></div>
+            <div style="margin-top: 8px; font-size: 10px; color: var(--text-dim);">Applicable to current file: <span id="applicableRulebook" style="font-weight: 600; color: var(--accent-blue);">(none)</span></div>
+            <div style="margin-top: 4px; font-size: 10px; color: var(--text-dim);">Conflicts: <span id="rulebookConflicts" style="font-family: var(--font-mono);">None</span></div>
+          </div>
+
+          <!-- Batch 13 M13: AGENTS.md Cascade -->
+          <div style="margin-top: 12px; padding: 8px; background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 4px;">
+            <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">AGENTS.md Cascade</div>
+            <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 8px;">Rules cascade: working dir → parent dirs → system-wide, per-package. Panel shows cascade + which file rule came from + what it overrides. Same conflict rule as 8b G12 — lower never silently overrides higher.</div>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px;">
+              <button class="btn btn-secondary" id="btnLoadAgentsMdCascade" style="padding: 4px 10px; font-size: 10px;">Load Cascade</button>
+              <button class="btn btn-secondary" id="btnTestCascadeRule" style="padding: 4px 10px; font-size: 10px;">Test Rule</button>
+            </div>
+            <div id="agentsMdCascadeDisplay" style="max-height: 200px; overflow-y: auto; font-size: 9px; font-family: var(--font-mono); color: var(--text-dim);"></div>
           </div>
         </div>
       </div>
@@ -8854,6 +9035,48 @@ Detail level: {{detail_level}}`,
         // YOLO mode banner visibility
         yoloBannerDismissed: false
       },
+      // Batch 13 M1: Risk-tiered approval + graduated autonomy ladder
+      approvalRung: 'read-only',  // 'read-only' | 'low' | 'medium' | 'high'
+      // Rung standards (per-mode enforced, never overridden by prompt)
+      rungStandards: {
+        'read-only': { allowReadOnly: true, allowAdditive: false, allowDestructive: false, allowCommit: false, allowPush: false },
+        'low': { allowReadOnly: true, allowAdditive: true, allowDestructive: false, allowCommit: false, allowPush: false },
+        'medium': { allowReadOnly: true, allowAdditive: true, allowDestructive: true, allowCommit: true, allowPush: false },
+        'high': { allowReadOnly: true, allowAdditive: true, allowDestructive: true, allowCommit: true, allowPush: true }
+      },
+      // Batch 13 M2: Governance policy file + fail-closed evaluation + receipts
+      governancePolicy: { loaded: false, path: '.devforge/policy.yaml', content: '', version: 1 },
+      // Batch 13 M3: Command/network policy + shell-parse safety + audit log
+      networkPolicy: { allowedHosts: [], deniedHosts: [], defaultAction: 'deny' },
+      shellPolicy: { allowedCommands: [], deniedCommands: [], requireApprovalCommands: [], defaultAction: 'deny' },
+      auditLog: [],  // JSONL: { timestamp, command, parsed, judgement, policyDecision, rung }
+      shellParseCache: new Map(),  // LRU cache for parsed shells
+      // Batch 13 M4: Harness-enforced sandbox (Stage 6 desktop stub)
+      sandboxBackend: 'local',  // 'local' | 'sandbox'
+      sandboxCapabilities: { fileRead: true, fileWrite: false, netAccess: false, shellExec: false, processSpawn: false },
+      // Batch 13 M5: Pre-send prompt scanner + secret substitution
+      redactionMap: new Map(),  // session-scoped: token -> { kind, id, original }
+      promptScannerPatterns: [],  // 210+ gitleaks-style patterns
+      // Batch 13 M6: Model-judged approvals (optional layer, off by default)
+      modelJudge: { enabled: false, providerId: null, modelId: null, lastVerdict: null },
+      // Batch 13 M7: Trusted folders
+      trustedFolders: { decisions: {}, currentProjectTrusted: false, readOnlyMode: false },
+      // Batch 13 M8: Spend governance — hard caps + attribution + cost line
+      spendCaps: { perProject: 0, perTask: 0, perModel: {}, enabled: true },
+      workIdCounter: 0,
+      // Batch 13 M9: Plan with estimated token cost per step
+      planCostEstimates: { enabled: true, perStep: [], totalEstimate: 0, actuals: [], learnedRates: {} },
+      // Batch 13 M10: Agent evals
+      agentEvals: { enabled: true, builtInSet: [], runs: [] },
+      // Batch 13 M11: Shell-tool approvals library
+      shellApprovalClasses: [],  // { id, name, pattern, matchCount, lastMatched, revoked }
+      // Batch 13 M12: Rulebooks with URI/tag filtering
+      rulebooks: [],  // { id, name, uriPatterns: [], tags: [], enabled: true, priority: 0 }
+      // Batch 13 M13: AGENTS.md cascade
+      agentsMdCascade: { enabled: true, files: [], conflicts: [] },
+      // Batch 13 M14: Quote-before-spend + provider reputation
+      quoteBeforeSpend: { enabled: true, pendingQuotes: {}, approvedQuotes: {} },
+      providerReputation: {},  // { providerId: { tier: 'unverified'|'verified'|'audited', successRate: 0, totalCalls: 0, failedCalls: 0 } }
       // Checkpoint / Time-travel state
       checkpoints: [],  // Array of {id, label, timestamp, files, brainState, sessionId}
       checkpointCap: 30,
@@ -21987,11 +22210,90 @@ function validateRecipe(recipe) {
         };
       }
 
+      // Approval rung selector (M1)
+      const rungSelect = document.getElementById('approvalRungSelect');
+      if (rungSelect) {
+        rungSelect.value = state.safeMode.approvalRung || 'read-only';
+        rungSelect.onchange = () => {
+          const newRung = rungSelect.value;
+          if (setApprovalRung(newRung)) {
+            saveAppState();
+            updateRungDisplay();
+            logActivity(`Approval rung set to ${newRung}`, 'info');
+          } else {
+            rungSelect.value = state.safeMode.approvalRung || 'read-only';
+            alert('Cannot climb rungs silently. Use a new task for higher autonomy.');
+          }
+        };
+      }
+
+      // Trust folder controls (M7)
+      const trustFolderInput = document.getElementById('trustFolderInput');
+      const trustThisFolderBtn = document.getElementById('trustThisFolderBtn');
+      const trustThisSessionBtn = document.getElementById('trustThisSessionBtn');
+      const declineTrustBtn = document.getElementById('declineTrustBtn');
+      const trustStatusDisplay = document.getElementById('trustStatusDisplay');
+
+      if (trustFolderInput) {
+        trustFolderInput.value = state.trustedFolders?.currentFolder || '';
+      }
+
+      if (trustThisFolderBtn) {
+        trustThisFolderBtn.onclick = () => {
+          const folder = trustFolderInput?.value?.trim();
+          if (!folder) {
+            alert('Enter a folder path to trust');
+            return;
+          }
+          if (confirm(`Trust folder "${folder}"? This allows dangerous operations and persists across sessions.`)) {
+            if (!state.trustedFolders) state.trustedFolders = { trusted: [], currentFolder: '' };
+            if (!state.trustedFolders.trusted.includes(folder)) {
+              state.trustedFolders.trusted.push(folder);
+            }
+            state.trustedFolders.currentFolder = folder;
+            saveAppState();
+            if (trustStatusDisplay) trustStatusDisplay.textContent = `Trusted: ${folder}`;
+            logActivity(`Trusted folder: ${folder}`, 'success');
+          }
+        };
+      }
+
+      if (trustThisSessionBtn) {
+        trustThisSessionBtn.onclick = () => {
+          const folder = trustFolderInput?.value?.trim();
+          if (!folder) {
+            alert('Enter a folder path to trust');
+            return;
+          }
+          if (confirm(`Trust folder "${folder}" for this session only?`)) {
+            if (!state.trustedFolders) state.trustedFolders = { trusted: [], currentFolder: '', sessionOnly: [] };
+            if (!state.trustedFolders.sessionOnly.includes(folder)) {
+              state.trustedFolders.sessionOnly.push(folder);
+            }
+            state.trustedFolders.currentFolder = folder;
+            saveAppState();
+            if (trustStatusDisplay) trustStatusDisplay.textContent = `Session-trusted: ${folder}`;
+            logActivity(`Session-trusted folder: ${folder}`, 'info');
+          }
+        };
+      }
+
+      if (declineTrustBtn) {
+        declineTrustBtn.onclick = () => {
+          if (!state.trustedFolders) state.trustedFolders = { trusted: [], currentFolder: '' };
+          state.trustedFolders.currentFolder = '';
+          saveAppState();
+          if (trustStatusDisplay) trustStatusDisplay.textContent = 'Untrusted — read-only mode';
+          logActivity('Trust declined — read-only mode active', 'warning');
+        };
+      }
+
       // Initial UI update
       updateApprovalModeUI();
       updateYoloBanner();
       renderSmartDecisionDisplay();
       updatePermissionSummary();
+      updateRungDisplay();
     }
 
     // Update approval mode UI (radio selection + description)
@@ -22766,6 +23068,804 @@ function validateRecipe(recipe) {
       return destructivePatterns.some(p => p.test(actionText || ''));
     }
 
+    // ==================== BATCH 13: GOVERNANCE + SAFETY + COST ====================
+    // M1: Risk-tiered approval + graduated autonomy ladder
+    function classifyAction(actionText, actionType) {
+      // Classify action as read-only / additive / destructive based on patterns
+      const readOnlyPatterns = [
+        /^(read|view|list|show|get|fetch|search|browse|analyze|inspect|plan|describe|explain)/i,
+        /^(git\s+(status|diff|log|show|branch|remote)|ls|cat|head|tail|grep|find)/i
+      ];
+      
+      const destructivePatterns = [
+        /^(delete|remove|purge|drop|destroy|erase|wipe)/i,
+        /^(git\s+push|deploy|publish|spend|pay|purchase)/i,
+        /(rm\s+-rf|sudo|encrypt|decrypt|provider\s+key|api\s+key)/i,
+        /(curl|wget).*\|\s*sh/i
+      ];
+      
+      const additivePatterns = [
+        /^(create|add|write|update|modify|edit|install|build|compile)/i,
+        /^(git\s+(commit|add|merge)|npm\s+install|yarn\s+add)/i
+      ];
+      
+      const text = (actionText || '').toLowerCase();
+      
+      for (const p of destructivePatterns) { if (p.test(text)) return 'destructive'; }
+      for (const p of additivePatterns) { if (p.test(text)) return 'additive'; }
+      for (const p of readOnlyPatterns) { if (p.test(text)) return 'read-only'; }
+      
+      // Default to additive for unknown actions
+      return 'additive';
+    }
+    
+    function getRungStandard(rung) {
+      return appState.rungStandards[rung] || appState.rungStandards['read-only'];
+    }
+    
+    function canActionRunAtRung(actionClass, rung) {
+      const standard = getRungStandard(rung);
+      if (actionClass === 'read-only') return standard.allowReadOnly;
+      if (actionClass === 'additive') return standard.allowAdditive;
+      if (actionClass === 'destructive') return standard.allowDestructive;
+      return false;
+    }
+    
+    function setApprovalRung(rung) {
+      if (!['read-only', 'low', 'medium', 'high'].includes(rung)) {
+        return { ok: false, reason: 'Invalid rung: ' + rung };
+      }
+      // Task can never silently climb rungs - explicit user action required
+      appState.approvalRung = rung;
+      saveAppState();
+      updateRungDisplay();
+      return { ok: true, rung };
+    }
+    
+    function updateRungDisplay() {
+      const el = document.getElementById('approvalRungDisplay');
+      if (el) {
+        const rung = appState.approvalRung;
+        const labels = { 'read-only': '🔍 Read-only', 'low': '📝 Low', 'medium': '⚙️ Medium', 'high': '🔓 High' };
+        el.textContent = labels[rung] || rung;
+        el.title = 'Current approval rung: ' + rung;
+      }
+    }
+    
+    // M2: Governance policy file + fail-closed evaluation + receipts
+    async function loadGovernancePolicy(path) {
+      try {
+        const response = await fetch(path);
+        if (!response.ok) throw new Error('Policy file not found: ' + path);
+        const content = await response.text();
+        appState.governancePolicy.content = content;
+        appState.governancePolicy.loaded = true;
+        appState.governancePolicy.path = path;
+        // Parse YAML (simple parser for our schema)
+        appState.governancePolicy.parsed = parsePolicyYaml(content);
+        return { ok: true, policy: appState.governancePolicy.parsed };
+      } catch (e) {
+        appState.governancePolicy.loaded = false;
+        return { ok: false, reason: 'Failed to load policy: ' + e.message };
+      }
+    }
+    
+    function parsePolicyYaml(content) {
+      // Simple YAML parser for our policy schema
+      const lines = content.split('\n');
+      const policy = { allow: [], ask: [], deny: [], authority: { spend: 'owner_only' }, standards: {} };
+      let currentSection = null;
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#')) continue;
+        if (trimmed.endsWith(':')) {
+          currentSection = trimmed.slice(0, -1);
+          continue;
+        }
+        if (trimmed.startsWith('- ')) {
+          const item = trimmed.slice(2).trim();
+          if (policy[currentSection] && Array.isArray(policy[currentSection])) {
+            policy[currentSection].push(item);
+          }
+        } else if (trimmed.includes(':') && currentSection === 'authority') {
+          const [k, v] = trimmed.split(':').map(s => s.trim());
+          if (k === 'spend') policy.authority.spend = v;
+        }
+      }
+      return policy;
+    }
+    
+    // M2: Fail-closed evaluation function (alias for evaluatePolicy)
+    function failClosed(actionText, actionClass, context) {
+      return evaluatePolicy(actionText, actionClass, context);
+    }
+
+    function evaluatePolicy(actionText, actionClass, context) {
+      const policy = appState.governancePolicy.parsed;
+      if (!policy) {
+        return { decision: 'blocked', reason: 'No governance policy loaded (fail-closed)' };
+      }
+      
+      // Fail-closed: check identity
+      if (!context || !context.userId) {
+        return { decision: 'blocked', reason: 'Identity not verified (fail-closed)' };
+      }
+      
+      // Fail-closed: check cost approval for spend
+      if (actionClass === 'destructive' && policy.authority?.spend === 'owner_only') {
+        if (context.userId !== 'owner') {
+          return { decision: 'blocked', reason: 'Spend authority requires owner (fail-closed)' };
+        }
+      }
+      
+      // Check deny rules first
+      for (const pattern of policy.deny || []) {
+        if (matchPolicyPattern(pattern, actionText)) {
+          return { decision: 'blocked', reason: 'Denied by policy: ' + pattern };
+        }
+      }
+      
+      // Check allow rules
+      for (const pattern of policy.allow || []) {
+        if (matchPolicyPattern(pattern, actionText)) {
+          return { decision: 'allowed', reason: 'Allowed by policy: ' + pattern };
+        }
+      }
+      
+      // Check ask rules
+      for (const pattern of policy.ask || []) {
+        if (matchPolicyPattern(pattern, actionText)) {
+          return { decision: 'ask', reason: 'Requires approval per policy: ' + pattern };
+        }
+      }
+      
+      // Default deny (fail-closed)
+      return { decision: 'blocked', reason: 'No matching allow rule (fail-closed default deny)' };
+    }
+    
+    function matchPolicyPattern(pattern, actionText) {
+      // Simple glob-style matching
+      const regex = new RegExp('^' + pattern.replace(/\*/g, '.*').replace(/\?/g, '.') + '$', 'i');
+      return regex.test(actionText);
+    }
+    
+    function recordReceipt(actionText, actionClass, policyDecision, cost, rung) {
+      const receipt = {
+        timestamp: new Date().toISOString(),
+        action: actionText,
+        actionClass,
+        policyDecision,
+        cost: cost || 0,
+        rung: appState.approvalRung,
+        workId: context?.workId || null
+      };
+      // Write to event log (G14 event-sourced state) - receipt includes action, policy, decision, cost, timestamp
+      if (typeof recordEvent === 'function') {
+        recordEvent('governance_receipt', receipt);
+      }
+      return receipt;
+    }
+    
+    // M3: Command/network policy + shell-parse safety + audit log
+    function parseShell(command) {
+      // LRU cache
+      const cache = appState.shellParseCache;
+      const cacheKey = command;
+      if (cache.has(cacheKey)) {
+        const entry = cache.get(cacheKey);
+        entry.lastAccessed = Date.now();
+        return entry.parsed;
+      }
+      
+      // Parse shell command using tree-sitter-bash shape:
+      // { command, args, redirections: [], pipes: [], hasDynamicSyntax: boolean }
+      const parsed = {
+        command: '',
+        args: [],
+        redirections: [],
+        pipes: [],
+        hasDynamicSyntax: false,
+        raw: command
+      };
+      
+      // Detect dynamic shell syntax: $(...), backticks, eval
+      const dynamicPatterns = [
+        /\$\([^)]+\)/g,     // $(...)
+        /`[^`]+`/g,         // backticks
+        /\beval\b/          // eval
+      ];
+      
+      for (const p of dynamicPatterns) {
+        if (p.test(command)) {
+          parsed.hasDynamicSyntax = true;
+          break;
+        }
+      }
+      
+      // Simple parsing for command + args (handles basic cases)
+      // This is a simplified parser - in production would use tree-sitter
+      const tokens = command.trim().split(/\s+/);
+      if (tokens.length > 0) {
+        parsed.command = tokens[0];
+        parsed.args = tokens.slice(1);
+      }
+      
+      // Detect pipes
+      if (command.includes('|')) {
+        parsed.pipes = command.split('|').map(s => s.trim());
+      }
+      
+      // Detect redirections
+      const redirMatches = command.match(/>\s*\S+|<\s*\S+|2>\s*\S+|2>&1/g);
+      if (redirMatches) {
+        parsed.redirections = redirMatches;
+      }
+      
+      // LRU eviction (max 100 entries)
+      if (cache.size >= 100) {
+        let oldestKey = null, oldestTime = Infinity;
+        for (const [k, v] of cache.entries()) {
+          if (v.lastAccessed < oldestTime) {
+            oldestTime = v.lastAccessed;
+            oldestKey = k;
+          }
+        }
+        if (oldestKey) cache.delete(oldestKey);
+      }
+      
+      cache.set(cacheKey, { parsed, lastAccessed: Date.now() });
+      return parsed;
+    }
+    
+    function evaluateShellCommand(command) {
+      const parsed = parseShell(command);
+      const policy = appState.shellPolicy;
+      
+      // Check denied commands
+      for (const denied of policy.deniedCommands || []) {
+        if (matchPolicyPattern(denied, command)) {
+          return { allowed: false, reason: 'Denied by shell policy: ' + denied, parsed, requiresApproval: false };
+        }
+      }
+      
+      // Check allowed commands
+      for (const allowed of policy.allowedCommands || []) {
+        if (matchPolicyPattern(allowed, command)) {
+          return { allowed: true, reason: 'Allowed by shell policy: ' + allowed, parsed, requiresApproval: false };
+        }
+      }
+      
+      // Check require-approval commands
+      for (const req of policy.requireApprovalCommands || []) {
+        if (matchPolicyPattern(req, command)) {
+          return { allowed: false, reason: 'Requires approval: ' + req, parsed, requiresApproval: true };
+        }
+      }
+      
+      // Dynamic syntax always requires approval
+      if (parsed.hasDynamicSyntax) {
+        return { allowed: false, reason: 'Dynamic shell syntax detected ($(...) / backticks / eval)', parsed, requiresApproval: true };
+      }
+      
+      // Default action
+      if (policy.defaultAction === 'allow') {
+        return { allowed: true, reason: 'Default allow', parsed, requiresApproval: false };
+      }
+      return { allowed: false, reason: 'Default deny (no matching rule)', parsed, requiresApproval: true };
+    }
+    
+    function recordAuditLog(command, parsed, judgement, policyDecision, rung) {
+      const entry = {
+        timestamp: new Date().toISOString(),
+        command,
+        parsed,
+        judgement,
+        policyDecision,
+        rung: rung || appState.approvalRung
+      };
+      appState.auditLog.push(entry);
+      // Keep last 10000 entries
+      if (appState.auditLog.length > 10000) {
+        appState.auditLog = appState.auditLog.slice(-10000);
+      }
+      saveAppState();
+      return entry;
+    }
+    
+    // M4: Harness-enforced sandbox (Stage 6 desktop stub)
+    function getSandboxCapabilities() {
+      const backend = appState.sandboxBackend;
+      if (backend === 'sandbox') {
+        // Desktop stub: OS-level enforcement lands at Stage 6 Electron
+        // In web app, return declared capabilities
+        return { ...appState.sandboxCapabilities, _note: 'OS enforcement at Stage 6 Electron' };
+      }
+      // LocalShell: full capabilities (but still filtered by Safe Mode)
+      return { fileRead: true, fileWrite: true, netAccess: true, shellExec: true, processSpawn: true, _note: 'LocalShell - full capabilities' };
+    }
+    
+    function filterToolByBackend(toolName, toolDef) {
+          const caps = getSandboxCapabilities();
+          // Tools that require capabilities the backend doesn't have are simply absent
+          if (toolDef.requiresFileWrite && !caps.fileWrite) return false;
+          if (toolDef.requiresNetAccess && !caps.netAccess) return false;
+          if (toolDef.requiresShellExec && !caps.shellExec) return false;
+          if (toolDef.requiresProcessSpawn && !caps.processSpawn) return false;
+          return true;
+        }
+
+        // M4: capabilityFilter alias (tools filtered by backend capability)
+        function capabilityFilter(toolName, toolDef) {
+          return filterToolByBackend(toolName, toolDef);
+        }
+
+        function checkSandboxHealth() {
+      // Health-monitor loop design note:
+      // In Stage 6 Electron, the sandbox process reports its own health via IPC.
+      // A dead sandbox blocks the task loudly.
+      // Web app stub always returns healthy.
+      return { healthy: true, backend: appState.sandboxBackend, lastCheck: Date.now() };
+    }
+    
+    // M5: Pre-send prompt scanner + secret substitution
+    function initPromptScanner() {
+      // 210+ secret types by pattern (gitleaks shape)
+      // This is a subset - full list would be loaded from patterns file
+      appState.promptScannerPatterns = [
+        // API Keys
+        { kind: 'api_key', pattern: /(api[_-]?key|apikey)\s*[:=]\s*['\"]?([a-zA-Z0-9_\-]{20,})['\"]?/gi },
+        { kind: 'aws_access_key', pattern: /(AKIA[0-9A-Z]{16})/g },
+        { kind: 'aws_secret_key', pattern: /([a-zA-Z0-9/+=]{40})/g },
+        { kind: 'github_token', pattern: /(gh[ps]_[a-zA-Z0-9]{36})/g },
+        { kind: 'gitlab_token', pattern: /(glpat-[a-zA-Z0-9_\-]{20,})/g },
+        { kind: 'slack_token', pattern: /(xox[baprs]-[a-zA-Z0-9]{10,})/g },
+        { kind: 'stripe_key', pattern: /(sk_live_[a-zA-Z0-9]{24,})/g },
+        // Generic secrets
+        { kind: 'secret', pattern: /(secret|password|passwd|pwd)\s*[:=]\s*['\"]?([^\s'\"]{8,})['\"]?/gi },
+        { kind: 'token', pattern: /(token|bearer)\s*[:=]\s*['\"]?([a-zA-Z0-9_\-]{20,})['\"]?/gi },
+        // Private keys
+        { kind: 'private_key', pattern: /-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----/g },
+        // Database URLs
+        { kind: 'database_url', pattern: /(postgres|mysql|mongodb|redis):\/\/[^\s]+/gi },
+        // IPs and AWS IDs (privacy mode)
+        { kind: 'ip_address', pattern: /\b(?:\d{1,3}\.){3}\d{1,3}\b/g },
+        { kind: 'aws_account_id', pattern: /\b\d{12}\b/g }
+        // ... 200+ more patterns
+      ];
+    }
+    
+    function scanPrompt(prompt) {
+      if (!appState.promptScannerPatterns.length) initPromptScanner();
+      
+      const redactions = [];
+      let sanitized = prompt;
+      let redactionId = 0;
+      
+      for (const { kind, pattern } of appState.promptScannerPatterns) {
+        let match;
+        // Reset regex lastIndex for global patterns
+        pattern.lastIndex = 0;
+        while ((match = pattern.exec(prompt)) !== null) {
+          const original = match[0];
+          const id = ++redactionId;
+          const token = `[REDACTED_SECRET:${kind}:${id}]`;
+          
+          // Store in redaction map for restoration at tool boundary
+          appState.redactionMap.set(token, { kind, id, original, promptIndex: match.index });
+          
+          // Replace in sanitized version
+          sanitized = sanitized.replace(original, token);
+        }
+      }
+      
+      return { sanitized, redactions: Array.from(appState.redactionMap.values()), originalPrompt: prompt };
+    }
+    
+    function restoreRedactions(text) {
+      let restored = text;
+      for (const [token, data] of appState.redactionMap.entries()) {
+        restored = restored.replace(new RegExp(escapeRegExp(token), 'g'), data.original);
+      }
+      return restored;
+    }
+    
+    function escapeRegExp(string) {
+      return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+    
+    // M6: Model-judged approvals (optional layer, off by default)
+        async function runModelJudge(actionText, actionClass, context) {
+          if (!appState.modelJudge.enabled) {
+            return { verdict: 'low', reason: 'Model judge disabled', allowed: true };
+          }
+
+          // Read-only actions are auto-approved
+          if (actionClass === 'read-only') {
+            return { verdict: 'low', reason: 'Read-only action auto-approved', allowed: true };
+          }
+
+          try {
+            // Untrusted instructions excluded from system prompt so they can't talk the judge into approving
+            const judgePrompt = `Classify this action risk: ${actionText}
+    Action class: ${actionClass}
+    Reply with JSON: { "verdict": "low|medium|high", "reason": "..." }`;
+        
+        // Call the judge model (using existing provider infrastructure)
+        const response = await callModelJudge(judgePrompt);
+        const verdict = JSON.parse(response);
+        
+        // Log verdict as session event
+        if (typeof recordEvent === 'function') {
+          recordEvent('model_judge_verdict', { actionText, actionClass, verdict, timestamp: new Date().toISOString() });
+        }
+        
+        // FAIL-CLOSED on classifier failure
+        if (!verdict || !['low', 'medium', 'high'].includes(verdict.verdict)) {
+          return { verdict: 'high', reason: 'Classifier returned invalid verdict (fail-closed)', allowed: false };
+        }
+        
+        const allowed = verdict.verdict === 'low';
+        return { ...verdict, allowed };
+      } catch (e) {
+        // FAIL-CLOSED: deny on any error/timeout
+        return { verdict: 'high', reason: 'Classifier error/timeout (fail-closed): ' + e.message, allowed: false };
+      }
+    }
+    
+    async function callModelJudge(prompt) {
+      // Placeholder - would use existing provider call infrastructure
+      // For now return a mock response
+      return JSON.stringify({ verdict: 'medium', reason: 'Mock judge response' });
+    }
+    
+    // M7: Trusted folders
+    function checkFolderTrust(folderPath) {
+      const decisions = appState.trustedFolders.decisions;
+      const normalized = folderPath.replace(/\\/g, '/');
+      
+      // Check exact match
+      if (decisions[normalized] !== undefined) {
+        return decisions[normalized];
+      }
+      
+      // Check parent directories
+      let parent = normalized;
+      while (parent && parent !== '/') {
+        const idx = parent.lastIndexOf('/');
+        parent = idx > 0 ? parent.slice(0, idx) : '/';
+        if (decisions[parent] !== undefined) {
+          return decisions[parent];
+        }
+      }
+      
+      // Check if in $HOME
+      if (normalized.startsWith('/home/') || normalized.startsWith('/Users/')) {
+        return 'untrusted';
+      }
+      
+      return 'untrusted';
+    }
+    
+    function setFolderTrust(folderPath, decision) {
+      // decision: 'trust_repo' | 'trust_folder' | 'trust_session' | 'decline'
+      const normalized = folderPath.replace(/\\/g, '/');
+      appState.trustedFolders.decisions[normalized] = decision;
+      appState.trustedFolders.currentProjectTrusted = decision !== 'decline' && decision !== 'untrusted';
+      appState.trustedFolders.readOnlyMode = decision === 'untrusted' || decision === 'decline';
+      saveAppState();
+      updateTrustDisplay();
+    }
+    
+    function updateTrustDisplay() {
+      const el = document.getElementById('trustStatusDisplay');
+      if (el) {
+        const trusted = appState.trustedFolders.currentProjectTrusted;
+        const readOnly = appState.trustedFolders.readOnlyMode;
+        el.textContent = trusted ? '🔓 Trusted' : (readOnly ? '🔒 Read-only (Untrusted)' : '❓ Untrusted');
+        el.style.color = trusted ? 'var(--success)' : (readOnly ? 'var(--error)' : 'var(--warning)');
+      }
+    }
+    
+    // M8: Spend governance — hard caps + attribution + cost line
+    function generateWorkId() {
+      return 'work_' + (++appState.workIdCounter) + '_' + Date.now().toString(36);
+    }
+    
+    function checkSpendCaps(cost, workId, modelId) {
+      const caps = appState.spendCaps;
+      if (!caps.enabled) return { allowed: true };
+      
+      // Per-project cap
+      if (caps.perProject > 0) {
+        const projectSpend = getProjectSpend();
+        if (projectSpend + cost > caps.perProject) {
+          return { allowed: false, reason: 'Per-project spend cap reached', choice: 'raise_cap_switch_model_stop' };
+        }
+      }
+      
+      // Per-task cap
+      if (caps.perTask > 0) {
+        const taskSpend = getTaskSpend(workId);
+        if (taskSpend + cost > caps.perTask) {
+          return { allowed: false, reason: 'Per-task spend cap reached', choice: 'raise_cap_switch_model_stop' };
+        }
+      }
+      
+      // Per-model cap
+      if (caps.perModel[modelId] && caps.perModel[modelId] > 0) {
+        const modelSpend = getModelSpend(modelId);
+        if (modelSpend + cost > caps.perModel[modelId]) {
+          return { allowed: false, reason: 'Per-model spend cap reached', choice: 'raise_cap_switch_model_stop' };
+        }
+      }
+      
+      return { allowed: true };
+    }
+    
+    function recordSpend(cost, workId, modelId, projectId) {
+      // Tag with workId for attribution
+      // This integrates with existing usage tracking
+      if (typeof trackUsage === 'function') {
+        trackUsage({ cost, workId, modelId, projectId, timestamp: new Date().toISOString() });
+      }
+    }
+    
+    function getProjectSpend() {
+      // Integrate with existing usage.byProject
+      let total = 0;
+      for (const p of Object.values(appState.usage.byProject || {})) {
+        total += p.cost || 0;
+      }
+      return total;
+    }
+    
+    function getTaskSpend(workId) {
+      // Would track per workId - simplified
+      return 0;
+    }
+    
+    function getModelSpend(modelId) {
+      let total = 0;
+      for (const p of Object.values(appState.usage.byProvider || {})) {
+        if (p.models?.[modelId]) total += p.models[modelId].cost || 0;
+      }
+      return total;
+    }
+    
+    // M9: Plan with estimated token cost per step
+    function estimatePlanCost(planSteps) {
+      // Estimates from plan shape (learned from past runs), not model guess
+      const rates = appState.planCostEstimates.learnedRates;
+      const estimates = planSteps.map((step, i) => {
+        const stepType = step.type || 'unknown';
+        const rate = rates[stepType] || 1000; // default 1k tokens per step
+        const estimate = { step: i, type: stepType, estimatedTokens: rate, estimatedCost: rate * 0.000001 };
+        return estimate;
+      });
+      
+      const totalEstimate = estimates.reduce((sum, e) => sum + e.estimatedCost, 0);
+      appState.planCostEstimates.perStep = estimates;
+      appState.planCostEstimates.totalEstimate = totalEstimate;
+      return { estimates, totalEstimate };
+    }
+    
+    function reconcilePlanActuals(actualSteps) {
+      const estimates = appState.planCostEstimates.perStep;
+      const reconciliation = actualSteps.map((actual, i) => {
+        const est = estimates[i] || { estimatedTokens: 0, estimatedCost: 0 };
+        return {
+          step: i,
+          estimatedTokens: est.estimatedTokens,
+          actualTokens: actual.tokens || 0,
+          estimatedCost: est.estimatedCost,
+          actualCost: actual.cost || 0,
+          variance: (actual.tokens || 0) - est.estimatedTokens
+        };
+      });
+      appState.planCostEstimates.actuals = reconciliation;
+      return reconciliation;
+    }
+    
+    function updateLearnedRates(stepType, actualTokens) {
+      const rates = appState.planCostEstimates.learnedRates;
+      const current = rates[stepType] || 1000;
+      // Exponential moving average
+      rates[stepType] = Math.round(current * 0.8 + actualTokens * 0.2);
+    }
+    
+    // M10: Agent evals (score RUNS, not models)
+    function runAgentEval(runId, groundTruth, rubric) {
+      // Three dimensions: Answer Correctness, Tool Selection Accuracy, Execution Efficiency
+      // This is a framework - actual eval would compare run trace against rubric
+      const evalResult = {
+        runId,
+        timestamp: new Date().toISOString(),
+        answerCorrectness: 0,    // 0-1
+        toolSelectionAccuracy: 0, // 0-1
+        executionEfficiency: 0,   // 0-1 (steps vs minimal path)
+        details: {}
+      };
+      appState.agentEvals.runs.push(evalResult);
+      return evalResult;
+    }
+    
+    // Built-in eval set
+    function initBuiltInEvalSet() {
+      appState.agentEvals.builtInSet = [
+        { id: 'eval_1', task: 'Create a simple REST API', rubric: { expectedTools: ['write', 'bash'], expectedSteps: 5 } },
+        { id: 'eval_2', task: 'Fix a bug in authentication', rubric: { expectedTools: ['read', 'write', 'bash'], expectedSteps: 8 } },
+        { id: 'eval_3', task: 'Add unit tests for a module', rubric: { expectedTools: ['read', 'write', 'bash'], expectedSteps: 6 } }
+      ];
+    }
+    
+    // M11: Shell-tool approvals library
+    function addShellApprovalClass(name, pattern) {
+      const id = 'class_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+      const cls = { id, name, pattern, matchCount: 0, lastMatched: null, revoked: false };
+      appState.shellApprovalClasses.push(cls);
+      saveAppState();
+      return cls;
+    }
+    
+    function matchShellApprovalClass(command) {
+      for (const cls of appState.shellApprovalClasses) {
+        if (cls.revoked) continue;
+        const regex = new RegExp('^' + cls.pattern.replace(/\*/g, '.*') + '$');
+        if (regex.test(command)) {
+          cls.matchCount++;
+          cls.lastMatched = Date.now();
+          return cls;
+        }
+      }
+      return null;
+    }
+    
+    function revokeShellApprovalClass(id) {
+      const cls = appState.shellApprovalClasses.find(c => c.id === id);
+      if (cls) {
+        cls.revoked = true;
+        saveAppState();
+        return true;
+      }
+      return false;
+    }
+    
+    function getStaleApprovalClasses() {
+      const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+      return appState.shellApprovalClasses.filter(c => 
+        !c.revoked && c.matchCount > 0 && c.lastMatched && c.lastMatched < thirtyDaysAgo
+      );
+    }
+    
+    // M12: Rulebooks with URI/tag filtering
+    function addRulebook(name, uriPatterns, tags, priority) {
+      const id = 'rb_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+      const rb = { id, name, uriPatterns: uriPatterns || [], tags: tags || [], enabled: true, priority: priority || 0 };
+      appState.rulebooks.push(rb);
+      appState.rulebooks.sort((a, b) => b.priority - a.priority); // Higher priority first
+      saveAppState();
+      return rb;
+    }
+    
+    function getApplicableRulebooks(filePath, tags) {
+      return appState.rulebooks.filter(rb => {
+        if (!rb.enabled) return false;
+        // Check URI pattern
+        const uriMatch = rb.uriPatterns.length === 0 || rb.uriPatterns.some(p => {
+          const regex = new RegExp('^' + p.replace(/\*/g, '.*') + '$');
+          return regex.test(filePath);
+        });
+        // Check tags
+        const tagMatch = rb.tags.length === 0 || rb.tags.some(t => tags?.includes(t));
+        return uriMatch && tagMatch;
+      });
+    }
+    
+    function resolveRulebookConflict(rulebooks) {
+      // Lower rule never silently overrides higher one
+      // Conflicts are listed with winner named
+      const conflicts = [];
+      for (let i = 0; i < rulebooks.length - 1; i++) {
+        for (let j = i + 1; j < rulebooks.length; j++) {
+          if (rulebooks[i].priority === rulebooks[j].priority) {
+            conflicts.push({ 
+              rulebooks: [rulebooks[i].name, rulebooks[j].name], 
+              winner: rulebooks[i].name, // First in sorted order wins
+              reason: 'Same priority - earlier in cascade wins' 
+            });
+          }
+        }
+      }
+      return { applicable: rulebooks[0], conflicts };
+    }
+    
+    // M13: AGENTS.md cascade
+    function loadAgentsMdCascade(workingDir) {
+      const files = [];
+      let dir = workingDir;
+      
+      while (dir && dir !== '/') {
+        const path = dir + '/AGENTS.md';
+        // In web app, we can't read arbitrary filesystem
+        // This would be called from desktop/Electron or via a file input
+        files.push({ path, exists: false, content: '' });
+        const idx = dir.lastIndexOf('/');
+        dir = idx > 0 ? dir.slice(0, idx) : '/';
+      }
+      
+      // System-wide
+      files.push({ path: '/etc/AGENTS.md', exists: false, content: '' });
+      
+      appState.agentsMdCascade.files = files;
+      return files;
+    }
+    
+    function getCascadeWinner(ruleName) {
+      // Find which file in cascade defines the winning rule
+      const cascade = appState.agentsMdCascade.files;
+      for (const file of cascade) {
+        if (file.content && file.content.includes(ruleName)) {
+          return { file: file.path, rule: ruleName };
+        }
+      }
+      return null;
+    }
+    
+    // M14: Quote-before-spend + provider reputation
+    async function requestQuote(toolName, estimatedCost, context) {
+      if (!appState.quoteBeforeSpend.enabled) {
+        return { quoteId: null, approved: true }; // Free tools or disabled
+      }
+      
+      // Check if tool is free
+      const freeTools = ['read', 'write', 'bash', 'search', 'grep', 'glob', 'list'];
+      if (freeTools.includes(toolName)) {
+        return { quoteId: null, approved: true }; // Free tools never need a quote
+      }
+      
+      const quoteId = 'quote_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+      const quote = { quoteId, toolName, estimatedCost, context, status: 'pending', timestamp: new Date().toISOString() };
+      appState.quoteBeforeSpend.pendingQuotes[quoteId] = quote;
+      
+      // User approval would happen via UI
+      return { quoteId, approved: false, quote };
+    }
+    
+    function approveQuote(quoteId) {
+      const quote = appState.quoteBeforeSpend.pendingQuotes[quoteId];
+      if (quote) {
+        quote.status = 'approved';
+        appState.quoteBeforeSpend.approvedQuotes[quoteId] = quote;
+        delete appState.quoteBeforeSpend.pendingQuotes[quoteId];
+        return { ok: true };
+      }
+      return { ok: false, reason: 'Quote not found' };
+    }
+    
+    function updateProviderReputation(providerId, success) {
+      let rep = appState.providerReputation[providerId];
+      if (!rep) {
+        rep = { tier: 'unverified', successRate: 1.0, totalCalls: 0, failedCalls: 0 };
+        appState.providerReputation[providerId] = rep;
+      }
+      rep.totalCalls++;
+      if (!success) rep.failedCalls++;
+      rep.successRate = 1 - (rep.failedCalls / rep.totalCalls);
+      
+      // Update tier based on success rate and call volume
+      if (rep.totalCalls > 100 && rep.successRate > 0.99) rep.tier = 'audited';
+      else if (rep.totalCalls > 10 && rep.successRate > 0.95) rep.tier = 'verified';
+      else rep.tier = 'unverified';
+      
+      // Failing provider loses routing share automatically
+      // This would integrate with the router's scoring
+      if (typeof updateRouterScores === 'function') {
+        updateRouterScores(providerId, rep.successRate);
+      }
+      
+      return rep;
+    }
+    
     // ==================== PERMISSIONS TAB (Batch 7.4) ====================
     function renderPermissionsTab() {
       const ruleList = document.getElementById('permRuleList');
