@@ -708,6 +708,15 @@ const refused = refuseStaleEdit(session8, 'test.js', 'new content');
 assert(refused.refused === true, 'Stale edit refused');
 assert(refused.reReadRequired === true, 'Re-read required flag set');
 
+// REGRESSION (D-B10-20): readFile must return content, not '' — the repair
+// wired recordFileFreshness(filePath, content) into readFile, but its
+// signature is (session, filePath); the wrong args threw inside readFile's
+// try/catch and poisoned every read to '', breaking runCiChecks (8b G11).
+assert(typeof context.readFile === 'function', 'readFile function exists');
+const readBack = context.readFile('test.js');
+assert(readBack === 'function foo() { return 1; }\nfunction bar() { return 2; }\n', 'readFile returns file content (not empty) after J12 wiring');
+assert(readBack.length > 0, 'readFile does not return empty string for an existing file');
+
 // ==================== J13: Subagent context fork ====================
 console.log('\n--- J13: Subagent context fork ---');
 assert(typeof forkContextForSubagent === 'function', 'forkContextForSubagent function exists');
@@ -881,9 +890,7 @@ console.log('\n--- BEHAVIORAL: Live-path wiring verification ---');
   assert(typeof context.parseAndApplyBlocks === 'function', 'J2: parseAndApplyBlocks function exists (live path)');
   assert(typeof context.inspectAST === 'function', 'J2: inspectAST function exists (wired)');
   // The block regex in parseAndApplyBlocks now includes 'inspect-ast'
-  // Verify by checking the function was updated (source check)
-  const script = context.scriptContent || '';
-  assert(script.includes('inspect-ast') || true, 'J2: inspect-ast in blockRegex (verified by code inspection)');
+  assert(scriptContent.includes('inspect-ast'), 'J2: inspect-ast in blockRegex');
 }
 
 // J3: sendAgentPrompt calls buildSystemPrompt, buildToolDefinitionsBlock, processHistoryPipeline
@@ -910,6 +917,10 @@ console.log('\n--- BEHAVIORAL: Live-path wiring verification ---');
   assert(typeof context.checkToolOutputCap === 'function', 'J5: checkToolOutputCap function exists (wired)');
   assert(typeof context.spillToArtifact === 'function', 'J5: spillToArtifact function exists (wired)');
   assert(typeof context.loadArtifact === 'function', 'J5: loadArtifact function exists (wired)');
+  // REGRESSION (D-B10-21): loadArtifact must be reachable from the dispatcher
+  // (spilled artifacts were write-only — nothing loaded them).
+  assert(scriptContent.includes('load-artifact'), 'J5: load-artifact in blockRegex');
+  assert(scriptContent.includes("actionType === 'load-artifact'"), 'J5: load-artifact dispatcher branch exists');
 }
 
 // J6: applyUnifiedDiff calls repairFuzzySearchReplace on failed SEARCH/REPLACE

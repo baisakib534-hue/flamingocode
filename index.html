@@ -12300,14 +12300,14 @@ function readFile(filePath) {
     if (typeof content === 'string') {
       // === J12: File freshness guard - record freshness on read ===
       if (typeof recordFileFreshness === 'function') {
-        recordFileFreshness(filePath, content);
+        recordFileFreshness(session, filePath);
       }
       return content;
     }
     if (content && typeof content.content === 'string') {
       // === J12: File freshness guard - record freshness on read ===
       if (typeof recordFileFreshness === 'function') {
-        recordFileFreshness(filePath, content.content);
+        recordFileFreshness(session, filePath);
       }
       return content.content;
     }
@@ -32478,7 +32478,7 @@ ${description}
             }
 
             // Regex for fenced blocks: ```file:filename\ncontent```
-            const blockRegex = /```(file|delete|browse|brain-read|screenshot-to-app|find-symbol|find-references|rename-symbol|insert-after-symbol|hybrid-search|blast-radius|file-dependency-graph|risk-scored-review|git-pinned-memory|todowrite|question|ask_followup_question|list_code_definition_names|open-file-window|goto-file-window|search-file-window|edit-file-window|run-tests|batch-file-operations|codemode|inspect-ast):([^\n]*)\n([\s\S]*?)```/g;
+            const blockRegex = /```(file|delete|browse|brain-read|screenshot-to-app|find-symbol|find-references|rename-symbol|insert-after-symbol|hybrid-search|blast-radius|file-dependency-graph|risk-scored-review|git-pinned-memory|todowrite|question|ask_followup_question|list_code_definition_names|open-file-window|goto-file-window|search-file-window|edit-file-window|run-tests|batch-file-operations|codemode|inspect-ast|load-artifact):([^\n]*)\n([\s\S]*?)```/g;
             let match;
 
             // Collect file operations for potential atomic batch summary (legacy path)
@@ -32993,6 +32993,16 @@ ${description}
                               chips.push({ type: 'tool', label: `AST ${params.operation}: ${params.path || 'graph'}` });
                               logActivity(`inspect-ast: ${params.operation} on ${params.path || 'graph'}`, 'info');
                               toolsUsed.push({ name: 'inspect-ast', type: 'builtin' });
+                            } else if (actionType === 'load-artifact') {
+                              // J5: Load a spilled tool-output artifact by id
+                              const params = JSON.parse(blockContent.trim());
+                              const artifact = loadArtifact(params.artifactId);
+                              let resultText = artifact ? artifact.content : 'Artifact not found: ' + params.artifactId;
+                              // === J5: Tool output cap enforcement ===
+                              resultText = checkToolOutputCap(resultText, 'load-artifact');
+                              chips.push({ type: 'tool', label: `Loaded artifact: ${params.artifactId}` });
+                              logActivity(`load-artifact: ${params.artifactId}`, 'info');
+                              toolsUsed.push({ name: 'load-artifact', type: 'builtin' });
                             }
             }
 
