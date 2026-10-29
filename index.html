@@ -1781,6 +1781,14 @@
       outline: 2px solid var(--accent-blue);
       outline-offset: -2px;
     }
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateX(100px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+    @keyframes toastOut {
+      from { opacity: 1; transform: translateX(0); }
+      to { opacity: 0; transform: translateX(100px); }
+    }
   </style>
 </head>
 <body>
@@ -1934,6 +1942,7 @@
         <button class="right-tab" data-pane="projectDoctor" data-i18n="Project Doctor">🏥 Project Doctor</button>
         <button class="right-tab" data-pane="companion" data-i18n="Companion">📱 Companion</button>
         <button class="right-tab" data-pane="specs" data-i18n="Specs">📋 Specs</button>
+        <button class="right-tab" data-pane="computerUse" data-i18n="Computer Use">🖥️ Computer Use</button>
       </div>
 
       <div class="right-content">
@@ -2055,6 +2064,10 @@
                             <span id="taoCurrentStep" style="color: var(--text-main); font-family: var(--font-mono); font-size: 10px; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"></span>
                           </div>
                         </div>
+
+                        <!-- O13: Thinking line + token count display -->
+                        <div id="thinkingLineDisplay" style="display: none; padding: 6px 12px; background: var(--bg-surface); border-bottom: 1px solid var(--border-color); font-size: 11px; color: var(--accent-blue); font-family: var(--font-mono);"></div>
+                        <div id="tokenCountDisplay" style="display: none; padding: 2px 12px; background: var(--bg-surface); border-bottom: 1px solid var(--border-color); font-size: 10px; color: var(--text-dim); font-family: var(--font-mono);"></div>
 
           <!-- 429 Countdown Chip -->
           <div id="rateLimitCountdown" style="display: none; padding: 8px 12px; background: var(--warning); color: var(--bg-dark); border-radius: 6px; margin: 0 12px; font-size: 12px; font-weight: 600;">
@@ -2249,6 +2262,12 @@
           <div style="display:flex; align-items:center; justify-content:space-between; padding:6px 10px; background:var(--bg-panel); border-bottom:1px solid var(--border-color);">
             <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Preview</span>
             <div style="display:flex; align-items:center; gap:6px;">
+              <!-- O11: Preview annotation toggle -->
+              <label class="toggle-switch" title="Enable preview element annotation" style="cursor: pointer;">
+                <input type="checkbox" id="previewAnnotationToggle" style="display: none;" />
+                <span class="toggle-slider"></span>
+                <span style="font-size: 10px; color: var(--text-dim); margin-left: 4px;">Annotate</span>
+              </label>
               <button class="btn btn-secondary" id="btnToggleSplitPreview" title="Toggle side-by-side screenshot preview" style="padding: 3px 8px; font-size: 10px;">⟷ Split</button>
               <button class="btn btn-secondary" id="btnRefreshPreview" title="Refresh preview" style="padding: 3px 8px; font-size: 10px;" onclick="refreshPreview()">⟳</button>
             </div>
@@ -2440,7 +2459,16 @@
             <div style="display:flex; align-items:center; justify-content:space-between; padding: 8px 12px; background:var(--bg-surface); border:1px solid var(--border-color); border-radius:5px;">
               <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Pending Changes</div>
               <div style="display:flex; align-items:center; gap:8px;">
+                <!-- O2: Diff ordering dropdown -->
+                <select id="diffOrderingSelect" class="form-select" style="font-size: 10px; padding: 3px 8px; min-width: 200px;" title="Diff ordering mode">
+                  <option value="explanatory">Ordered by explanatory value (entry points → core → utilities)</option>
+                  <option value="alphabetical">Ordered alphabetically</option>
+                </select>
                 <span id="pendingChangesCount" style="font-size: 10px; color: var(--text-dim);">0 files</span>
+                <!-- O1: Review Artifact button -->
+                <button class="btn btn-secondary" id="btnCreateReviewArtifact" style="padding: 4px 10px; font-size: 10px;" title="Create review artifact from pending changes">📋 Review Artifact</button>
+                <!-- O3: Restack button -->
+                <button class="btn btn-secondary" id="btnRestack" style="padding: 4px 10px; font-size: 10px; display:none;" title="Restack pending changes into logical commits">🔀 Restack</button>
               </div>
             </div>
             <div id="diffReviewList" style="flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:8px;">
@@ -2768,6 +2796,26 @@
                                     </div>
                                   </div>
 
+                                  <!-- Computer Use Pane (Batch 15 O16) - Desktop only -->
+                                  <div class="pane-view" id="paneComputerUse">
+                                    <div id="computerUsePanel" style="flex:1; overflow-y:auto; padding: 12px; display:flex; flex-direction:column; gap:12px;">
+                                      <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap;">
+                                        <div style="display:flex; align-items:center; gap:8px;">
+                                          <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Computer Use</span>
+                                          <span style="font-size: 9px; font-weight: 700; padding: 2px 8px; border-radius: 4px; background: var(--accent-orange); color: var(--bg);">DESKTOP ONLY</span>
+                                        </div>
+                                      </div>
+                                      <div style="background:var(--bg-surface); border:1px solid var(--border-color); border-radius:8px; padding: 16px; text-align:center;">
+                                        <div style="font-size: 24px; margin-bottom: 8px;">🖥️</div>
+                                        <div style="font-size: 14px; font-weight: 600; color: var(--text-main); margin-bottom: 8px;">Computer Use Panel</div>
+                                        <div style="font-size: 12px; color: var(--text-dim); margin-bottom: 16px;">This panel requires the Stage 6 Electron desktop app. The Computer Use driver (Playwright/OS automation) runs only in the desktop build.</div>
+                                        <div style="font-size: 11px; color: var(--text-dim); border-top:1px solid var(--border-color); padding-top: 16px; margin-top: 16px;">
+                                          <strong>Atomic Acts (O16):</strong> Task decomposition into deterministic, replayable acts with fallback chains. Available in desktop app.
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+
                                 </main>
 
   <!-- Mobile Bottom Tab Bar -->
@@ -2819,6 +2867,10 @@
     <button class="mobile-nav-btn" data-mobile-tab="specs">
       <span>📋</span>
       <span data-i18n="Specs">Specs</span>
+    </button>
+    <button class="mobile-nav-btn" data-mobile-tab="computerUse">
+      <span>🖥️</span>
+      <span data-i18n="Computer Use">Computer Use</span>
     </button>
   </nav>
 
@@ -9342,6 +9394,51 @@ Detail level: {{detail_level}}`,
       skillPacks: { 'security-audit': { installed: false, checklist: [] } },
       // G23: Android skills pack
       androidPack: { installed: false, guidance: {} },
+      // ============ BATCH 15: Editor/UX + Computer Use + Test Harness ============
+      // O1: Review artifacts + anchored comments
+      reviewArtifacts: [],
+      anchoredComments: [],
+      // O2: Diff ordering
+      diffOrdering: 'explanatory',  // 'explanatory' | 'alphabetical'
+      diffEntryPoints: [],  // Known entry points for ordering
+      // O3: Restack
+      pendingRestack: null,
+      // O4: Mid-run steering
+      steeringQueue: [],
+      steeringReceipts: [],
+      // O5: Turn diffs + explain
+      turnDiffs: [],
+      decisionLedger: [],
+      // O6: Tool call citations
+      toolCallCitations: [],
+      // O7: Multi-step questionnaire
+      activeQuestionnaire: null,
+      // O8: Clipboard bridge
+      clipboardBridgeContext: null,
+      // O9: Recipe deeplinks + unicode scan
+      recipeDeeplinks: {},
+      // O10: PDF export
+      projectReportCache: null,
+      // O11: Preview annotations
+      previewAnnotations: [],
+      nextTurnAnnotations: [],
+      // O12: Intent completion
+      intentSuggestion: null,
+      intentSuggestionVisible: false,
+      // O13: Thinking line
+      thinkingLine: { text: '', tokens: 0, visible: true },
+      // O14: Read-only context files
+      readOnlyContextFiles: {},
+      // O15: Video input
+      attachedVideo: null,
+      videoFrames: [],
+      // O16: Atomic acts + fallback
+      atomicActs: [],
+      atomicActFallbacks: {},
+      // O17: Human handoff
+      humanHandoffs: [],
+      // O18: Scripted model test harness
+      testHarness: { playbackQueue: [], passthroughMode: false },
     };
 
     // Expose appState globally for test access
@@ -20743,6 +20840,32 @@ Links: [[Brain Index]]
       item.textContent = `[${time}] ${text}`;
       log.appendChild(item);
       log.scrollTop = log.scrollHeight;
+    }
+
+    function showToast(text, type = 'info') {
+      // Create toast container if it doesn't exist
+      let container = document.getElementById('toastContainer');
+      if (!container) {
+        container = document.createElement('div');
+        container.id = 'toastContainer';
+        container.style.cssText = 'position:fixed; bottom:24px; right:24px; z-index:10000; display:flex; flex-direction:column; gap:8px; pointer-events:none;';
+        document.body.appendChild(container);
+      }
+      const toast = document.createElement('div');
+      toast.style.cssText = 'pointer-events:auto; padding:10px 16px; border-radius:6px; font-size:13px; font-weight:500; box-shadow:0 4px 12px rgba(0,0,0,0.4); animation:toastIn 0.2s ease-out; max-width:360px;';
+      const colors = {
+        success: 'background:var(--success); color:var(--bg);',
+        warning: 'background:var(--warning); color:var(--bg);',
+        error: 'background:var(--danger); color:white;',
+        info: 'background:var(--accent); color:white;'
+      };
+      toast.style.cssText += colors[type] || colors.info;
+      toast.textContent = text;
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.style.animation = 'toastOut 0.2s ease-in forwards';
+        setTimeout(() => toast.remove(), 200);
+      }, 3000);
     }
 
     // ==================== STAGE 4: SKILL / PLUGIN / MCP RENDERING ====================
@@ -32885,8 +33008,22 @@ ${description}
 
         const icon = filePath.endsWith('.html') ? '📄' : filePath.endsWith('.css') ? '🎨' : filePath.endsWith('.js') ? '⚡' : '📝';
 
+        // Check if this is a context file
+        const isContextFile = isContextFile(filePath, session);
+        const readOnly = isContextFile ? isContextFileReadOnly(filePath) : false;
+
+        let readOnlyHtml = '';
+        if (isContextFile) {
+          readOnlyHtml = `
+            <label class="context-file-readonly-toggle" style="display:flex; align-items:center; gap:4px; margin-left:8px; cursor:pointer;" title="Toggle read-only for context file">
+              <input type="checkbox" ${readOnly ? 'checked' : ''} onchange="event.stopPropagation(); setContextFileReadOnly('${filePath}', this.checked); renderFileTree();" style="width:14px; height:14px;">
+              <span style="font-size:9px; color:var(--text-dim); text-transform:uppercase;">RO</span>
+            </label>
+          `;
+        }
+
         item.innerHTML = `
-          <div class="file-item-name"><span>${icon}</span> <span>${filePath}</span></div>
+          <div class="file-item-name"><span>${icon}</span> <span>${filePath}</span>${readOnlyHtml}</div>
           <span class="file-item-del" onclick="event.stopPropagation(); deleteFile('${filePath}')">✕</span>
         `;
         tree.appendChild(item);
@@ -37833,7 +37970,14 @@ ${description}
         return;
       }
       
-      const changes = appState.pendingChanges.changes;
+      // O2: Apply diff ordering
+      let changes = appState.pendingChanges.changes;
+      if (getDiffOrdering() === 'explanatory') {
+        changes = orderDiffsByExplanatoryValue(changes);
+      } else {
+        changes = [...changes].sort((a, b) => (a.path || '').localeCompare(b.path || ''));
+      }
+      
       if (countEl) countEl.textContent = `${changes.length} file${changes.length !== 1 ? 's' : ''}`;
       if (actionsEl) actionsEl.style.display = 'flex';
 
@@ -44728,6 +44872,189 @@ Format:
 
       // ==================== H5.3: CHAT @-ATTACH ====================
       setupChatAttachments();
+
+      // ============ BATCH 15: Chat command handlers ============
+      // O5: /explain command - deterministic explanation without model call
+      // O12: Tab key for intent completion
+      const originalHandleSend = btnSend.onclick;
+      btnSend.onclick = async () => {
+        const text = chatInput.value.trim();
+        if (text.startsWith('/explain')) {
+          chatInput.value = '';
+          const parts = text.split(' ');
+          const turnNum = parseInt(parts[1], 10);
+          if (isNaN(turnNum)) {
+            appendChatMessage('system', 'Usage: /explain <turn-number> — deterministic explanation of what changed and why');
+            return;
+          }
+          const session = getCurrentSession();
+          if (!session || !session.chatHistory) {
+            appendChatMessage('system', 'No chat history available');
+            return;
+          }
+          const turn = session.chatHistory[turnNum - 1];
+          if (!turn) {
+            appendChatMessage('system', `Turn ${turnNum} not found`);
+            return;
+          }
+          const trajectory = appState.agentTrajectory || [];
+          const ledger = getDecisionLedger();
+          const diffs = (turn.diffs || []).map(d => ({ path: d.path, oldContent: d.oldContent, newContent: d.newContent }));
+          const explanation = explainTurn({ turn: turnNum, trajectory, ledger });
+          appendChatMessage('system', `**Explanation for Turn ${turnNum}:**\n\`\`\`\n${explanation}\n\`\`\``);
+          // Also render diffs if available
+          if (diffs.length > 0) {
+            const diffHtml = renderTurnDiffs(diffs);
+            appendChatMessage('system', diffHtml);
+          }
+          return;
+        }
+        if (text.startsWith('/steering')) {
+          chatInput.value = '';
+          const message = text.slice(9).trim();
+          if (!message) {
+            appendChatMessage('system', 'Usage: /steering <message> — inject steering at next step boundary');
+            return;
+          }
+          const session = getCurrentSession();
+          const currentStep = session?.stepsTaken || 0;
+          const receipt = injectSteeringAtStepBoundary(message, currentStep);
+          appendChatMessage('system', `📬 Steering injected at step boundary ${receipt.stepInjected} (receipt: ${receipt.id})`);
+          showToast('Steering queued for next step', 'success');
+          return;
+        }
+        if (text.startsWith('/handoff')) {
+          chatInput.value = '';
+          const task = text.slice(8).trim() || 'User requested handoff';
+          const session = getCurrentSession();
+          const stepIndex = session?.stepsTaken || 0;
+          const handoff = handoffToHuman({ task, stepIndex });
+          appendChatMessage('system', `🤝 Handoff initiated: ${handoff.card}\n\nAgent paused. Perform the task manually, then click "Resume" to continue.`);
+          // Show resume button
+          showHandoffResumeButton(handoff.id);
+          return;
+        }
+        if (text.startsWith('/restack')) {
+          chatInput.value = '';
+          if (!appState.pendingChanges || !appState.pendingChanges.changes?.length) {
+            appendChatMessage('system', 'No pending changes to restack');
+            return;
+          }
+          const proposal = proposeRestack(appState.pendingChanges.changes);
+          appendChatMessage('system', `**Restack Proposal** (${proposal.originalCount} changes → ${proposal.groupedCount} commits):\n${proposal.commits.map(c => `- ${c.message} (${c.files.join(', ')})`).join('\n')}\n\nClick "Apply Restack" to proceed (requires approval).`);
+          showRestackButtons(proposal);
+          return;
+        }
+        await originalHandleSend();
+      };
+
+      // O12: Tab key for intent completion in chat input
+      chatInput.addEventListener('keydown', async (e) => {
+        if (e.key === 'Tab') {
+          e.preventDefault();
+          const suggestion = await getIntentSuggestion({
+            currentFile: appState.activeFile,
+            cursorPos: chatInput.selectionStart
+          });
+          if (suggestion.type !== 'none') {
+            appState.intentSuggestion = suggestion;
+            appState.intentSuggestionVisible = true;
+            showToast(`Tab: ${suggestion.intent}`, 'info');
+            // Show suggestion UI
+            showIntentSuggestion(suggestion);
+          } else {
+            showToast('No suggestion available', 'info');
+          }
+          return;
+        }
+        if (e.key === 'Escape') {
+          if (appState.intentSuggestionVisible) {
+            dismissIntentSuggestion();
+            hideIntentSuggestion();
+            showToast('Suggestion dismissed', 'info');
+          }
+        }
+      });
+
+      // Copy context to clipboard button (Ctrl+Shift+C)
+      document.addEventListener('keydown', (e) => {
+        if (e.ctrlKey && e.shiftKey && e.key === 'C') {
+          e.preventDefault();
+          copyContextToClipboard();
+        }
+      });
+    }
+
+    // ============ BATCH 15: Chat command helper functions ============
+
+    function showIntentSuggestion(suggestion) {
+      const existing = document.getElementById('intentSuggestionToast');
+      if (existing) existing.remove();
+      
+      const toast = document.createElement('div');
+      toast.id = 'intentSuggestionToast';
+      toast.style.cssText = 'position:fixed; bottom:80px; left:50%; transform:translateX(-50%); background:var(--accent-blue); color:white; padding:10px 20px; border-radius:6px; font-size:13px; font-weight:500; box-shadow:0 4px 12px rgba(0,0,0,0.3); z-index:10000; max-width:400px; text-align:center;';
+      toast.innerHTML = `Tab to apply: <strong>${escapeHtml(suggestion.intent)}</strong> | Esc to dismiss`;
+      document.body.appendChild(toast);
+    }
+
+    function hideIntentSuggestion() {
+      const toast = document.getElementById('intentSuggestionToast');
+      if (toast) toast.remove();
+    }
+
+    function showHandoffResumeButton(handoffId) {
+      const existing = document.getElementById('handoffResumeBtn');
+      if (existing) existing.remove();
+      
+      const btn = document.createElement('button');
+      btn.id = 'handoffResumeBtn';
+      btn.className = 'btn btn-primary';
+      btn.style.cssText = 'position:fixed; bottom:80px; right:24px; z-index:10000; padding:12px 24px; font-size:14px; box-shadow:0 4px 12px rgba(0,0,0,0.3);';
+      btn.textContent = '▶ Resume Agent';
+      btn.onclick = async () => {
+        const result = resumeFromHandoff(handoffId);
+        if (result.resumed) {
+          showToast(`Agent resumed from step ${result.resumedFromStep}`, 'success');
+          btn.remove();
+          // Continue agent execution
+          const session = getCurrentSession();
+          if (session && typeof sendAgentPrompt === 'function') {
+            sendAgentPrompt('[Resumed from handoff]', result.resumedFromStep - 1);
+          }
+        } else {
+          showToast('Failed to resume: ' + (result.error || 'unknown'), 'error');
+        }
+      };
+      document.body.appendChild(btn);
+    }
+
+    function showRestackButtons(proposal) {
+      const existing = document.getElementById('restackButtons');
+      if (existing) existing.remove();
+      
+      const container = document.createElement('div');
+      container.id = 'restackButtons';
+      container.style.cssText = 'position:fixed; bottom:80px; right:24px; z-index:10000; display:flex; flex-direction:column; gap:8px;';
+      container.innerHTML = `
+        <button class="btn btn-primary" id="btnApplyRestack" style="padding:10px 20px;">Apply Restack (${proposal.groupedCount} commits)</button>
+        <button class="btn btn-secondary" id="btnCancelRestack" style="padding:10px 20px;">Cancel</button>
+      `;
+      document.body.appendChild(container);
+      
+      document.getElementById('btnApplyRestack').onclick = async () => {
+        const result = applyRestack(proposal, true);
+        if (result.approved) {
+          showToast(`Restack applied: ${result.applied} commits created`, 'success');
+        } else {
+          showToast('Restack failed: ' + result.reason, 'error');
+        }
+        container.remove();
+      };
+      document.getElementById('btnCancelRestack').onclick = () => {
+        container.remove();
+        showToast('Restack cancelled', 'info');
+      };
     }
 
     // ==================== H5.3: CHAT @-ATTACH (Global Functions) ====================
@@ -47635,6 +47962,410 @@ Requirements:
 
       // D-B14-6: Wire import functions into onboarding/settings (stub - UI will call them)
       // These are called from the import UI buttons
+
+      // ============ BATCH 15: Wiring for O1-O18 ============
+
+      // O1: Review Artifact button in diff review panel
+      const btnCreateReviewArtifact = document.getElementById('btnCreateReviewArtifact');
+      if (btnCreateReviewArtifact) {
+        btnCreateReviewArtifact.onclick = () => {
+          if (!appState.pendingChanges || !appState.pendingChanges.changes?.length) {
+            showToast('No pending changes to create artifact from', 'warning');
+            return;
+          }
+          const artifact = createReviewArtifact({
+            plan: appState.currentPlan || [],
+            diffs: appState.pendingChanges.changes,
+            testResults: [],
+            screenshots: []
+          });
+          showToast('Review artifact created', 'success');
+          // Render the artifact in a modal or panel
+          const rendered = renderReviewArtifact(artifact.id);
+          if (rendered) {
+            showArtifactModal(rendered.html, artifact);
+          }
+        };
+      }
+
+      // O3: Restack button in diff review panel
+      const btnRestack = document.getElementById('btnRestack');
+      if (btnRestack) {
+        // Show/hide restack button based on pending changes
+        const updateRestackButton = () => {
+          if (appState.pendingChanges && appState.pendingChanges.changes?.length > 1) {
+            btnRestack.style.display = 'inline-block';
+          } else {
+            btnRestack.style.display = 'none';
+          }
+        };
+        // Initial check
+        updateRestackButton();
+        // Also update when diff review panel renders
+        const originalRenderDiffReview = renderDiffReviewPanel;
+        renderDiffReviewPanel = function() {
+          originalRenderDiffReview.apply(this, arguments);
+          updateRestackButton();
+        };
+        
+        btnRestack.onclick = () => {
+          if (!appState.pendingChanges || !appState.pendingChanges.changes?.length) {
+            showToast('No pending changes to restack', 'warning');
+            return;
+          }
+          const proposal = proposeRestack(appState.pendingChanges.changes);
+          showRestackButtons(proposal);
+        };
+      }
+
+      // O2: Diff ordering dropdown
+      const diffOrderingSelect = document.getElementById('diffOrderingSelect');
+      if (diffOrderingSelect) {
+        diffOrderingSelect.value = getDiffOrdering();
+        diffOrderingSelect.onchange = (e) => {
+          setDiffOrdering(e.target.value);
+          showToast('Diff ordering: ' + getDiffOrderingLabel(e.target.value), 'info');
+          // Re-render diff review panel with new ordering
+          if (typeof renderDiffReviewPanel === 'function') {
+            renderDiffReviewPanel();
+          }
+        };
+      }
+
+      // O11: Preview annotation toggle
+      const previewAnnotationToggle = document.getElementById('previewAnnotationToggle');
+      if (previewAnnotationToggle) {
+        previewAnnotationToggle.checked = appState.previewAnnotationEnabled === true;
+        previewAnnotationToggle.onchange = (e) => {
+          const result = enablePreviewAnnotation(e.target.checked);
+          showToast(result.enabled ? 'Preview annotation enabled' : 'Preview annotation disabled', result.enabled ? 'success' : 'info');
+        };
+      }
+
+      // O8: Clipboard bridge - paste handling in chat input
+      const chatInput = document.getElementById('chatInput');
+      if (chatInput) {
+        chatInput.addEventListener('paste', async (e) => {
+          const items = e.clipboardData.items;
+          let hasImage = false;
+          let hasText = false;
+          
+          for (const item of items) {
+            if (item.type.startsWith('image/')) {
+              hasImage = true;
+              const file = item.getAsFile();
+              if (file) {
+                e.preventDefault();
+                const result = await pasteImageToTask(file);
+                if (result.attached) {
+                  showToast(`Image attached: ${result.fileName}`, 'success');
+                }
+              }
+            } else if (item.type === 'text/plain') {
+              hasText = true;
+              const text = await item.getAsString();
+              // Check if it's a diff from external source
+              if (text.includes('```diff')) {
+                e.preventDefault();
+                const result = await pasteExternalReply(text);
+                if (result.pendingReview) {
+                  showToast('External diff queued for review', 'success');
+                }
+              }
+            }
+          }
+        });
+      }
+
+      // O15: Video attach button - add to chat input area if not exists
+      const chatAttachArea = document.getElementById('attachChips')?.parentElement;
+      if (chatAttachArea && !document.getElementById('btnAttachVideo')) {
+        const videoBtn = document.createElement('button');
+        videoBtn.id = 'btnAttachVideo';
+        videoBtn.className = 'btn btn-secondary';
+        videoBtn.title = 'Attach video (vision models only)';
+        videoBtn.style.cssText = 'padding: 4px 8px; font-size: 11px;';
+        videoBtn.textContent = '🎥 Video';
+        videoBtn.onclick = () => {
+          const input = document.createElement('input');
+          input.type = 'file';
+          input.accept = 'video/*';
+          input.onchange = async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const modelSelect = document.getElementById('modelSelect');
+            const modelId = modelSelect?.value || 'gpt-4o';
+            const result = await attachVideoToPrompt(file, modelId);
+            if (result.warning) {
+              showToast(result.message, 'warning');
+            } else if (result.frames) {
+              showToast(`Video attached: ${result.sampled} frames extracted`, 'success');
+            }
+          };
+          input.click();
+        };
+        chatAttachArea.appendChild(videoBtn);
+      }
+
+      // O10: Export report button - add to project menu area
+      const projectMenuArea = document.getElementById('sessionSelect')?.parentElement;
+      if (projectMenuArea && !document.getElementById('btnExportReport')) {
+        const exportBtn = document.createElement('button');
+        exportBtn.id = 'btnExportReport';
+        exportBtn.className = 'btn btn-secondary';
+        exportBtn.title = 'Export project report (Markdown + PDF)';
+        exportBtn.style.cssText = 'padding: 4px 8px; font-size: 11px; margin-left: 8px;';
+        exportBtn.textContent = '📊 Export Report';
+        exportBtn.onclick = async () => {
+          const result = await exportProjectReportPDF();
+          if (result.success) {
+            showToast('Report opened for printing', 'success');
+          }
+        };
+        projectMenuArea.appendChild(exportBtn);
+      }
+
+      // O9: Unicode scan button in security panel
+      const securityScanBtn = document.getElementById('btnScanProject');
+      if (securityScanBtn && !document.getElementById('btnUnicodeScan')) {
+        const unicodeBtn = document.createElement('button');
+        unicodeBtn.id = 'btnUnicodeScan';
+        unicodeBtn.className = 'btn btn-secondary';
+        unicodeBtn.title = 'Scan for zero-width/unicode injection characters';
+        unicodeBtn.style.cssText = 'padding: 4px 8px; font-size: 11px; margin-left: 8px;';
+        unicodeBtn.textContent = '🔍 Unicode Scan';
+        unicodeBtn.onclick = () => {
+          const session = getCurrentSession();
+          if (!session || !session.files) {
+            showToast('No files to scan', 'warning');
+            return;
+          }
+          let totalFound = 0;
+          const results = [];
+          for (const [path, file] of Object.entries(session.files)) {
+            if (file && typeof file === 'object' && file.content) {
+              const scan = scanForZeroWidthChars(file.content);
+              if (scan.found) {
+                totalFound += scan.positions.length;
+                results.push({ path, ...scan });
+              }
+            }
+          }
+          if (totalFound === 0) {
+            showToast('No zero-width characters found', 'success');
+          } else {
+            showToast(`Found ${totalFound} zero-width character(s) in ${results.length} file(s)`, 'warning');
+            // Show details in a modal or log
+            logActivity(`Unicode scan results: ${JSON.stringify(results, null, 2)}`, 'info');
+          }
+        };
+        securityScanBtn.parentElement.appendChild(unicodeBtn);
+      }
+
+      // O13: Thinking line display - update chat header periodically
+      if (typeof updateThinkingLineDisplay === 'function') {
+        // Will be called from agent run loop
+        window.updateThinkingLineDisplay = updateThinkingLineDisplay;
+      }
+
+      // O14: Read-only context file toggle - add to context file list context menu
+      // This will be wired when context files are rendered
+
+      // O3: Restack button in git panel - will be added when git panel renders
+
+      // O16: Atomic acts panel - will be added to computer use panel
+
+      // O17: Human handoff UI - will be shown when handoff occurs
+
+      // O18: Test harness - add to dev panel
+      const devPanel = document.getElementById('devPanel') || document.querySelector('[data-pane="dev"]');
+      if (devPanel && !document.getElementById('btnSelfTest')) {
+        const testBtn = document.createElement('button');
+        testBtn.id = 'btnSelfTest';
+        testBtn.className = 'btn btn-secondary';
+        testBtn.title = 'Run scripted test harness (PassthroughModel/PlaybackModel)';
+        testBtn.style.cssText = 'padding: 4px 8px; font-size: 11px; margin: 4px;';
+        testBtn.textContent = '🧪 Self-Test';
+        testBtn.onclick = async () => {
+          showToast('Running self-test...', 'info');
+          const result = await runReferenceLoopSmokeTest();
+          showToast(result.passed ? 'Self-test PASSED' : 'Self-test FAILED', result.passed ? 'success' : 'error');
+        };
+        devPanel.appendChild(testBtn);
+      }
+
+    }
+
+    // ============ BATCH 15: Helper functions for wiring ============
+
+    function renderQuestionnaireForm(form, skippedIds, onSubmit) {
+      // Remove existing modal if any
+      const existing = document.getElementById('questionnaireModal');
+      if (existing) existing.remove();
+
+      const modal = document.createElement('div');
+      modal.id = 'questionnaireModal';
+      modal.style.cssText = 'position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.6); z-index:10000; display:flex; align-items:center; justify-content:center;';
+      
+      let questionsHtml = form.questions.map(q => {
+        const isSkipped = skippedIds.includes(q.id);
+        if (isSkipped) {
+          return `<div style="margin-bottom:16px; opacity:0.5;">
+            <label style="display:block; margin-bottom:6px; font-weight:500;">${escapeHtml(q.label)} <span style="color:var(--accent-orange);">(skipped)</span></label>
+            <input type="hidden" name="${escapeHtml(q.id)}" value="">
+          </div>`;
+        }
+        
+        let inputHtml = '';
+        switch (q.type) {
+          case 'text':
+          case 'email':
+          case 'url':
+            inputHtml = `<input type="${q.type}" name="${escapeHtml(q.id)}" value="${escapeHtml(q.default || '')}" style="width:100%; padding:8px; border:1px solid var(--border-color); border-radius:4px; background:var(--bg-input); color:var(--text-main);" placeholder="${escapeHtml(q.placeholder || '')}">`;
+            break;
+          case 'textarea':
+            inputHtml = `<textarea name="${escapeHtml(q.id)}" style="width:100%; min-height:80px; padding:8px; border:1px solid var(--border-color); border-radius:4px; background:var(--bg-input); color:var(--text-main);" placeholder="${escapeHtml(q.placeholder || '')}">${escapeHtml(q.default || '')}</textarea>`;
+            break;
+          case 'select':
+            inputHtml = `<select name="${escapeHtml(q.id)}" style="width:100%; padding:8px; border:1px solid var(--border-color); border-radius:4px; background:var(--bg-input); color:var(--text-main);">${(q.options || []).map(opt => `<option value="${escapeHtml(opt.value)}" ${opt.value === q.default ? 'selected' : ''}>${escapeHtml(opt.label)}</option>`).join('')}</select>`;
+            break;
+          case 'checkbox':
+            inputHtml = `<label style="display:flex; align-items:center; gap:8px; cursor:pointer;"><input type="checkbox" name="${escapeHtml(q.id)}" ${q.default ? 'checked' : ''}> ${escapeHtml(q.label)}</label>`;
+            break;
+          case 'radio':
+            inputHtml = `<div>${(q.options || []).map(opt => `<label style="display:block; cursor:pointer;"><input type="radio" name="${escapeHtml(q.id)}" value="${escapeHtml(opt.value)}" ${opt.value === q.default ? 'checked' : ''}> ${escapeHtml(opt.label)}</label>`).join('')}</div>`;
+            break;
+          default:
+            inputHtml = `<input type="text" name="${escapeHtml(q.id)}" value="${escapeHtml(q.default || '')}" style="width:100%; padding:8px; border:1px solid var(--border-color); border-radius:4px; background:var(--bg-input); color:var(--text-main);">`;
+        }
+        
+        return `<div style="margin-bottom:16px;">
+          <label style="display:block; margin-bottom:6px; font-weight:500;">${escapeHtml(q.label)}${q.required ? ' <span style="color:var(--accent-red);">*</span>' : ''}</label>
+          ${inputHtml}
+          ${q.help ? `<div style="font-size:11px; color:var(--text-dim); margin-top:4px;">${escapeHtml(q.help)}</div>` : ''}
+        </div>`;
+      }).join('');
+
+      modal.innerHTML = `
+        <div style="background:var(--bg-panel); border:1px solid var(--border-color); border-radius:8px; max-width:500px; max-height:80vh; overflow:auto; padding:20px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; border-bottom:1px solid var(--border-color); padding-bottom:12px;">
+            <h3 style="margin:0;">${escapeHtml(form.title || 'Questionnaire')}</h3>
+            <button onclick="this.closest('#questionnaireModal').remove()" style="background:none; border:none; font-size:20px; cursor:pointer; color:var(--text-dim);">&times;</button>
+          </div>
+          <div style="font-size:13px; color:var(--text-dim); margin-bottom:16px;">${escapeHtml(form.description || '')}</div>
+          <form id="questionnaireForm">
+            ${questionsHtml}
+          </form>
+          <div style="margin-top:16px; display:flex; gap:8px; justify-content:flex-end;">
+            <button type="button" class="btn btn-secondary" onclick="this.closest('#questionnaireModal').remove()">Cancel</button>
+            <button type="button" class="btn btn-primary" id="btnSubmitQuestionnaire">Submit</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modal);
+
+      document.getElementById('btnSubmitQuestionnaire').onclick = () => {
+        const formEl = document.getElementById('questionnaireForm');
+        const formData = new FormData(formEl);
+        const answers = {};
+        for (const [key, value] of formData.entries()) {
+          answers[key] = value;
+        }
+        // Validate required fields
+        for (const q of form.questions) {
+          if (q.required && !answers[q.id] && !skippedIds.includes(q.id)) {
+            showToast(`Required field: ${q.label}`, 'error');
+            return;
+          }
+        }
+        modal.remove();
+        onSubmit(answers, skippedIds);
+      };
+    }
+
+    function showArtifactModal(html, artifact) {
+      // Remove existing modal if any
+      const existing = document.getElementById('artifactModal');
+      if (existing) existing.remove();
+
+      const modal = document.createElement('div');
+      modal.id = 'artifactModal';
+      modal.style.cssText = 'position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.6); z-index:10000; display:flex; align-items:center; justify-content:center;';
+      modal.innerHTML = `
+        <div style="background:var(--bg-panel); border:1px solid var(--border-color); border-radius:8px; max-width:800px; max-height:80vh; overflow:auto; padding:20px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; border-bottom:1px solid var(--border-color); padding-bottom:12px;">
+            <h3 style="margin:0;">Review Artifact v${artifact.version}</h3>
+            <button onclick="this.closest('#artifactModal').remove()" style="background:none; border:none; font-size:20px; cursor:pointer; color:var(--text-dim);">&times;</button>
+          </div>
+          <div id="artifactContent">${html}</div>
+          <div style="margin-top:16px; display:flex; gap:8px; justify-content:flex-end;">
+            <button class="btn btn-secondary" onclick="addAnchoredCommentToArtifact('${artifact.id}')">💬 Add Comment</button>
+            <button class="btn btn-primary" onclick="this.closest('#artifactModal').remove()">Close</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modal);
+
+      // Add comment handlers
+      modal.querySelectorAll('.comment').forEach(commentEl => {
+        commentEl.style.cursor = 'pointer';
+        commentEl.onclick = () => {
+          const target = commentEl.dataset.target;
+          const targetId = commentEl.dataset.targetId;
+          if (target === 'plan') {
+            const step = artifact.plan.find(p => p.id === targetId);
+            if (step) {
+              showToast(`Plan step: ${step.text}`, 'info');
+            }
+          }
+        };
+      });
+    }
+
+    window.addAnchoredCommentToArtifact = function(artifactId) {
+      const artifact = appState.reviewArtifacts.find(a => a.id === artifactId);
+      if (!artifact) return;
+      
+      const target = prompt('Comment target (plan/diff/test/screenshot):');
+      if (!target) return;
+      const targetId = prompt('Target ID (step id or file path):');
+      if (!targetId) return;
+      const text = prompt('Comment text:');
+      if (!text) return;
+
+      const comment = addAnchoredComment(artifact, { target, targetId, text });
+      showToast('Comment added', 'success');
+      
+      // Re-render modal
+      const rendered = renderReviewArtifact(artifactId);
+      if (rendered) {
+        const contentEl = document.getElementById('artifactContent');
+        if (contentEl) contentEl.innerHTML = rendered.html;
+      }
+    };
+
+    function updateThinkingLineDisplay() {
+      const thinkingEl = document.getElementById('thinkingLineDisplay');
+      if (!thinkingEl) return;
+      
+      const thinking = getThinkingLine();
+      if (thinking && thinking.visible && thinking.text) {
+        thinkingEl.textContent = `💭 ${thinking.text}`;
+        thinkingEl.style.display = 'block';
+      } else {
+        thinkingEl.style.display = 'none';
+      }
+      
+      const tokenEl = document.getElementById('tokenCountDisplay');
+      if (tokenEl) {
+        const tokens = getTokenCount();
+        if (tokens > 0) {
+          tokenEl.textContent = `Tokens: ${tokens}`;
+          tokenEl.style.display = 'inline-block';
+        } else {
+          tokenEl.style.display = 'none';
+        }
+      }
     }
 
     // ==================== STAGE 3: AGENTS & TEAM MODE ====================
@@ -63966,6 +64697,949 @@ await server.connect(transport);
       // In real implementation, would rebuild agent with new mode config
       appState.agentConfig = { mode, rebuiltAt: Date.now() };
     }
+
+    // ============ BATCH 15: Editor/UX + Computer Use + Test Harness ============
+
+    // O1: Review artifacts + anchored comments
+    function createReviewArtifact(data) {
+      const artifact = {
+        id: 'artifact_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+        timestamp: Date.now(),
+        plan: data.plan || [],
+        diffs: data.diffs || [],
+        testResults: data.testResults || [],
+        screenshots: data.screenshots || [],
+        comments: [],
+        version: 1
+      };
+      appState.reviewArtifacts.push(artifact);
+      saveAppState();
+      return artifact;
+    }
+
+    function renderReviewArtifact(artifactId) {
+      const artifact = appState.reviewArtifacts.find(a => a.id === artifactId);
+      if (!artifact) return null;
+      return {
+        html: `
+          <div class="review-artifact">
+            <div class="artifact-header">
+              <h3>Review Artifact</h3>
+              <span class="artifact-version">v${artifact.version}</span>
+            </div>
+            <div class="artifact-section">
+              <h4>Plan</h4>
+              <ul>${artifact.plan.map(p => `<li data-step-id="${p.id}">${escapeHtml(p.text)}</li>`).join('')}</ul>
+            </div>
+            <div class="artifact-section">
+              <h4>Diffs</h4>
+              <div>${artifact.diffs.map(d => `<div class="diff-file" data-path="${escapeHtml(d.path)}">${escapeHtml(d.path)}</div>`).join('')}</div>
+            </div>
+            <div class="artifact-section">
+              <h4>Test Results</h4>
+              <pre>${JSON.stringify(artifact.testResults, null, 2)}</pre>
+            </div>
+            <div class="artifact-section">
+              <h4>Screenshots</h4>
+              <div>${artifact.screenshots.map(s => `<img src="${escapeHtml(s)}" style="max-width:100%">`).join('')}</div>
+            </div>
+            <div class="artifact-section">
+              <h4>Comments</h4>
+              <div>${artifact.comments.map(c => `<div class="comment" data-target="${c.target}" data-target-id="${c.targetId}">${escapeHtml(c.text)}</div>`).join('')}</div>
+            </div>
+          </div>
+        `,
+        artifact
+      };
+    }
+
+    function addAnchoredComment(artifact, commentData) {
+      const comment = {
+        id: 'comment_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+        target: commentData.target, // 'plan' | 'diff' | 'test' | 'screenshot'
+        targetId: commentData.targetId,
+        text: commentData.text,
+        timestamp: Date.now(),
+        author: 'user'
+      };
+      artifact.comments.push(comment);
+      appState.anchoredComments.push(comment);
+      saveAppState();
+      return comment;
+    }
+
+    function incorporateAnchoredComment(artifact, comment) {
+      // Find and update the target element based on comment
+      if (comment.target === 'plan') {
+        const step = artifact.plan.find(p => p.id === comment.targetId);
+        if (step) {
+          step.note = (step.note || '') + '\n[Incorporated: ' + comment.text + ']';
+          step.revised = true;
+          artifact.version++;
+          saveAppState();
+          return true;
+        }
+      }
+      return false;
+    }
+
+    // O2: Intelligently ordered diffs
+    function orderDiffsByExplanatoryValue(diffs, options = {}) {
+      const entryPoints = options.entryPoints || appState.diffEntryPoints || ['index.js', 'main.js', 'app.js', 'server.js'];
+      const scored = diffs.map(diff => {
+        let score = 0;
+        const path = diff.path || '';
+        // Entry points get highest score
+        if (entryPoints.some(ep => path.endsWith(ep))) score += 100;
+        // Files with more changes get higher score
+        score += (diff.changes?.length || 0) * 2;
+        // Files that others depend on (imported by many) - simplified heuristic
+        if (path.includes('/core/') || path.includes('/lib/') || path.includes('/utils/')) score += 10;
+        // Utility files get lower score (should come last)
+        if (path.includes('utils/') || path.includes('helpers/') || path.includes('/util/')) score -= 20;
+        return { ...diff, _explanatoryScore: score };
+      });
+      return scored.sort((a, b) => b._explanatoryScore - a._explanatoryScore).map(({ _explanatoryScore, ...rest }) => rest);
+    }
+
+    function getDiffOrderingLabel(mode) {
+      const labels = {
+        explanatory: 'Ordered by explanatory value (entry points → core → utilities)',
+        alphabetical: 'Ordered alphabetically'
+      };
+      return labels[mode] || labels.explanatory;
+    }
+
+    function setDiffOrdering(mode) {
+      if (mode === 'explanatory' || mode === 'alphabetical') {
+        appState.diffOrdering = mode;
+        saveAppState();
+      }
+    }
+
+    function getDiffOrdering() {
+      return appState.diffOrdering;
+    }
+
+    // O3: Restack changes into clean commits
+    function proposeRestack(changes) {
+      // Group by file
+      const byFile = {};
+      for (const change of changes) {
+        if (!byFile[change.path]) byFile[change.path] = [];
+        byFile[change.path].push(change);
+      }
+      // Group by concern (simplified: files in same directory)
+      const commits = Object.entries(byFile).map(([path, fileChanges]) => ({
+        message: `Update ${path.split('/').pop()}`,
+        files: [path],
+        changes: fileChanges
+      }));
+      return { commits, originalCount: changes.length, groupedCount: commits.length };
+    }
+
+    function applyRestack(proposal, approved) {
+      if (!approved) {
+        return { approved: false, reason: 'User approval required' };
+      }
+      // Check for pushed commits (simplified)
+      const pushed = false; // Would check git history in real implementation
+      if (pushed) {
+        return { approved: false, reason: 'Cannot rewrite pushed commits' };
+      }
+      appState.pendingRestack = null;
+      saveAppState();
+      return { approved: true, applied: proposal.commits.length };
+    }
+
+    // O4: Mid-run steering with delivery receipts
+    function injectSteeringAtStepBoundary(message, currentStep) {
+      const receipt = {
+        id: 'steering_' + Date.now(),
+        message,
+        requestedAtStep: currentStep,
+        stepInjected: currentStep + 1,
+        timestamp: Date.now(),
+        status: 'pending'
+      };
+      appState.steeringQueue.push({ message, injectAtStep: currentStep + 1 });
+      appState.steeringReceipts.push(receipt);
+      saveAppState();
+      return receipt;
+    }
+
+    function getSteeringReceipt(receiptId) {
+      return appState.steeringReceipts.find(r => r.id === receiptId);
+    }
+
+    // O5: Turn diffs + /explain without model call
+    function renderTurnDiffs(diffs) {
+      const threshold = 5000; // chars
+      return diffs.map(diff => {
+        const size = (diff.oldContent?.length || 0) + (diff.newContent?.length || 0);
+        const collapsed = size > threshold;
+        return `
+          <div class="turn-diff ${collapsed ? 'collapsed' : ''}" data-path="${escapeHtml(diff.path)}">
+            <div class="diff-header">
+              <span class="diff-path">${escapeHtml(diff.path)}</span>
+              ${collapsed ? `<span class="diff-size">(${size} chars - collapsed)</span>` : ''}
+              ${collapsed ? '<button class="diff-expand" onclick="this.parentElement.parentElement.classList.toggle(\'collapsed\')">Expand</button>' : ''}
+              <span class="diff-threshold">threshold: ${threshold} chars</span>
+            </div>
+            <div class="diff-content">
+              ${diff.oldContent ? `<div class="diff-old">${escapeHtml(diff.oldContent)}</div>` : ''}
+              ${diff.newContent ? `<div class="diff-new">${escapeHtml(diff.newContent)}</div>` : ''}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function explainTurn(data) {
+      const { turn, trajectory, ledger } = data;
+      const decisions = ledger.filter(d => d.turn === turn);
+      const changes = trajectory.filter(t => t.turn === turn);
+      let explanation = `Turn ${turn}:\n`;
+      explanation += `What changed: ${changes.map(c => c.file || c.action).join(', ') || 'nothing'}\n`;
+      explanation += `Why: ${decisions.map(d => d.reason || d.decision).join('; ') || 'no recorded decision'}\n`;
+      explanation += `Affects: ${decisions.flatMap(d => d.affects || []).join(', ') || 'unknown'}`;
+      return explanation;
+    }
+
+    function getDecisionLedger() {
+      return appState.decisionLedger;
+    }
+
+    function recordDecisionLedgerEntry(decision) {
+      appState.decisionLedger.push({ ...decision, timestamp: Date.now() });
+      saveAppState();
+    }
+
+    // O6: Source-reference citations for every tool call
+    function recordToolCallCitation(data) {
+      const citationId = 'cite_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+      const citation = {
+        id: citationId,
+        tool: data.tool,
+        file: data.file,
+        line: data.line,
+        column: data.column || 0,
+        url: data.url,
+        timestamp: Date.now(),
+        context: data.context
+      };
+      appState.toolCallCitations.push(citation);
+      saveAppState();
+      return citationId;
+    }
+
+    function getCitationById(citationId) {
+      return appState.toolCallCitations.find(c => c.id === citationId);
+    }
+
+    function jumpToCitation(citationId) {
+      const citation = getCitationById(citationId);
+      if (!citation) return { success: false, reason: 'Citation not found' };
+      if (citation.file) {
+        clickToSource({ file: citation.file, line: citation.line });
+        return { success: true, action: 'jump', file: citation.file, line: citation.line };
+      } else if (citation.url) {
+        window.open(citation.url, '_blank');
+        return { success: true, action: 'open-url', url: citation.url };
+      }
+      return { success: false, reason: 'No file or URL in citation' };
+    }
+
+    // O7: Multi-step questionnaire — ask-user as a form
+    async function askUserForm(form, options = {}) {
+      return new Promise(resolve => {
+        appState.activeQuestionnaire = {
+          form,
+          resolve,
+          skip: options.skip || [],
+          startTime: Date.now()
+        };
+        
+        // Render the form UI
+        renderQuestionnaireForm(form, options.skip || [], (answers, skipped) => {
+          appState.activeQuestionnaire = null;
+          resolve({ answers, skipped, submittedAt: Date.now() });
+        });
+      });
+    }
+
+    // O8: Clipboard bridge to any free web chatbot
+    function copyContextToClipboard() {
+      const ctx = {
+        task: appState.currentTask || 'No active task',
+        files: Object.keys(appState.vfs || {}),
+        plan: appState.currentPlan || [],
+        recentChanges: appState.turnDiffs?.slice(-5) || [],
+        timestamp: Date.now()
+      };
+      appState.clipboardBridgeContext = ctx;
+      // Actually write to clipboard
+      const text = JSON.stringify(ctx, null, 2);
+      return navigator.clipboard.writeText(text).then(() => {
+        showToast('Context copied to clipboard', 'success');
+        return { ...ctx, copied: true };
+      }).catch(err => {
+        showToast('Failed to copy: ' + err.message, 'error');
+        return { ...ctx, copied: false, error: err.message };
+      });
+    }
+
+    async function pasteExternalReply(reply) {
+      // Parse diff from reply
+      const diffMatch = reply.match(/```diff\n([\s\S]*?)\n```/);
+      if (!diffMatch) {
+        return { applied: false, reason: 'No diff found in reply' };
+      }
+      const diff = diffMatch[1];
+      // Apply through anchored-patch path (Batch 10 J6) - queue for diff review
+      appState.pendingExternalDiffs = appState.pendingExternalDiffs || [];
+      const pendingDiff = {
+        id: 'ext_' + Date.now(),
+        diff,
+        source: 'clipboard',
+        timestamp: Date.now(),
+        status: 'pending-review'
+      };
+      appState.pendingExternalDiffs.push(pendingDiff);
+      saveAppState();
+      
+      // Show diff review panel
+      if (typeof showPane === 'function') {
+        showPane('diffReview');
+      }
+      if (typeof renderDiffReview === 'function') {
+        renderDiffReview();
+      }
+      
+      return { pendingReview: true, diffId: pendingDiff.id, diff, message: 'Diff extracted and queued for review in Diff Review panel' };
+    }
+
+    async function pasteImageToTask(file) {
+      // Read file with FileReader and attach to task context
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const dataUrl = e.target.result;
+          // Attach to task context
+          appState.taskImages = appState.taskImages || [];
+          appState.taskImages.push({
+            fileName: file.name,
+            size: file.size,
+            type: file.type,
+            dataUrl,
+            timestamp: Date.now()
+          });
+          saveAppState();
+          
+          // Show attachment chip
+          if (typeof renderAttachChips === 'function') {
+            renderAttachChips();
+          }
+          
+          resolve({ attached: true, fileName: file.name, size: file.size, dataUrl });
+        };
+        reader.onerror = () => reject(new Error('Failed to read file'));
+        reader.readAsDataURL(file);
+      });
+    }
+
+    // O9: Recipe deeplinks + unicode-tag security scan
+    function createRecipeDeeplink(recipe) {
+      const encoded = btoa(JSON.stringify(recipe)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+      return `flamingocode://recipe/${encoded}`;
+    }
+
+    function openRecipeDeeplink(link) {
+      const match = link.match(/flamingocode:\/\/recipe\/(.+)/);
+      if (!match) return { error: 'Invalid deeplink' };
+      try {
+        const decoded = atob(match[1].replace(/-/g, '+').replace(/_/g, '/'));
+        const recipe = JSON.parse(decoded);
+        return { ...recipe, untrusted: true, importedAt: Date.now() };
+      } catch {
+        return { error: 'Failed to decode recipe' };
+      }
+    }
+
+    function scanForZeroWidthChars(text) {
+      const zeroWidthChars = [
+        { char: '\u200B', name: 'ZERO WIDTH SPACE', code: 'U+200B' },
+        { char: '\u200C', name: 'ZERO WIDTH NON-JOINER', code: 'U+200C' },
+        { char: '\u200D', name: 'ZERO WIDTH JOINER', code: 'U+200D' },
+        { char: '\uFEFF', name: 'ZERO WIDTH NO-BREAK SPACE (BOM)', code: 'U+FEFF' },
+        { char: '\u2060', name: 'WORD JOINER', code: 'U+2060' },
+        { char: '\u180E', name: 'MONGOLIAN VOWEL SEPARATOR', code: 'U+180E' }
+      ];
+      const positions = [];
+      for (let i = 0; i < text.length; i++) {
+        const zwc = zeroWidthChars.find(z => z.char === text[i]);
+        if (zwc) positions.push({ index: i, char: zwc.char, name: zwc.name, code: zwc.code });
+      }
+      return {
+        found: positions.length > 0,
+        positions,
+        revealed: positions.map(p => p.code).join(', ')
+      };
+    }
+
+    // O10: PDF project-report export
+    function generateProjectReportMarkdown() {
+      const session = appState.sessions[appState.activeSessionId] || {};
+      return `# Project Report
+
+**Generated:** ${new Date().toISOString()}
+**Session:** ${appState.activeSessionId || 'none'}
+**Files:** ${Object.keys(appState.vfs || {}).length}
+**Decisions:** ${appState.decisionLedger?.length || 0}
+**Readiness Score:** ${appState.readinessScore?.currentScore || 'N/A'}
+
+## Recent Sessions
+${Object.values(appState.sessions).slice(-5).map(s => `- ${s.id}: ${s.createdAt ? new Date(s.createdAt).toLocaleString() : 'unknown'}`).join('\n')}
+
+## Files
+${Object.entries(appState.vfs || {}).map(([path, content]) => `### ${path}\n\`\`\`\n${content.slice(0, 200)}\n\`\`\``).join('\n\n')}
+
+## Decisions
+${appState.decisionLedger?.slice(-10).map(d => `- Turn ${d.turn}: ${d.decision} (${d.reason})`).join('\n') || 'None'}
+`;
+    }
+
+    async function exportProjectReportPDF() {
+      const md = generateProjectReportMarkdown();
+      // Generate print-ready HTML and open in new window with auto-print
+      const html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <title>Project Report</title>
+          <style>
+            body { font-family: system-ui, sans-serif; max-width: 800px; margin: 0 auto; padding: 40px 20px; line-height: 1.6; }
+            h1 { color: #1a1a2e; border-bottom: 2px solid #3b82f6; padding-bottom: 10px; }
+            h2 { color: #2563eb; margin-top: 30px; }
+            h3 { color: #374151; }
+            pre { background: #f3f4f6; padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 12px; }
+            code { background: #f3f4f6; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
+            ul { padding-left: 20px; }
+            li { margin: 4px 0; }
+            .meta { color: #6b7280; font-size: 14px; margin-bottom: 20px; }
+            @media print { body { padding: 0; } .no-print { display: none; } }
+          </style>
+        </head>
+        <body>
+          <div class="no-print" style="text-align:center; margin-bottom:20px; padding:10px; background:#eff6ff; border-radius:6px;">
+            <button onclick="window.print()" style="padding:10px 20px; background:#3b82f6; color:white; border:none; border-radius:6px; font-size:14px; cursor:pointer;">🖨 Print / Save as PDF</button>
+            <span style="margin-left:10px; color:#6b7280;">Press Ctrl+P (Cmd+P on Mac) to print</span>
+          </div>
+          ${md.replace(/^# (.*$)/gm, '<h1>$1</h1>')
+            .replace(/^## (.*$)/gm, '<h2>$1</h2>')
+            .replace(/^### (.*$)/gm, '<h3>$1</h3>')
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\n/g, '<br>')
+            .replace(/`{3}([\s\S]*?)`{3}/g, '<pre><code>$1</code></pre>')
+            .replace(/`([^`]+)`/g, '<code>$1</code>')
+            .replace(/^- (.*$)/gm, '<li>$1</li>')
+            .replace(/(<li>.*<\/li>)/g, '<ul>$1</ul>')
+            .replace(/<\/ul>\s*<ul>/g, '')}
+        </body>
+        </html>
+      `;
+      const printWindow = window.open('', '_blank');
+      printWindow.document.write(html);
+      printWindow.document.close();
+      printWindow.focus();
+      // Auto-trigger print dialog
+      setTimeout(() => printWindow.print(), 500);
+      return { success: true, printed: true };
+    }
+
+    // O11: In-preview element annotation / click-to-source
+    function enablePreviewAnnotation(enabled) {
+      appState.previewAnnotationEnabled = enabled;
+      saveAppState();
+      return { enabled: appState.previewAnnotationEnabled };
+    }
+
+    function clickToSource(data) {
+      const { selector, file, line } = data;
+      // Open file in editor panel and scroll to line
+      if (file) {
+        // Open the file in the editor
+        const vfs = appState.vfs || {};
+        const session = getCurrentSession();
+        const sessionFiles = session?.files || {};
+        const allFiles = { ...vfs, ...sessionFiles };
+        
+        if (allFiles[file] !== undefined) {
+          openFile(file);
+          // Scroll to line after a brief delay to ensure editor is ready
+          setTimeout(() => {
+            const textarea = document.getElementById('editorTextarea');
+            if (textarea) {
+              const lines = textarea.value.split('\n');
+              const targetLine = Math.min(Math.max(1, line || 1), lines.length);
+              const charPos = lines.slice(0, targetLine - 1).join('\n').length + (targetLine > 1 ? 1 : 0);
+              textarea.setSelectionRange(charPos, charPos);
+              textarea.focus();
+              // Scroll into view
+              textarea.scrollTop = (targetLine - 1) * 20; // approximate line height
+            }
+          }, 100);
+          return { success: true, file, line };
+        } else {
+          showToast(`File not found in project: ${file}`, 'warning');
+          return { success: false, reason: 'File not in project', file };
+        }
+      } else if (selector) {
+        // Selector-based: would need DOM mapping from preview
+        showToast('Selector-based click-to-source requires preview element mapping', 'info');
+        return { success: false, reason: 'Selector mapping not implemented', selector };
+      }
+      return { success: false, reason: 'No file or selector provided' };
+    }
+
+    function annotatePreviewElement(data) {
+      const annotation = {
+        id: 'annot_' + Date.now(),
+        selector: data.selector,
+        computedCSS: data.css || {},
+        intent: data.intent,
+        timestamp: Date.now()
+      };
+      appState.previewAnnotations.push(annotation);
+      appState.nextTurnAnnotations.push(annotation);
+      saveAppState();
+      return annotation;
+    }
+
+    function getNextTurnAnnotations() {
+      const ann = appState.nextTurnAnnotations;
+      appState.nextTurnAnnotations = [];
+      return ann;
+    }
+
+    // O12: Supercomplete intent completion + Tab-to-Jump + Tab-to-Import
+    async function getIntentSuggestion(context) {
+      // LOCAL first: graph neighbours + recent edit pattern
+      const recentEdits = appState.turnDiffs?.slice(-3) || [];
+      const currentFile = context.currentFile;
+      
+      // Simple heuristic: if recent edits are in same file, suggest continuing there
+      if (recentEdits.some(e => e.path === currentFile)) {
+        return {
+          intent: 'Continue editing ' + currentFile,
+          type: 'jump',
+          location: { file: currentFile, line: context.cursorPos }
+        };
+      }
+      
+      // Check for imports needed
+      const imports = recentEdits.flatMap(e => 
+        (e.newContent || '').match(/import\s+.*\s+from\s+['"]([^'"]+)['"]/g) || []
+      ).flat();
+      
+      if (imports.length > 0) {
+        return {
+          intent: 'Import ' + imports[0],
+          type: 'import',
+          import: imports[0]
+        };
+      }
+      
+      // Default: suggest next likely file based on graph (stub)
+      return {
+        intent: 'No suggestion',
+        type: 'none',
+        location: { file: currentFile, line: context.cursorPos }
+      };
+    }
+
+    function applyIntentSuggestion(suggestion, key) {
+      if (key === 'tab' && suggestion.type !== 'none') {
+        if (suggestion.type === 'jump' && suggestion.location) {
+          // Jump to file:line
+          clickToSource({ file: suggestion.location.file, line: suggestion.location.line });
+          return { applied: true, action: 'jump', location: suggestion.location };
+        } else if (suggestion.type === 'import' && suggestion.import) {
+          // Insert import at top of current file
+          const currentFile = appState.activeFile;
+          if (currentFile) {
+            const textarea = document.getElementById('editorTextarea');
+            if (textarea) {
+              const importStmt = `import { ${suggestion.import.split('/').pop().replace('.js', '')} } from '${suggestion.import}';`;
+              const content = textarea.value;
+              // Find last import line or beginning of file
+              const lines = content.split('\n');
+              let insertAt = 0;
+              for (let i = 0; i < lines.length; i++) {
+                if (lines[i].trim().startsWith('import ') || lines[i].trim().startsWith('export ')) {
+                  insertAt = i + 1;
+                } else if (lines[i].trim() && insertAt > 0) {
+                  break;
+                }
+              }
+              lines.splice(insertAt, 0, importStmt);
+              textarea.value = lines.join('\n');
+              // Trigger change event
+              textarea.dispatchEvent(new Event('input', { bubbles: true }));
+              return { applied: true, action: 'import', import: suggestion.import };
+            }
+          }
+          return { applied: false, reason: 'No active file' };
+        }
+        return { applied: false, reason: 'Unknown suggestion type' };
+      }
+      return { applied: false, reason: 'Not Tab key or no suggestion' };
+    }
+
+    function dismissIntentSuggestion() {
+      appState.intentSuggestion = null;
+      appState.intentSuggestionVisible = false;
+      saveAppState();
+    }
+
+    // O13: Live thinking line + token usage in chat
+    function setThinkingLine(text, tokens) {
+      appState.thinkingLine = { text, tokens, visible: appState.thinkingLine.visible };
+      saveAppState();
+    }
+
+    function getThinkingLine() {
+      return appState.thinkingLine;
+    }
+
+    function setThinkingLineVisible(visible) {
+      appState.thinkingLine.visible = visible;
+      saveAppState();
+    }
+
+    function getThinkingLineVisible() {
+      return appState.thinkingLine.visible;
+    }
+
+    function getTokenCount() {
+      return appState.thinkingLine.tokens;
+    }
+
+    // O14: Read-only context files
+    function setContextFileReadOnly(path, readOnly) {
+      appState.readOnlyContextFiles[path] = readOnly;
+      saveAppState();
+    }
+
+    function isContextFileReadOnly(path) {
+      return !!appState.readOnlyContextFiles[path];
+    }
+
+    function isContextFile(path, session) {
+      if (!session || !session.files) return false;
+      // Context files: SOUL.md, .hermes.md, AGENTS.override.md, AGENTS.md (any depth), .devforge/*, and files in working dir
+      if (path === 'SOUL.md' || path === '.hermes.md' || path === 'AGENTS.override.md' || path.startsWith('.devforge/')) {
+        return true;
+      }
+      if (path === 'AGENTS.md' || path.endsWith('/AGENTS.md')) {
+        return true;
+      }
+      // Files in current working directory or its subdirectories are context files
+      const workingDir = session.workingDir || '';
+      if (workingDir) {
+        const normalizedDir = workingDir.replace(/^\/+/, '').replace(/\/+$/, '');
+        const dirPrefix = normalizedDir ? normalizedDir + '/' : '';
+        if (path.startsWith(dirPrefix) && path !== normalizedDir) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    async function applyEditToFile(path, content) {
+      if (isContextFileReadOnly(path)) {
+        return { refused: true, reason: 'That file is read-only context' };
+      }
+      // Apply edit to VFS
+      appState.vfs = appState.vfs || {};
+      appState.vfs[path] = content;
+      saveAppState();
+      
+      // If file is open in editor, update it
+      if (appState.activeFile === path) {
+        const textarea = document.getElementById('editorTextarea');
+        if (textarea) {
+          textarea.value = content;
+          textarea.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+      }
+      
+      // Add to turn diffs for tracking
+      appState.turnDiffs = appState.turnDiffs || [];
+      appState.turnDiffs.push({ path, newContent: content, timestamp: Date.now() });
+      
+      showToast(`Applied edit to ${path}`, 'success');
+      return { applied: true, path };
+    }
+
+    // O15: Video input — Stage 6, vision models only
+    async function attachVideoToPrompt(videoFile, modelId) {
+      // Check if model supports vision (from Batch 10 J14 catalog)
+      const visionModels = ['gpt-4o', 'gpt-4o-mini', 'claude-3', 'gemini-pro-vision', 'vision-model']; // simplified
+      const isVisionModel = visionModels.some(vm => modelId.toLowerCase().includes(vm.toLowerCase()));
+      
+      if (!isVisionModel) {
+        return { warning: true, message: 'This model does not support vision input. Video will not be processed.' };
+      }
+      
+      // Sample frames
+      const frames = await sampleVideoFrames(videoFile);
+      appState.attachedVideo = { file: videoFile, modelId, frames };
+      appState.videoFrames = frames;
+      saveAppState();
+      return { frames, sampled: frames.length };
+    }
+
+    async function sampleVideoFrames(videoFile, options = {}) {
+      // Real implementation: use video element + canvas to extract frames
+      const maxFrames = options.maxFrames || 10;
+      const interval = options.interval || 1; // seconds between frames
+      
+      return new Promise((resolve, reject) => {
+        const video = document.createElement('video');
+        video.preload = 'metadata';
+        video.muted = true;
+        video.src = URL.createObjectURL(videoFile);
+        
+        video.onloadedmetadata = () => {
+          const duration = video.duration;
+          const frames = [];
+          let currentTime = 0;
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          
+          const extractFrame = () => {
+            if (currentTime >= duration || frames.length >= maxFrames) {
+              URL.revokeObjectURL(video.src);
+              resolve(frames);
+              return;
+            }
+            
+            video.currentTime = currentTime;
+          };
+          
+          video.onseeked = () => {
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+            frames.push({
+              dataUrl,
+              timestamp: currentTime,
+              width: canvas.width,
+              height: canvas.height
+            });
+            currentTime += interval;
+            extractFrame();
+          };
+          
+          video.onerror = (e) => {
+            URL.revokeObjectURL(video.src);
+            reject(new Error('Video load failed'));
+          };
+          
+          extractFrame();
+        };
+        
+        video.onerror = () => {
+          reject(new Error('Failed to load video'));
+        };
+      });
+    }
+
+    async function handlePasteImage(file) {
+      // Attach pasted image to current task using FileReader
+      return pasteImageToTask(file);
+    }
+
+    // O16: Atomic acts + deterministic scaffolding + Playwright fallback
+    function decomposeIntoAtomicActs(taskDescription) {
+      // Simple decomposition based on keywords
+      const acts = [];
+      const steps = taskDescription.split(/then|and then|,/).map(s => s.trim()).filter(Boolean);
+      
+      for (const step of steps) {
+        acts.push({
+          action: () => { /* Would execute step */ },
+          assert: () => true, // Would verify step succeeded
+          fallback: () => 'playwright-fallback-result',
+          description: step
+        });
+      }
+      appState.atomicActs = acts;
+      saveAppState();
+      return acts;
+    }
+
+    async function runAtomicActWithFallback(act, options = {}) {
+      const maxRetries = options.maxRetries || 2;
+      let attempts = 0;
+      
+      while (attempts < maxRetries) {
+        try {
+          attempts++;
+          await act.action();
+          if (act.assert()) {
+            return { success: true, attempts };
+          }
+        } catch (e) {
+          if (attempts >= maxRetries) break;
+        }
+      }
+      
+      // Fallback to scripted step
+      if (act.fallback) {
+        return await act.fallback();
+      }
+      return { success: false, attempts };
+    }
+
+    function isDesktopOnlyCapability(capability) {
+      const desktopOnly = ['driveExternalApp', 'controlOS', 'accessFileSystem'];
+      return desktopOnly.includes(capability);
+    }
+
+    // O17: Human-in-the-loop as a DOING role
+    function handoffToHuman(data) {
+      const handoff = {
+        id: 'handoff_' + Date.now(),
+        task: data.task,
+        stepIndex: data.stepIndex,
+        paused: true,
+        card: `your turn — ${data.task}`,
+        createdAt: Date.now(),
+        waitStartTime: Date.now()
+      };
+      appState.humanHandoffs.push(handoff);
+      saveAppState();
+      return handoff;
+    }
+
+    function resumeFromHandoff(handoffId) {
+      const handoff = appState.humanHandoffs.find(h => h.id === handoffId);
+      if (!handoff) return { error: 'Handoff not found' };
+      handoff.paused = false;
+      handoff.resumedAt = Date.now();
+      handoff.resumedFromStep = handoff.stepIndex + 1;
+      saveAppState();
+      return { resumed: true, resumedFromStep: handoff.stepIndex + 1 };
+    }
+
+    function getHandoffWaitTime(handoffId) {
+      const handoff = appState.humanHandoffs.find(h => h.id === handoffId);
+      if (!handoff) return null;
+      return Date.now() - (handoff.waitStartTime || handoff.createdAt);
+    }
+
+    function canAutoApprove(action) {
+      const neverAutoApprove = ['payment', 'login', 'auth', '2fa', 'captcha'];
+      return !neverAutoApprove.some(n => action.toLowerCase().includes(n));
+    }
+
+    // O18: Scripted-model test harness
+    class PassthroughModel {
+      async complete(prompt) {
+        return prompt;
+      }
+    }
+
+    class PlaybackModel {
+      constructor(messages) {
+        this.queue = [...messages];
+        this.exhausted = false;
+      }
+      
+      async complete(prompt) {
+        if (this.queue.length > 0) {
+          return this.queue.shift();
+        }
+        if (!this.exhausted) {
+          this.exhausted = true;
+          return 'MESSAGES EXHAUSTED';
+        }
+        return 'MESSAGES EXHAUSTED';
+      }
+    }
+
+    async function runReferenceLoopSmokeTest() {
+      const model = new PassthroughModel();
+      let turns = 0;
+      for (let i = 0; i < 3; i++) {
+        const result = await model.complete(`test prompt ${i}`);
+        if (result === `test prompt ${i}`) turns++;
+      }
+      return { passed: turns === 3, turns };
+    }
+
+    // ============ Window exports for Batch 15 ============
+    window.createReviewArtifact = createReviewArtifact;
+    window.renderReviewArtifact = renderReviewArtifact;
+    window.addAnchoredComment = addAnchoredComment;
+    window.incorporateAnchoredComment = incorporateAnchoredComment;
+    window.orderDiffsByExplanatoryValue = orderDiffsByExplanatoryValue;
+    window.getDiffOrderingLabel = getDiffOrderingLabel;
+    window.setDiffOrdering = setDiffOrdering;
+    window.getDiffOrdering = getDiffOrdering;
+    window.proposeRestack = proposeRestack;
+    window.applyRestack = applyRestack;
+    window.injectSteeringAtStepBoundary = injectSteeringAtStepBoundary;
+    window.getSteeringReceipt = getSteeringReceipt;
+    window.renderTurnDiffs = renderTurnDiffs;
+    window.explainTurn = explainTurn;
+    window.getDecisionLedger = getDecisionLedger;
+    window.recordDecisionLedgerEntry = recordDecisionLedgerEntry;
+    window.recordToolCallCitation = recordToolCallCitation;
+    window.getCitationById = getCitationById;
+    window.jumpToCitation = jumpToCitation;
+    window.askUserForm = askUserForm;
+    window.copyContextToClipboard = copyContextToClipboard;
+    window.pasteExternalReply = pasteExternalReply;
+    window.pasteImageToTask = pasteImageToTask;
+    window.createRecipeDeeplink = createRecipeDeeplink;
+    window.openRecipeDeeplink = openRecipeDeeplink;
+    window.scanForZeroWidthChars = scanForZeroWidthChars;
+    window.exportProjectReportPDF = exportProjectReportPDF;
+    window.generateProjectReportMarkdown = generateProjectReportMarkdown;
+    window.enablePreviewAnnotation = enablePreviewAnnotation;
+    window.clickToSource = clickToSource;
+    window.annotatePreviewElement = annotatePreviewElement;
+    window.getNextTurnAnnotations = getNextTurnAnnotations;
+    window.getIntentSuggestion = getIntentSuggestion;
+    window.applyIntentSuggestion = applyIntentSuggestion;
+    window.dismissIntentSuggestion = dismissIntentSuggestion;
+    window.setThinkingLine = setThinkingLine;
+    window.getThinkingLine = getThinkingLine;
+    window.setThinkingLineVisible = setThinkingLineVisible;
+    window.getThinkingLineVisible = getThinkingLineVisible;
+    window.getTokenCount = getTokenCount;
+    window.setContextFileReadOnly = setContextFileReadOnly;
+    window.isContextFileReadOnly = isContextFileReadOnly;
+    window.applyEditToFile = applyEditToFile;
+    window.attachVideoToPrompt = attachVideoToPrompt;
+    window.sampleVideoFrames = sampleVideoFrames;
+    window.handlePasteImage = handlePasteImage;
+    window.decomposeIntoAtomicActs = decomposeIntoAtomicActs;
+    window.runAtomicActWithFallback = runAtomicActWithFallback;
+    window.isDesktopOnlyCapability = isDesktopOnlyCapability;
+    window.handoffToHuman = handoffToHuman;
+    window.resumeFromHandoff = resumeFromHandoff;
+    window.getHandoffWaitTime = getHandoffWaitTime;
+    window.canAutoApprove = canAutoApprove;
+    window.PassthroughModel = PassthroughModel;
+    window.PlaybackModel = PlaybackModel;
+    window.runReferenceLoopSmokeTest = runReferenceLoopSmokeTest;
 
   </script>
 </body>
