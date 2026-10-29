@@ -7789,7 +7789,10 @@ WORK STYLE:
         whatItDoes: 'GitHub repository operations: issues, PRs, repos, files, search',
         triggers: ['github', 'git hub', 'repository', 'repo', 'issue', 'pull request', 'pr', 'file', 'search', 'গিটহাব', 'রিপোজিটরি', 'ইস্যু', 'পুল রিকোয়েস্ট', 'ফাইল', 'সার্চ'],
         install: { how: 'add-mcp', serverId: 'mcp_github', command: 'npx @modelcontextprotocol/server-github', transport: 'stdio', note: 'Pre-installed (trusted). Enable in MCP Registry.' },
-        scoreBoost: 0
+        scoreBoost: 0,
+        config: [
+          { key: 'token', label: 'GitHub Personal Access Token', type: 'password', required: true, placeholder: 'ghp_...', isSecret: true }
+        ]
       },
       {
         id: 'mcp_memory',
@@ -7811,6 +7814,32 @@ WORK STYLE:
       },
 
       // --- Research-sweep MCP Servers (reuse sweep list) ---
+      {
+        id: 'mcp_supabase',
+        kind: 'mcp',
+        name: 'supabase',
+        whatItDoes: 'PostgreSQL database, auth, storage, realtime, edge functions — all in one platform',
+        triggers: ['supabase', 'database', 'postgres', 'auth', 'storage', 'realtime', 'edge function', 'backend', 'superbase', 'সুপাবেস', 'ডেটাবেস', 'অথ', 'স্টোরেজ', 'রিয়েলটাইম'],
+        install: { how: 'add-mcp', serverId: 'mcp_supabase', command: 'npx @supabase/mcp-server', transport: 'stdio', note: 'Requires Supabase project credentials. Desktop install only.' },
+        scoreBoost: 0,
+        config: [
+          { key: 'projectUrl', label: 'Supabase Project URL', type: 'text', required: true, placeholder: 'https://your-project.supabase.co', isSecret: false },
+          { key: 'anonKey', label: 'Supabase Anon Key', type: 'password', required: true, placeholder: 'eyJ...', isSecret: true },
+          { key: 'serviceKey', label: 'Supabase Service Role Key', type: 'password', required: true, placeholder: 'eyJ...', isSecret: true }
+        ]
+      },
+      {
+        id: 'mcp_postgresql',
+        kind: 'mcp',
+        name: 'postgresql',
+        whatItDoes: 'Direct PostgreSQL database access — query, schema, migrations',
+        triggers: ['postgresql', 'postgres', 'database', 'sql', 'query', 'schema', 'migration', 'পোস্টগ্রেসকিউএল', 'ডেটাবেস', 'এসকিউএল', 'কোয়ারী'],
+        install: { how: 'add-mcp', serverId: 'mcp_postgresql', command: 'npx @modelcontextprotocol/server-postgres', transport: 'stdio', note: 'Requires PostgreSQL connection string. Desktop install only.' },
+        scoreBoost: 0,
+        config: [
+          { key: 'connectionString', label: 'PostgreSQL Connection String', type: 'password', required: true, placeholder: 'postgresql://user:pass@host:5432/db', isSecret: true }
+        ]
+      },
       {
         id: 'mcp_serena',
         kind: 'mcp',
@@ -9359,6 +9388,7 @@ Detail level: {{detail_level}}`,
       mutedRecommendations: {},          // { [toolId]: true } — tools user said "Don't suggest again"
       recommendationHistory: [],         // [{ taskId, toolId, timestamp, dismissed, muted, installed }] — per-task recommendations
       currentTaskRecommendations: [],    // Recommendations for current task (for chat card + page sections)
+      projectSecrets: {},                // { [projectId]: { [toolId]: { [configKey]: value } } } — per-project secret config
       // Language state
       language: 'en',           // 'en' | 'bn'
       // Design tokens (Batch 7.8) - single source of truth for UI styling
@@ -40839,41 +40869,44 @@ function renderRecommendationCard() {
   `;
   
   // MCP untrusted warning
-  if (rec.showsUntrustedWarning) {
-    html += `<span style="color: var(--warning); font-size: 11px; flex: 1 1 100%;">⚠ ${t('Newly installed MCPs start UNTRUSTED (per H5.5 rule)')}</span>`;
-  }
-  
-  // Buttons
-  html += `
-    <button class="rec-install-btn" data-tool-id="${rec.id}" style="
-      background: var(--accent-blue);
-      color: white;
-      border: none;
-      padding: 6px 12px;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 12px;
-      font-weight: 500;
-    ">${t('Install')}</button>
-    <button class="rec-dismiss-btn" data-tool-id="${rec.id}" style="
-      background: transparent;
-      color: var(--text-muted);
-      border: 1px solid var(--border);
-      padding: 6px 12px;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 12px;
-    ">${t('Dismiss')}</button>
-    <button class="rec-mute-btn" data-tool-id="${rec.id}" style="
-      background: transparent;
-      color: var(--text-muted);
-      border: 1px solid var(--border);
-      padding: 6px 12px;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 12px;
-    ">${t("Don't suggest again")}</button>
-  `;
+    if (rec.showsUntrustedWarning) {
+      html += `<span style="color: var(--warning); font-size: 11px; flex: 1 1 100%;">⚠ ${t('Newly installed MCPs start UNTRUSTED (per H5.5 rule)')}</span>`;
+    }
+
+    // Config input fields (if tool has config)
+    html += renderConfigInputs(rec, 'rec');
+
+    // Buttons
+    html += `
+      <button class="rec-install-btn" data-tool-id="${rec.id}" style="
+        background: var(--accent-blue);
+        color: white;
+        border: none;
+        padding: 6px 12px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 500;
+      ">${t('Install')}</button>
+      <button class="rec-dismiss-btn" data-tool-id="${rec.id}" style="
+        background: transparent;
+        color: var(--text-muted);
+        border: 1px solid var(--border);
+        padding: 6px 12px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+      ">${t('Dismiss')}</button>
+      <button class="rec-mute-btn" data-tool-id="${rec.id}" style="
+        background: transparent;
+        color: var(--text-muted);
+        border: 1px solid var(--border);
+        padding: 6px 12px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+      ">${t("Don't suggest again")}</button>
+    `;
   
   card.innerHTML = html;
   
@@ -40888,6 +40921,21 @@ function renderRecommendationCard() {
   // Add event listeners
   card.querySelector('.rec-install-btn').addEventListener('click', (e) => {
     const toolId = e.target.dataset.toolId;
+    const tool = TOOL_RECOMMENDATIONS.find(t => t.id === toolId);
+    if (!tool) return;
+    
+    // Validate config if tool has config
+    if (tool.config && tool.config.length) {
+      const validation = validateConfigValues(tool, {}, 'rec');
+      if (!validation.valid) {
+        alert(`${t('Missing required fields')}: ${validation.missing.join(', ')}`);
+        return;
+      }
+      // Collect and store config values
+      const configValues = collectConfigValues(toolId, 'rec');
+      storeProjectSecret(toolId, configValues);
+    }
+    
     installRecommendedTool(toolId);
   });
   card.querySelector('.rec-dismiss-btn').addEventListener('click', (e) => {
@@ -40930,6 +40978,10 @@ async function installRecommendedTool(toolId) {
   const card = chatMessages?.querySelector('.tool-recommendation-card');
   
   try {
+    // Get stored config values for this tool
+    const projectId = getCurrentProjectId();
+    const storedConfig = appState.projectSecrets?.[projectId]?.[toolId] || {};
+    
     if (tool.kind === 'skill') {
       // Enable skill
       if (!appState.enabledSkills) appState.enabledSkills = [];
@@ -40941,6 +40993,13 @@ async function installRecommendedTool(toolId) {
       if (tool.install.how === 'add-mcp') {
         // The existing MCP manager handles this - we just add to mcpServers
         if (!appState.mcpServers) appState.mcpServers = [];
+        
+        // Build env from stored config (secret values)
+        const env = {};
+        for (const [key, value] of Object.entries(storedConfig)) {
+          if (value) env[key] = value;
+        }
+        
         const newServer = {
           id: tool.id,
           name: tool.name,
@@ -40949,7 +41008,8 @@ async function installRecommendedTool(toolId) {
           transport: tool.install.transport,
           trust: 'untrusted',  // H5.5 rule: newly installed starts UNTRUSTED
           enabled: true,
-          tools: []
+          tools: [],
+          env: Object.keys(env).length > 0 ? env : undefined
         };
         appState.mcpServers.push(newServer);
       }
@@ -40985,6 +41045,232 @@ async function installRecommendedTool(toolId) {
   } catch (err) {
     logActivity(`Failed to install ${tool.name}: ${err.message}`, 'error');
   }
+}
+
+// ===== Tool Recommender v2: Config Input Helpers =====
+
+// Render config input fields for a tool's config array
+function renderConfigInputs(tool, prefix = 'rec') {
+  if (!tool.config || !tool.config.length) return '';
+  
+  const projectId = getCurrentProjectId();
+  const stored = (appState.projectSecrets?.[projectId]?.[tool.id]) || {};
+  
+  let html = `<div class="rec-config-fields" style="flex: 1 1 100%; display: flex; flex-direction: column; gap: 8px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border);">`;
+  
+  for (const field of tool.config) {
+    const fieldId = `${prefix}-config-${tool.id}-${field.key}`;
+    const isSecret = field.isSecret === true;
+    const inputType = isSecret ? 'password' : (field.type || 'text');
+    const storedValue = stored[field.key] || '';
+    const maskedValue = isSecret && storedValue ? maskSecret(storedValue) : '';
+    const displayValue = isSecret ? maskedValue : storedValue;
+    const requiredAttr = field.required ? ' required' : '';
+    const placeholder = field.placeholder ? ` placeholder="${escapeHtml(field.placeholder)}"` : '';
+    
+    html += `
+      <div class="rec-config-field" style="display: flex; flex-direction: column; gap: 4px;">
+        <label for="${fieldId}" style="font-size: 11px; font-weight: 500; color: var(--text);">
+          ${escapeHtml(field.label)} ${field.required ? '<span style="color: var(--danger);">*</span>' : ''}
+        </label>
+        <input
+          type="${inputType}"
+          id="${fieldId}"
+          class="rec-config-input"
+          data-tool-id="${tool.id}"
+          data-config-key="${field.key}"
+          data-is-secret="${isSecret}"
+          autocomplete="off"
+          ${requiredAttr}
+          ${placeholder}
+          value="${escapeHtml(displayValue)}"
+          style="
+            background: var(--surface-3);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 8px 10px;
+            font-size: 12px;
+            color: var(--text);
+            outline: none;
+            transition: border-color 0.15s;
+          "
+          onfocus="this.style.borderColor='var(--accent-blue)'"
+          onblur="this.style.borderColor='var(--border)'"
+        />
+        ${isSecret && storedValue ? `<span style="font-size: 10px; color: var(--text-muted);">● Stored (masked)</span>` : ''}
+        ${!field.required ? `<span style="font-size: 10px; color: var(--text-dim);">${t('Optional')}</span>` : ''}
+      </div>
+    `;
+  }
+  
+  html += `</div>`;
+  return html;
+}
+
+// Collect config values from form inputs
+function collectConfigValues(toolId, prefix = 'rec') {
+  const inputs = document.querySelectorAll(`.rec-config-input[data-tool-id="${toolId}"]`);
+  const values = {};
+  for (const input of inputs) {
+    const key = input.dataset.configKey;
+    const isSecret = input.dataset.isSecret === 'true';
+    // For secrets, if the value looks masked (●●●), don't overwrite stored value
+    if (isSecret && input.value && !input.value.startsWith('●')) {
+      values[key] = input.value;
+    } else if (!isSecret) {
+      values[key] = input.value;
+    }
+  }
+  return values;
+}
+
+// Validate required config fields
+function validateConfigValues(tool, values, prefix = 'rec') {
+  if (!tool.config || !tool.config.length) return { valid: true };
+  
+  const missing = [];
+  for (const field of tool.config) {
+    if (field.required) {
+      const fieldId = `${prefix}-config-${tool.id}-${field.key}`;
+      const input = document.getElementById(fieldId);
+      const hasStored = (appState.projectSecrets?.[getCurrentProjectId()]?.[tool.id]?.[field.key]) || '';
+      const hasInput = input && input.value && (!field.isSecret || !input.value.startsWith('●'));
+      
+      if (!hasInput && !hasStored) {
+        missing.push(field.label);
+      }
+    }
+  }
+  
+  if (missing.length > 0) {
+    return { valid: false, missing };
+  }
+  return { valid: true };
+}
+
+// Get current project ID (from session or active project)
+function getCurrentProjectId() {
+  const session = getCurrentSession();
+  return session?.id || 'default-project';
+}
+
+// Store secret config per project
+function storeProjectSecret(toolId, configValues) {
+  const projectId = getCurrentProjectId();
+  if (!appState.projectSecrets) appState.projectSecrets = {};
+  if (!appState.projectSecrets[projectId]) appState.projectSecrets[projectId] = {};
+  if (!appState.projectSecrets[projectId][toolId]) appState.projectSecrets[projectId][toolId] = {};
+  
+  for (const [key, value] of Object.entries(configValues)) {
+    if (value !== undefined && value !== '') {
+      appState.projectSecrets[projectId][toolId][key] = value;
+    }
+  }
+  saveAppState();
+}
+
+// Get stored secret config for a tool
+function getProjectSecret(toolId, key) {
+  const projectId = getCurrentProjectId();
+  return appState.projectSecrets?.[projectId]?.[toolId]?.[key] || '';
+}
+
+// Mask secret for display
+function maskSecret(value) {
+  if (!value) return '';
+  if (value.length <= 8) return '●'.repeat(value.length);
+  return value.slice(0, 4) + '●'.repeat(value.length - 8) + value.slice(-4);
+}
+
+// Queue recommendation install for phone/offline sync
+function queueRecommendationInstall(toolId, configValues) {
+  const projectId = getCurrentProjectId();
+  const queueItem = {
+    type: 'recommendation-install',
+    toolId,
+    configValues,
+    projectId,
+    timestamp: Date.now(),
+    fromPhone: appState.isMobileApp || false
+  };
+  
+  if (!appState.messageQueue) appState.messageQueue = [];
+  appState.messageQueue.push(queueItem);
+  
+  // Trim queue if over capacity
+  const cap = appState.messageQueueCap || 20;
+  if (appState.messageQueue.length > cap) {
+    appState.messageQueue = appState.messageQueue.slice(-cap);
+  }
+  
+  saveAppState();
+  
+  if (appState.isMobileApp && !navigator.onLine) {
+    logActivity(`Queued ${toolId} install for sync when online`, 'info');
+  }
+  
+  return queueItem;
+}
+
+// Process queued recommendation installs (called when coming online)
+async function processQueuedRecommendationInstalls() {
+  if (!appState.messageQueue?.length) return;
+  
+  const installItems = appState.messageQueue.filter(item => item.type === 'recommendation-install');
+  if (!installItems.length) return;
+  
+  for (const item of installItems) {
+    try {
+      await installRecommendedToolWithConfig(item.toolId, item.configValues);
+      // Remove from queue on success
+      const idx = appState.messageQueue.indexOf(item);
+      if (idx !== -1) appState.messageQueue.splice(idx, 1);
+    } catch (err) {
+      logActivity(`Failed to process queued install for ${item.toolId}: ${err.message}`, 'error');
+    }
+  }
+  
+  saveAppState();
+}
+
+// Install with pre-collected config values (for phone sync)
+async function installRecommendedToolWithConfig(toolId, configValues) {
+  const tool = TOOL_RECOMMENDATIONS.find(t => t.id === toolId);
+  if (!tool) return;
+  
+  // Store config values first
+  if (configValues && Object.keys(configValues).length > 0) {
+    storeProjectSecret(toolId, configValues);
+  }
+  
+  // Then proceed with normal install
+  await installRecommendedTool(toolId);
+}
+
+// Render config inputs for phone mirror
+function renderPhoneRecommendationCard(tool, onSubmit) {
+  if (!tool.config || !tool.config.length) return '';
+  
+  let html = `<div class="phone-rec-config" style="display: flex; flex-direction: column; gap: 12px; padding: 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px;">`;
+  html += `<h4 style="margin: 0 0 8px; font-size: 14px; font-weight: 600;">${escapeHtml(tool.name)} - ${t('Configuration')}</h4>`;
+  html += renderConfigInputs(tool, 'phone-rec');
+  html += `
+    <button class="phone-rec-submit-btn" style="
+      background: var(--accent-blue);
+      color: white;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      margin-top: 4px;
+    ">${t('Submit & Install on Desktop')}</button>
+  `;
+  html += `</div>`;
+  
+  // This would be attached to the phone UI
+  return html;
 }
 
 // Render Recommendations sections on MCP/Skills/Plugin pages
@@ -41058,10 +41344,15 @@ function renderRecommendationSection(kind) {
     `;
     
     if (tool.kind === 'mcp' && tool.install.how === 'add-mcp') {
-      html += `<span style="color: var(--warning); font-size: 11px; flex: 1 1 100%;">⚠ ${t('Newly installed MCPs start UNTRUSTED (per H5.5 rule)')}</span>`;
-    }
-    
-    if (!installed) {
+          html += `<span style="color: var(--warning); font-size: 11px; flex: 1 1 100%;">⚠ ${t('Newly installed MCPs start UNTRUSTED (per H5.5 rule)')}</span>`;
+        }
+
+        // Config input fields (if tool has config)
+        if (!installed) {
+          html += renderConfigInputs(tool, 'page-rec');
+        }
+
+        if (!installed) {
       html += `
         <button class="page-rec-install-btn" data-tool-id="${tool.id}" data-kind="${tool.kind}" style="
           background: var(--accent-blue);
@@ -41108,6 +41399,21 @@ function attachPageRecommendationListeners() {
   document.querySelectorAll('.page-rec-install-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
       const toolId = e.target.dataset.toolId;
+      const tool = TOOL_RECOMMENDATIONS.find(t => t.id === toolId);
+      if (!tool) return;
+      
+      // Validate config if tool has config
+      if (tool.config && tool.config.length) {
+        const validation = validateConfigValues(tool, {}, 'page-rec');
+        if (!validation.valid) {
+          alert(`${t('Missing required fields')}: ${validation.missing.join(', ')}`);
+          return;
+        }
+        // Collect and store config values
+        const configValues = collectConfigValues(toolId, 'page-rec');
+        storeProjectSecret(toolId, configValues);
+      }
+      
       installRecommendedTool(toolId);
     });
   });
@@ -50309,6 +50615,13 @@ Requirements:
         };
         devPanel.appendChild(testBtn);
       }
+
+      // Batch 18: Process queued recommendation installs when coming online
+      window.addEventListener('online', () => {
+        if (typeof processQueuedRecommendationInstalls === 'function') {
+          processQueuedRecommendationInstalls();
+        }
+      });
 
     }
 
