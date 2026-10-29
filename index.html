@@ -2806,11 +2806,13 @@
                       </div>
                       <textarea id="dbQueryEditor" style="flex:1; min-height:150px; background:var(--bg-panel); border:1px solid var(--border-color); border-radius:4px; color:var(--text-main); font-family:var(--font-mono); font-size:12px; padding:10px; resize:vertical;" placeholder="SELECT * FROM users WHERE active = true LIMIT 10;"></textarea>
                       <div style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;">
-                        <button class="btn btn-primary" id="btnExecuteSQL">▶ Execute Query</button>
-                        <button class="btn btn-secondary" id="btnExplainSQL">📖 Explain Plan</button>
-                        <button class="btn btn-secondary" id="btnSaveSQLSnippet">💾 Save Snippet</button>
-                      </div>
-                    </div>
+                                              <button class="btn btn-primary" id="btnExecuteSQL">▶ Execute Query</button>
+                                              <button class="btn btn-secondary" id="btnExplainSQL">📖 Explain Plan</button>
+                                              <button class="btn btn-secondary" id="btnListTables">📋 List Tables</button>
+                                              <button class="btn btn-secondary" id="btnGetSchema">🔍 Get Schema</button>
+                                              <button class="btn btn-secondary" id="btnFormatSQL">Format</button>
+                                              <button class="btn btn-secondary" id="btnSaveSQLSnippet">💾 Save Snippet</button>
+                                            </div>
 
                     <!-- Query Results Panel -->
                     <div style="background:var(--bg-surface); border:1px solid var(--border-color); border-radius:8px; padding:12px; flex:1; display:flex; flex-direction:column;">
@@ -20673,7 +20675,6 @@ function initPublishPanel() {
     };
   }
 }
-}
 
 // ==================== BATCH 17: PANE INITIALIZATION ====================
 
@@ -20825,10 +20826,12 @@ function initPRReviewPane() {
 
 function initDatabasePane() {
   const btnAddConnection = document.getElementById('btnAddDBConnection');
-  const btnExecuteQuery = document.getElementById('btnExecuteQuery');
-  const btnExplainQuery = document.getElementById('btnExplainQuery');
+  const btnExecuteSQL = document.getElementById('btnExecuteSQL');
+  const btnExplainSQL = document.getElementById('btnExplainSQL');
   const btnListTables = document.getElementById('btnListTables');
   const btnGetSchema = document.getElementById('btnGetSchema');
+  const btnFormatSQL = document.getElementById('btnFormatSQL');
+  const btnSaveSQLSnippet = document.getElementById('btnSaveSQLSnippet');
   const safeModeToggle = document.getElementById('dbSafeModeToggle');
   
   if (btnAddConnection) {
@@ -20855,8 +20858,8 @@ function initDatabasePane() {
     };
   }
   
-  if (btnExecuteQuery) {
-    btnExecuteQuery.onclick = async () => {
+  if (btnExecuteSQL) {
+    btnExecuteSQL.onclick = async () => {
       const connId = appState.dbConnections?.find(c => c.status === 'connected')?.id;
       if (!connId) { alert('No active connection. Activate one first.'); return; }
       const editor = document.getElementById('dbQueryEditor');
@@ -20883,7 +20886,7 @@ function initDatabasePane() {
       if (result instanceof Error) { alert('Error: ' + result.message); }
       else if (!result.success) { alert('Error: ' + result.error); }
       else {
-        const output = document.getElementById('dbQueryOutput');
+        const output = document.getElementById('dbQueryResults');
         if (output) {
           output.textContent = JSON.stringify(result, null, 2);
         }
@@ -20891,8 +20894,8 @@ function initDatabasePane() {
     };
   }
   
-  if (btnExplainQuery) {
-    btnExplainQuery.onclick = async () => {
+  if (btnExplainSQL) {
+    btnExplainSQL.onclick = async () => {
       const connId = appState.dbConnections?.find(c => c.status === 'connected')?.id;
       if (!connId) { alert('No active connection. Activate one first.'); return; }
       const editor = document.getElementById('dbQueryEditor');
@@ -20902,7 +20905,7 @@ function initDatabasePane() {
       const result = await explainDBQuery({ connectionId: connId, sql: sql.trim() });
       if (result instanceof Error) { alert('Error: ' + result.message); }
       else {
-        const output = document.getElementById('dbQueryOutput');
+        const output = document.getElementById('dbQueryResults');
         if (output) {
           output.textContent = JSON.stringify(result, null, 2);
         }
@@ -20918,7 +20921,7 @@ function initDatabasePane() {
       const result = await listDBTables({ connectionId: connId, schema });
       if (result instanceof Error) { alert('Error: ' + result.message); }
       else {
-        const output = document.getElementById('dbQueryOutput');
+        const output = document.getElementById('dbQueryResults');
         if (output) {
           output.textContent = JSON.stringify(result, null, 2);
         }
@@ -20935,11 +20938,41 @@ function initDatabasePane() {
       const result = await getDBSchema({ connectionId: connId, table, schema });
       if (result instanceof Error) { alert('Error: ' + result.message); }
       else {
-        const output = document.getElementById('dbQueryOutput');
+        const output = document.getElementById('dbQueryResults');
         if (output) {
           output.textContent = JSON.stringify(result, null, 2);
         }
       }
+    };
+  }
+  
+  if (btnFormatSQL) {
+    btnFormatSQL.onclick = () => {
+      const editor = document.getElementById('dbQueryEditor');
+      if (!editor) return;
+      const sql = editor.value.trim();
+      if (!sql) { alert('Enter a SQL query to format'); return; }
+      // Simple formatting: uppercase keywords, add line breaks
+      const formatted = sql
+        .replace(/\b(SELECT|FROM|WHERE|JOIN|LEFT JOIN|RIGHT JOIN|INNER JOIN|OUTER JOIN|ON|AND|OR|GROUP BY|ORDER BY|LIMIT|OFFSET|HAVING|INSERT INTO|VALUES|UPDATE|SET|DELETE FROM|CREATE TABLE|ALTER TABLE|DROP TABLE|INDEX|PRIMARY KEY|FOREIGN KEY|REFERENCES)\b/gi, (m) => '\n' + m.toUpperCase())
+        .replace(/,/g, ',\n')
+        .trim();
+      editor.value = formatted;
+    };
+  }
+  
+  if (btnSaveSQLSnippet) {
+    btnSaveSQLSnippet.onclick = () => {
+      const editor = document.getElementById('dbQueryEditor');
+      if (!editor) return;
+      const sql = editor.value.trim();
+      if (!sql) { alert('Enter a SQL query to save'); return; }
+      const name = prompt('Snippet name:');
+      if (!name) return;
+      if (!appState.dbSnippets) appState.dbSnippets = [];
+      appState.dbSnippets.push({ name, sql, createdAt: Date.now() });
+      saveAppState();
+      alert(`Snippet saved: ${name}`);
     };
   }
   
