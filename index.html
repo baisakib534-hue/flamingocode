@@ -1943,6 +1943,9 @@
         <button class="right-tab" data-pane="companion" data-i18n="Companion">📱 Companion</button>
         <button class="right-tab" data-pane="specs" data-i18n="Specs">📋 Specs</button>
         <button class="right-tab" data-pane="computerUse" data-i18n="Computer Use">🖥️ Computer Use</button>
+        <button class="right-tab" data-pane="debug" data-i18n="Debug">🐛 Debug</button>
+        <button class="right-tab" data-pane="prReview" data-i18n="PR Review">🔍 PR Review</button>
+        <button class="right-tab" data-pane="database" data-i18n="Database">🗄️ Database</button>
       </div>
 
       <div class="right-content">
@@ -2628,6 +2631,202 @@
                 <div style="font-size: 11px; color: var(--text-dim); text-align: center; padding: 10px;" data-i18n="No checkpoints">No checkpoints</div>
               </div>
             </div>
+                  </div>
+                </div>
+
+                <!-- Debug Pane (Batch 17 Q1) -->
+                <div class="pane-view" id="paneDebug">
+                  <div style="flex:1; overflow-y:auto; padding: 12px; display:flex; flex-direction:column; gap:12px;">
+                    <!-- Debug Header -->
+                    <div style="display:flex; align-items:center; justify-content:space-between; padding: 8px 12px; background:var(--bg-surface); border:1px solid var(--border-color); border-radius:5px;">
+                      <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Agentic Debugging</div>
+                      <div style="display:flex; align-items:center; gap:8px;">
+                        <span id="debugSessionStatus" style="font-size: 10px; color: var(--text-dim);">No active session</span>
+                      </div>
+                    </div>
+
+                    <!-- Session Controls -->
+                    <div style="background:var(--bg-surface); border:1px solid var(--border-color); border-radius:8px; padding:12px;">
+                      <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom:8px;">Debug Session</div>
+                      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;">
+                        <input type="text" id="debugSessionName" placeholder="Session name (e.g., 'auth-flow-null-check')" style="flex:1; min-width:200px; background:var(--bg-hover); border:1px solid var(--border-color); border-radius:4px; color:var(--text-main); font-size:11px; padding:6px 10px;" />
+                        <select id="debugSessionMode" style="background:var(--bg-hover); border:1px solid var(--border-color); border-radius:4px; color:var(--text-main); font-size:11px; padding:6px 10px;">
+                          <option value="prepared">Prepared — I'll trigger the flow</option>
+                          <option value="autonomous">Autonomous — Agent runs test</option>
+                          <option value="handoff">Handoff — Continue my session</option>
+                        </select>
+                        <button class="btn btn-primary" id="btnCreateDebugSession">Create Session</button>
+                      </div>
+                      <div id="debugActiveSessionInfo" style="display:none; padding:10px; background:var(--bg-panel); border:1px solid var(--border-color); border-radius:4px; font-size:11px; font-family:var(--font-mono);"></div>
+                    </div>
+
+                    <!-- Breakpoints Panel -->
+                    <div style="background:var(--bg-surface); border:1px solid var(--border-color); border-radius:8px; padding:12px; flex:1; display:flex; flex-direction:column;">
+                      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+                        <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Breakpoints</div>
+                        <button class="btn btn-secondary" id="btnAddBreakpoint" style="padding: 4px 10px; font-size: 10px;">+ Add Breakpoint</button>
+                      </div>
+                      <div id="debugBreakpointList" style="flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:4px; min-height:150px;">
+                        <div style="font-size: 11px; color: var(--text-dim); text-align: center; padding: 20px;">No breakpoints yet. Click "Add Breakpoint" or let the agent suggest them.</div>
+                      </div>
+                    </div>
+
+                    <!-- Repro Scripts Panel -->
+                    <div style="background:var(--bg-surface); border:1px solid var(--border-color); border-radius:8px; padding:12px;">
+                      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+                        <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Repro Scripts</div>
+                        <button class="btn btn-secondary" id="btnAddReproScript" style="padding: 4px 10px; font-size: 10px;">+ Add Script</button>
+                      </div>
+                      <div id="debugReproScriptList" style="display:flex; flex-direction:column; gap:6px; min-height:80px;">
+                        <div style="font-size: 11px; color: var(--text-dim); text-align: center; padding: 15px;">No repro scripts. Create one to automate the failure trigger.</div>
+                      </div>
+                    </div>
+
+                    <!-- Evidence Templates Panel -->
+                    <div style="background:var(--bg-surface); border:1px solid var(--border-color); border-radius:8px; padding:12px;">
+                      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+                        <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Evidence Templates</div>
+                        <button class="btn btn-secondary" id="btnAddEvidenceTemplate" style="padding: 4px 10px; font-size: 10px;">+ Add Template</button>
+                      </div>
+                      <div id="debugEvidenceTemplateList" style="display:flex; flex-direction:column; gap:6px; min-height:80px;">
+                        <div style="font-size: 11px; color: var(--text-dim); text-align: center; padding: 15px;">No evidence templates. Define what to capture at each breakpoint.</div>
+                      </div>
+                    </div>
+
+                    <!-- Evidence Collected Panel -->
+                    <div style="background:var(--bg-surface); border:1px solid var(--border-color); border-radius:8px; padding:12px; flex:1;">
+                      <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom:8px;">Collected Evidence</div>
+                      <div id="debugEvidenceList" style="flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:6px; min-height:150px;">
+                        <div style="font-size: 11px; color: var(--text-dim); text-align: center; padding: 20px;">No evidence collected yet. Run a debug session to capture runtime state.</div>
+                      </div>
+                    </div>
+
+                    <!-- Debug Actions -->
+                    <div style="display:flex; gap:8px; flex-wrap:wrap; padding: 8px 0;">
+                      <button class="btn btn-primary" id="btnRunDebugSession" style="display:none;">▶ Run Debug Session</button>
+                      <button class="btn btn-secondary" id="btnExportDebugReport">📄 Export Debug Report</button>
+                      <button class="btn btn-secondary" id="btnOpenDiffReviewFromDebug">🔍 Open in Diff Review</button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- PR Review Pane (Batch 17 Q2) -->
+                <div class="pane-view" id="panePRReview">
+                  <div style="flex:1; overflow-y:auto; padding: 12px; display:flex; flex-direction:column; gap:12px;">
+                    <!-- PR Review Header -->
+                    <div style="display:flex; align-items:center; justify-content:space-between; padding: 8px 12px; background:var(--bg-surface); border:1px solid var(--border-color); border-radius:5px;">
+                      <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Context-Aware PR Review</div>
+                      <div style="display:flex; align-items:center; gap:8px;">
+                        <span id="prReviewStatus" style="font-size: 10px; color: var(--text-dim);">Ready</span>
+                      </div>
+                    </div>
+
+                    <!-- Trigger Controls -->
+                    <div style="background:var(--bg-surface); border:1px solid var(--border-color); border-radius:8px; padding:12px;">
+                      <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom:8px;">Trigger Review</div>
+                      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; align-items:flex-end;">
+                        <div style="flex:1; min-width:150px;">
+                          <label style="font-size: 10px; color: var(--text-dim); display:block; margin-bottom:4px;">Source</label>
+                          <select id="prReviewSource" style="width:100%; background:var(--bg-hover); border:1px solid var(--border-color); border-radius:4px; color:var(--text-main); font-size:11px; padding:6px 10px;">
+                            <option value="cli">CLI / Chat Command (/review)</option>
+                            <option value="github">GitHub Actions</option>
+                            <option value="gitlab">GitLab (incl. On-prem)</option>
+                          </select>
+                        </div>
+                        <div style="flex:1; min-width:150px;">
+                          <label style="font-size: 10px; color: var(--text-dim); display:block; margin-bottom:4px;">Scope</label>
+                          <select id="prReviewScope" style="width:100%; background:var(--bg-hover); border:1px solid var(--border-color); border-radius:4px; color:var(--text-main); font-size:11px; padding:6px 10px;">
+                            <option value="unstaged">Unstaged changes</option>
+                            <option value="staged">Staged changes</option>
+                            <option value="diff-main">Diff against main</option>
+                          </select>
+                        </div>
+                        <button class="btn btn-primary" id="btnTriggerPRReview" style="padding: 6px 16px; font-size: 11px;">🔍 Trigger Review</button>
+                      </div>
+                      <div id="prReviewDiffPreview" style="display:none; max-height:200px; overflow-y:auto; background:var(--bg-panel); border:1px solid var(--border-color); border-radius:4px; padding:10px; font-family:var(--font-mono); font-size:10px;"></div>
+                    </div>
+
+                    <!-- Review List -->
+                    <div style="background:var(--bg-surface); border:1px solid var(--border-color); border-radius:8px; padding:12px; flex:1; display:flex; flex-direction:column;">
+                      <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom:8px;">Reviews</div>
+                      <div id="prReviewList" style="flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:6px; min-height:150px;">
+                        <div style="font-size: 11px; color: var(--text-dim); text-align: center; padding: 20px;">No reviews yet. Trigger a review from CLI, GitHub Actions, or GitLab.</div>
+                      </div>
+                    </div>
+
+                    <!-- Inline Comments Panel (for selected review) -->
+                    <div id="prReviewCommentsPanel" style="display:none; background:var(--bg-surface); border:1px solid var(--border-color); border-radius:8px; padding:12px; flex:1;">
+                      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+                        <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Inline Comments</div>
+                        <button class="btn btn-secondary" id="btnClosePRComments" style="padding: 4px 10px; font-size: 10px;">Close</button>
+                      </div>
+                      <div id="prReviewCommentsList" style="flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:8px; min-height:200px;"></div>
+                      <div style="display:flex; gap:8px; margin-top:12px; padding-top:12px; border-top:1px solid var(--border-color);">
+                        <button class="btn btn-primary" id="btnAcceptAllComments">✅ Accept All</button>
+                        <button class="btn btn-secondary" id="btnRejectAllComments">❌ Reject All</button>
+                        <button class="btn" id="btnCreateReviewArtifact">📄 Create O1 Review Artifact</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Database Pane (Batch 17 Q3) -->
+                <div class="pane-view" id="paneDatabase">
+                  <div style="flex:1; overflow-y:auto; padding: 12px; display:flex; flex-direction:column; gap:12px;">
+                    <!-- Database Header -->
+                    <div style="display:flex; align-items:center; justify-content:space-between; padding: 8px 12px; background:var(--bg-surface); border:1px solid var(--border-color); border-radius:5px;">
+                      <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Database-Aware Agent</div>
+                      <div style="display:flex; align-items:center; gap:8px;">
+                        <label style="display:flex; align-items:center; gap:6px; font-size: 10px; color: var(--text-dim);">
+                          <input type="checkbox" id="dbSafeModeToggle" checked> Safe Mode
+                        </label>
+                        <span id="dbConnectionStatus" style="font-size: 10px; color: var(--text-dim);">No connection</span>
+                      </div>
+                    </div>
+
+                    <!-- Connections Panel -->
+                    <div style="background:var(--bg-surface); border:1px solid var(--border-color); border-radius:8px; padding:12px;">
+                      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+                        <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Connections</div>
+                        <button class="btn btn-secondary" id="btnAddDBConnection" style="padding: 4px 10px; font-size: 10px;">+ Add Connection</button>
+                      </div>
+                      <div id="dbConnectionList" style="display:flex; flex-direction:column; gap:6px; min-height:100px;">
+                        <div style="font-size: 11px; color: var(--text-dim); text-align: center; padding: 15px;">No database connections. Add one using a Batch 9 MCP (PostgreSQL or Supabase).</div>
+                      </div>
+                    </div>
+
+                    <!-- Query Editor Panel -->
+                    <div style="background:var(--bg-surface); border:1px solid var(--border-color); border-radius:8px; padding:12px; flex:1; display:flex; flex-direction:column;">
+                      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+                        <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">SQL Query</div>
+                        <div style="display:flex; gap:6px;">
+                          <span id="dbQueryTypeBadge" style="font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 3px; background:var(--success); color:white;">READ</span>
+                          <button class="btn btn-secondary" id="btnFormatSQL" style="padding: 3px 8px; font-size: 10px;">Format</button>
+                        </div>
+                      </div>
+                      <textarea id="dbQueryEditor" style="flex:1; min-height:150px; background:var(--bg-panel); border:1px solid var(--border-color); border-radius:4px; color:var(--text-main); font-family:var(--font-mono); font-size:12px; padding:10px; resize:vertical;" placeholder="SELECT * FROM users WHERE active = true LIMIT 10;"></textarea>
+                      <div style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;">
+                        <button class="btn btn-primary" id="btnExecuteSQL">▶ Execute Query</button>
+                        <button class="btn btn-secondary" id="btnExplainSQL">📖 Explain Plan</button>
+                        <button class="btn btn-secondary" id="btnSaveSQLSnippet">💾 Save Snippet</button>
+                      </div>
+                    </div>
+
+                    <!-- Query Results Panel -->
+                    <div style="background:var(--bg-surface); border:1px solid var(--border-color); border-radius:8px; padding:12px; flex:1; display:flex; flex-direction:column;">
+                      <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom:8px;">Results</div>
+                      <div id="dbQueryResults" style="flex:1; overflow:auto; min-height:200px; background:var(--bg-panel); border:1px solid var(--border-color); border-radius:4px; padding:10px; font-family:var(--font-mono); font-size:11px;">
+                        <div style="color: var(--text-dim); text-align: center; padding: 40px;">No query executed yet.</div>
+                      </div>
+                    </div>
+
+                    <!-- Query History Panel -->
+                    <div style="background:var(--bg-surface); border:1px solid var(--border-color); border-radius:8px; padding:12px;">
+                      <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom:8px;">Query History (Session)</div>
+                      <div id="dbQueryHistory" style="max-height:200px; overflow-y:auto; display:flex; flex-direction:column; gap:4px; font-size:10px; font-family:var(--font-mono);">
+                        <div style="color: var(--text-dim); text-align: center; padding: 15px;">No queries executed in this session.</div>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -9439,6 +9638,22 @@ Detail level: {{detail_level}}`,
       humanHandoffs: [],
       // O18: Scripted model test harness
       testHarness: { playbackQueue: [], passthroughMode: false },
+      // Batch 17: Junie mechanisms
+      // Q1: Agentic Debugging
+      debugBreakpoints: [],        // { id, file, line, condition, enabled, hitCount, source: 'auto|prepared|handoff' }
+      debugSessions: [],           // { id, name, config, breakpoints, status, evidence: [], createdAt }
+      debugEvidenceTemplates: [],  // { id, name, pattern, fields, description }
+      debugReproScripts: [],       // { id, name, script, language, targetTest, description }
+      debugActiveSessionId: null,
+      // Q2: Context-aware PR Review
+      prReviewTriggers: [],        // { id, source: 'github|gitlab|cli', scope: 'unstaged|staged|diff-main', config }
+      prReviews: [],               // { id, triggerId, diff, comments: [], status, artifactId, createdAt }
+      prReviewComments: [],        // { id, reviewId, file, line, type: 'suggestion|issue|question|praise', text, acceptReject: null|'accept'|'reject', resolution }
+      // Q3: Database-aware Agent
+      dbConnections: [],           // { id, name, type: 'postgres|supabase', config: {host,port,db,user}, mcpId, maskedConfig }
+      dbQueries: [],               // { id, connectionId, sql, params, type: 'read|write', status, result, error, approved, approvedBy, createdAt }
+      dbActiveConnectionId: null,
+      dbSafeModeEnabled: true,
     };
 
     // Expose appState globally for test access
@@ -19734,6 +19949,15 @@ function switchPane(paneName) {
   document.querySelectorAll('.pane-view').forEach(pane => {
     pane.classList.toggle('active', pane.id === 'pane' + paneName.charAt(0).toUpperCase() + paneName.slice(1));
   });
+  
+  // Batch 17: Call render functions when panes are shown
+  if (paneName === 'debug') {
+    setTimeout(renderDebugPane, 0);
+  } else if (paneName === 'prReview') {
+    setTimeout(renderPRReviewPane, 0);
+  } else if (paneName === 'database') {
+    setTimeout(renderDatabasePane, 0);
+  }
 }
 
 // Initialize graph panel when tab is shown
@@ -20446,6 +20670,282 @@ function initPublishPanel() {
         publishStatus.textContent = `Opened ${result.deployGuide} live app`;
         logActivity(`Opened share link: ${result.liveUrl}`, 'success');
       }
+    };
+  }
+}
+}
+
+// ==================== BATCH 17: PANE INITIALIZATION ====================
+
+function initDebugPane() {
+  const btnCreateSession = document.getElementById('btnCreateDebugSession');
+  const btnAddBreakpoint = document.getElementById('btnAddBreakpoint');
+  const btnAddReproScript = document.getElementById('btnAddReproScript');
+  const btnAddEvidenceTemplate = document.getElementById('btnAddEvidenceTemplate');
+  const btnRunSession = document.getElementById('btnRunDebugSession');
+  const btnCollectEvidence = document.getElementById('btnCollectEvidence');
+  const btnExportReport = document.getElementById('btnExportDebugReport');
+  
+  if (btnCreateSession) {
+    btnCreateSession.onclick = async () => {
+      const name = prompt('Debug session name:');
+      if (!name) return;
+      const mode = prompt('Mode (autonomous/prepared/handoff):', 'prepared');
+      const result = createDebugSession({ name, mode: mode || 'prepared' });
+      if (!result) {
+        alert('Error creating session');
+      } else {
+        appState.debugActiveSessionId = result.id;
+        renderDebugPane();
+        saveAppState();
+      }
+    };
+  }
+  
+  if (btnAddBreakpoint) {
+    btnAddBreakpoint.onclick = async () => {
+      const sessionId = appState.debugActiveSessionId;
+      if (!sessionId) { alert('Create or select a session first'); return; }
+      const file = prompt('File path:');
+      if (!file) return;
+      const line = parseInt(prompt('Line number:', '1'), 10);
+      const condition = prompt('Condition (optional):') || undefined;
+      const result = addDebugBreakpoint({ sessionId, file, line, condition });
+      if (result instanceof Error) { alert('Error: ' + result.message); }
+      else { renderDebugPane(); }
+    };
+  }
+  
+  if (btnAddReproScript) {
+    btnAddReproScript.onclick = async () => {
+      const sessionId = appState.debugActiveSessionId;
+      if (!sessionId) { alert('Create or select a session first'); return; }
+      const name = prompt('Script name:');
+      if (!name) return;
+      const language = prompt('Language (javascript/typescript/python/bash):', 'javascript');
+      const targetTest = prompt('Target test (optional):') || undefined;
+      const description = prompt('Description (optional):') || undefined;
+      const script = prompt('Script content:');
+      if (!script) return;
+      const result = addDebugReproScript({ sessionId, name, language, targetTest, description, script });
+      if (result instanceof Error) { alert('Error: ' + result.message); }
+      else { renderDebugPane(); }
+    };
+  }
+  
+  if (btnAddEvidenceTemplate) {
+    btnAddEvidenceTemplate.onclick = async () => {
+      const sessionId = appState.debugActiveSessionId;
+      if (!sessionId) { alert('Create or select a session first'); return; }
+      const name = prompt('Template name:');
+      if (!name) return;
+      const pattern = prompt('Pattern (e.g., variableName, functionName, *):', '*');
+      const fieldsInput = prompt('Fields to capture (comma-separated):', 'frame,variables,expressions');
+      const fields = fieldsInput.split(',').map(f => f.trim()).filter(Boolean);
+      const description = prompt('Description (optional):') || undefined;
+      const result = addDebugEvidenceTemplate({ sessionId, name, pattern, fields, description });
+      if (result instanceof Error) { alert('Error: ' + result.message); }
+      else { renderDebugPane(); }
+    };
+  }
+  
+  if (btnRunSession) {
+    btnRunSession.onclick = async () => {
+      const sessionId = appState.debugActiveSessionId;
+      if (!sessionId) { alert('No active session'); return; }
+      const result = runDebugSession({ sessionId });
+      if (result instanceof Error) { alert('Error: ' + result.message); }
+      else { 
+        alert(`Debug session prepared. Breakpoints: ${result.breakpoints}\nRepro scripts: ${result.reproScripts}\nEvidence templates: ${result.evidenceTemplates}\n\n${result.message}`);
+        renderDebugPane();
+      }
+    };
+  }
+  
+  if (btnCollectEvidence) {
+    btnCollectEvidence.onclick = async () => {
+      const sessionId = appState.debugActiveSessionId;
+      if (!sessionId) { alert('No active session'); return; }
+      const bpId = prompt('Breakpoint ID:');
+      if (!bpId) return;
+      const frame = prompt('Stack frame (JSON):') || '{}';
+      const variables = prompt('Variables (JSON):') || '{}';
+      const expressions = prompt('Expressions (JSON):') || '{}';
+      const result = collectDebugEvidence({ sessionId, breakpointId: bpId, frame: JSON.parse(frame), variables: JSON.parse(variables), expressions: JSON.parse(expressions) });
+      if (result instanceof Error) { alert('Error: ' + result.message); }
+      else { renderDebugPane(); }
+    };
+  }
+  
+  if (btnExportReport) {
+    btnExportReport.onclick = async () => {
+      const sessionId = appState.debugActiveSessionId;
+      if (!sessionId) { alert('No active session'); return; }
+      const result = exportDebugReport({ sessionId });
+      if (result instanceof Error) { alert('Error: ' + result.message); }
+      else {
+        const blob = new Blob([result.report], { type: 'text/plain' });
+        downloadBlob(blob, `debug-report-${sessionId}.txt`);
+      }
+    };
+  }
+}
+
+function initPRReviewPane() {
+  const btnTriggerReview = document.getElementById('btnTriggerPRReview');
+  const btnCreateArtifact = document.getElementById('btnCreateReviewArtifact');
+  
+  if (btnTriggerReview) {
+    btnTriggerReview.onclick = async () => {
+      const source = prompt('Source (github-actions/gitlab/cli):', 'cli');
+      const scope = prompt('Scope (unstaged/staged/diff-main):', 'unstaged');
+      const targetBranch = prompt('Target branch (optional, for diff-main):') || undefined;
+      const result = triggerPRReview({ source: source || 'cli', scope: scope || 'unstaged', targetBranch });
+      if (result instanceof Error) { alert('Error: ' + result.message); }
+      else { 
+        alert(`Review triggered: ${result.id}\nStatus: ${result.status}`);
+        renderPRReviewPane();
+      }
+    };
+  }
+  
+  if (btnCreateArtifact) {
+    btnCreateArtifact.onclick = async () => {
+      const reviewId = prompt('Review ID:');
+      if (!reviewId) return;
+      const result = createPRReviewArtifact({ reviewId });
+      if (result instanceof Error) { alert('Error: ' + result.message); }
+      else {
+        alert(`Review artifact created: ${result.id}`);
+        renderPRReviewPane();
+      }
+    };
+  }
+}
+
+function initDatabasePane() {
+  const btnAddConnection = document.getElementById('btnAddDBConnection');
+  const btnExecuteQuery = document.getElementById('btnExecuteQuery');
+  const btnExplainQuery = document.getElementById('btnExplainQuery');
+  const btnListTables = document.getElementById('btnListTables');
+  const btnGetSchema = document.getElementById('btnGetSchema');
+  const safeModeToggle = document.getElementById('dbSafeModeToggle');
+  
+  if (btnAddConnection) {
+    btnAddConnection.onclick = async () => {
+      const name = prompt('Connection name:');
+      if (!name) return;
+      const type = prompt('Type (postgres/supabase):', 'postgres');
+      const mcpId = prompt('MCP Server ID (from Batch 9 MCP connections):');
+      if (!mcpId) return;
+      const configStr = prompt('Config JSON (host, port, database, user - password will be masked):', '{"host":"localhost","port":5432,"database":"mydb","user":"user"}');
+      let config;
+      try {
+        config = JSON.parse(configStr);
+      } catch {
+        alert('Invalid JSON');
+        return;
+      }
+      const result = addDBConnection({ name, type, mcpId, config });
+      if (result instanceof Error) { alert('Error: ' + result.message); }
+      else { 
+        alert(`Connection added: ${result.id}`);
+        renderDatabasePane();
+      }
+    };
+  }
+  
+  if (btnExecuteQuery) {
+    btnExecuteQuery.onclick = async () => {
+      const connId = appState.dbConnections?.find(c => c.status === 'connected')?.id;
+      if (!connId) { alert('No active connection. Activate one first.'); return; }
+      const editor = document.getElementById('dbQueryEditor');
+      const sql = editor?.value;
+      if (!sql?.trim()) { alert('Enter a SQL query'); return; }
+      
+      // Check if it's a write query
+      const isWrite = /^\s*(INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|TRUNCATE|REPLACE|MERGE)\b/i.test(sql);
+      if (isWrite && appState.safeMode !== 'off') {
+        const approved = confirm(`⚠️ Safe Mode: This is a WRITE query (${sql.trim().split(/\s+/)[0]}). Proceed?`);
+        if (!approved) return;
+      }
+      
+      const paramsStr = prompt('Parameters (JSON array, optional):', '[]');
+      let params = [];
+      try {
+        params = JSON.parse(paramsStr);
+      } catch {
+        alert('Invalid JSON for parameters');
+        return;
+      }
+      
+      const result = await executeDBQuery({ connectionId: connId, sql: sql.trim(), params });
+      if (result instanceof Error) { alert('Error: ' + result.message); }
+      else if (!result.success) { alert('Error: ' + result.error); }
+      else {
+        const output = document.getElementById('dbQueryOutput');
+        if (output) {
+          output.textContent = JSON.stringify(result, null, 2);
+        }
+      }
+    };
+  }
+  
+  if (btnExplainQuery) {
+    btnExplainQuery.onclick = async () => {
+      const connId = appState.dbConnections?.find(c => c.status === 'connected')?.id;
+      if (!connId) { alert('No active connection. Activate one first.'); return; }
+      const editor = document.getElementById('dbQueryEditor');
+      const sql = editor?.value;
+      if (!sql?.trim()) { alert('Enter a SQL query'); return; }
+      
+      const result = await explainDBQuery({ connectionId: connId, sql: sql.trim() });
+      if (result instanceof Error) { alert('Error: ' + result.message); }
+      else {
+        const output = document.getElementById('dbQueryOutput');
+        if (output) {
+          output.textContent = JSON.stringify(result, null, 2);
+        }
+      }
+    };
+  }
+  
+  if (btnListTables) {
+    btnListTables.onclick = async () => {
+      const connId = appState.dbConnections?.find(c => c.status === 'connected')?.id;
+      if (!connId) { alert('No active connection. Activate one first.'); return; }
+      const schema = prompt('Schema (optional):') || undefined;
+      const result = await listDBTables({ connectionId: connId, schema });
+      if (result instanceof Error) { alert('Error: ' + result.message); }
+      else {
+        const output = document.getElementById('dbQueryOutput');
+        if (output) {
+          output.textContent = JSON.stringify(result, null, 2);
+        }
+      }
+    };
+  }
+  
+  if (btnGetSchema) {
+    btnGetSchema.onclick = async () => {
+      const connId = appState.dbConnections?.find(c => c.status === 'connected')?.id;
+      if (!connId) { alert('No active connection. Activate one first.'); return; }
+      const table = prompt('Table name (optional, for specific table):') || undefined;
+      const schema = prompt('Schema (optional):') || undefined;
+      const result = await getDBSchema({ connectionId: connId, table, schema });
+      if (result instanceof Error) { alert('Error: ' + result.message); }
+      else {
+        const output = document.getElementById('dbQueryOutput');
+        if (output) {
+          output.textContent = JSON.stringify(result, null, 2);
+        }
+      }
+    };
+  }
+  
+  if (safeModeToggle) {
+    safeModeToggle.onchange = () => {
+      renderDatabasePane();
     };
   }
 }
@@ -22267,6 +22767,26 @@ function validateRecipe(recipe) {
       'ask_followup_question': { name: 'ask_followup_question', type: 'builtin', trigger: 'Asks the user a follow-up question mid-task and waits for the answer (alias of question)', description: 'Alias of question tool — asks the user a question MID-TASK and waits for the answer. Uses the existing human checkpoint UI. Args: {question: string, options?: string[]}' },
       // J10: Codemode sandbox tool
       'codemode': { name: 'codemode', type: 'builtin', trigger: 'Runs a codemode script in a sandboxed environment', description: 'Execute a JavaScript codemode script with access to allowed tools. Gated by validateCodemodePermissions and Safe Mode (H2.3). Args: {script: string}' },
+      // ==================== BATCH 17: JUNIE MECHANISMS ====================
+      // Q1: Agentic Debugging
+      'debug-create-session': { name: 'debug-create-session', type: 'builtin', trigger: 'Creates a new debug session with breakpoints, repro scripts, and evidence templates', description: 'Create a debug session for autonomous, prepared, or handoff mode. Args: {name: string, mode: "autonomous|prepared|handoff", config?: object}' },
+      'debug-add-breakpoint': { name: 'debug-add-breakpoint', type: 'builtin', trigger: 'Adds a breakpoint to the active debug session', description: 'Add a breakpoint at a file:line with optional condition. Args: {sessionId: string, file: string, line: number, condition?: string, source: "auto|prepared|handoff"}' },
+      'debug-add-repro-script': { name: 'debug-add-repro-script', type: 'builtin', trigger: 'Adds a reproduction script to the debug session', description: 'Add a script that reproduces the failure. Args: {sessionId: string, name: string, script: string, language: "js|py|sh", targetTest?: string, description?: string}' },
+      'debug-add-evidence-template': { name: 'debug-add-evidence-template', type: 'builtin', trigger: 'Adds an evidence template for what to capture at breakpoints', description: 'Define what runtime state to capture. Args: {sessionId: string, name: string, pattern: string, fields: string[], description?: string}' },
+      'debug-run-session': { name: 'debug-run-session', type: 'builtin', trigger: 'Runs the debug session (prepares breakpoints/scripts for desktop debugger attachment)', description: 'Execute the debug session. In web app: prepares breakpoint list + repro script + evidence template for desktop. Args: {sessionId: string}' },
+      'debug-collect-evidence': { name: 'debug-collect-evidence', type: 'builtin', trigger: 'Records evidence from a debugger breakpoint hit', description: 'Capture stack frames, variables, expression eval results. Args: {sessionId: string, breakpointId: string, frame: object, variables: object, expressions: object}' },
+      'debug-export-report': { name: 'debug-export-report', type: 'builtin', trigger: 'Exports a debug report with all evidence and proposed fix', description: 'Generate a report for diff review. Args: {sessionId: string}' },
+      // Q2: Context-aware PR Review
+      'pr-review-trigger': { name: 'pr-review-trigger', type: 'builtin', trigger: 'Triggers a context-aware PR review from CLI, GitHub Actions, or GitLab', description: 'Start a review with project context (Brain, build config, test results). Args: {source: "cli|github|gitlab", scope: "unstaged|staged|diff-main", config?: object}' },
+      'pr-review-add-comment': { name: 'pr-review-add-comment', type: 'builtin', trigger: 'Adds an inline review comment with accept/reject controls', description: 'Add a comment on a diff line. Args: {reviewId: string, file: string, line: number, type: "suggestion|issue|question|praise", text: string}' },
+      'pr-review-resolve-comment': { name: 'pr-review-resolve-comment', type: 'builtin', trigger: 'Accepts or rejects a review comment', description: 'Resolve a comment. Args: {commentId: string, action: "accept|reject", resolution?: string}' },
+      'pr-review-create-artifact': { name: 'pr-review-create-artifact', type: 'builtin', trigger: 'Creates an O1 review artifact from the review', description: 'Generate a Batch 15 O1 review artifact. Args: {reviewId: string}' },
+      // Q3: Database-aware Agent
+      'db-add-connection': { name: 'db-add-connection', type: 'builtin', trigger: 'Adds a database connection using a Batch 9 MCP', description: 'Register a PostgreSQL or Supabase connection via MCP. Args: {name: string, type: "postgres|supabase", mcpId: string, config: object}' },
+      'db-execute-query': { name: 'db-execute-query', type: 'builtin', trigger: 'Executes a SQL query (read free, write needs Safe Mode approval)', description: 'Run SQL against the active connection. Read queries execute freely; writes require Safe Mode approval. Args: {connectionId: string, sql: string, params?: any[]}' },
+      'db-explain-query': { name: 'db-explain-query', type: 'builtin', trigger: 'Gets the query execution plan', description: 'Run EXPLAIN on a query. Args: {connectionId: string, sql: string, params?: any[]}' },
+      'db-list-tables': { name: 'db-list-tables', type: 'builtin', trigger: 'Lists tables in the connected database', description: 'Get schema info. Args: {connectionId: string}' },
+      'db-get-schema': { name: 'db-get-schema', type: 'builtin', trigger: 'Gets schema for a specific table', description: 'Get columns, types, constraints. Args: {connectionId: string, table: string}' },
       // Skill-based tools (from AUTONOMY_CATALOG)
       // These are loaded via skill_ prefix
       // MCP-based tools (from AUTONOMY_CATALOG)
@@ -36736,10 +37256,344 @@ OUTPUT FORMAT:
     }
     
     function loadArtifact(artifactId) {
-      return artifactStore.get(artifactId) || null;
-    }
+          return artifactStore.get(artifactId) || null;
+        }
 
-    // ==================== J6: Fuzzy SEARCH/REPLACE + pasted patch ====================
+        // ==================== BATCH 17: TOOL IMPLEMENTATIONS ====================
+    
+        // Q1: Agentic Debugging
+        function createDebugSession({ name, mode = 'prepared', config = {} }) {
+          const session = {
+            id: 'debug-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
+            name,
+            mode,
+            config,
+            createdAt: Date.now(),
+            status: 'created',
+            breakpoints: [],
+            reproScripts: [],
+            evidenceTemplates: [],
+            evidence: []
+          };
+          if (!appState.debugSessions) appState.debugSessions = [];
+          appState.debugSessions.push(session);
+          appState.debugActiveSessionId = session.id;
+          saveAppState();
+          return session;
+        }
+    
+        function addDebugBreakpoint({ sessionId, file, line, condition, source = 'manual' }) {
+          const session = appState.debugSessions?.find(s => s.id === sessionId);
+          if (!session) throw new Error('Debug session not found: ' + sessionId);
+          const bp = {
+            id: 'bp-' + Date.now(),
+            file,
+            line: parseInt(line, 10),
+            condition,
+            source,
+            enabled: true,
+            createdAt: Date.now()
+          };
+          session.breakpoints.push(bp);
+          saveAppState();
+          return bp;
+        }
+    
+        function addDebugReproScript({ sessionId, name, script, language = 'javascript', targetTest, description }) {
+          const session = appState.debugSessions?.find(s => s.id === sessionId);
+          if (!session) throw new Error('Debug session not found: ' + sessionId);
+          const s = {
+            id: 'script-' + Date.now(),
+            name,
+            script,
+            language,
+            targetTest,
+            description,
+            createdAt: Date.now()
+          };
+          session.reproScripts.push(s);
+          saveAppState();
+          return s;
+        }
+    
+        function addDebugEvidenceTemplate({ sessionId, name, pattern = '*', fields = ['frame', 'variables', 'expressions'], description }) {
+          const session = appState.debugSessions?.find(s => s.id === sessionId);
+          if (!session) throw new Error('Debug session not found: ' + sessionId);
+          const t = {
+            id: 'tmpl-' + Date.now(),
+            name,
+            pattern,
+            fields,
+            description,
+            createdAt: Date.now()
+          };
+          session.evidenceTemplates.push(t);
+          saveAppState();
+          return t;
+        }
+    
+        function runDebugSession({ sessionId }) {
+          const session = appState.debugSessions?.find(s => s.id === sessionId);
+          if (!session) throw new Error('Debug session not found: ' + sessionId);
+          // In web app, we prepare for desktop debugger
+          // Real debugging happens in Stage 6 Electron with Node inspector / CDP
+          session.status = 'prepared';
+          session.preparedAt = Date.now();
+          saveAppState();
+          return {
+            sessionName: session.name,
+            sessionId: session.id,
+            breakpoints: session.breakpoints.length,
+            reproScripts: session.reproScripts.length,
+            evidenceTemplates: session.evidenceTemplates.length,
+            message: 'Debug session prepared for desktop. Launch debugger in Electron to run live.'
+          };
+        }
+    
+        function collectDebugEvidence({ sessionId, breakpointId, frame, variables, expressions }) {
+          const session = appState.debugSessions?.find(s => s.id === sessionId);
+          if (!session) throw new Error('Debug session not found: ' + sessionId);
+          const evidence = {
+            id: 'ev-' + Date.now(),
+            breakpointId,
+            timestamp: Date.now(),
+            frame,
+            variables,
+            expressions
+          };
+          session.evidence.push(evidence);
+          session.status = 'evidence-collected';
+          saveAppState();
+          return evidence;
+        }
+    
+        function exportDebugReport({ sessionId }) {
+          const session = appState.debugSessions?.find(s => s.id === sessionId);
+          if (!session) throw new Error('Debug session not found: ' + sessionId);
+          const report = {
+            sessionName: session.name,
+            sessionId: session.id,
+            mode: session.mode,
+            createdAt: session.createdAt,
+            status: session.status,
+            breakpoints: session.breakpoints,
+            reproScripts: session.reproScripts,
+            evidenceTemplates: session.evidenceTemplates,
+            evidence: session.evidence,
+            exportedAt: Date.now()
+          };
+          const reportText = JSON.stringify(report, null, 2);
+          return { ...report, report: reportText };
+        }
+    
+        // Q2: Context-Aware PR Review
+        function triggerPRReview({ source = 'cli', scope = 'unstaged', config = {} }) {
+          const session = getCurrentSession();
+          // Get Brain context
+          const brainContext = {
+            conventions: Array.from((session?.brain?.conventions || new Map()).keys()),
+            decisions: Array.from((session?.brain?.decisions || new Map()).values()).slice(-20),
+            buildConfig: session?.buildConfig || {},
+            testResults: session?.testResults || null
+          };
+          const review = {
+            id: 'review-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+            source,
+            scope,
+            config,
+            status: 'in-progress',
+            createdAt: Date.now(),
+            comments: [],
+            brainContext
+          };
+          if (!appState.prReviews) appState.prReviews = [];
+          appState.prReviews.push(review);
+          saveAppState();
+          return review;
+        }
+    
+        function addPRReviewComment({ reviewId, file, line, type = 'suggestion', text }) {
+          const review = appState.prReviews?.find(r => r.id === reviewId);
+          if (!review) throw new Error('Review not found: ' + reviewId);
+          const comment = {
+            id: 'comment-' + Date.now(),
+            file,
+            line: parseInt(line, 10),
+            type,
+            text,
+            status: 'pending',
+            createdAt: Date.now()
+          };
+          review.comments.push(comment);
+          saveAppState();
+          return comment;
+        }
+    
+        function resolvePRReviewComment({ commentId, action, resolution = '' }) {
+          // Find comment across all reviews
+          let targetComment = null;
+          let targetReview = null;
+          for (const review of (appState.prReviews || [])) {
+            const comment = review.comments.find(c => c.id === commentId);
+            if (comment) {
+              targetComment = comment;
+              targetReview = review;
+              break;
+            }
+          }
+          if (!targetComment) throw new Error('Comment not found: ' + commentId);
+          targetComment.status = action === 'accept' ? 'accepted' : 'rejected';
+          targetComment.resolution = resolution;
+          targetComment.resolvedAt = Date.now();
+          // If all comments resolved, update review status
+          if (targetReview && targetReview.comments.every(c => c.status !== 'pending')) {
+            targetReview.status = 'artifact-created';
+          }
+          saveAppState();
+          return { commentId, reviewId: targetReview?.id };
+        }
+    
+        function createPRReviewArtifact({ reviewId }) {
+          const review = appState.prReviews?.find(r => r.id === reviewId);
+          if (!review) throw new Error('Review not found: ' + reviewId);
+          // Create O1 review artifact (extends Batch 15)
+          const artifact = {
+            id: 'artifact-' + Date.now(),
+            reviewId,
+            type: 'pr-review',
+            content: {
+              review,
+              summary: {
+                totalComments: review.comments.length,
+                accepted: review.comments.filter(c => c.status === 'accepted').length,
+                rejected: review.comments.filter(c => c.status === 'rejected').length,
+                pending: review.comments.filter(c => c.status === 'pending').length
+              },
+              createdAt: Date.now()
+            }
+          };
+          review.status = 'artifact-created';
+          // Store in artifact store (Batch 15)
+          if (!artifactStore) {
+            artifactStore = new Map();
+          }
+          artifactStore.set(artifact.id, { id: artifact.id, content: JSON.stringify(artifact.content, null, 2), createdAt: artifact.createdAt });
+          saveAppState();
+          return artifact;
+        }
+    
+        // Q3: Database-Aware Agent
+        function addDBConnection({ name, type = 'postgres', mcpId, config }) {
+          const conn = {
+            id: 'db-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
+            name,
+            type,
+            mcpId,
+            config: { ...config, password: config.password ? '****' : undefined },
+            status: 'configured',
+            createdAt: Date.now()
+          };
+          if (!appState.dbConnections) appState.dbConnections = [];
+          appState.dbConnections.push(conn);
+          saveAppState();
+          return conn;
+        }
+    
+        async function executeDBQuery({ connectionId, sql, params = [] }) {
+          const conn = appState.dbConnections?.find(c => c.id === connectionId);
+          if (!conn) throw new Error('Database connection not found: ' + connectionId);
+      
+          const isWrite = /^\s*(INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|TRUNCATE|REPLACE|MERGE)\b/i.test(sql);
+      
+          // Safe Mode gate for write queries
+          if (isWrite && appState.safeMode !== 'off') {
+            return { success: false, error: 'Write query blocked by Safe Mode. Enable YOLO mode or approve manually.', requiresApproval: true };
+          }
+      
+          // In web app, we simulate - real execution via MCP in desktop
+          const result = {
+            success: true,
+            rows: [],
+            rowCount: 0,
+            command: sql.trim().split(/\s+/)[0].toUpperCase(),
+            connectionId,
+            isWrite,
+            executedAt: Date.now(),
+            note: 'Web app simulation - real execution via MCP in desktop app'
+          };
+      
+          // Log to session
+          if (!conn.queryLog) conn.queryLog = [];
+          conn.queryLog.push({ sql, params, result, timestamp: Date.now() });
+      
+          saveAppState();
+          return result;
+        }
+    
+        async function explainDBQuery({ connectionId, sql, params = [] }) {
+          const conn = appState.dbConnections?.find(c => c.id === connectionId);
+          if (!conn) throw new Error('Database connection not found: ' + connectionId);
+      
+          // Simulate EXPLAIN
+          const result = {
+            success: true,
+            plan: [
+              { operation: 'Seq Scan', table: 'unknown', cost: '0.00..100.00', rows: 100 },
+              { operation: 'Filter', condition: 'WHERE clause', cost: '100.00..200.00', rows: 50 }
+            ],
+            connectionId,
+            sql,
+            executedAt: Date.now(),
+            note: 'Web app simulation - real EXPLAIN via MCP in desktop app'
+          };
+      
+          saveAppState();
+          return result;
+        }
+    
+        async function listDBTables({ connectionId, schema = 'public' }) {
+          const conn = appState.dbConnections?.find(c => c.id === connectionId);
+          if (!conn) throw new Error('Database connection not found: ' + connectionId);
+      
+          const result = {
+            success: true,
+            tables: [
+              { schema, name: 'users', type: 'BASE TABLE' },
+              { schema, name: 'posts', type: 'BASE TABLE' },
+              { schema, name: 'comments', type: 'BASE TABLE' }
+            ],
+            connectionId,
+            executedAt: Date.now(),
+            note: 'Web app simulation - real listing via MCP in desktop app'
+          };
+      
+          saveAppState();
+          return result;
+        }
+    
+        async function getDBSchema({ connectionId, table, schema = 'public' }) {
+          const conn = appState.dbConnections?.find(c => c.id === connectionId);
+          if (!conn) throw new Error('Database connection not found: ' + connectionId);
+      
+          const result = {
+            success: true,
+            table,
+            schema,
+            columns: [
+              { name: 'id', type: 'integer', nullable: false, default: 'nextval(...)' },
+              { name: 'created_at', type: 'timestamp', nullable: false, default: 'now()' },
+              { name: 'updated_at', type: 'timestamp', nullable: true, default: null }
+            ],
+            connectionId,
+            executedAt: Date.now(),
+            note: 'Web app simulation - real schema via MCP in desktop app'
+          };
+      
+          saveAppState();
+          return result;
+        }
+    
+        // ==================== J6: Fuzzy SEARCH/REPLACE + pasted patch ====================
     
     function findClosestMatch(searchText, fileContent, threshold = 0.6) {
       const fileLines = fileContent.split('\n');
@@ -37036,59 +37890,69 @@ OUTPUT FORMAT:
     }
     
     async function runCodemodeScript({ session, script, caps = CODEMODE_CAPS }) {
-      const permissions = getAgentPermissions(session); // Get current agent's permissions
+          const permissions = getAgentPermissions(session); // Get current agent's permissions
       
-      // Validate script only uses allowed tools
-      const toolCalls = extractToolCallsFromScript(script);
-      for (const tool of toolCalls) {
-        if (!validateCodemodePermissions(tool, permissions)) {
-          return { success: false, error: 'Tool not permitted in codemode: ' + tool };
-        }
-      }
+          // Validate script only uses allowed tools
+          const toolCalls = extractToolCallsFromScript(script);
+          for (const tool of toolCalls) {
+            if (!validateCodemodePermissions(tool, permissions)) {
+              return { success: false, error: 'Tool not permitted in codemode: ' + tool };
+            }
+          }
       
-      // Create sandbox
-      const sandbox = createCodemodeSandbox(session, permissions);
+          // Create sandbox
+          const sandbox = createCodemodeSandbox(session, permissions);
       
-      // Execute with timeout
-      try {
-        const result = await Promise.race([
-          evalInSandbox(script, sandbox),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), caps.timeoutMs))
-        ]);
+          // Execute with timeout
+          try {
+            const result = await Promise.race([
+              evalInSandbox(script, sandbox),
+              new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), caps.timeoutMs))
+            ]);
         
-        return { success: true, result };
-      } catch (e) {
-        return { success: false, error: e.message };
-      }
-    }
+            return { success: true, result };
+          } catch (e) {
+            return { success: false, error: e.message };
+          }
+        }
     
-    function extractToolCallsFromScript(script) {
-      // Simple extraction: look for tools.xxx patterns
-      const matches = script.match(/tools\.(\w+)/g);
-      return matches ? matches.map(m => m.replace('tools.', '')) : [];
-    }
+        function extractToolCallsFromScript(script) {
+          // Simple extraction: look for tools.xxx patterns
+          const matches = script.match(/tools\.(\w+)/g);
+          return matches ? matches.map(m => m.replace('tools.', '')) : [];
+        }
     
-    function evalInSandbox(script, sandbox) {
-      // In real implementation, use QuickJS or iframe sandbox
-      // For now, use Function constructor with limited scope
-      const fn = new Function('tools', 'text', 'image', 'store', 'load', 'searchTools', 'describeTool', script);
-      return fn(
-        sandbox.tools,
-        sandbox.text,
-        sandbox.image,
-        sandbox.store,
-        sandbox.load,
-        sandbox.searchTools,
-        sandbox.describeTool
-      );
-    }
+        function evalInSandbox(script, sandbox) {
+          // In real implementation, use QuickJS or iframe sandbox
+          // For now, use Function constructor with limited scope
+          const fn = new Function('tools', 'text', 'image', 'store', 'load', 'searchTools', 'describeTool', script);
+          return fn(
+            sandbox.tools,
+            sandbox.text,
+            sandbox.image,
+            sandbox.store,
+            sandbox.load,
+            sandbox.searchTools,
+            sandbox.describeTool
+          );
+        }
     
-    function getAgentPermissions(session) {
-      // Return current agent's permissions
-      return { allowedTools: Object.keys(TOOL_DEFINITIONS || {}) };
-    }
+        function getAgentPermissions(session) {
+          // Return current agent's permissions
+          return { allowedTools: Object.keys(TOOL_DEFINITIONS || {}) };
+        }
+    
+        // ==================== BATCH 17: JUNIE MECHANISMS ====================
+                // Q1: Agentic Debugging
+                // Using shared implementations from outer scope (createDebugSession, addDebugBreakpoint, etc.)
+        
+                // Q2: Context-aware PR Review
+                // Using shared implementations from outer scope (triggerPRReview, addPRReviewComment, etc.)
+        
+                                                // Q3: Database-aware Agent
+                                                // Using shared implementations from outer scope (addDBConnection, executeDBQuery, etc.)
 
-    // ==================== J11: Token-exhaustion diagnostics (Aider) ====================
+                        // ==================== J11: Token-exhaustion diagnostics (Aider) ====================
     
     function diagnoseTokenExhaustion({ error, inputTokens, outputTokens, limit }) {
       const isInputExhausted = inputTokens > limit * 0.85 || error?.includes('context length') || error?.includes('input tokens');
@@ -37827,7 +38691,7 @@ OUTPUT FORMAT:
             }
 
             // Regex for fenced blocks: ```file:filename\ncontent```
-            const blockRegex = /```(file|delete|browse|brain-read|query-memory|screenshot-to-app|find-symbol|find-references|rename-symbol|insert-after-symbol|hybrid-search|blast-radius|file-dependency-graph|risk-scored-review|git-pinned-memory|todowrite|question|ask_followup_question|list_code_definition_names|open-file-window|goto-file-window|search-file-window|edit-file-window|run-tests|batch-file-operations|codemode|inspect-ast|load-artifact):([^\n]*)\n([\s\S]*?)```/g;
+            const blockRegex = /```(file|delete|browse|brain-read|query-memory|screenshot-to-app|find-symbol|find-references|rename-symbol|insert-after-symbol|hybrid-search|blast-radius|file-dependency-graph|risk-scored-review|git-pinned-memory|todowrite|question|ask_followup_question|list_code_definition_names|open-file-window|goto-file-window|search-file-window|edit-file-window|run-tests|batch-file-operations|codemode|inspect-ast|load-artifact|debug-create-session|debug-add-breakpoint|debug-add-repro-script|debug-add-evidence-template|debug-run-session|debug-collect-evidence|debug-export-report|pr-review-trigger|pr-review-add-comment|pr-review-resolve-comment|pr-review-create-artifact|db-add-connection|db-execute-query|db-explain-query|db-list-tables|db-get-schema):([^\n]*)\n([\s\S]*?)```/g;
             let match;
 
             // Collect file operations for potential atomic batch summary (legacy path)
@@ -38408,6 +39272,150 @@ OUTPUT FORMAT:
                                 logActivity(`codemode: ${result.error}`, 'error');
                               }
                               toolsUsed.push({ name: 'codemode', type: 'builtin' });
+                            } else if (actionType === 'debug-create-session') {
+                              // Q1: Create debug session
+                              const params = JSON.parse(blockContent.trim());
+                              const session = createDebugSession({ name: params.name, mode: params.mode, config: params.config });
+                              let resultText = JSON.stringify(session, null, 2);
+                              resultText = checkToolOutputCap(resultText, 'debug-create-session');
+                              chips.push({ type: 'tool', label: `Debug session created: ${session.name} (${session.mode})` });
+                              logActivity(`debug-create-session: ${session.name}`, 'success');
+                              toolsUsed.push({ name: 'debug-create-session', type: 'builtin' });
+                            } else if (actionType === 'debug-add-breakpoint') {
+                              // Q1: Add breakpoint to debug session
+                              const params = JSON.parse(blockContent.trim());
+                              const bp = addDebugBreakpoint({ sessionId: params.sessionId, file: params.file, line: params.line, condition: params.condition, source: params.source });
+                              let resultText = JSON.stringify(bp, null, 2);
+                              resultText = checkToolOutputCap(resultText, 'debug-add-breakpoint');
+                              chips.push({ type: 'tool', label: `Breakpoint added: ${bp.file}:${bp.line}` });
+                              logActivity(`debug-add-breakpoint: ${bp.file}:${bp.line}`, 'success');
+                              toolsUsed.push({ name: 'debug-add-breakpoint', type: 'builtin' });
+                            } else if (actionType === 'debug-add-repro-script') {
+                              // Q1: Add reproduction script
+                              const params = JSON.parse(blockContent.trim());
+                              const script = addDebugReproScript({ sessionId: params.sessionId, name: params.name, script: params.script, language: params.language, targetTest: params.targetTest, description: params.description });
+                              let resultText = JSON.stringify(script, null, 2);
+                              resultText = checkToolOutputCap(resultText, 'debug-add-repro-script');
+                              chips.push({ type: 'tool', label: `Repro script added: ${script.name}` });
+                              logActivity(`debug-add-repro-script: ${script.name}`, 'success');
+                              toolsUsed.push({ name: 'debug-add-repro-script', type: 'builtin' });
+                            } else if (actionType === 'debug-add-evidence-template') {
+                              // Q1: Add evidence template
+                              const params = JSON.parse(blockContent.trim());
+                              const tmpl = addDebugEvidenceTemplate({ sessionId: params.sessionId, name: params.name, pattern: params.pattern, fields: params.fields, description: params.description });
+                              let resultText = JSON.stringify(tmpl, null, 2);
+                              resultText = checkToolOutputCap(resultText, 'debug-add-evidence-template');
+                              chips.push({ type: 'tool', label: `Evidence template added: ${tmpl.name}` });
+                              logActivity(`debug-add-evidence-template: ${tmpl.name}`, 'success');
+                              toolsUsed.push({ name: 'debug-add-evidence-template', type: 'builtin' });
+                            } else if (actionType === 'debug-run-session') {
+                              // Q1: Run debug session (prepare for desktop)
+                              const params = JSON.parse(blockContent.trim());
+                              const report = runDebugSession({ sessionId: params.sessionId });
+                              let resultText = JSON.stringify(report, null, 2);
+                              resultText = checkToolOutputCap(resultText, 'debug-run-session');
+                              chips.push({ type: 'tool', label: `Debug session prepared: ${report.breakpoints.length} breakpoints, ${report.reproScripts.length} scripts` });
+                              logActivity(`debug-run-session: ${report.sessionName}`, 'success');
+                              toolsUsed.push({ name: 'debug-run-session', type: 'builtin' });
+                            } else if (actionType === 'debug-collect-evidence') {
+                              // Q1: Collect evidence from breakpoint hit
+                              const params = JSON.parse(blockContent.trim());
+                              const evidence = collectDebugEvidence({ sessionId: params.sessionId, breakpointId: params.breakpointId, frame: params.frame, variables: params.variables, expressions: params.expressions });
+                              let resultText = JSON.stringify(evidence, null, 2);
+                              resultText = checkToolOutputCap(resultText, 'debug-collect-evidence');
+                              chips.push({ type: 'tool', label: `Evidence collected at ${evidence.breakpointId}` });
+                              logActivity(`debug-collect-evidence: ${evidence.breakpointId}`, 'success');
+                              toolsUsed.push({ name: 'debug-collect-evidence', type: 'builtin' });
+                            } else if (actionType === 'debug-export-report') {
+                              // Q1: Export debug report
+                              const params = JSON.parse(blockContent.trim());
+                              const report = exportDebugReport({ sessionId: params.sessionId });
+                              let resultText = JSON.stringify(report, null, 2);
+                              resultText = checkToolOutputCap(resultText, 'debug-export-report');
+                              chips.push({ type: 'tool', label: `Debug report exported: ${report.evidence.length} evidence items` });
+                              logActivity(`debug-export-report: ${report.sessionName}`, 'success');
+                              toolsUsed.push({ name: 'debug-export-report', type: 'builtin' });
+                            } else if (actionType === 'pr-review-trigger') {
+                              // Q2: Trigger PR review
+                              const params = JSON.parse(blockContent.trim());
+                              const review = triggerPRReview({ source: params.source, scope: params.scope, config: params.config });
+                              let resultText = JSON.stringify(review, null, 2);
+                              resultText = checkToolOutputCap(resultText, 'pr-review-trigger');
+                              chips.push({ type: 'tool', label: `PR review triggered: ${review.id} (${review.scope})` });
+                              logActivity(`pr-review-trigger: ${review.id}`, 'success');
+                              toolsUsed.push({ name: 'pr-review-trigger', type: 'builtin' });
+                            } else if (actionType === 'pr-review-add-comment') {
+                              // Q2: Add review comment
+                              const params = JSON.parse(blockContent.trim());
+                              const comment = addPRReviewComment({ reviewId: params.reviewId, file: params.file, line: params.line, type: params.type, text: params.text });
+                              let resultText = JSON.stringify(comment, null, 2);
+                              resultText = checkToolOutputCap(resultText, 'pr-review-add-comment');
+                              chips.push({ type: 'tool', label: `Review comment added: ${comment.file}:${comment.line}` });
+                              logActivity(`pr-review-add-comment: ${comment.file}:${comment.line}`, 'success');
+                              toolsUsed.push({ name: 'pr-review-add-comment', type: 'builtin' });
+                            } else if (actionType === 'pr-review-resolve-comment') {
+                              // Q2: Resolve review comment
+                              const params = JSON.parse(blockContent.trim());
+                              const result = resolvePRReviewComment({ commentId: params.commentId, action: params.action, resolution: params.resolution });
+                              let resultText = JSON.stringify(result, null, 2);
+                              resultText = checkToolOutputCap(resultText, 'pr-review-resolve-comment');
+                              chips.push({ type: 'tool', label: `Comment ${params.action}: ${result.commentId}` });
+                              logActivity(`pr-review-resolve-comment: ${params.action}`, 'success');
+                              toolsUsed.push({ name: 'pr-review-resolve-comment', type: 'builtin' });
+                            } else if (actionType === 'pr-review-create-artifact') {
+                              // Q2: Create O1 review artifact
+                              const params = JSON.parse(blockContent.trim());
+                              const artifact = createPRReviewArtifact({ reviewId: params.reviewId });
+                              let resultText = JSON.stringify(artifact, null, 2);
+                              resultText = checkToolOutputCap(resultText, 'pr-review-create-artifact');
+                              chips.push({ type: 'tool', label: `O1 artifact created: ${artifact.id}` });
+                              logActivity(`pr-review-create-artifact: ${artifact.id}`, 'success');
+                              toolsUsed.push({ name: 'pr-review-create-artifact', type: 'builtin' });
+                            } else if (actionType === 'db-add-connection') {
+                              // Q3: Add database connection via MCP
+                              const params = JSON.parse(blockContent.trim());
+                              const conn = addDBConnection({ name: params.name, type: params.type, mcpId: params.mcpId, config: params.config });
+                              let resultText = JSON.stringify(conn, null, 2);
+                              resultText = checkToolOutputCap(resultText, 'db-add-connection');
+                              chips.push({ type: 'tool', label: `DB connection added: ${conn.name} (${conn.type})` });
+                              logActivity(`db-add-connection: ${conn.name}`, 'success');
+                              toolsUsed.push({ name: 'db-add-connection', type: 'builtin' });
+                            } else if (actionType === 'db-execute-query') {
+                              // Q3: Execute SQL query (read free, write needs Safe Mode)
+                              const params = JSON.parse(blockContent.trim());
+                              const result = await executeDBQuery({ connectionId: params.connectionId, sql: params.sql, params: params.params });
+                              let resultText = JSON.stringify(result, null, 2);
+                              resultText = checkToolOutputCap(resultText, 'db-execute-query');
+                              chips.push({ type: 'tool', label: `SQL executed: ${result.rows?.length || 0} rows` });
+                              logActivity(`db-execute-query: ${result.rows?.length || 0} rows`, result.success ? 'success' : 'error');
+                              toolsUsed.push({ name: 'db-execute-query', type: 'builtin' });
+                            } else if (actionType === 'db-explain-query') {
+                              // Q3: Get query execution plan
+                              const params = JSON.parse(blockContent.trim());
+                              const result = await explainDBQuery({ connectionId: params.connectionId, sql: params.sql, params: params.params });
+                              let resultText = JSON.stringify(result, null, 2);
+                              resultText = checkToolOutputCap(resultText, 'db-explain-query');
+                              chips.push({ type: 'tool', label: `EXPLAIN: ${result.plan?.length || 0} steps` });
+                              logActivity(`db-explain-query: ${result.plan?.length || 0} steps`, 'success');
+                              toolsUsed.push({ name: 'db-explain-query', type: 'builtin' });
+                            } else if (actionType === 'db-list-tables') {
+                              // Q3: List database tables
+                              const params = JSON.parse(blockContent.trim());
+                              const result = await listDBTables({ connectionId: params.connectionId });
+                              let resultText = JSON.stringify(result, null, 2);
+                              resultText = checkToolOutputCap(resultText, 'db-list-tables');
+                              chips.push({ type: 'tool', label: `Tables: ${result.tables?.length || 0} found` });
+                              logActivity(`db-list-tables: ${result.tables?.length || 0} tables`, 'success');
+                              toolsUsed.push({ name: 'db-list-tables', type: 'builtin' });
+                            } else if (actionType === 'db-get-schema') {
+                              // Q3: Get table schema
+                              const params = JSON.parse(blockContent.trim());
+                              const result = await getDBSchema({ connectionId: params.connectionId, table: params.table });
+                              let resultText = JSON.stringify(result, null, 2);
+                              resultText = checkToolOutputCap(resultText, 'db-get-schema');
+                              chips.push({ type: 'tool', label: `Schema: ${result.columns?.length || 0} columns` });
+                              logActivity(`db-get-schema: ${result.columns?.length || 0} columns`, 'success');
+                              toolsUsed.push({ name: 'db-get-schema', type: 'builtin' });
                             } else if (actionType === 'inspect-ast') {
                               // J2: AST inspection tool
                               const params = JSON.parse(blockContent.trim());
@@ -38474,7 +39482,7 @@ OUTPUT FORMAT:
       if (appState.teachMode && chips.length > 0) {
         // Build changes array from chips for explanation
         const teachChanges = [];
-        const blockRegex2 = /```(file|delete|browse|brain-read|screenshot-to-app|find-symbol|find-references|rename-symbol|insert-after-symbol|hybrid-search|blast-radius|file-dependency-graph|risk-scored-review|git-pinned-memory):([^\n]*)\n([\s\S]*?)```/g;
+        const blockRegex2 = /```(file|delete|browse|brain-read|screenshot-to-app|find-symbol|find-references|rename-symbol|insert-after-symbol|hybrid-search|blast-radius|file-dependency-graph|risk-scored-review|git-pinned-memory|debug-create-session|debug-add-breakpoint|debug-add-repro-script|debug-add-evidence-template|debug-run-session|debug-collect-evidence|debug-export-report|pr-review-trigger|pr-review-add-comment|pr-review-resolve-comment|pr-review-create-artifact|db-add-connection|db-execute-query|db-explain-query|db-list-tables|db-get-schema):([^\n]*)\n([\s\S]*?)```/g;
         let match2;
         while ((match2 = blockRegex2.exec(responseText)) !== null) {
           const actionType = match2[1];
@@ -38950,22 +39958,332 @@ OUTPUT FORMAT:
     }
 
     // Refresh UI after changes
-    function refreshUI() {
-      const session = getCurrentSession();
-      if (!session) return;
+        function refreshUI() {
+          const session = getCurrentSession();
+          if (!session) return;
       
-      if (session.activeFile && session.files[session.activeFile] !== undefined) {
-        document.getElementById('editorTextarea').value = session.files[session.activeFile];
-        updateLineNumbers();
-      } else {
-        openFile(Object.keys(session.files)[0] || 'index.html');
-      }
-      renderFileTree();
-      renderTabs();
-      refreshPreview();
-    }
-
-    // Parse agent response and collect changes (without applying)
+          if (session.activeFile && session.files[session.activeFile] !== undefined) {
+            document.getElementById('editorTextarea').value = session.files[session.activeFile];
+            updateLineNumbers();
+          } else {
+            openFile(Object.keys(session.files)[0] || 'index.html');
+          }
+          renderFileTree();
+          renderTabs();
+          refreshPreview();
+        }
+    
+        // ==================== BATCH 17: RENDER FUNCTIONS ====================
+    
+        // Q1: Debug Pane
+        function renderDebugPane() {
+          const session = appState.debugSessions?.find(s => s.id === appState.debugActiveSessionId);
+          const statusEl = document.getElementById('debugSessionStatus');
+          const activeInfoEl = document.getElementById('debugActiveSessionInfo');
+          const bpListEl = document.getElementById('debugBreakpointList');
+          const reproListEl = document.getElementById('debugReproScriptList');
+          const tmplListEl = document.getElementById('debugEvidenceTemplateList');
+          const evidenceListEl = document.getElementById('debugEvidenceList');
+          const runBtn = document.getElementById('btnRunDebugSession');
+      
+          if (statusEl) {
+            if (session) {
+              statusEl.textContent = `${session.name} (${session.mode}) — ${session.breakpoints.length} breakpoints, ${session.reproScripts.length} scripts, ${session.evidenceTemplates.length} templates, ${session.evidence.length} evidence`;
+              statusEl.style.color = 'var(--success)';
+            } else {
+              statusEl.textContent = 'No active session';
+              statusEl.style.color = 'var(--text-dim)';
+            }
+          }
+      
+          if (activeInfoEl && session) {
+            activeInfoEl.style.display = 'block';
+            activeInfoEl.textContent = `ID: ${session.id}\nCreated: ${new Date(session.createdAt).toLocaleString()}\nStatus: ${session.status}\nMode: ${session.mode}`;
+          } else if (activeInfoEl) {
+            activeInfoEl.style.display = 'none';
+          }
+      
+          if (runBtn) {
+            runBtn.style.display = session ? 'inline-flex' : 'none';
+          }
+      
+          if (bpListEl) {
+            if (session && session.breakpoints.length > 0) {
+              bpListEl.innerHTML = session.breakpoints.map(bp => `
+                <div style="display:flex; align-items:center; gap:8px; padding:6px 8px; background:var(--bg-panel); border:1px solid var(--border-color); border-radius:4px; font-size:11px; font-family:var(--font-mono);">
+                  <span style="color:${bp.enabled ? 'var(--success)' : 'var(--text-dim)'};">●</span>
+                  <span>${bp.file}:${bp.line}</span>
+                  ${bp.condition ? `<span style="color:var(--text-dim);">if ${bp.condition}</span>` : ''}
+                  <span style="color:var(--text-dim); font-size:9px;">[${bp.source}]</span>
+                  <button class="btn" onclick="deleteDebugBreakpoint('${session.id}','${bp.id}')" style="padding:2px 6px; font-size:9px;">×</button>
+                </div>
+              `).join('');
+            } else {
+              bpListEl.innerHTML = '<div style="font-size: 11px; color: var(--text-dim); text-align: center; padding: 20px;">No breakpoints yet. Click "Add Breakpoint" or let the agent suggest them.</div>';
+            }
+          }
+      
+          if (reproListEl) {
+            if (session && session.reproScripts.length > 0) {
+              reproListEl.innerHTML = session.reproScripts.map(s => `
+                <div style="display:flex; align-items:center; gap:8px; padding:8px; background:var(--bg-panel); border:1px solid var(--border-color); border-radius:4px;">
+                  <div style="flex:1;">
+                    <div style="font-weight:600; font-size:11px;">${s.name}</div>
+                    <div style="font-size:9px; color:var(--text-dim);">${s.language} • ${s.targetTest || 'no target test'}</div>
+                    ${s.description ? `<div style="font-size:10px; color:var(--text-muted); margin-top:2px;">${s.description}</div>` : ''}
+                  </div>
+                  <button class="btn" onclick="viewDebugReproScript('${session.id}','${s.id}')" style="padding:2px 8px; font-size:10px;">View</button>
+                  <button class="btn" onclick="deleteDebugReproScript('${session.id}','${s.id}')" style="padding:2px 8px; font-size:10px;">×</button>
+                </div>
+              `).join('');
+            } else {
+              reproListEl.innerHTML = '<div style="font-size: 11px; color: var(--text-dim); text-align: center; padding: 15px;">No repro scripts. Create one to automate the failure trigger.</div>';
+            }
+          }
+      
+          if (tmplListEl) {
+            if (session && session.evidenceTemplates.length > 0) {
+              tmplListEl.innerHTML = session.evidenceTemplates.map(t => `
+                <div style="display:flex; align-items:center; gap:8px; padding:8px; background:var(--bg-panel); border:1px solid var(--border-color); border-radius:4px;">
+                  <div style="flex:1;">
+                    <div style="font-weight:600; font-size:11px;">${t.name}</div>
+                    <div style="font-size:9px; color:var(--text-dim); font-family:var(--font-mono);">Pattern: ${t.pattern}</div>
+                    <div style="font-size:9px; color:var(--text-dim);">Fields: ${t.fields.join(', ') || 'none'}</div>
+                    ${t.description ? `<div style="font-size:10px; color:var(--text-muted); margin-top:2px;">${t.description}</div>` : ''}
+                  </div>
+                  <button class="btn" onclick="deleteDebugEvidenceTemplate('${session.id}','${t.id}')" style="padding:2px 8px; font-size:10px;">×</button>
+                </div>
+              `).join('');
+            } else {
+              tmplListEl.innerHTML = '<div style="font-size: 11px; color: var(--text-dim); text-align: center; padding: 15px;">No evidence templates. Define what to capture at each breakpoint.</div>';
+            }
+          }
+      
+          if (evidenceListEl) {
+            if (session && session.evidence.length > 0) {
+              evidenceListEl.innerHTML = session.evidence.map(e => `
+                <div style="display:flex; flex-direction:column; gap:4px; padding:8px; background:var(--bg-panel); border:1px solid var(--border-color); border-radius:4px;">
+                  <div style="font-size:10px; color:var(--text-dim);">Breakpoint: ${e.breakpointId} • ${new Date(e.timestamp).toLocaleTimeString()}</div>
+                  <details style="font-size:10px; font-family:var(--font-mono);">
+                    <summary style="cursor:pointer; color:var(--text-muted);">Frame & Variables</summary>
+                    <pre style="margin:4px 0; white-space:pre-wrap; background:var(--bg-hover); padding:8px; border-radius:4px;">${JSON.stringify({ frame: e.frame, variables: e.variables, expressions: e.expressions }, null, 2)}</pre>
+                  </details>
+                </div>
+              `).join('');
+            } else {
+              evidenceListEl.innerHTML = '<div style="font-size: 11px; color: var(--text-dim); text-align: center; padding: 20px;">No evidence collected yet. Run a debug session to capture runtime state.</div>';
+            }
+          }
+        }
+    
+        function deleteDebugBreakpoint(sessionId, bpId) {
+          const session = appState.debugSessions?.find(s => s.id === sessionId);
+          if (session) {
+            session.breakpoints = session.breakpoints.filter(b => b.id !== bpId);
+            renderDebugPane();
+            saveAppState();
+          }
+        }
+    
+        function deleteDebugReproScript(sessionId, scriptId) {
+          const session = appState.debugSessions?.find(s => s.id === sessionId);
+          if (session) {
+            session.reproScripts = session.reproScripts.filter(s => s.id !== scriptId);
+            renderDebugPane();
+            saveAppState();
+          }
+        }
+    
+        function viewDebugReproScript(sessionId, scriptId) {
+          const session = appState.debugSessions?.find(s => s.id === sessionId);
+          const script = session?.reproScripts.find(s => s.id === scriptId);
+          if (script) {
+            alert(`${script.name} (${script.language})\n\n${script.script}`);
+          }
+        }
+    
+        function deleteDebugEvidenceTemplate(sessionId, tmplId) {
+          const session = appState.debugSessions?.find(s => s.id === sessionId);
+          if (session) {
+            session.evidenceTemplates = session.evidenceTemplates.filter(t => t.id !== tmplId);
+            renderDebugPane();
+            saveAppState();
+          }
+        }
+    
+        // Q2: PR Review Pane
+        function renderPRReviewPane() {
+          const reviewListEl = document.getElementById('prReviewList');
+          const statusEl = document.getElementById('prReviewStatus');
+          const diffPreviewEl = document.getElementById('prReviewDiffPreview');
+          const commentsPanelEl = document.getElementById('prReviewCommentsPanel');
+      
+          if (statusEl) {
+            const activeReview = appState.prReviews?.find(r => r.status === 'in-progress');
+            if (activeReview) {
+              statusEl.textContent = `Active: ${activeReview.id} (${activeReview.scope})`;
+              statusEl.style.color = 'var(--success)';
+            } else if (appState.prReviews?.length > 0) {
+              statusEl.textContent = `${appState.prReviews.length} review(s) — last: ${appState.prReviews[appState.prReviews.length - 1].id}`;
+              statusEl.style.color = 'var(--text-main)';
+            } else {
+              statusEl.textContent = 'Ready';
+              statusEl.style.color = 'var(--text-dim)';
+            }
+          }
+      
+          if (reviewListEl) {
+            if (appState.prReviews && appState.prReviews.length > 0) {
+              reviewListEl.innerHTML = appState.prReviews.map(r => `
+                <div style="display:flex; flex-direction:column; gap:6px; padding:10px; background:var(--bg-panel); border:1px solid var(--border-color); border-radius:4px; cursor:pointer;" onclick="openPRReview('${r.id}')">
+                  <div style="display:flex; align-items:center; justify-content:space-between;">
+                    <span style="font-weight:600; font-size:11px;">${r.id}</span>
+                    <span style="font-size:9px; padding:2px 6px; border-radius:3px; background:${r.status === 'in-progress' ? 'var(--warning)' : r.status === 'artifact-created' ? 'var(--success)' : 'var(--text-dim)'}; color:white;">${r.status}</span>
+                  </div>
+                  <div style="font-size:9px; color:var(--text-dim);">
+                    Source: ${r.source} • Scope: ${r.scope} • ${r.comments.length} comment(s) • ${new Date(r.createdAt).toLocaleString()}
+                  </div>
+                </div>
+              `).join('');
+            } else {
+              reviewListEl.innerHTML = '<div style="font-size: 11px; color: var(--text-dim); text-align: center; padding: 20px;">No reviews yet. Trigger a review from CLI, GitHub Actions, or GitLab.</div>';
+            }
+          }
+      
+          // Reset diff preview and comments panel
+          if (diffPreviewEl) diffPreviewEl.style.display = 'none';
+          if (commentsPanelEl) commentsPanelEl.style.display = 'none';
+        }
+    
+        function openPRReview(reviewId) {
+          const review = appState.prReviews?.find(r => r.id === reviewId);
+          if (!review) return;
+      
+          const diffPreviewEl = document.getElementById('prReviewDiffPreview');
+          const commentsPanelEl = document.getElementById('prReviewCommentsPanel');
+          const commentsListEl = document.getElementById('prReviewCommentsList');
+      
+          // Show diff preview (simplified - in real implementation would show actual diff)
+          if (diffPreviewEl) {
+            diffPreviewEl.style.display = 'block';
+            diffPreviewEl.innerHTML = `Review: ${review.id}\nSource: ${review.source}\nScope: ${review.scope}\nComments: ${review.comments.length}\nCreated: ${new Date(review.createdAt).toLocaleString()}\n\nBrain Context:\n- Conventions: ${review.brainContext?.conventions?.length || 0}\n- Decisions: ${review.brainContext?.decisions?.length || 0}\n- Build config: ${Object.keys(review.brainContext?.buildConfig || {}).length > 0 ? 'yes' : 'no'}\n- Test results: ${review.brainContext?.testResults ? 'available' : 'none'}`;
+          }
+      
+          // Show comments panel
+          if (commentsPanelEl) commentsPanelEl.style.display = 'block';
+          if (commentsListEl) {
+            if (review.comments.length > 0) {
+              commentsListEl.innerHTML = review.comments.map(c => `
+                <div style="display:flex; flex-direction:column; gap:6px; padding:10px; background:var(--bg-panel); border:1px solid var(--border-color); border-radius:4px; border-left:3px solid ${c.type === 'issue' ? 'var(--error)' : c.type === 'suggestion' ? 'var(--warning)' : c.type === 'question' ? 'var(--info)' : 'var(--success)'};">
+                  <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+                    <span style="font-weight:600; font-size:11px;">${c.file}:${c.line}</span>
+                    <span style="font-size:9px; text-transform:uppercase; color:var(--text-dim);">${c.type}</span>
+                    <span style="font-size:9px; padding:2px 6px; border-radius:3px; background:${c.status === 'accepted' ? 'var(--success)' : c.status === 'rejected' ? 'var(--error)' : 'var(--warning)'}; color:white;">${c.status}</span>
+                  </div>
+                  <div style="font-size:11px; color:var(--text-main); white-space:pre-wrap;">${c.text}</div>
+                  ${c.status === 'pending' ? `
+                    <div style="display:flex; gap:6px;">
+                      <button class="btn btn-primary" onclick="resolvePRComment('${c.id}','accept')" style="padding:2px 10px; font-size:10px;">✅ Accept</button>
+                      <button class="btn btn-secondary" onclick="resolvePRComment('${c.id}','reject')" style="padding:2px 10px; font-size:10px;">❌ Reject</button>
+                    </div>
+                  ` : c.resolution ? `<div style="font-size:9px; color:var(--text-dim);">Resolution: ${c.resolution}</div>` : ''}
+                </div>
+              `).join('');
+            } else {
+              commentsListEl.innerHTML = '<div style="font-size: 11px; color: var(--text-dim); text-align: center; padding: 20px;">No comments yet. Agent will add inline comments during review.</div>';
+            }
+          }
+      
+          // Store current review ID for action buttons
+          commentsPanelEl.dataset.currentReviewId = reviewId;
+        }
+    
+        function resolvePRComment(commentId, action) {
+          const resolution = prompt(`${action === 'accept' ? 'Accept' : 'Reject'} this comment? Optional resolution note:`);
+          const result = resolvePRReviewComment({ commentId, action, resolution: resolution || '' });
+          if (result.error) {
+            alert('Error: ' + result.error);
+          } else {
+            // Refresh the current review view
+            openPRReview(result.reviewId);
+          }
+        }
+    
+        // Q3: Database Pane
+        function renderDatabasePane() {
+          const connListEl = document.getElementById('dbConnectionList');
+          const statusEl = document.getElementById('dbConnectionStatus');
+          const safeModeToggle = document.getElementById('dbSafeModeToggle');
+          const queryTypeBadge = document.getElementById('dbQueryTypeBadge');
+          const editor = document.getElementById('dbQueryEditor');
+      
+          if (safeModeToggle) {
+            safeModeToggle.checked = appState.safeMode !== 'off';
+          }
+      
+          if (statusEl) {
+            const activeConn = appState.dbConnections?.find(c => c.status === 'connected');
+            if (activeConn) {
+              statusEl.textContent = `Connected: ${activeConn.name} (${activeConn.type})`;
+              statusEl.style.color = 'var(--success)';
+            } else if (appState.dbConnections?.length > 0) {
+              statusEl.textContent = `${appState.dbConnections.length} connection(s) — none active`;
+              statusEl.style.color = 'var(--warning)';
+            } else {
+              statusEl.textContent = 'No connection';
+              statusEl.style.color = 'var(--text-dim)';
+            }
+          }
+      
+          if (connListEl) {
+            if (appState.dbConnections && appState.dbConnections.length > 0) {
+              connListEl.innerHTML = appState.dbConnections.map(c => `
+                <div style="display:flex; align-items:center; justify-content:space-between; padding:8px; background:var(--bg-panel); border:1px solid var(--border-color); border-radius:4px;">
+                  <div>
+                    <div style="font-weight:600; font-size:11px;">${c.name}</div>
+                    <div style="font-size:9px; color:var(--text-dim);">${c.type} • ${c.mcpId} • ${c.status}</div>
+                  </div>
+                  <div style="display:flex; gap:4px;">
+                    <button class="btn" onclick="setActiveDBConnection('${c.id}')" style="padding:2px 8px; font-size:10px;">Activate</button>
+                    <button class="btn" onclick="deleteDBConnection('${c.id}')" style="padding:2px 8px; font-size:10px;">×</button>
+                  </div>
+                </div>
+              `).join('');
+            } else {
+              connListEl.innerHTML = '<div style="font-size: 11px; color: var(--text-dim); text-align: center; padding: 15px;">No database connections. Add one using a Batch 9 MCP (PostgreSQL or Supabase).</div>';
+            }
+          }
+      
+          // Update query type badge based on SQL content
+          if (editor && queryTypeBadge) {
+            editor.addEventListener('input', () => {
+              const sql = editor.value.trim();
+              const isWrite = /^\s*(INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|TRUNCATE|REPLACE|MERGE)\b/i.test(sql);
+              queryTypeBadge.textContent = isWrite ? 'WRITE' : 'READ';
+              queryTypeBadge.style.background = isWrite ? 'var(--error)' : 'var(--success)';
+            });
+          }
+        }
+    
+        function setActiveDBConnection(connId) {
+          appState.dbConnections?.forEach(c => {
+            c.status = c.id === connId ? 'connected' : 'configured';
+          });
+          renderDatabasePane();
+          saveAppState();
+        }
+    
+        function deleteDBConnection(connId) {
+          if (confirm('Delete this database connection?')) {
+            appState.dbConnections = (appState.dbConnections || []).filter(c => c.id !== connId);
+            renderDatabasePane();
+            saveAppState();
+          }
+        }
+    
+        // ==================== EXISTING CODE ====================
+    
+        // Parse agent response and collect changes (without applying)
     function parseAndCollectChanges(responseText) {
           const session = getCurrentSession();
           const changes = [];
@@ -45423,6 +46741,30 @@ Format:
                       document.getElementById('paneCompanion').classList.add('active');
                       renderCompanionView();
                     }
+                    if (paneName === 'debug') {
+                      document.getElementById('paneDebug').classList.add('active');
+                      renderDebugPane();
+                      if (!window._debugPaneInitialized) {
+                        initDebugPane();
+                        window._debugPaneInitialized = true;
+                      }
+                    }
+                    if (paneName === 'prReview') {
+                      document.getElementById('panePRReview').classList.add('active');
+                      renderPRReviewPane();
+                      if (!window._prReviewPaneInitialized) {
+                        initPRReviewPane();
+                        window._prReviewPaneInitialized = true;
+                      }
+                    }
+                    if (paneName === 'database') {
+                      document.getElementById('paneDatabase').classList.add('active');
+                      renderDatabasePane();
+                      if (!window._databasePaneInitialized) {
+                        initDatabasePane();
+                        window._databasePaneInitialized = true;
+                      }
+                    }
 
                     // Clean up graph render loop when leaving graph tab
           if (paneName !== 'graph' && graphViewState.animationFrame) {
@@ -45458,7 +46800,10 @@ Format:
                 'templates': 'show-agent',
                 'publish': 'show-agent',
                 'projectDoctor': 'show-agent',
-                'companion': 'show-companion'
+                'companion': 'show-companion',
+                'debug': 'show-agent',
+                'prReview': 'show-agent',
+                'database': 'show-agent'
               };
 
               appMain.className = `app-main ${tabToClass[tab] || 'show-agent'}`;
@@ -45483,6 +46828,12 @@ Format:
                 document.querySelector('.right-tab[data-pane="projectDoctor"]').click();
               } else if (tab === 'companion') {
                 document.querySelector('.right-tab[data-pane="companion"]').click();
+              } else if (tab === 'debug') {
+                document.querySelector('.right-tab[data-pane="debug"]').click();
+              } else if (tab === 'prReview') {
+                document.querySelector('.right-tab[data-pane="prReview"]').click();
+              } else if (tab === 'database') {
+                document.querySelector('.right-tab[data-pane="database"]').click();
               }
             });
           });
