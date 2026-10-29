@@ -50,9 +50,17 @@ Already built that you must EXTEND, never rebuild:
   Each task shows its last run + result. A scheduled run executes as the
   user's identity, in an inspectable thread, and lands its result in the
   task inbox (Batch 5 D10).
-- Runs at the project's Safe Mode rung, never above it. NEEDS HIS SAY-SO
-  on what a scheduled agent may touch — the UI states the scope plainly
-  and a scheduled task cannot be created without a scope the user picked.
+- Runs at the project's Safe Mode rung, never above it. PERMISSION TIERS
+  (HIS DECISION 2026-10-29 ~13:44 +06 — all three tiers exist, picked
+  PER AGENT at creation time, enforced not just displayed):
+  Tier 1 READ-ONLY — the agent only reads and reports; it can never
+  modify, delete, send, or publish anything. Tier 2 LOCAL-MODIFY — the
+  agent may modify project files, but can NEVER send, publish, share,
+  deploy, or open PRs. Tier 3 FULL — the agent may do everything,
+  including send/publish. The UI states each scheduled agent's tier
+  plainly, a scheduled agent cannot be created without a tier HE
+  picked, it can never act above its tier, and tier changes are his
+  explicit action only (logged).
 
 ### N2. Autopilot check-then-act loop + living ops doc (Stakpak)
 - An autopilot that CHECKS first and only acts on failure: `init`
