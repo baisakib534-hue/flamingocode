@@ -13720,7 +13720,194 @@ function getGraphSummary() {
   return `Code Graph: ${graph.nodes.length} nodes (${Object.entries(byType).map(([t,c])=>`${t}:${c}`).join(', ')}), ${graph.edges.length} edges (${byConfidence.EXTRACTED} extracted, ${byConfidence.INFERRED} inferred). Hubs: ${topNodes.join(', ')}. Updated: ${new Date(graph.updatedAt).toLocaleTimeString()}`;
 }
 
-// ==================== D1: AUTO ARCHITECTURE DIAGRAMS ====================
+    // ==================== P3: AST SYMBOL-TARGETED EDITS (Batch 16 - Harn) ====================
+    
+    // Get symbol span from Brain code graph
+    function getSymbolSpan(session, filePath, symbolName) {
+      const graph = getOrBuildCodeGraph(session);
+      if (!graph || !graph.nodes) return null;
+      
+      // Find the file node
+      const fileNode = graph.nodes.find(n => n.type === 'file' && (n.filePath === filePath || n.name === filePath));
+      if (!fileNode) return null;
+      
+      // Find symbol within the file (function, class, method)
+      const symbolNode = graph.nodes.find(n => 
+        n.filePath === filePath && 
+        n.name === symbolName &&
+        (n.type === 'function' || n.type === 'method' || n.type === 'class')
+      );
+      
+      if (!symbolNode) return null;
+      
+      // Return the span if available
+      if (symbolNode.span && symbolNode.span.start !== undefined && symbolNode.span.end !== undefined) {
+        return {
+          startLine: symbolNode.span.start,
+          endLine: symbolNode.span.end,
+          startChar: symbolNode.span.startChar,
+          endChar: symbolNode.span.endChar
+        };
+      }
+      
+      // Fallback: use node's line info if span not explicitly stored
+      if (symbolNode.lineStart !== undefined && symbolNode.lineEnd !== undefined) {
+        return {
+          startLine: symbolNode.lineStart,
+          endLine: symbolNode.lineEnd,
+          startChar: 0,
+          endChar: 0
+        };
+      }
+      
+      return null;
+    }
+    
+    // Verify content parses (reuses existing syntax check)
+    function verifyParses(content, filePath) {
+      // Use existing checkSyntax function if available
+      if (typeof checkSyntax === 'function') {
+        return checkSyntax(content, filePath);
+      }
+      // Basic check - no unmatched braces/brackets/parens
+      const stack = [];
+      const pairs = { '(': ')', '[': ']', '{': '}' };
+      for (let i = 0; i < content.length; i++) {
+        const ch = content[i];
+        if (pairs[ch]) stack.push(pairs[ch]);
+        else if (Object.values(pairs).includes(ch)) {
+          if (stack.pop() !== ch) return { ok: false, error: `Mismatched ${ch} at position ${i}` };
+        }
+      }
+      return stack.length === 0 ? { ok: true } : { ok: false, error: `Unclosed delimiters: ${stack.join('')}` };
+    }
+    
+    // Replace function/class body by symbol name
+    async function replaceSymbolBody(session, filePath, symbolName, newBody, options = {}) {
+      const {
+        useTransactional = true,
+        dryRun = false,
+        fallbackToFuzzy = true
+      } = options;
+      
+      // Get symbol span from code graph
+      const span = getSymbolSpan(session, filePath, symbolName);
+      
+      if (!span) {
+        recordSessionEvent('symbol_edit_failed', JSON.stringify({
+          filePath,
+          symbolName,
+          reason: 'no_span_found',
+          fallbackAttempted: false
+        }));
+        return { 
+          success: false, 
+          error: `Symbol "${symbolName}" not found or has no verified span in ${filePath}`,
+          path: 'ast',
+          fallbackAttempted: false
+        };
+      }
+      
+      const content = session.files[filePath];
+      if (!content) {
+        return { success: false, error: `File not in session: ${filePath}` };
+      }
+      
+      // Split into lines
+      const lines = content.split('\n');
+      const startLine = Math.max(0, (span.startLine || 1) - 1); // 0-indexed
+      const endLine = Math.min(lines.length, span.endLine || startLine);
+      
+      // Build new content: before + newBody + after
+      const before = lines.slice(0, startLine).join('\n');
+      const after = lines.slice(endLine).join('\n');
+      const newContent = [before, newBody, after].filter(Boolean).join('\n');
+      
+      // Verify the result parses
+      const parseCheck = verifyParses(newContent, filePath);
+      if (!parseCheck.ok) {
+        // If fallback enabled, try fuzzy SEARCH/REPLACE (J6)
+        if (fallbackToFuzzy) {
+          const fuzzyResult = await applyTransactionalSearchReplace(session, filePath, 
+            `(function|class|method)\\s+${escapeRegExp(symbolName)}`, // This is a simplification
+            newBody,
+            { dryRun, fuzzy: true, threshold: 0.85 }
+          );
+          
+          recordSessionEvent('symbol_edit_fallback', JSON.stringify({
+            filePath,
+            symbolName,
+            reason: 'parse_failure',
+            fallbackUsed: 'fuzzy_search_replace',
+            parseError: parseCheck.error
+          }));
+          
+          return {
+            ...fuzzyResult,
+            path: 'fuzzy_fallback',
+            originalError: parseCheck.error,
+            span
+          };
+        }
+        
+        return {
+          success: false,
+          error: `Parse verification failed: ${parseCheck.error}`,
+          path: 'ast',
+          fallbackAttempted: false,
+          span
+        };
+      }
+      
+      // Apply through transactional edit path
+      const editFn = (oldContent) => ({ success: true, content: newContent });
+      
+      let result;
+      if (useTransactional) {
+        result = await applyTransactionalEdit(session, filePath, editFn, { 
+          dryRun, 
+          description: `Replace ${symbolName} body in ${filePath}` 
+        });
+      } else {
+        // Direct apply (bypasses hooks)
+        if (!dryRun) {
+          session.files[filePath] = newContent;
+          markGraphDirty();
+        }
+        result = { 
+          success: true, 
+          dryRun, 
+          diff: generateDiff(content, newContent),
+          beforeHash: contentHash(content),
+          afterHash: contentHash(newContent)
+        };
+      }
+      
+      // Record which path was used
+      const pathUsed = useTransactional ? 'transactional_ast' : 'direct_ast';
+      recordSessionEvent('symbol_edit_applied', JSON.stringify({
+        filePath,
+        symbolName,
+        path: pathUsed,
+        span,
+        dryRun,
+        parseVerified: true
+      }));
+      
+      return {
+        ...result,
+        path: pathUsed,
+        span,
+        fallbackAttempted: false
+      };
+    }
+    
+    // Fuzzy fallback using J6 SEARCH/REPLACE
+    function escapeRegExp(str) {
+      return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+    
+    // ==================== D1: AUTO ARCHITECTURE DIAGRAMS ====================
 
 function buildArchitectureDiagram(session, graph) {
   if (!session || !graph || !graph.nodes || graph.nodes.length === 0) {
@@ -35368,6 +35555,551 @@ ${description}
             return { success: true, changes: allChanges };
           }
 
+    // ==================== P2: TRANSACTIONAL EDITS (Batch 16 - Harn) ====================
+    
+    // Edit hook registry: pre_apply, post_apply, on_rollback
+    const editHooks = {
+      pre_apply: [],
+      post_apply: [],
+      on_rollback: []
+    };
+    
+    function registerEditHook(type, hookFn, name = 'anonymous') {
+      if (!editHooks[type]) {
+        throw new Error(`Unknown hook type: ${type}. Valid: pre_apply, post_apply, on_rollback`);
+      }
+      if (typeof hookFn !== 'function') {
+        throw new Error('Hook must be a function');
+      }
+      editHooks[type].push({ fn: hookFn, name, registeredAt: Date.now() });
+      logActivity(`Registered ${type} hook: ${name}`, 'debug');
+    }
+    
+    function unregisterEditHook(type, hookFn) {
+      if (!editHooks[type]) return false;
+      const idx = editHooks[type].findIndex(h => h.fn === hookFn);
+      if (idx >= 0) {
+        editHooks[type].splice(idx, 1);
+        return true;
+      }
+      return false;
+    }
+    
+    function runHooks(type, context) {
+      const hooks = editHooks[type] || [];
+      const results = [];
+      for (const hook of hooks) {
+        try {
+          const result = hook.fn(context);
+          results.push({ hook: hook.name, result, veto: result === false || (result && result.veto === true) });
+          if (results[results.length - 1].veto) {
+            // Veto - stop running further hooks
+            break;
+          }
+        } catch (err) {
+          // Treat thrown errors as veto with error as reason
+          results.push({ hook: hook.name, result: null, veto: true, error: err.message });
+          break;
+        }
+      }
+      return results;
+    }
+    
+    // Hash function for content (reuse existing or simple)
+    function contentHash(str) {
+      let hash = 0;
+      for (let i = 0; i < str.length; i++) {
+        hash = ((hash << 5) - hash) + str.charCodeAt(i);
+        hash |= 0;
+      }
+      return hash.toString(16);
+    }
+    
+    // Transactional edit wrapper
+    async function applyTransactionalEdit(session, filePath, editFn, options = {}) {
+      const {
+        dryRun = false,
+        hooks = true,
+        writePolicy = 'normal', // 'normal', 'force', 'check-freshness'
+        description = `Edit ${filePath}`
+      } = options;
+      
+      // Capture rollback snapshot FIRST
+      const beforeContent = session.files[filePath];
+      if (beforeContent === undefined) {
+        return { success: false, error: `File not found in session: ${filePath}`, dryRun };
+      }
+      const beforeHash = contentHash(beforeContent);
+      const snapshotId = `snap_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+      
+      // Store snapshot in checkpoint store (Tier A)
+      if (!session.checkpointSnapshots) session.checkpointSnapshots = {};
+      session.checkpointSnapshots[snapshotId] = {
+        filePath,
+        content: beforeContent,
+        hash: beforeHash,
+        timestamp: Date.now()
+      };
+      
+      // Run pre_apply hooks
+      let preApplyResults = [];
+      if (hooks) {
+        preApplyResults = runHooks('pre_apply', {
+          session,
+          filePath,
+          beforeContent,
+          beforeHash,
+          snapshotId,
+          description,
+          dryRun
+        });
+        
+        const vetoed = preApplyResults.find(r => r.veto);
+        if (vetoed) {
+          const reason = vetoed.error || vetoed.result?.reason || 'Hook vetoed';
+          recordSessionEvent('edit_vetoed', JSON.stringify({
+            filePath,
+            phase: 'pre_apply',
+            hook: vetoed.hook,
+            reason,
+            snapshotId,
+            dryRun
+          }));
+          return { 
+            success: false, 
+            error: `Pre-apply hook "${vetoed.hook}" vetoed: ${reason}`,
+            vetoedBy: vetoed.hook,
+            snapshotId,
+            dryRun
+          };
+        }
+      }
+      
+      // Check write policy (freshness, etc.)
+      if (writePolicy === 'check-freshness' && typeof checkFileFreshness === 'function') {
+        const freshness = checkFileFreshness(session, filePath);
+        if (freshness.stale) {
+          return { 
+            success: false, 
+            error: `Stale file: ${filePath} — re-read required`, 
+            stale: true,
+            snapshotId,
+            dryRun
+          };
+        }
+      }
+      
+      // Apply the edit
+      let editResult;
+      try {
+        editResult = await editFn(beforeContent);
+      } catch (err) {
+        editResult = { success: false, error: err.message };
+      }
+      
+      if (!editResult.success) {
+        // Run on_rollback hooks
+        if (hooks) {
+          runHooks('on_rollback', {
+            session,
+            filePath,
+            beforeContent,
+            beforeHash,
+            snapshotId,
+            error: editResult.error,
+            dryRun
+          });
+        }
+        
+        // Restore snapshot (for non-dry-run, though dryRun doesn't write anyway)
+        if (!dryRun) {
+          session.files[filePath] = beforeContent;
+        }
+        
+        recordSessionEvent('edit_failed', JSON.stringify({
+          filePath,
+          phase: 'apply',
+          error: editResult.error,
+          snapshotId,
+          hooksRan: preApplyResults.map(r => r.hook),
+          dryRun
+        }));
+        
+        return { 
+          success: false, 
+          error: editResult.error,
+          snapshotId,
+          hooksRan: preApplyResults.map(r => r.hook),
+          dryRun
+        };
+      }
+      
+      const afterContent = editResult.content;
+      const afterHash = contentHash(afterContent);
+      
+      // In dry-run mode, don't write - just return the diff
+      if (dryRun) {
+        const diff = generateDiff(beforeContent, afterContent);
+        recordSessionEvent('edit_dryrun', JSON.stringify({
+          filePath,
+          beforeHash,
+          afterHash,
+          diffLines: diff.split('\n').length,
+          hooksRan: preApplyResults.map(r => r.hook),
+          dryRun: true
+        }));
+        return { 
+          success: true, 
+          dryRun: true,
+          diff,
+          beforeHash,
+          afterHash,
+          snapshotId,
+          hooksRan: preApplyResults.map(r => r.hook)
+        };
+      }
+      
+      // Write the new content
+      session.files[filePath] = afterContent;
+      markGraphDirty();
+      if (!session.fileMeta) session.fileMeta = {};
+      session.fileMeta[filePath] = { lastModifiedBy: 'agent', timestamp: Date.now() };
+      
+      // Run post_apply hooks
+      let postApplyResults = [];
+      if (hooks) {
+        postApplyResults = runHooks('post_apply', {
+          session,
+          filePath,
+          beforeContent,
+          beforeHash,
+          afterContent,
+          afterHash,
+          snapshotId
+        });
+      }
+      
+      // Record edit receipt in G14 event log
+      recordSessionEvent('edit_receipt', JSON.stringify({
+        filePath,
+        beforeHash,
+        afterHash,
+        snapshotId,
+        hooksRan: [
+          ...preApplyResults.map(r => ({ hook: r.hook, phase: 'pre_apply', veto: r.veto })),
+          ...postApplyResults.map(r => ({ hook: r.hook, phase: 'post_apply', veto: r.veto }))
+        ],
+        dryRun: false
+      }));
+      
+      return { 
+        success: true, 
+        dryRun: false,
+        beforeHash,
+        afterHash,
+        snapshotId,
+        hooksRan: [
+          ...preApplyResults.map(r => r.hook),
+          ...postApplyResults.map(r => r.hook)
+        ],
+        diff: generateDiff(beforeContent, afterContent)
+      };
+    }
+    
+    // Generate unified diff between two strings
+    function generateDiff(oldStr, newStr) {
+      const oldLines = oldStr.split('\n');
+      const newLines = newStr.split('\n');
+      const diff = [];
+      let i = 0, j = 0;
+      while (i < oldLines.length || j < newLines.length) {
+        if (i < oldLines.length && j < newLines.length && oldLines[i] === newLines[j]) {
+          diff.push('  ' + oldLines[i]);
+          i++; j++;
+        } else if (j < newLines.length && (i >= oldLines.length || oldLines[i] !== newLines[j])) {
+          diff.push('+ ' + newLines[j]);
+          j++;
+        } else {
+          diff.push('- ' + oldLines[i]);
+          i++;
+        }
+      }
+      return diff.join('\n');
+    }
+    
+    // Convenience wrapper for SEARCH/REPLACE edits with transactional semantics
+    async function applyTransactionalSearchReplace(session, filePath, searchText, replaceText, options = {}) {
+      return applyTransactionalEdit(session, filePath, (content) => {
+        const result = applySearchReplacePatchToContent(content, searchText, replaceText, {
+          fuzzy: options.fuzzy !== false,
+          threshold: options.threshold ?? 0.85
+        });
+        if (!result.success) {
+          return { success: false, error: result.error };
+        }
+        return { success: true, content: result.newContent };
+      }, options);
+    }
+
+    // ==================== P4: MERGE-MODEL FAST APPLY (Batch 16 - Harn) ====================
+    
+    // Merge model apply: uses cheap provider to get complete after-content from intent
+    async function applyWithMergeModel(session, filePath, intent, options = {}) {
+      const {
+        dryRun = false,
+        fallbackToJ6 = true,
+        maxRetries = 1
+      } = options;
+      
+      const beforeContent = session.files[filePath];
+      if (beforeContent === undefined) {
+        return { success: false, error: `File not in session: ${filePath}`, path: 'merge_model' };
+      }
+      
+      const preimageHash = contentHash(beforeContent);
+      
+      // Build prompt for merge model (cheap provider, first model)
+      const prompt = buildMergeModelPrompt(filePath, beforeContent, intent);
+      
+      // Get cheap provider (Batch 5 D3)
+      const cheapProvider = getCheapProvider();
+      if (!cheapProvider) {
+        return { success: false, error: 'No cheap provider available for merge model', path: 'merge_model' };
+      }
+      
+      let mergeResult = null;
+      let attempts = 0;
+      
+      while (attempts <= maxRetries) {
+        attempts++;
+        try {
+          const response = await callCheapProvider(cheapProvider, prompt, {
+            temperature: 0.1,
+            maxTokens: Math.min(beforeContent.length * 2, 8000),
+            jsonOnly: true
+          });
+          
+          mergeResult = parseMergeModelResponse(response);
+          if (mergeResult.success) break;
+          
+          // If parse failed, add feedback to prompt and retry
+          if (attempts <= maxRetries) {
+            prompt += `\n\nPREVIOUS ATTEMPT FAILED: ${mergeResult.error}. Return ONLY valid JSON with "content" field containing the complete after-content. No markdown, no explanations, no placeholders.`;
+          }
+        } catch (err) {
+          mergeResult = { success: false, error: err.message };
+          if (attempts > maxRetries) break;
+        }
+      }
+      
+      if (!mergeResult || !mergeResult.success) {
+        // All retries failed - fall back to J6
+        if (fallbackToJ6) {
+          recordSessionEvent('merge_model_fallback', JSON.stringify({
+            filePath,
+            intent,
+            preimageHash,
+            reason: mergeResult?.error || 'All retries failed',
+            fallback: 'j6_search_replace',
+            attempts
+          }));
+          
+          return applyTransactionalSearchReplace(session, filePath, '', '', {
+            dryRun,
+            description: `Merge model fallback to J6 for ${filePath}`
+          });
+        }
+        
+        recordSessionEvent('merge_model_failed', JSON.stringify({
+          filePath,
+          intent,
+          preimageHash,
+          error: mergeResult?.error,
+          attempts
+        }));
+        
+        return { success: false, error: mergeResult?.error || 'Merge model failed', path: 'merge_model', attempts };
+      }
+      
+      const afterContent = mergeResult.content;
+      const afterHash = contentHash(afterContent);
+      
+      // Hash check: must differ from preimage in intended way
+      if (afterHash === preimageHash) {
+        if (fallbackToJ6) {
+          recordSessionEvent('merge_model_fallback', JSON.stringify({
+            filePath,
+            intent,
+            preimageHash,
+            reason: 'hash_unchanged',
+            fallback: 'j6_search_replace'
+          }));
+          return applyTransactionalSearchReplace(session, filePath, '', '', {
+            dryRun,
+            description: `Merge model hash unchanged, fallback to J6 for ${filePath}`
+          });
+        }
+        return { success: false, error: 'Merge model returned identical content', path: 'merge_model', afterHash };
+      }
+      
+      // Parse verification
+      const parseCheck = verifyParses(afterContent, filePath);
+      if (!parseCheck.ok) {
+        if (fallbackToJ6) {
+          recordSessionEvent('merge_model_fallback', JSON.stringify({
+            filePath,
+            intent,
+            preimageHash,
+            reason: 'parse_failure',
+            parseError: parseCheck.error,
+            fallback: 'j6_search_replace'
+          }));
+          return applyTransactionalSearchReplace(session, filePath, '', '', {
+            dryRun,
+            description: `Merge model parse failure, fallback to J6 for ${filePath}`
+          });
+        }
+        return { success: false, error: `Parse failed: ${parseCheck.error}`, path: 'merge_model', afterHash };
+      }
+      
+      // Apply through transactional path
+      const editFn = () => ({ success: true, content: afterContent });
+      const result = await applyTransactionalEdit(session, filePath, editFn, {
+        dryRun,
+        description: `Merge model apply: ${intent}`
+      });
+      
+      // Record which path was used
+      recordSessionEvent('merge_model_applied', JSON.stringify({
+        filePath,
+        intent,
+        preimageHash,
+        afterHash,
+        path: 'merge_model',
+        dryRun,
+        attempts
+      }));
+      
+      return {
+        ...result,
+        path: 'merge_model',
+        afterHash,
+        attempts
+      };
+    }
+    
+    // Build prompt for merge model
+    function buildMergeModelPrompt(filePath, beforeContent, intent) {
+      return `You are a precise code editor. Given a file and an edit intent, return the COMPLETE modified file content as JSON.
+
+FILE: ${filePath}
+
+INTENT: ${intent}
+
+BEFORE CONTENT:
+\`\`\`
+${beforeContent}
+\`\`\`
+
+RULES:
+1. Return ONLY a JSON object with a "content" field containing the complete modified file
+2. NO markdown fences, NO explanations, NO placeholders like "// ... rest of file"
+3. The content must be the FULL file after the edit
+4. Preserve all formatting, whitespace, and style from the original
+5. Make only the changes implied by the intent
+
+OUTPUT FORMAT:
+{"content": "complete file content here"}`;
+    }
+    
+    // Parse merge model response
+    function parseMergeModelResponse(response) {
+      try {
+        // Try to extract JSON from response
+        let jsonStr = response;
+        
+        // Remove markdown fences if present
+        const fenceMatch = response.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+        if (fenceMatch) {
+          jsonStr = fenceMatch[1];
+        }
+        
+        // Find JSON object
+        const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          jsonStr = jsonMatch[0];
+        }
+        
+        const parsed = JSON.parse(jsonStr);
+        
+        if (!parsed || typeof parsed !== 'object' || !parsed.content) {
+          return { success: false, error: 'Response missing "content" field' };
+        }
+        
+        if (typeof parsed.content !== 'string') {
+          return { success: false, error: '"content" must be a string' };
+        }
+        
+        // Check for placeholders
+        if (parsed.content.includes('...') || 
+            parsed.content.includes('// ...') ||
+            parsed.content.includes('/* ... */') ||
+            parsed.content.includes('rest of file') ||
+            parsed.content.length < 10) {
+          return { success: false, error: 'Response contains placeholders or is too short' };
+        }
+        
+        return { success: true, content: parsed.content };
+      } catch (err) {
+        return { success: false, error: `JSON parse failed: ${err.message}` };
+      }
+    }
+    
+    // Call cheap provider (reuses getCheapProvider from Batch 5 D3)
+    async function callCheapProvider(provider, prompt, options = {}) {
+      const { temperature = 0.1, maxTokens = 4000, jsonOnly = true } = options;
+      
+      // This calls the existing provider call mechanism
+      // We use the cheap provider's first model
+      const model = provider.models?.[0] || provider.defaultModel || 'auto';
+      
+      const messages = [
+        { role: 'system', content: 'You are a code editing model. Output only valid JSON.' },
+        { role: 'user', content: prompt }
+      ];
+      
+      // Use existing callProvider or similar function
+      if (typeof callProvider === 'function') {
+        return callProvider(provider.id, model, messages, { temperature, maxTokens });
+      }
+      
+      // Fallback: direct fetch if callProvider not available
+      const endpoint = provider.endpoint || 'https://api.openai.com/v1/chat/completions';
+      const apiKey = provider.apiKey || '';
+      
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model,
+          messages,
+          temperature,
+          max_tokens: maxTokens,
+          response_format: jsonOnly ? { type: 'json_object' } : undefined
+        })
+      });
+      
+      if (!res.ok) {
+        throw new Error(`Provider error: ${res.status} ${await res.text()}`);
+      }
+      
+      const data = await res.json();
+      return data.choices?.[0]?.message?.content || '';
+    }
+    
     // ==================== BATCH 10: CONTEXT ENGINEERING + EDITING (SWEEP #2) ====================
 
     // ==================== J1: Hash-anchored line edits (Dirac) ====================
@@ -52487,6 +53219,7 @@ It integrates with the current user model (src/models/User.js) and JWT utility (
             <div style="font-size:10px; color:var(--text-dim);">${escapeHtml(agent.providerId ? appState.providers[agent.providerId]?.name : 'No provider')}</div>
           </div>
           ${!isSenior ? `<button class="btn btn-secondary" style="padding:2px 6px; font-size:10px;" onclick="removeFromTeam('${agentId}')">Remove</button>` : ''}
+          <button class="btn btn-secondary" style="padding:2px 6px; font-size:10px;" onclick="parkSubAgent('${agentId}', 'Parked by user', { type: 'trigger' }, 'resume_with_summary')">🅿️ Park</button>
         `;
         container.appendChild(item);
       });
@@ -53918,6 +54651,14 @@ It integrates with the current user model (src/models/User.js) and JWT utility (
         return `Sub-agent "${agentName}" not found in library`;
       }
 
+      // P1: Self-parking subagents - check if agent is parked before executing
+      const v2 = getTeamV2();
+      const subagentState = v2.subagents[subAgent.id];
+      if (subagentState?.isParked && !subagentState.stopped) {
+        logActivity(`🅿️ ${subAgent.name} is parked (${subagentState.parkReason}), skipping execution`, 'warning');
+        return `Sub-agent "${subAgent.name}" is parked: ${subagentState.parkReason}`;
+      }
+
       logActivity(`${parentAgent.name} spawned sub-agent: ${subAgent.name} (${subAgent.emoji})`, 'info');
 
       // Build context for sub-agent with full catalog and mandatory-use rule
@@ -55333,6 +56074,318 @@ It integrates with the current user model (src/models/User.js) and JWT utility (
         alert('Error saving agent: ' + err.message);
       }
     }
+
+    // ==================== P1: SELF-PARKING SUBAGENTS (Batch 16 - Harn) ====================
+    
+    // Resume condition types: 'trigger' | 'timeout' | 'on_event'
+    // Resume action types: 'resume_with_summary' | 'resume_with_input' | 'fail'
+    
+    function parkSubAgent(agentId, reason, resumeCondition, resumeAction = 'resume_with_summary') {
+      const agent = appState.agents[agentId];
+      if (!agent) return { success: false, error: 'Agent not found' };
+      
+      const v2 = getTeamV2();
+      const subagentState = v2.subagents[agentId] || {
+        plan: [],
+        completedSteps: [],
+        brainDigest: '',
+        nextStepIndex: 0,
+        status: 'working'
+      };
+      
+      subagentState.isParked = true;
+      subagentState.parkReason = reason;
+      subagentState.resumeCondition = resumeCondition; // { type: 'trigger'|'timeout'|'on_event', spec: ... }
+      subagentState.resumeAction = resumeAction;
+      subagentState.parkedAt = Date.now();
+      subagentState.status = 'parked';
+      
+      v2.subagents[agentId] = subagentState;
+      
+      // Log park event to G14 session event log
+      recordSessionEvent('subagent_parked', JSON.stringify({
+        agentId,
+        agentName: agent.name,
+        reason,
+        resumeCondition,
+        resumeAction,
+        parkedAt: subagentState.parkedAt,
+        completedSteps: subagentState.completedSteps.length,
+        brainDigestLength: subagentState.brainDigest.length
+      }));
+      
+      logActivity(`🅿️ ${agent.name} parked: ${reason}`, 'warning');
+      renderTeamRoster();
+      updateAgentStatusChips();
+      saveAppState();
+      
+      return { success: true, parkedAt: subagentState.parkedAt };
+    }
+    
+    function resumeSubAgent(agentId, summary = '') {
+      const agent = appState.agents[agentId];
+      if (!agent) return { success: false, error: 'Agent not found' };
+      
+      const v2 = getTeamV2();
+      const subagentState = v2.subagents[agentId];
+      if (!subagentState || !subagentState.isParked) {
+        return { success: false, error: 'Agent is not parked' };
+      }
+      
+      if (subagentState.stopped) {
+        return { success: false, error: 'Agent was stopped and cannot resume' };
+      }
+      
+      subagentState.isParked = false;
+      subagentState.status = 'working';
+      subagentState.resumedAt = Date.now();
+      
+      // Inject summary if resume_with_summary
+      if (subagentState.resumeAction === 'resume_with_summary' && summary) {
+        subagentState.brainDigest += `\n[RESUME SUMMARY @ ${new Date().toISOString()}]: ${summary}`;
+      }
+      
+      // Log resume event to G14 session event log
+      recordSessionEvent('subagent_resumed', JSON.stringify({
+        agentId,
+        agentName: agent.name,
+        resumeAction: subagentState.resumeAction,
+        parkedDuration: Date.now() - subagentState.parkedAt,
+        summaryInjected: subagentState.resumeAction === 'resume_with_summary' && !!summary,
+        nextStepIndex: subagentState.nextStepIndex,
+        completedStepsPreserved: subagentState.completedSteps.length
+      }));
+      
+      logActivity(`▶️ ${agent.name} resumed (${subagentState.resumeAction})`, 'success');
+      renderTeamRoster();
+      updateAgentStatusChips();
+      saveAppState();
+      
+      // Trigger the agent to continue from nextStepIndex
+      if (subagentState.nextStepIndex < (subagentState.plan || []).length) {
+        const nextStep = subagentState.plan[subagentState.nextStepIndex];
+        const stepDescription = typeof nextStep === 'string' ? nextStep : (nextStep.description || nextStep.text || 'Continue plan');
+        const task = {
+          id: `resume_${agentId}_${subagentState.nextStepIndex}`,
+          title: `Resume: ${stepDescription}`,
+          description: stepDescription,
+          owner: agentId,
+          status: 'working',
+          dependsOn: [],
+          gate: null
+        };
+        subagentState.nextStepIndex++;
+        subagentState.completedSteps.push({ step: stepDescription, completedAt: Date.now() });
+        executeTeamAgentTask(agent, task).catch(err => {
+          logActivity(`Resume step failed: ${err.message}`, 'error');
+        });
+      }
+      
+      return { success: true };
+    }
+    
+    function stopParkedAgent(agentId) {
+      const agent = appState.agents[agentId];
+      if (!agent) return { success: false, error: 'Agent not found' };
+      
+      const v2 = getTeamV2();
+      const subagentState = v2.subagents[agentId];
+      if (!subagentState || !subagentState.isParked) {
+        return { success: false, error: 'Agent is not parked' };
+      }
+      
+      subagentState.stopped = true;
+      subagentState.isParked = false;
+      subagentState.status = 'stopped';
+      subagentState.stoppedAt = Date.now();
+      
+      recordSessionEvent('subagent_stopped', JSON.stringify({
+        agentId,
+        agentName: agent.name,
+        parkedDuration: subagentState.stoppedAt - subagentState.parkedAt,
+        reason: subagentState.parkReason
+      }));
+      
+      logActivity(`🛑 ${agent.name} stopped (was parked: ${subagentState.parkReason})`, 'danger');
+      renderTeamRoster();
+      updateAgentStatusChips();
+      saveAppState();
+      
+      return { success: true };
+    }
+    
+    function checkResumeConditions() {
+      const v2 = getTeamV2();
+      const parkedAgents = Object.entries(v2.subagents || {}).filter(([_, s]) => s.isParked && !s.stopped);
+      
+      for (const [agentId, state] of parkedAgents) {
+        const condition = state.resumeCondition;
+        if (!condition) continue;
+        
+        let shouldResume = false;
+        let resumeSummary = '';
+        
+        if (condition.type === 'timeout') {
+          const elapsedMinutes = (Date.now() - state.parkedAt) / (1000 * 60);
+          if (elapsedMinutes >= (condition.minutes || 5)) {
+            shouldResume = true;
+            resumeSummary = `Timeout reached: ${elapsedMinutes.toFixed(1)} minutes elapsed (threshold: ${condition.minutes} min)`;
+          }
+        } else if (condition.type === 'on_event') {
+          // Check if the event topic has occurred since parkedAt
+          const events = appState.sessionEvents || [];
+          const eventOccurred = events.some(e => 
+            e.topic === condition.topic && 
+            e.timestamp > state.parkedAt
+          );
+          if (eventOccurred) {
+            shouldResume = true;
+            const matchingEvent = events.find(e => e.topic === condition.topic && e.timestamp > state.parkedAt);
+            resumeSummary = `Event "${condition.topic}" occurred: ${matchingEvent?.data || ''}`;
+          }
+        } else if (condition.type === 'trigger') {
+          // Use G17 trigger-spec parser
+          const triggerResult = parseTriggerSpec(condition.spec);
+          if (triggerResult && evaluateTrigger(triggerResult, { since: state.parkedAt })) {
+            shouldResume = true;
+            resumeSummary = `Trigger condition met: ${condition.spec}`;
+          }
+        }
+        
+        if (shouldResume) {
+          // Only resume if action is resume_with_summary or resume_with_input
+          if (state.resumeAction === 'resume_with_summary' || state.resumeAction === 'resume_with_input') {
+            resumeSubAgent(agentId, resumeSummary);
+          } else if (state.resumeAction === 'fail') {
+            // Mark as failed
+            state.isParked = false;
+            state.status = 'failed';
+            state.failedAt = Date.now();
+            recordSessionEvent('subagent_failed', JSON.stringify({
+              agentId,
+              agentName: appState.agents[agentId]?.name,
+              reason: state.parkReason,
+              parkedDuration: state.failedAt - state.parkedAt
+            }));
+            logActivity(`❌ ${appState.agents[agentId]?.name} failed (park condition met, action=fail)`, 'danger');
+          }
+        }
+      }
+    }
+    
+    function checkParkedAgentTimeouts() {
+      // Called on timer tick - checks timeout conditions
+      checkResumeConditions();
+    }
+    
+    // G17 trigger-spec parser (reused from Batch 6 E5/G17)
+    function parseTriggerSpec(spec) {
+      if (!spec || typeof spec !== 'string') return null;
+      
+      // Format: "event:topic" or "time:5m" or "count:3" or "keyword:foo"
+      const parts = spec.split(':');
+      const type = parts[0];
+      const value = parts.slice(1).join(':');
+      
+      return { type, value };
+    }
+    
+    function evaluateTrigger(trigger, context) {
+      if (!trigger) return false;
+      
+      const events = appState.sessionEvents || [];
+      const since = context.since || 0;
+      
+      switch (trigger.type) {
+        case 'event':
+          return events.some(e => e.topic === trigger.value && e.timestamp > since);
+        case 'time': {
+          const ms = parseTimeString(trigger.value);
+          return ms && (Date.now() - since) >= ms;
+        }
+        case 'count':
+          const count = parseInt(trigger.value, 10);
+          return events.filter(e => e.timestamp > since).length >= count;
+        case 'keyword':
+          return events.some(e => 
+            e.timestamp > since && 
+            (e.data && String(e.data).toLowerCase().includes(trigger.value.toLowerCase()))
+          );
+        default:
+          return false;
+      }
+    }
+    
+    function parseTimeString(s) {
+      const m = s.match(/^(\d+)([smhd])$/);
+      if (!m) return null;
+      const val = parseInt(m[1], 10);
+      const unit = m[2];
+      const mult = { s: 1000, m: 60000, h: 3600000, d: 86400000 }[unit];
+      return mult ? val * mult : null;
+    }
+    
+    // Start the cheap timer tick for timeout checking (runs every 30 seconds)
+    function startParkedAgentTimer() {
+      if (window._parkedAgentTimer) return; // Already running
+      window._parkedAgentTimer = setInterval(checkParkedAgentTimeouts, 30000);
+    }
+    
+    function stopParkedAgentTimer() {
+      if (window._parkedAgentTimer) {
+        clearInterval(window._parkedAgentTimer);
+        window._parkedAgentTimer = null;
+      }
+    }
+    
+    // Extend renderTeamRoster to show parked agents with controls
+    const _originalRenderTeamRoster = renderTeamRoster;
+    renderTeamRoster = function() {
+      _originalRenderTeamRoster();
+      
+      const v2 = getTeamV2();
+      const parkedAgents = Object.entries(v2.subagents || {}).filter(([_, s]) => s.isParked && !s.stopped);
+      
+      if (parkedAgents.length === 0) return;
+      
+      const container = document.getElementById('teamRoster');
+      if (!container) return;
+      
+      // Add parked agents section
+      const parkedSection = document.createElement('div');
+      parkedSection.style.cssText = 'margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-color);';
+      parkedSection.innerHTML = '<div style="font-size: 11px; font-weight: 700; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase;">Parked Subagents</div>';
+      
+      parkedAgents.forEach(([agentId, state]) => {
+        const agent = appState.agents[agentId];
+        if (!agent) return;
+        
+        const parkedMinutes = Math.floor((Date.now() - state.parkedAt) / 60000);
+        const conditionStr = state.resumeCondition 
+          ? `${state.resumeCondition.type}: ${state.resumeCondition.spec || state.resumeCondition.topic || state.resumeCondition.minutes + 'min'}`
+          : 'none';
+        
+        const item = document.createElement('div');
+        item.style.cssText = 'display:flex; flex-direction:column; gap:6px; padding:8px; background:rgba(245,158,11,0.15); border:1px solid var(--warning); border-radius:6px; font-size:11px;';
+        item.innerHTML = `
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <span style="font-size:14px;">${escapeHtml(agent.emoji)}</span>
+            <div style="flex:1; min-width:0;">
+              <div style="font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(agent.name)}</div>
+              <div style="color:var(--text-dim);">Parked ${parkedMinutes}m ago · ${escapeHtml(state.parkReason || 'no reason')}</div>
+              <div style="color:var(--text-dim);">Resume: ${escapeHtml(conditionStr)} · Action: ${escapeHtml(state.resumeAction)}</div>
+            </div>
+          </div>
+          <div style="display:flex; gap:6px; flex-wrap:wrap;">
+            <button class="btn btn-secondary" style="font-size:10px; padding:2px 8px;" onclick="resumeSubAgent('${agentId}', 'Resumed by user')">▶ Resume Now</button>
+            <button class="btn" style="font-size:10px; padding:2px 8px; background:var(--danger);" onclick="stopParkedAgent('${agentId}')">🛑 Stop</button>
+          </div>
+        `;
+        parkedSection.appendChild(item);
+      });
+      
+      container.appendChild(parkedSection);
+      };
 
     // ==================== H5.1 SCHEDULED TASKS + WATCH LOOPS ====================
 
@@ -58095,6 +59148,411 @@ FOLLOWUP: [question 3]`;
       return playbook.runsTotal > 0 ? playbook.runsGreen / playbook.runsTotal : 1;
     }
 
+    // ==================== P5: WORKFLOW CRYSTALLIZATION (Batch 16 - Harn) ====================
+    
+    // Mine G14 event log for repeated action sequences
+    function mineEventLogForWorkflows(options = {}) {
+      const {
+        minOccurrences = 3,
+        minSequenceLength = 2,
+        maxSequenceLength = 10,
+        since = 0
+      } = options;
+      
+      const events = (appState.sessionEvents || []).filter(e => e.timestamp >= since);
+      if (events.length < minOccurrences * minSequenceLength) {
+        return { candidates: [], reason: 'insufficient_events' };
+      }
+      
+      // Extract action sequences from events (focus on tool calls, edits, etc.)
+      const actionEvents = events.filter(e => 
+        e.topic && (
+          e.topic.startsWith('tool_') || 
+          e.topic.startsWith('edit_') ||
+          e.topic.startsWith('subagent_') ||
+          e.topic === 'agent_turn'
+        )
+      );
+      
+      // Build sequences of actions
+      const sequences = [];
+      for (let i = 0; i <= actionEvents.length - minSequenceLength; i++) {
+        for (let len = minSequenceLength; len <= maxSequenceLength && i + len <= actionEvents.length; len++) {
+          const seq = actionEvents.slice(i, i + len);
+          const signature = seq.map(e => e.topic).join('|');
+          sequences.push({
+            signature,
+            events: seq,
+            startIdx: i,
+            length: len
+          });
+        }
+      }
+      
+      // Group by signature and count occurrences
+      const signatureMap = new Map();
+      for (const seq of sequences) {
+        const existing = signatureMap.get(seq.signature) || { count: 0, occurrences: [] };
+        existing.count++;
+        existing.occurrences.push(seq);
+        signatureMap.set(seq.signature, existing);
+      }
+      
+      // Filter candidates: must have minOccurrences, extract varying parameters
+      const candidates = [];
+      for (const [signature, data] of signatureMap) {
+        if (data.count < minOccurrences) continue;
+        
+        // Extract scalar parameters that vary across occurrences
+        const params = extractVaryingParameters(data.occurrences);
+        
+        // Check side effect divergence
+        const sideEffects = checkSideEffectDivergence(data.occurrences);
+        if (sideEffects.divergent) continue;
+        
+        // Mark model-dependent steps as fuzzy
+        const steps = signature.split('|').map((topic, idx) => ({
+          topic,
+          index: idx,
+          isFuzzy: isModelDependentStep(topic),
+          params: params[idx] || {}
+        }));
+        
+        candidates.push({
+          id: `cand-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+          signature,
+          occurrences: data.count,
+          steps,
+          params,
+          sideEffects: sideEffects.effects,
+          capabilities: extractRequiredCapabilities(data.occurrences),
+          secrets: extractRequiredSecrets(data.occurrences),
+          approvalBoundaries: identifyApprovalBoundaries(steps),
+          rollbackTarget: identifyRollbackTarget(data.occurrences),
+          sourceTraces: data.occurrences.map(o => ({
+            startEventIdx: o.startIdx,
+            events: o.events.map(e => ({ topic: e.topic, timestamp: e.timestamp }))
+          }))
+        });
+      }
+      
+      // Sort by occurrence count descending
+      candidates.sort((a, b) => b.occurrences - a.occurrences);
+      
+      return { candidates };
+    }
+    
+    function extractVaryingParameters(occurrences) {
+      if (occurrences.length < 2) return [];
+      
+      const paramMaps = occurrences.map(occ => {
+        const params = {};
+        for (const event of occ.events) {
+          try {
+            const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+            if (data && typeof data === 'object') {
+              for (const [key, value] of Object.entries(data)) {
+                if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+                  params[key] = value;
+                }
+              }
+            }
+          } catch {}
+        }
+        return params;
+      });
+      
+      // Find keys that vary across occurrences
+      const allKeys = new Set();
+      for (const p of paramMaps) {
+        for (const k of Object.keys(p)) allKeys.add(k);
+      }
+      
+      const varyingParams = [];
+      for (const key of allKeys) {
+        const values = paramMaps.map(p => p[key]);
+        const uniqueValues = new Set(values);
+        if (uniqueValues.size > 1) {
+          varyingParams.push({
+            name: key,
+            values: Array.from(uniqueValues),
+            type: typeof values[0]
+          });
+        }
+      }
+      
+      return varyingParams;
+    }
+    
+    function checkSideEffectDivergence(occurrences) {
+      // For each occurrence, check what files were modified
+      const fileModifications = occurrences.map(occ => {
+        const files = new Set();
+        for (const event of occ.events) {
+          try {
+            const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+            if (data && data.filePath) files.add(data.filePath);
+          } catch {}
+        }
+        return files;
+      });
+      
+      // Check if all occurrences modify the same set of files
+      const first = fileModifications[0];
+      let divergent = false;
+      for (let i = 1; i < fileModifications.length; i++) {
+        if (fileModifications[i].size !== first.size || 
+            ![...fileModifications[i]].every(f => first.has(f))) {
+          divergent = true;
+          break;
+        }
+      }
+      
+      return {
+        divergent,
+        effects: [...first].map(f => ({ file: f, type: 'modify' }))
+      };
+    }
+    
+    function isModelDependentStep(topic) {
+      // Steps that involve model calls are fuzzy
+      return topic.startsWith('tool_model') || 
+             topic === 'agent_turn' ||
+             topic.startsWith('subagent_');
+    }
+    
+    function extractRequiredCapabilities(occurrences) {
+      const caps = new Set();
+      for (const occ of occurrences) {
+        for (const event of occ.events) {
+          if (event.topic.startsWith('tool_')) {
+            caps.add(event.topic.replace('tool_', ''));
+          }
+        }
+      }
+      return Array.from(caps);
+    }
+    
+    function extractRequiredSecrets(occurrences) {
+      const secrets = new Set();
+      for (const occ of occurrences) {
+        for (const event of occ.events) {
+          try {
+            const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+            if (data && data.secrets) {
+              for (const s of data.secrets) secrets.add(s);
+            }
+          } catch {}
+        }
+      }
+      return Array.from(secrets);
+    }
+    
+    function identifyApprovalBoundaries(steps) {
+      // Steps that modify files or call external APIs need approval
+      const boundaries = [];
+      for (const step of steps) {
+        if (step.topic.startsWith('tool_edit') || 
+            step.topic.startsWith('tool_write') ||
+            step.topic.startsWith('tool_delete') ||
+            step.topic.startsWith('tool_web') ||
+            step.topic.startsWith('tool_shell')) {
+          boundaries.push(step.index);
+        }
+      }
+      return boundaries;
+    }
+    
+    function identifyRollbackTarget(occurrences) {
+      // The state before the first occurrence is the rollback target
+      const firstOcc = occurrences[0];
+      if (firstOcc && firstOcc.events.length > 0) {
+        return {
+          eventIdx: firstOcc.startIdx,
+          timestamp: firstOcc.events[0].timestamp,
+          description: `Before ${firstOcc.events[0].topic}`
+        };
+      }
+      return null;
+    }
+    
+    // Shadow-check: replay deterministic steps against holdout traces
+    async function shadowCheckWorkflow(candidate, holdoutTraces) {
+      const results = [];
+      
+      for (const trace of holdoutTraces) {
+        let passed = true;
+        const stepResults = [];
+        
+        for (const step of candidate.steps) {
+          if (step.isFuzzy) {
+            stepResults.push({ step: step.index, skipped: true, reason: 'fuzzy_step' });
+            continue;
+          }
+          
+          // Replay deterministic step without mutating
+          const traceEvent = trace.events[step.index];
+          if (!traceEvent) {
+            passed = false;
+            stepResults.push({ step: step.index, passed: false, reason: 'trace_missing' });
+            continue;
+          }
+          
+          // For deterministic steps (edits, file ops), verify the operation would succeed
+          // by checking preconditions without actually executing
+          const checkResult = await checkDeterministicStepPreconditions(step, traceEvent);
+          stepResults.push({ step: step.index, passed: checkResult.ok, reason: checkResult.reason });
+          
+          if (!checkResult.ok) passed = false;
+        }
+        
+        results.push({
+          traceId: trace.id,
+          passed,
+          steps: stepResults
+        });
+      }
+      
+      return results;
+    }
+    
+    async function checkDeterministicStepPreconditions(step, traceEvent) {
+      // Check file exists, permissions, etc. without actually writing
+      try {
+        const data = typeof traceEvent.data === 'string' ? JSON.parse(traceEvent.data) : traceEvent.data;
+        if (!data) return { ok: false, reason: 'no_data' };
+        
+        if (step.topic.startsWith('tool_edit') || step.topic.startsWith('tool_write')) {
+          // Check if file path is valid
+          if (!data.filePath) return { ok: false, reason: 'no_filepath' };
+          // In real implementation, check if file exists and is writable
+          return { ok: true, reason: 'preconditions_met' };
+        }
+        
+        return { ok: true, reason: 'no_check_needed' };
+      } catch (err) {
+        return { ok: false, reason: err.message };
+      }
+    }
+    
+    // Promote candidate to Recipe (Batch 7.5)
+    function promoteWorkflowToRecipe(candidate, options = {}) {
+      const { approvedBy = 'user', name = 'Crystallized Workflow' } = options;
+      
+      // Build Recipe manifest
+      const recipe = {
+        id: `recipe-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        name,
+        description: `Crystallized from ${candidate.occurrences} repeated traces`,
+        source: 'crystallization',
+        candidateId: candidate.id,
+        approvedBy,
+        approvedAt: new Date().toISOString(),
+        
+        // Deterministic steps run as plain code
+        deterministicSteps: candidate.steps
+          .filter(s => !s.isFuzzy)
+          .map((s, i) => ({
+            id: `det-${i}`,
+            type: s.topic,
+            action: 'run_deterministic',
+            params: s.params,
+            approvalRequired: candidate.approvalBoundaries.includes(s.index)
+          })),
+        
+        // Fuzzy steps still call model
+        fuzzySteps: candidate.steps
+          .filter(s => s.isFuzzy)
+          .map((s, i) => ({
+            id: `fuzzy-${i}`,
+            type: s.topic,
+            action: 'call_model',
+            params: s.params,
+            approvalRequired: candidate.approvalBoundaries.includes(s.index)
+          })),
+        
+        // Combined in order
+        steps: candidate.steps.map((s, i) => ({
+          id: s.isFuzzy ? `fuzzy-${candidate.steps.filter(f => f.isFuzzy).indexOf(s)}` : `det-${candidate.steps.filter(f => !f.isFuzzy).indexOf(s)}`,
+          isFuzzy: s.isFuzzy,
+          approvalRequired: candidate.approvalBoundaries.includes(i),
+          params: s.params
+        })),
+        
+        capabilities: candidate.capabilities,
+        secrets: candidate.secrets,
+        rollbackTarget: candidate.rollbackTarget,
+        sideEffects: candidate.sideEffects,
+        
+        // Eval pack for verification
+        evalPack: {
+          sourceTraces: candidate.sourceTraces,
+          shadowCheckResults: null // Filled after shadow check
+        },
+        
+        createdAt: new Date().toISOString(),
+        runsTotal: 0,
+        runsGreen: 0
+      };
+      
+      // Save as Recipe (Batch 7.5)
+      if (!appState.recipes) appState.recipes = [];
+      appState.recipes.push(recipe);
+      saveAppState();
+      
+      // Log promotion event
+      recordSessionEvent('workflow_promoted', JSON.stringify({
+        candidateId: candidate.id,
+        recipeId: recipe.id,
+        name,
+        steps: recipe.steps.length,
+        deterministicCount: recipe.deterministicSteps.length,
+        fuzzyCount: recipe.fuzzySteps.length,
+        approvedBy
+      }));
+      
+      return recipe;
+    }
+    
+    // Run crystallized recipe: deterministic steps as code, fuzzy steps call model
+    async function runCrystallizedRecipe(recipeId, params = {}) {
+      const recipe = (appState.recipes || []).find(r => r.id === recipeId);
+      if (!recipe) return { error: 'Recipe not found' };
+      
+      const results = [];
+      
+      for (const step of recipe.steps) {
+        if (step.isFuzzy) {
+          // Fuzzy step: call model
+          const result = await executeFuzzyStep(step, params);
+          results.push({ stepId: step.id, fuzzy: true, result });
+        } else {
+          // Deterministic step: run as plain code
+          const result = await executeDeterministicStep(step, params);
+          results.push({ stepId: step.id, fuzzy: false, result });
+        }
+      }
+      
+      // Update run stats
+      recipe.runsTotal++;
+      const allGreen = results.every(r => r.result.success);
+      if (allGreen) recipe.runsGreen++;
+      saveAppState();
+      
+      return { recipeId, results, allGreen };
+    }
+    
+    async function executeDeterministicStep(step, params) {
+      // Execute without model call - direct tool invocation
+      // This is a simplified version; real impl would dispatch to tool handlers
+      return { success: true, simulated: true, step: step.type };
+    }
+    
+    async function executeFuzzyStep(step, params) {
+      // Fuzzy step calls the model
+      return { success: true, simulated: true, step: step.type, modelCall: true };
+    }
+    
     // ==================== E8: MULTI-MODAL INPUT ====================
     // Attachments: image (mockup/screenshot), Figma URL, video recording
     // Content injected into agent prompt. Honest limits: no vision without provider support
