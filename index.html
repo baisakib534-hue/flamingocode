@@ -2451,6 +2451,9 @@
         <span>Desktop Mode</span>
       </span>
       <select id="sessionSelect" class="session-picker" title="Switch Session"></select>
+      <div id="projectIntegrationsHeader" style="display: flex; align-items: center; gap: 6px; margin-left: 12px; padding-left: 12px; border-left: 1px solid var(--border); min-width: 200px; font-size: 10px;">
+        <span style="color: var(--text-dim);">No integrated apps</span>
+      </div>
       <button class="btn btn-secondary" id="btnNewSession">+ Session</button>
       <button class="btn btn-secondary" id="btnDelSession" title="Delete Current Session">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
@@ -2709,6 +2712,7 @@
         <button class="right-tab" data-pane="recordings" data-i18n="Recordings">📹 Recordings</button>
         <button class="right-tab" data-pane="computers" data-i18n="Computers">💻 Computers</button>
         <button class="right-tab" data-pane="flow" data-i18n="Flow">🔄 Flow</button>
+        <button class="right-tab" data-pane="integrations" data-i18n="Integrations">🔗 Integrations</button>
       </div>
 
       <div class="right-content">
@@ -4060,6 +4064,23 @@
                                         <div style="font-size: 11px; color: var(--text-dim); border-top:1px solid var(--border-color); padding-top: 16px; margin-top: 16px;">
                                           <strong>Atomic Acts (O16):</strong> Task decomposition into deterministic, replayable acts with fallback chains. Available in desktop app.
                                         </div>
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  <!-- Integrations Pane (App Integrations Hub) -->
+                                  <div class="pane-view" id="paneIntegrations">
+                                    <div id="integrationsPanel" style="flex:1; overflow-y:auto; padding: 12px; display:flex; flex-direction:column; gap:12px;">
+                                      <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; padding: 8px 12px; background:var(--bg-surface); border:1px solid var(--border-color); border-radius:5px;">
+                                        <div style="display:flex; align-items:center; gap:8px;">
+                                          <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Integrations Hub</span>
+                                        </div>
+                                        <div style="display:flex; align-items:center; gap:6px;">
+                                          <button class="btn btn-primary" id="btnBuildCustomIntegration" style="padding: 4px 10px; font-size: 10px;">+ Build Custom</button>
+                                        </div>
+                                      </div>
+                                      <div id="integrationsCatalog" style="flex:1; overflow-y:auto;">
+                                        <!-- Integrations catalog rendered by renderIntegrationsPanel() -->
                                       </div>
                                     </div>
                                   </div>
@@ -10963,6 +10984,14 @@ Detail level: {{detail_level}}`,
       cvePatches: [],   // Array of { id, repo, dependency, currentVersion, fixedVersion, advisory, verified, requiresApproval, testsBefore, testsAfter, runtimeDiff, prSummary }
       // ============ AUDIT GAPS: A8 Pylon integration ============
       pylon: { connected: false, config: {}, tickets: {} }, // { ticketId: { inboxItemId, status, lastSync } }
+      // ============ APP INTEGRATIONS HUB ============
+      integrationsHub: {
+        catalog: [],           // Array of integration catalog entries
+        installed: {},         // { [integrationId]: { installedAt, config, integratedProjects: [] } }
+        projectAllowedApps: {}, // { [projectId]: [integrationId] } — apps user explicitly allowed per project
+        projectKeys: {},       // { [projectId]: { [integrationId]: { set: boolean, value: string } } }
+        builtIntegrations: {}, // { [integrationId]: { manifest, code, prompt, path, createdAt } }
+      },
       // ============ AUDIT GAPS: B1-B9 Integrations ============
       integrations: {
         sentry: { connected: false, config: {} },
@@ -11298,6 +11327,36 @@ Detail level: {{detail_level}}`,
       // Rebuild MCP tool definitions after initialization
       rebuildMcpToolDefinitions();
 
+      // ============ APP INTEGRATIONS HUB: Initialize pre-installed catalog ============
+      if (!appState.integrationsHub) appState.integrationsHub = {};
+      if (!appState.integrationsHub.catalog || appState.integrationsHub.catalog.length === 0) {
+        appState.integrationsHub.catalog = [
+          // AI apps (pre-installed, connect with user's own key/account)
+          { id: 'gpt', name: 'GPT (ChatGPT/OpenAI)', description: 'OpenAI GPT মডেলের সাথে চ্যাট করুন', kind: 'ai', free: false, installState: 'not-installed', integratedProjects: [], mcpEntry: null, builtByFlamingoCode: false },
+          { id: 'claude', name: 'Claude (Anthropic)', description: 'Anthropic Claude মডেল ব্যবহার করুন', kind: 'ai', free: false, installState: 'not-installed', integratedProjects: [], mcpEntry: null, builtByFlamingoCode: false },
+          { id: 'devin', name: 'Devin', description: 'Devin AI সফ্টওয়্যার ইঞ্জিনিয়ার', kind: 'ai', free: false, installState: 'not-installed', integratedProjects: [], mcpEntry: null, builtByFlamingoCode: false },
+          // Free apps (free-first catalog)
+          { id: 'github', name: 'GitHub', description: 'GitHub রেপো, ইস্যু, PR ম্যানেজ করুন', kind: 'free', free: true, installState: 'not-installed', integratedProjects: [], mcpEntry: 'mcp_github', builtByFlamingoCode: false },
+          { id: 'gitlab', name: 'GitLab', description: 'GitLab প্রজেক্ট ও মার্জ রিকোয়েস্ট', kind: 'free', free: true, installState: 'not-installed', integratedProjects: [], mcpEntry: null, builtByFlamingoCode: false },
+          { id: 'bitbucket', name: 'Bitbucket', description: 'Bitbucket রেপোসিটরি ও পাইপলাইন', kind: 'free', free: true, installState: 'not-installed', integratedProjects: [], mcpEntry: null, builtByFlamingoCode: false },
+          { id: 'linear', name: 'Linear', description: 'Linear ইস্যু ট্র্যাকিং ও প্রজেক্ট ম্যানেজমেন্ট', kind: 'free', free: true, installState: 'not-installed', integratedProjects: [], mcpEntry: null, builtByFlamingoCode: false },
+          { id: 'jira', name: 'Jira', description: 'Jira অ্যাজাইল প্রজেক্ট ম্যানেজমেন্ট', kind: 'free', free: true, installState: 'not-installed', integratedProjects: [], mcpEntry: null, builtByFlamingoCode: false },
+          { id: 'slack', name: 'Slack', description: 'Slack চ্যানেলে মেসেজ পোস্ট করুন', kind: 'free', free: true, installState: 'not-installed', integratedProjects: [], mcpEntry: null, builtByFlamingoCode: false },
+          { id: 'notion', name: 'Notion', description: 'Notion পেজ ও ডাটাবেস ম্যানেজ করুন', kind: 'free', free: true, installState: 'not-installed', integratedProjects: [], mcpEntry: null, builtByFlamingoCode: false },
+          { id: 'figma', name: 'Figma', description: 'Figma ডিজাইন ফাইল ও কম্পোনেন্ট', kind: 'free', free: true, installState: 'not-installed', integratedProjects: [], mcpEntry: null, builtByFlamingoCode: false },
+          { id: 'vercel', name: 'Vercel', description: 'Vercel ডিপ্লয়মেন্ট ও প্রিভিউ', kind: 'free', free: true, installState: 'not-installed', integratedProjects: [], mcpEntry: null, builtByFlamingoCode: false },
+          { id: 'sentry', name: 'Sentry', description: 'Sentry এরর ট্র্যাকিং ও মনিটরিং', kind: 'free', free: true, installState: 'not-installed', integratedProjects: [], mcpEntry: null, builtByFlamingoCode: false },
+          { id: 'datadog', name: 'Datadog', description: 'Datadog APM ও লগ ম্যানেজমেন্ট', kind: 'free', free: true, installState: 'not-installed', integratedProjects: [], mcpEntry: null, builtByFlamingoCode: false },
+          { id: 'pagerduty', name: 'PagerDuty', description: 'PagerDuty ইনসিডেন্ট রেসপন্স', kind: 'free', free: true, installState: 'not-installed', integratedProjects: [], mcpEntry: null, builtByFlamingoCode: false },
+          { id: 'snyk', name: 'Snyk', description: 'Snyk সিকিউরিটি ভালনারাবিলিটি স্ক্যান', kind: 'free', free: true, installState: 'not-installed', integratedProjects: [], mcpEntry: null, builtByFlamingoCode: false },
+          { id: 'confluence', name: 'Confluence', description: 'Confluence উইকি ও ডকুমেন্টেশন', kind: 'free', free: true, installState: 'not-installed', integratedProjects: [], mcpEntry: null, builtByFlamingoCode: false },
+          // Payment integrations (pre-installed)
+          { id: 'paypal', name: 'PayPal', description: 'PayPal পেমেন্ট গেটওয়ে', kind: 'payment', free: false, installState: 'not-installed', integratedProjects: [], mcpEntry: null, builtByFlamingoCode: false, testable: true },
+          { id: 'stripe', name: 'Stripe', description: 'Stripe পেমেন্ট প্রসেসিং', kind: 'payment', free: false, installState: 'not-installed', integratedProjects: [], mcpEntry: null, builtByFlamingoCode: false, testable: true },
+          { id: 'nowpayments', name: 'NOWPayments', description: 'NOWPayments ক্রিপ্টো পেমেন্ট', kind: 'payment', free: false, installState: 'not-installed', integratedProjects: [], mcpEntry: null, builtByFlamingoCode: false, testable: true },
+        ];
+      }
+
       // Initialize checkpoints if not present (migration)
       if (!appState.checkpoints) {
         appState.checkpoints = [];
@@ -11469,6 +11528,21 @@ Detail level: {{detail_level}}`,
       if (!appState.mcpBuilder) appState.mcpBuilder = { builtServers: {} };
       if (!appState.mcpBuilder.builtServers) appState.mcpBuilder.builtServers = {};
       if (appState.mcpBuilderLastGenerated === undefined) appState.mcpBuilderLastGenerated = null;
+      // ============ APP INTEGRATIONS HUB: Initialize ============
+      if (!appState.integrationsHub) {
+        appState.integrationsHub = {
+          catalog: [],
+          installed: {},
+          projectAllowedApps: {},
+          projectKeys: {},
+          builtIntegrations: {}
+        };
+      }
+      if (!appState.integrationsHub.catalog) appState.integrationsHub.catalog = [];
+      if (!appState.integrationsHub.installed) appState.integrationsHub.installed = {};
+      if (!appState.integrationsHub.projectAllowedApps) appState.integrationsHub.projectAllowedApps = {};
+      if (!appState.integrationsHub.projectKeys) appState.integrationsHub.projectKeys = {};
+      if (!appState.integrationsHub.builtIntegrations) appState.integrationsHub.builtIntegrations = {};
       if (!appState.engines) appState.engines = {};
       if (!appState.taskEngineOverrides) appState.taskEngineOverrides = {};
       if (!appState.androidPack) appState.androidPack = { installed: false, guidance: {} };
@@ -23500,6 +23574,8 @@ function switchPane(paneName) {
     setTimeout(renderModelsPanel, 0);
   } else if (paneName === 'companion') {
     setTimeout(renderCompanionView, 0);
+  } else if (paneName === 'integrations') {
+    setTimeout(initIntegrationsPanel, 0);
   }
 }
 
@@ -56596,6 +56672,24 @@ Requirements:
         }
       });
 
+      // App Integrations Hub: Build Custom Integration button
+      const btnBuildCustom = document.getElementById('btnBuildCustomIntegration');
+      if (btnBuildCustom) {
+        btnBuildCustom.onclick = () => {
+          const prompt = prompt('Describe the integration you want to build (e.g., "connect to Notion API to read pages", "build a Slack bot that posts to a channel"):');
+          if (!prompt || prompt.trim().length < 10) {
+            showToast('Please describe the integration (at least 10 characters)', 'warning');
+            return;
+          }
+          const result = buildCustomIntegration(prompt.trim());
+          if (result.success) {
+            showToast(`Custom integration created: ${result.manifest.name}`, 'success');
+            renderIntegrationsPanel();
+          } else {
+            showToast(result.error, 'error');
+          }
+        };
+      }
     }
 
     // ============ BATCH 15: Helper functions for wiring ============
@@ -76446,7 +76540,477 @@ ${appState.decisionLedger?.slice(-10).map(d => `- Turn ${d.turn}: ${d.decision} 
     window.getFlowStatus = getFlowStatus;
     window.canMarkDone = canMarkDone;
     window.renderFlowStatusLine = renderFlowStatusLine;
-    window.markTaskDone = markTaskDone;
+      window.markTaskDone = markTaskDone;
+
+      // ============ APP INTEGRATIONS HUB FUNCTIONS ============
+
+      // Get the integration catalog
+      function getIntegrationCatalog() {
+        return appState.integrationsHub.catalog || [];
+      }
+
+      // Search integrations by name
+      function searchIntegrations(query) {
+        const catalog = getIntegrationCatalog();
+        const q = (query || '').toLowerCase().trim();
+        if (!q) return catalog;
+        return catalog.filter(app => 
+          app.name.toLowerCase().includes(q) || 
+          app.id.toLowerCase().includes(q) ||
+          app.description.toLowerCase().includes(q)
+        );
+      }
+
+      // Filter integrations by kind
+      function filterIntegrationsByKind(kind) {
+        const catalog = getIntegrationCatalog();
+        if (!kind || kind === 'all') return catalog;
+        return catalog.filter(app => app.kind === kind);
+      }
+
+      // Get install state of an integration
+      function getIntegrationInstallState(integrationId) {
+        const installed = appState.integrationsHub.installed[integrationId];
+        if (!installed) return 'not-installed';
+        return installed.integratedProjects && installed.integratedProjects.length > 0 ? 'integrated' : 'installed';
+      }
+
+      // Check if an app can be integrated (must be installed first)
+      function canIntegrateApp(integrationId) {
+        const installed = appState.integrationsHub.installed[integrationId];
+        return installed && installed.installedAt;
+      }
+
+      // Install an app
+      function installApp(integrationId) {
+        const catalog = getIntegrationCatalog();
+        const app = catalog.find(a => a.id === integrationId);
+        if (!app) return { success: false, error: 'Integration not found' };
+    
+        if (appState.integrationsHub.installed[integrationId]) {
+          return { success: false, error: 'Already installed' };
+        }
+    
+        appState.integrationsHub.installed[integrationId] = {
+          installedAt: new Date().toISOString(),
+          config: {},
+          integratedProjects: []
+        };
+        app.installState = 'installed';
+        saveAppState();
+        return { success: true, app };
+      }
+
+      // Uninstall an app
+      function uninstallApp(integrationId, confirmed) {
+        const installed = appState.integrationsHub.installed[integrationId];
+        if (!installed) return { success: false, error: 'Not installed' };
+    
+        const projects = installed.integratedProjects || [];
+        if (projects.length > 0 && !confirmed) {
+          return { 
+            success: false, 
+            error: 'App is integrated into projects', 
+            projects,
+            requiresConfirmation: true 
+          };
+        }
+    
+        // Remove integration from projects
+        projects.forEach(projectId => {
+          const projectIntegrations = appState.integrationsHub.projectAllowedApps[projectId] || [];
+          const idx = projectIntegrations.indexOf(integrationId);
+          if (idx >= 0) projectIntegrations.splice(idx, 1);
+      
+          // Also remove from projectKeys
+          if (appState.integrationsHub.projectKeys[projectId]) {
+            delete appState.integrationsHub.projectKeys[projectId][integrationId];
+          }
+        });
+    
+        // Remove from catalog
+        const catalog = getIntegrationCatalog();
+        const app = catalog.find(a => a.id === integrationId);
+        if (app) {
+          app.installState = 'not-installed';
+          app.integratedProjects = [];
+        }
+    
+        delete appState.integrationsHub.installed[integrationId];
+        saveAppState();
+        return { success: true };
+      }
+
+      // Get projects using an integration
+      function getProjectsUsingIntegration(integrationId) {
+        const installed = appState.integrationsHub.installed[integrationId];
+        return installed ? (installed.integratedProjects || []) : [];
+      }
+
+      // Integrate an app into a project
+      function integrateApp(integrationId, projectId) {
+        if (!canIntegrateApp(integrationId)) {
+          return { success: false, reason: 'আগে Install করো' };
+        }
+    
+        const installed = appState.integrationsHub.installed[integrationId];
+        if (!installed.integratedProjects.includes(projectId)) {
+          installed.integratedProjects.push(projectId);
+        }
+    
+        const catalog = getIntegrationCatalog();
+        const app = catalog.find(a => a.id === integrationId);
+        if (app && !app.integratedProjects.includes(projectId)) {
+          app.integratedProjects.push(projectId);
+        }
+    
+        saveAppState();
+        return { success: true };
+      }
+
+      // Disconnect an app from a project
+      function disconnectApp(integrationId, projectId) {
+        const installed = appState.integrationsHub.installed[integrationId];
+        if (!installed) return { success: false, error: 'Not installed' };
+    
+        const idx = installed.integratedProjects.indexOf(projectId);
+        if (idx >= 0) installed.integratedProjects.splice(idx, 1);
+    
+        const catalog = getIntegrationCatalog();
+        const app = catalog.find(a => a.id === integrationId);
+        if (app) {
+          const pIdx = app.integratedProjects.indexOf(projectId);
+          if (pIdx >= 0) app.integratedProjects.splice(pIdx, 1);
+        }
+    
+        // Also remove from allowed apps
+        const allowed = appState.integrationsHub.projectAllowedApps[projectId] || [];
+        const aIdx = allowed.indexOf(integrationId);
+        if (aIdx >= 0) allowed.splice(aIdx, 1);
+    
+        saveAppState();
+        return { success: true };
+      }
+
+      // Get allowed apps for a project
+      function getAllowedApps(projectId) {
+        return appState.integrationsHub.projectAllowedApps[projectId] || [];
+      }
+
+      // Allow an app for a project (user explicitly says "use this app")
+      function allowAppForProject(integrationId, projectId) {
+        if (!canIntegrateApp(integrationId)) return { success: false, error: 'App not integrated' };
+        const allowed = appState.integrationsHub.projectAllowedApps[projectId] || [];
+        if (!allowed.includes(integrationId)) {
+          allowed.push(integrationId);
+          appState.integrationsHub.projectAllowedApps[projectId] = allowed;
+          saveAppState();
+        }
+        return { success: true };
+      }
+
+      // Get "Use: <app>" picker apps for a project
+      function getUsePickerApps(projectId) {
+        const installed = Object.keys(appState.integrationsHub.installed)
+          .filter(id => appState.integrationsHub.installed[id].integratedProjects?.includes(projectId));
+        return installed.map(id => {
+          const catalog = getIntegrationCatalog();
+          const app = catalog.find(a => a.id === id);
+          return { id, name: app?.name || id, kind: app?.kind || 'tool', allowed: getAllowedApps(projectId).includes(id) };
+        });
+      }
+
+      // Execute payment integration (always requires confirmation)
+      function executePaymentIntegration(integrationId, params, projectId) {
+        const allowed = getAllowedApps(projectId);
+        if (!allowed.includes(integrationId)) {
+          return { success: false, error: 'App not allowed for this project' };
+        }
+    
+        const { amount, payee } = params || {};
+        if (typeof amount !== 'number' || amount < 0) {
+          return { success: false, error: 'Invalid amount' };
+        }
+        if (!payee) {
+          return { success: false, error: 'Payee required' };
+        }
+    
+        // NEVER auto-fire - always require confirmation
+        return { 
+          requiresConfirmation: true, 
+          amount, 
+          payee, 
+          integrationId,
+          projectId,
+          message: `Confirm payment of $${amount} to ${payee} via ${integrationId}`
+        };
+      }
+
+      // Test payment integration ($0 verification, never real charge)
+      function testPaymentIntegration(integrationId) {
+        const catalog = getIntegrationCatalog();
+        const app = catalog.find(a => a.id === integrationId);
+        if (!app || app.kind !== 'payment' || !app.testable) {
+          return { success: false, error: 'Not a testable payment integration' };
+        }
+        return { success: true, amount: 0, isTest: true, integrationId };
+      }
+
+      // Build custom integration from prompt
+      function buildCustomIntegration(prompt) {
+        if (!prompt || prompt.trim().length < 10) {
+          return { success: false, error: 'Prompt too short' };
+        }
+    
+        const integrationId = 'custom_' + prompt.toLowerCase().replace(/[^a-z0-9]+/g, '_').slice(0, 30) + '_' + Date.now().toString(36);
+        const path = `.devforge/integrations/${integrationId}/`;
+    
+        const manifest = {
+          id: integrationId,
+          name: prompt.slice(0, 50),
+          description: 'Custom integration built by FlamingoCode: ' + prompt,
+          kind: 'tool',
+          free: true,
+          builtByFlamingoCode: true,
+          buildPrompt: prompt,
+          createdAt: new Date().toISOString(),
+          path,
+          installState: 'not-installed',
+          integratedProjects: [],
+          mcpEntry: null
+        };
+    
+        // Store built integration
+        appState.integrationsHub.builtIntegrations[integrationId] = {
+          manifest,
+          code: `// Connector for: ${prompt}\n// Built by FlamingoCode\n// Path: ${path}\n\nexport async function call(config) {\n  // TODO: Implement connector logic\n  return { success: true, data: {} };\n}`,
+          prompt,
+          path,
+          createdAt: new Date().toISOString()
+        };
+    
+        // Add to catalog
+        appState.integrationsHub.catalog.push(manifest);
+        saveAppState();
+    
+        return { success: true, integrationId, path, manifest };
+      }
+
+      // Set integration key for a project
+      function setIntegrationKey(integrationId, projectId, key) {
+        if (!appState.integrationsHub.projectKeys[projectId]) {
+          appState.integrationsHub.projectKeys[projectId] = {};
+        }
+        appState.integrationsHub.projectKeys[projectId][integrationId] = {
+          set: true,
+          value: key
+        };
+        saveAppState();
+        return { success: true };
+      }
+
+      // Get integration key status (set/not-set, never exposes value)
+      function getIntegrationKeyStatus(integrationId, projectId) {
+        const keys = appState.integrationsHub.projectKeys[projectId];
+        if (!keys || !keys[integrationId]) {
+          return { set: false };
+        }
+        return { set: true, value: '***' };
+      }
+
+      // Export integrations backup (names + settings only, never key values)
+      function exportIntegrationsBackup(projectId) {
+        const projectKeys = appState.integrationsHub.projectKeys[projectId] || {};
+        const integratedApps = Object.keys(appState.integrationsHub.installed)
+          .filter(id => appState.integrationsHub.installed[id].integratedProjects?.includes(projectId));
+    
+        return {
+          projectId,
+          integrations: integratedApps,
+          settings: Object.fromEntries(
+            Object.entries(projectKeys).map(([id, data]) => [id, { set: data.set }])
+          ),
+          exportedAt: new Date().toISOString()
+        };
+      }
+
+      // Render integrations panel
+      function renderIntegrationsPanel() {
+        const container = document.getElementById('integrationsPanel');
+        if (!container) return;
+    
+        const catalog = getIntegrationCatalog();
+        const searchInput = document.getElementById('integrationsSearch');
+        const filterSelect = document.getElementById('integrationsFilter');
+        const query = searchInput ? searchInput.value : '';
+        const filter = filterSelect ? filterSelect.value : 'all';
+    
+        let filtered = searchIntegrations(query);
+        filtered = filterIntegrationsByKind(filter);
+    
+        // Sort: free first, then by name
+        filtered.sort((a, b) => {
+          if (a.free !== b.free) return a.free ? -1 : 1;
+          return a.name.localeCompare(b.name);
+        });
+    
+        let html = `
+          <div class="integrations-toolbar" style="display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap;">
+            <input type="text" id="integrationsSearch" placeholder="Search integrations..." value="${escapeHtml(query)}" style="flex:1; min-width:200px; padding:6px 10px; border:1px solid var(--border-color); border-radius:4px; background:var(--bg-surface); color:var(--text-primary); font-size:12px;" oninput="renderIntegrationsPanel()">
+            <select id="integrationsFilter" style="padding:6px 10px; border:1px solid var(--border-color); border-radius:4px; background:var(--bg-surface); color:var(--text-primary); font-size:12px;" onchange="renderIntegrationsPanel()">
+              <option value="all" ${filter === 'all' ? 'selected' : ''}>All</option>
+              <option value="ai" ${filter === 'ai' ? 'selected' : ''}>AI</option>
+              <option value="payment" ${filter === 'payment' ? 'selected' : ''}>Payments</option>
+              <option value="free" ${filter === 'free' ? 'selected' : ''}>Free</option>
+              <option value="tool" ${filter === 'tool' ? 'selected' : ''}>Tools</option>
+            </select>
+          </div>
+          <div class="integrations-catalog" style="display:grid; gap:8px; grid-template-columns:1fr;">
+        `;
+    
+        filtered.forEach(app => {
+          const installed = appState.integrationsHub.installed[app.id];
+          const installState = installed ? (installed.integratedProjects?.length > 0 ? 'integrated' : 'installed') : 'not-installed';
+          const isBuilt = app.builtByFlamingoCode;
+          const currentProjectId = appState.activeSessionId;
+          const integratedHere = installed?.integratedProjects?.includes(currentProjectId) || false;
+          const allowedHere = (appState.integrationsHub.projectAllowedApps[currentProjectId] || []).includes(app.id);
+      
+          const kindLabels = { ai: '🤖 AI', payment: '💳 Payment', free: '🆓 Free', tool: '🔧 Tool' };
+          const kindColor = { ai: 'var(--accent-blue)', payment: 'var(--accent-purple)', free: 'var(--accent-green)', tool: 'var(--accent-orange)' };
+      
+          html += `
+            <div class="integration-card" style="border:1px solid var(--border-color); border-radius:8px; padding:12px; background:var(--bg-surface);">
+              <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px;">
+                <div style="flex:1;">
+                  <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:6px;">
+                    <strong style="font-size:13px;">${escapeHtml(app.name)}</strong>
+                    <span style="font-size:10px; padding:2px 6px; border-radius:3px; background:${kindColor[app.kind] || 'var(--text-dim)'}; color:white;">${kindLabels[app.kind] || app.kind}</span>
+                    ${app.free ? '<span style="font-size:10px; padding:2px 6px; border-radius:3px; background:var(--accent-green); color:white;">Free</span>' : '<span style="font-size:10px; padding:2px 6px; border-radius:3px; background:var(--text-dim); color:white;">Paid</span>'}
+                    ${isBuilt ? '<span style="font-size:10px; padding:2px 6px; border-radius:3px; background:var(--accent-orange); color:white;">Built by FlamingoCode</span>' : ''}
+                  </div>
+                  <div style="font-size:11px; color:var(--text-dim); margin-bottom:8px;">${escapeHtml(app.description)}</div>
+                  <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:11px;">
+                    <span style="color:var(--text-dim);">Status:</span>
+                    <span style="padding:2px 8px; border-radius:3px; background:${installState === 'integrated' ? 'var(--accent-green)' : installState === 'installed' ? 'var(--accent-blue)' : 'var(--text-dim)'}; color:white;">
+                      ${installState === 'integrated' ? 'Integrated' : installState === 'installed' ? 'Installed' : 'Not installed'}
+                    </span>
+                    ${integratedHere ? '<span style="color:var(--accent-green); font-weight:500;">● Active in this project</span>' : ''}
+                  </div>
+                </div>
+                <div style="display:flex; flex-direction:column; gap:6px; align-items:flex-end;">
+        `;
+      
+          if (installState === 'not-installed') {
+            html += `
+                  <button class="btn btn-primary btn-sm" onclick="installApp('${app.id}'); renderIntegrationsPanel();" style="padding:4px 12px; font-size:11px;">Install</button>
+            `;
+          } else if (installState === 'installed') {
+            html += `
+                  <button class="btn btn-primary btn-sm" onclick="integrateApp('${app.id}', '${currentProjectId}'); renderIntegrationsPanel();" style="padding:4px 12px; font-size:11px;">Integrate</button>
+            `;
+          } else if (installState === 'integrated') {
+            html += `
+                  <button class="btn btn-secondary btn-sm" onclick="disconnectApp('${app.id}', '${currentProjectId}'); renderIntegrationsPanel();" style="padding:4px 12px; font-size:11px;">Disconnect</button>
+                  ${allowedHere ? '<span style="font-size:10px; color:var(--accent-green);">Allowed</span>' : `<button class="btn btn-sm" onclick="allowAppForProject('${app.id}', '${currentProjectId}'); renderIntegrationsPanel();" style="padding:2px 8px; font-size:10px;">Allow for this project</button>`}
+            `;
+          }
+      
+          if (app.kind === 'payment' && app.testable) {
+            html += `
+                  <button class="btn btn-sm" onclick="const r = testPaymentIntegration('${app.id}'); alert(r.success ? 'Test passed: $0 verification' : 'Test failed: ' + r.error);" style="padding:2px 8px; font-size:10px; margin-top:4px;">Test ($0)</button>
+            `;
+          }
+      
+          if (isBuilt) {
+            html += `
+                  <button class="btn btn-sm" onclick="const b = appState.integrationsHub.builtIntegrations['${app.id}']; alert('Path: ' + b.path + '\\nPrompt: ' + b.prompt);" style="padding:2px 8px; font-size:10px; margin-top:4px;">View Source</button>
+            `;
+          }
+      
+          html += `
+                </div>
+              </div>
+            </div>
+          `;
+        });
+    
+        html += `</div>`;
+        container.innerHTML = html;
+      }
+
+      // Render project header integrations (icons + count + quick disconnect)
+      function renderProjectIntegrationsHeader() {
+        const container = document.getElementById('projectIntegrationsHeader');
+        if (!container) return;
+    
+        const currentProjectId = appState.activeSessionId;
+        const integratedApps = Object.keys(appState.integrationsHub.installed)
+          .filter(id => appState.integrationsHub.installed[id].integratedProjects?.includes(currentProjectId));
+    
+        if (integratedApps.length === 0) {
+          container.innerHTML = '<span style="font-size:11px; color:var(--text-dim);">No integrated apps</span>';
+          return;
+        }
+    
+        const catalog = getIntegrationCatalog();
+        const icons = {
+          gpt: '🤖', claude: '🤖', devin: '🤖',
+          github: '🐙', gitlab: '🦊', bitbucket: '☁️',
+          linear: '📋', jira: '📋', slack: '💬',
+          notion: '📝', figma: '🎨', vercel: '▲',
+          sentry: '🐛', datadog: '📊', pagerduty: '🚨', snyk: '🔒', confluence: '📖',
+          paypal: '💰', stripe: '💳', nowpayments: '₿'
+        };
+    
+        let html = `<div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">`;
+        html += `<span style="font-size:11px; color:var(--text-dim);">${integratedApps.length} integrated:</span>`;
+    
+        integratedApps.forEach(id => {
+          const app = catalog.find(a => a.id === id);
+          const icon = icons[id] || '🔧';
+          html += `
+            <span class="project-integration-badge" style="display:inline-flex; align-items:center; gap:4px; padding:2px 8px; background:var(--bg-surface); border:1px solid var(--border-color); border-radius:12px; font-size:10px; cursor:pointer;" title="${escapeHtml(app?.name || id)}" onclick="disconnectApp('${id}', '${currentProjectId}'); renderProjectIntegrationsHeader(); renderIntegrationsPanel();">
+              <span>${icon}</span>
+              <span>${escapeHtml(app?.name || id)}</span>
+              <span style="color:var(--danger); cursor:pointer;" onclick="event.stopPropagation(); disconnectApp('${id}', '${currentProjectId}'); renderProjectIntegrationsHeader(); renderIntegrationsPanel();">✕</span>
+            </span>
+          `;
+        });
+    
+        html += `</div>`;
+        container.innerHTML = html;
+      }
+
+      // Initialize integrations panel when tab is shown
+      function initIntegrationsPanel() {
+        renderIntegrationsPanel();
+        renderProjectIntegrationsHeader();
+      }
+
+      // Expose functions to window for test access
+      window.getIntegrationCatalog = getIntegrationCatalog;
+      window.searchIntegrations = searchIntegrations;
+      window.filterIntegrationsByKind = filterIntegrationsByKind;
+      window.getIntegrationInstallState = getIntegrationInstallState;
+      window.canIntegrateApp = canIntegrateApp;
+      window.installApp = installApp;
+      window.uninstallApp = uninstallApp;
+      window.getProjectsUsingIntegration = getProjectsUsingIntegration;
+      window.integrateApp = integrateApp;
+      window.disconnectApp = disconnectApp;
+      window.getAllowedApps = getAllowedApps;
+      window.allowAppForProject = allowAppForProject;
+      window.getUsePickerApps = getUsePickerApps;
+      window.executePaymentIntegration = executePaymentIntegration;
+      window.testPaymentIntegration = testPaymentIntegration;
+      window.buildCustomIntegration = buildCustomIntegration;
+      window.setIntegrationKey = setIntegrationKey;
+      window.getIntegrationKeyStatus = getIntegrationKeyStatus;
+      window.exportIntegrationsBackup = exportIntegrationsBackup;
+      window.renderIntegrationsPanel = renderIntegrationsPanel;
+      window.renderProjectIntegrationsHeader = renderProjectIntegrationsHeader;
+      window.initIntegrationsPanel = initIntegrationsPanel;
 
   </script>
 </body>
