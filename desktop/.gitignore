@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+*.tsbuildinfo
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Native build artifacts
+src/native/rust/target/
+src/native/cpp/build/
+src/native/cpp/out/
+
+# Go build
+go/bin/
+
+# Environment
+.env
+.env.local
