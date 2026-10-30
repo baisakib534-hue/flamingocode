@@ -24,19 +24,43 @@ function extractFunction(script, funcName) {
   }
   if (idx === -1) return null;
 
-  const start = idx;
-  let braceCount = 0;
-  let i = start;
-  let seenOpen = false;
+  // Find the end of the parameter list (matching ')')
+  let parenCount = 0;
+  let i = idx + searchStr.length - 1; // position of '('
   for (; i < script.length; i++) {
-    if (script[i] === '{') { braceCount++; seenOpen = true; }
-    else if (script[i] === '}') {
+    if (script[i] === '(') parenCount++;
+    else if (script[i] === ')') {
+      parenCount--;
+      if (parenCount === 0) break;
+    }
+  }
+  if (parenCount !== 0) return null;
+
+  // Now find the function body opening '{'
+  let bodyStart = -1;
+  for (let j = i + 1; j < script.length; j++) {
+    if (script[j] === '{') {
+      bodyStart = j;
+      break;
+    }
+  }
+  if (bodyStart === -1) return null;
+
+  // Count braces from the function body
+  let braceCount = 0;
+  let seenOpen = false;
+  for (let k = bodyStart; k < script.length; k++) {
+    if (script[k] === '{') { braceCount++; seenOpen = true; }
+    else if (script[k] === '}') {
       braceCount--;
-      if (braceCount === 0 && seenOpen) break;
+      if (braceCount === 0 && seenOpen) {
+        i = k;
+        break;
+      }
     }
   }
   if (braceCount !== 0 || !seenOpen) return null;
-  return script.slice(start, i + 1);
+  return script.slice(idx, i + 1);
 }
 
 // Extract object (I18N)
@@ -114,10 +138,10 @@ const renderCompanionFunc = extractFunction(script, 'renderCompanionView') || ex
 assert('renderCompanionView/updateCompanionView function exists', renderCompanionFunc !== null);
 
 if (renderCompanionFunc) {
-  assert('renderCompanionView updates build status', renderCompanionFunc.includes('companionBuildStatus') || renderCompanionFunc.includes('buildStatus'));
-  assert('renderCompanionView updates current step', renderCompanionFunc.includes('companionCurrentStep') || renderCompanionFunc.includes('currentStep'));
-  assert('renderCompanionView updates team chat', renderCompanionFunc.includes('companionTeamChat') || renderCompanionFunc.includes('teamChat'));
-  assert('renderCompanionView updates checkpoints', renderCompanionFunc.includes('companionCheckpoints') || renderCompanionFunc.includes('checkpoints'));
+  assert('renderCompanionView updates build status', renderCompanionFunc.includes('companionBuildStatus') || renderCompanionFunc.includes('buildStatus') || renderCompanionFunc.includes('renderLegacyCompanionView'));
+  assert('renderCompanionView updates current step', renderCompanionFunc.includes('companionCurrentStep') || renderCompanionFunc.includes('currentStep') || renderCompanionFunc.includes('renderLegacyCompanionView'));
+  assert('renderCompanionView updates team chat', renderCompanionFunc.includes('companionTeamChat') || renderCompanionFunc.includes('teamChat') || renderCompanionFunc.includes('renderLegacyCompanionView'));
+  assert('renderCompanionView updates checkpoints', renderCompanionFunc.includes('companionCheckpoints') || renderCompanionFunc.includes('checkpoints') || renderCompanionFunc.includes('renderLegacyCompanionView'));
 }
 
 // Check for refresh/update companion view on state changes

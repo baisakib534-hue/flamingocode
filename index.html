@@ -2489,6 +2489,11 @@
       <div id="headerTrustStatus" style="display: flex; align-items: center; gap: var(--space-6); margin-left: var(--space-12); padding-left: var(--space-12); border-left: 1px solid var(--border); font-size: 10px; color: var(--text-muted);">
         <span id="trustStatusDisplay" style="font-weight: 600; color: var(--warning);">❓ Untrusted</span>
       </div>
+      <!-- Mobile App: Pairing Status in Header (§1) -->
+      <div id="headerPairingStatus" style="display: flex; align-items: center; gap: var(--space-6); margin-left: var(--space-12); padding-left: var(--space-12); border-left: 1px solid var(--border); font-size: 10px; color: var(--text-muted);">
+        <span id="pairingStatusIcon" style="width: 8px; height: 8px; border-radius: 50%; background: var(--accent-blue);"></span>
+        <span id="pairingStatusHeaderText" style="font-weight: 600; color: var(--accent-blue);">Signed Up</span>
+      </div>
       <!-- Cross-Repo Search (D2) -->
       <div style="display: flex; align-items: center; gap: var(--space-4); margin-left: var(--space-12); padding-left: var(--space-12); border-left: 1px solid var(--border);">
         <input type="text" id="crossRepoSearchInput" class="form-input" placeholder="Search all projects..." style="font-size: 11px; padding: var(--space-4) var(--space-8); width: 200px;" data-i18n-placeholder="Search all projects..." />
@@ -3458,6 +3463,67 @@
         <!-- Mobile Companion Pane -->
         <div class="pane-view" id="paneCompanion">
           <div style="flex:1; overflow-y:auto; padding: 12px; display:flex; flex-direction:column; gap:12px;">
+            <!-- Pairing Status Header (compact) -->
+            <div style="background:var(--bg-surface); border:1px solid var(--border-color); border-radius:8px; padding:10px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+              <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;" data-i18n="Phone Connection">Phone Connection</span>
+              <span id="companionPairingBadge" style="font-size: 10px; padding: 3px 8px; border-radius: 12px; font-weight: 600; background: var(--accent-blue); color: white;">Signed Up</span>
+              <span id="companionPairingText" style="font-size: 11px; color: var(--text-dim); flex:1;">Awaiting desktop & phone sign-in</span>
+              <span id="companionLanIndicator" style="display:none; font-size: 10px; padding: 3px 8px; background: var(--success); color: white; border-radius: 12px;">📶 LAN Mode</span>
+            </div>
+
+            <!-- Desktop Picker (§2) -->
+            <div style="background:var(--bg-surface); border:1px solid var(--border-color); border-radius:8px; padding:12px;">
+              <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom:8px;" data-i18n="Select Desktop">Select Desktop</div>
+              <select id="companionDesktopPicker" style="width:100%; background:var(--bg-hover); border:1px solid var(--border-color); border-radius:4px; color:var(--text-main); font-size:11px; padding:8px 10px;">
+                <option value="">No desktops paired — sign in on desktop first</option>
+              </select>
+              <div id="companionDesktopStatus" style="margin-top: 6px; font-size: 10px; color: var(--text-dim);"></div>
+            </div>
+
+            <!-- Model Selector (§3) -->
+            <div style="background:var(--bg-surface); border:1px solid var(--border-color); border-radius:8px; padding:12px;">
+              <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom:8px;" data-i18n="Select Model">Select Model</div>
+              <select id="companionModelPicker" style="width:100%; background:var(--bg-hover); border:1px solid var(--border-color); border-radius:4px; color:var(--text-main); font-size:11px; padding:8px 10px;">
+                <option value="">No models available — connect a desktop</option>
+              </select>
+              <div id="companionModelRateLimit" style="margin-top: 6px; font-size: 10px; color: var(--text-dim);"></div>
+            </div>
+
+            <!-- Custom Provider Add (§4) -->
+            <div style="background:var(--bg-surface); border:1px solid var(--border-color); border-radius:8px; padding:12px;">
+              <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom:8px;" data-i18n="Add Custom Provider">Add Custom Provider</div>
+              <div style="display:flex; flex-direction:column; gap:8px;">
+                <input type="text" id="companionProviderName" placeholder="Provider name (e.g., My OpenAI)" style="background:var(--bg-hover); border:1px solid var(--border-color); border-radius:4px; color:var(--text-main); font-size:11px; padding:8px 10px;" />
+                <input type="text" id="companionProviderBaseUrl" placeholder="Base URL (e.g., https://api.openai.com/v1)" style="background:var(--bg-hover); border:1px solid var(--border-color); border-radius:4px; color:var(--text-main); font-size:11px; padding:8px 10px;" />
+                <input type="password" id="companionProviderApiKey" placeholder="API Key (encrypted per-pair)" style="background:var(--bg-hover); border:1px solid var(--border-color); border-radius:4px; color:var(--text-main); font-size:11px; padding:8px 10px;" />
+                <input type="text" id="companionProviderModel" placeholder="Model ID (e.g., gpt-4o)" style="background:var(--bg-hover); border:1px solid var(--border-color); border-radius:4px; color:var(--text-main); font-size:11px; padding:8px 10px;" />
+                <div style="display:flex; gap:8px;">
+                  <button class="btn btn-primary" id="btnCompanionAddProvider" style="padding: 6px 12px; font-size: 11px;" data-i18n="Test & Save">🔌 Test & Save</button>
+                  <button class="btn btn-secondary" id="btnCompanionCancelProvider" style="padding: 6px 12px; font-size: 11px;" data-i18n="Cancel">Cancel</button>
+                </div>
+                <div id="companionProviderStatus" style="font-size: 10px; color: var(--text-dim);"></div>
+              </div>
+            </div>
+
+            <!-- Prompt Input (§5: Text + Voice) -->
+            <div style="background:var(--bg-surface); border:1px solid var(--border-color); border-radius:8px; padding:12px;">
+              <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom:8px;" data-i18n="Prompt">Prompt</div>
+              <div style="display:flex; flex-direction:column; gap:8px;">
+                <textarea id="companionPromptInput" placeholder="Type your prompt here..." style="background:var(--bg-hover); border:1px solid var(--border-color); border-radius:4px; color:var(--text-main); font-size:12px; font-family:var(--font-mono); padding:10px; min-height:80px; resize:vertical;"></textarea>
+                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                  <button class="btn btn-secondary" id="btnCompanionVoicePrompt" style="padding: 6px 12px; font-size: 11px;" data-i18n="Voice (Bangla/EN)">🎤 Voice (bn/en)</button>
+                  <span id="companionVoiceStatus" style="font-size: 10px; color: var(--text-dim);"></span>
+                  <select id="companionVoiceLang" style="background:var(--bg-hover); border:1px solid var(--border-color); border-radius:4px; color:var(--text-main); font-size:11px; padding:6px 10px;">
+                    <option value="en-US">English (US)</option>
+                    <option value="bn-BD">Bangla (Bangladesh)</option>
+                  </select>
+                </div>
+                <div style="display:flex; gap:8px; justify-content:flex-end;">
+                  <button class="btn btn-primary" id="btnCompanionSendPrompt" style="padding: 8px 16px; font-size: 11px;" data-i18n="Send">Send</button>
+                </div>
+              </div>
+            </div>
+
             <!-- Build Status -->
             <div style="background:var(--bg-surface); border:1px solid var(--border-color); border-radius:8px; padding:12px;">
               <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom:8px;" data-i18n="Build Status">Build Status</div>
@@ -3465,6 +3531,18 @@
                 <div class="spinner" style="width:20px; height:20px; display:none;"></div>
                 <span id="companionBuildStatusText" style="font-size:14px; font-weight:600; color:var(--text-main);" data-i18n="No active build">No active build</span>
               </div>
+            </div>
+
+            <!-- Live Progress (§6) -->
+            <div style="background:var(--bg-surface); border:1px solid var(--border-color); border-radius:8px; padding:12px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;" data-i18n="Live Progress">Live Progress</div>
+                <span id="companionLiveIndicator" style="display:inline-flex; align-items:center; gap:4px; font-size: 10px; padding: 2px 8px; border-radius: 12px; background: var(--bg-dark); color: var(--text-dim);">
+                  <span class="live-dot" style="width:6px; height:6px; border-radius:50%; background:var(--text-dim);"></span>
+                  <span data-i18n="Disconnected">Disconnected</span>
+                </span>
+              </div>
+              <div id="companionLiveProgress" style="font-size:13px; color:var(--text-main); min-height:48px; font-family:var(--font-mono);" data-i18n="No active session">No active session</div>
             </div>
 
             <!-- Current Step -->
@@ -3481,15 +3559,65 @@
               </div>
             </div>
 
-            <!-- Checkpoints (with approve/reject) -->
+            <!-- Checkpoints (§7) -->
             <div style="background:var(--bg-surface); border:1px solid var(--border-color); border-radius:8px; padding:12px;">
               <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom:8px;" data-i18n="Checkpoints">Checkpoints</div>
               <div id="companionCheckpoints" style="display:flex; flex-direction:column; gap:6px; min-height:48px;">
                 <div style="font-size: 11px; color: var(--text-dim); text-align: center; padding: 10px;" data-i18n="No checkpoints">No checkpoints</div>
               </div>
             </div>
-                  </div>
-                </div>
+
+            <!-- Message Queue (§13) - extends B7.12 -->
+            <div style="background:var(--bg-surface); border:1px solid var(--border-color); border-radius:8px; padding:12px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;" data-i18n="Message Queue">Message Queue</div>
+                <span id="companionQueueCount" style="font-size: 10px; padding: 2px 6px; background: var(--accent-blue); color: white; border-radius: 10px;">0</span>
+              </div>
+              <div id="companionMessageQueue" style="display:flex; flex-direction:column; gap:6px; min-height:60px; max-height:200px; overflow-y:auto;">
+                <div style="font-size: 11px; color: var(--text-dim); text-align: center; padding: 10px;" data-i18n="Queue empty">Queue empty</div>
+              </div>
+            </div>
+
+            <!-- Tool Recommender Mirror (§14) - extends B7.2b -->
+            <div style="background:var(--bg-surface); border:1px solid var(--border-color); border-radius:8px; padding:12px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;" data-i18n="Recommendations">Recommendations</div>
+                <span id="companionRecommendationsCount" style="font-size: 10px; padding: 2px 6px; background: var(--accent-purple); color: white; border-radius: 10px;">0</span>
+              </div>
+              <div id="companionRecommendations" style="display:flex; flex-direction:column; gap:6px; min-height:60px; max-height:200px; overflow-y:auto;">
+                <div style="font-size: 11px; color: var(--text-dim); text-align: center; padding: 10px;" data-i18n="No recommendations">No recommendations</div>
+              </div>
+            </div>
+
+            <!-- Notifications (§9) -->
+            <div style="background:var(--bg-surface); border:1px solid var(--border-color); border-radius:8px; padding:12px;">
+              <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom:8px;" data-i18n="Notifications">Notifications</div>
+              <div id="companionNotifications" style="display:flex; flex-direction:column; gap:6px; min-height:48px; max-height:150px; overflow-y:auto;">
+                <div style="font-size: 11px; color: var(--text-dim); text-align: center; padding: 10px;" data-i18n="No notifications">No notifications</div>
+              </div>
+            </div>
+
+            <!-- Extras (§10): Brain Notes, Cost Meter, Checkpoint Restore, Voice-to-Build, Task History -->
+            <div style="background:var(--bg-surface); border:1px solid var(--border-color); border-radius:8px; padding:12px;">
+              <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom:8px;" data-i18n="Extras">Extras</div>
+              <div style="display:flex; flex-wrap:wrap; gap:8px;">
+                <button class="btn btn-secondary btn-sm" id="btnCompanionBrainNotes" style="padding: 4px 10px; font-size: 10px;" data-i18n="Brain Notes">🧠 Brain Notes</button>
+                <button class="btn btn-secondary btn-sm" id="btnCompanionCostMeter" style="padding: 4px 10px; font-size: 10px;" data-i18n="Cost & Quota">💰 Cost & Quota</button>
+                <button class="btn btn-secondary btn-sm" id="btnCompanionCheckpointRestore" style="padding: 4px 10px; font-size: 10px;" data-i18n="Checkpoint Restore">🔄 Checkpoint Restore</button>
+                <button class="btn btn-secondary btn-sm" id="btnCompanionVoiceToBuild" style="padding: 4px 10px; font-size: 10px;" data-i18n="Voice-to-Build">🎤 Voice-to-Build</button>
+                <button class="btn btn-secondary btn-sm" id="btnCompanionTaskHistory" style="padding: 4px 10px; font-size: 10px;" data-i18n="Task History">📋 Task History</button>
+              </div>
+            </div>
+
+            <!-- Phone Permissions (§11) - Ask / Auto approve / Full access per desktop -->
+            <div style="background:var(--bg-surface); border:1px solid var(--border-color); border-radius:8px; padding:12px;">
+              <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom:8px;" data-i18n="Phone Permissions">Phone Permissions (per desktop)</div>
+              <div id="companionPhonePermissions" style="display:flex; flex-direction:column; gap:6px;">
+                <div style="font-size: 10px; color: var(--text-dim); text-align: center; padding: 10px;">Pair a desktop to configure permissions</div>
+              </div>
+            </div>
+          </div>
+        </div>
 
                 <!-- Debug Pane (Batch 17 Q1) -->
                 <div class="pane-view" id="paneDebug">
@@ -4071,6 +4199,8 @@
         <button class="settings-tab" data-settings-tab="realBrowserAgent" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">Real Browser Agent</button>
         <button class="settings-tab" data-settings-tab="computerUse" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">Computer Use</button>
         <button class="settings-tab" data-settings-tab="processManager" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">Process Manager</button>
+        <!-- Mobile App: Devices (§1) -->
+        <button class="settings-tab" data-settings-tab="devices" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;" data-i18n="Devices">Devices</button>
       </div>
 
       <!-- Providers Tab -->
@@ -6630,9 +6760,82 @@ const fc = {
               <button class="btn btn-secondary" id="btnCancelSettings">Close</button>
             </div>
           </div>
-        </div>
+                </div>
 
-        <!-- H4 §6: Experiment Branches (Project branches, web version) -->
+                  <!-- Mobile App: Devices (§1) — Pairing state machine & device management -->
+                  <div class="settings-pane" id="settingsPaneDevices" style="display: none; flex-direction: column;">
+                    <div style="max-height: 40vh; overflow-y: auto; margin-bottom: 12px;">
+                      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px;">
+                        <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;" data-i18n="Devices">Devices</span>
+                      </div>
+                      <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 12px; padding: 8px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 4px;">
+                        Your FlamingoCode account connects desktop and phone automatically. No pairing codes needed — just sign in with the same Gmail on all devices.
+                      </div>
+            
+                      <!-- Pairing Status -->
+                      <div id="pairingStatusCard" style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; padding: 12px; margin-bottom: 16px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
+                          <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;" data-i18n="Pairing Status">Pairing Status</span>
+                          <span id="pairingStateBadge" style="font-size: 10px; padding: 3px 8px; border-radius: 12px; font-weight: 600; background: var(--accent-blue); color: white;">Signed Up</span>
+                        </div>
+                        <div style="font-size: 11px; color: var(--text-main);" id="pairingStateText">
+                          Signed up on website. Awaiting desktop sign-in.
+                        </div>
+                        <div id="relayStatusLine" style="margin-top: 8px; font-size: 10px; color: var(--text-dim);">
+                          Relay: <span id="relayStatusText" style="color: var(--warning);">Not deployed (mobile stage)</span>
+                        </div>
+                        <!-- Test actions (for development without relay) -->
+                        <div style="display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap;">
+                          <button class="btn btn-secondary btn-sm" id="btnSimPhonePair" style="padding: 4px 10px; font-size: 10px;" onclick="simulateDevicePairing('phone')" data-i18n="Sim Phone Pair">📱 Sim Phone Pair</button>
+                          <button class="btn btn-secondary btn-sm" id="btnSimDesktopPair" style="padding: 4px 10px; font-size: 10px;" onclick="simulateDevicePairing('desktop')" data-i18n="Sim Desktop Pair">💻 Sim Desktop Pair</button>
+                          <button class="btn btn-secondary btn-sm" id="btnTestRelay" style="padding: 4px 10px; font-size: 10px;" onclick="testRelayConnection()" data-i18n="Test Relay">🔌 Test Relay</button>
+                        </div>
+                      </div>
+
+                      <!-- This Device -->
+                      <div style="margin-bottom: 16px;">
+                        <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;" data-i18n="This Device">This Device</div>
+                        <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; padding: 12px;">
+                          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
+                            <span id="thisDeviceName" style="font-size: 12px; font-weight: 600; color: var(--text-main);">Desktop</span>
+                            <span id="thisDeviceTypeBadge" style="font-size: 9px; padding: 2px 6px; background: var(--accent-blue); color: white; border-radius: 3px;">Desktop</span>
+                          </div>
+                          <div style="font-size: 10px; color: var(--text-dim);">
+                            Device ID: <span id="thisDeviceId" style="font-family: var(--font-mono); color: var(--text-muted);">—</span>
+                          </div>
+                          <div style="font-size: 10px; color: var(--text-dim); margin-top: 4px;">
+                            Last seen: <span id="thisDeviceLastSeen" style="color: var(--text-main);">Just now</span>
+                          </div>
+                          <div id="lanModeIndicator" style="margin-top: 8px; display: none; font-size: 10px; padding: 6px 8px; background: var(--success); color: white; border-radius: 4px;">
+                            📶 LAN Mode Active — Direct connection (no internet needed)
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- Paired Devices -->
+                      <div style="margin-bottom: 16px;">
+                        <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;" data-i18n="Paired Devices">Paired Devices</div>
+                        <div id="pairedDevicesList" style="display: flex; flex-direction: column; gap: 6px;">
+                          <div style="text-align: center; color: var(--text-dim); font-size: 11px; padding: 20px;">No devices paired yet. Sign in on another device to pair.</div>
+                        </div>
+                      </div>
+
+                      <!-- Unpaired (Revoked) Devices -->
+                      <div>
+                        <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;" data-i18n="Revoked Devices">Revoked Devices</div>
+                        <div id="unpairedDevicesList" style="display: flex; flex-direction: column; gap: 6px;">
+                          <div style="text-align: center; color: var(--text-dim); font-size: 11px; padding: 20px;">No revoked devices.</div>
+                        </div>
+                      </div>
+                    </div>
+                    <div style="border-top: 1px solid var(--border-color); padding-top: 12px;">
+                      <div style="display:flex; justify-content:flex-end; gap:8px;">
+                        <button class="btn btn-secondary" id="btnCancelSettings">Close</button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- H4 §6: Experiment Branches (Project branches, web version) -->
         <div class="settings-pane" id="settingsPaneExperimentBranches" style="display: none; flex-direction: column;">
           <div style="max-height: 40vh; overflow-y: auto; margin-bottom: 12px;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px;">
@@ -10981,6 +11184,22 @@ Detail level: {{detail_level}}`,
         recordingExists: false,
         testRunCompleted: false,
         sandboxReady: false
+      },
+      // Mobile App Pairing State (§1) — account/connection state machine
+      mobilePairing: {
+        pairingState: 'signed-up',  // 'signed-up' | 'desktop-paired' | 'phone-paired'
+        pairedDevices: [],          // Array of { id, name, type: 'desktop'|'phone', lastSeen, online, isCurrent, permissions: 'ask'|'auto'|'full' }
+        unpairedDevices: [],        // Array of revoked devices { id, name, type, revokedAt }
+        lastUsedDesktopId: null,    // Default desktop for task routing
+        relayUrl: 'https://flamingocode-relay.vercel.app',  // Placeholder — deploys at mobile stage
+        relayEnabled: false,        // Becomes true when relay is deployed
+        deviceId: null,             // This device's unique ID
+        deviceName: null,           // This device's name
+        deviceType: 'desktop',      // 'desktop' | 'phone'
+        lanMode: false,             // True when phone+desktop on same WiFi
+        lanModeDetected: false,     // LAN mode actively detected
+        offlineQueue: [],           // Queued envelopes when offline
+        phonePermissions: {}        // { [desktopId]: 'ask'|'auto'|'full' } — phone's permission trio per desktop
       },
     };
 
@@ -23279,6 +23498,8 @@ function switchPane(paneName) {
     setTimeout(renderDatabasePane, 0);
   } else if (paneName === 'models') {
     setTimeout(renderModelsPanel, 0);
+  } else if (paneName === 'companion') {
+    setTimeout(renderCompanionView, 0);
   }
 }
 
@@ -24321,8 +24542,8 @@ function initDatabasePane() {
   }
 }
 
-// ==================== MOBILE COMPANION VIEW ====================
-function renderCompanionView() {
+// ==================== MOBILE COMPANION VIEW (B4.4 Legacy) ====================
+function renderLegacyCompanionView() {
   const session = getCurrentSession();
   if (!session) return;
 
@@ -24441,7 +24662,7 @@ window.approveCheckpoint = function(checkpointId) {
     cp.status = 'approved';
     cp.resolvedAt = Date.now();
     logActivity('Checkpoint approved: ' + checkpointId, 'success');
-    renderCompanionView();
+    renderLegacyCompanionView();
     // Resume agent if paused
     if (session.isPaused) {
       session.isPaused = false;
@@ -24458,7 +24679,7 @@ window.rejectCheckpoint = function(checkpointId) {
     cp.status = 'rejected';
     cp.resolvedAt = Date.now();
     logActivity('Checkpoint rejected: ' + checkpointId, 'warning');
-    renderCompanionView();
+    renderLegacyCompanionView();
     // Resume agent if paused
     if (session.isPaused) {
       session.isPaused = false;
@@ -24474,7 +24695,7 @@ window.approveTeamV2Checkpoint = function(checkpointId) {
   if (cp) {
     cp.answer = true;
     logActivity('Team v2 checkpoint approved: ' + checkpointId, 'success');
-    renderCompanionView();
+    renderLegacyCompanionView();
   }
 };
 
@@ -24484,7 +24705,7 @@ window.rejectTeamV2Checkpoint = function(checkpointId) {
   if (cp) {
     cp.answer = false;
     logActivity('Team v2 checkpoint rejected: ' + checkpointId, 'warning');
-    renderCompanionView();
+    renderLegacyCompanionView();
   }
 };
 
@@ -30194,6 +30415,1163 @@ function validateRecipe(recipe) {
       hintEl.style.display = hintEl.style.display === 'none' ? 'block' : 'none';
     }
 
+    // ==================== MOBILE APP: PAIRING STATE MACHINE & DEVICES (§1–§14) ====================
+
+    // Initialize device identity on load
+    function initMobilePairing() {
+      if (!appState.mobilePairing) return;
+      const mp = appState.mobilePairing;
+      
+      // Generate or load device ID
+      if (!mp.deviceId) {
+        mp.deviceId = 'dev_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 9);
+        mp.deviceName = getDeviceDisplayName();
+        mp.deviceType = detectDeviceType();
+        saveAppState();
+      }
+      
+      // Initialize phonePermissions for each paired desktop
+      mp.pairedDevices.forEach(d => {
+        if (d.type === 'desktop' && !mp.phonePermissions[d.id]) {
+          mp.phonePermissions[d.id] = 'ask'; // Default to Ask mode
+        }
+      });
+      
+      // Update pairing state based on paired devices
+      updatePairingState();
+      
+      // Start LAN mode detection (placeholder - real detection at mobile stage)
+      startLanModeDetection();
+    }
+
+    function getDeviceDisplayName() {
+      const ua = navigator.userAgent;
+      if (/Android/i.test(ua)) return 'Android Phone';
+      if (/iPhone|iPad|iPod/i.test(ua)) return 'iOS Device';
+      if (/Mac/i.test(ua)) return 'Mac';
+      if (/Windows/i.test(ua)) return 'Windows PC';
+      if (/Linux/i.test(ua)) return 'Linux Desktop';
+      return 'Unknown Device';
+    }
+
+    function detectDeviceType() {
+      const ua = navigator.userAgent;
+      if (/Android|iPhone|iPad|iPod/i.test(ua)) return 'phone';
+      return 'desktop';
+    }
+
+    function updatePairingState() {
+      const mp = appState.mobilePairing;
+      const hasDesktop = mp.pairedDevices.some(d => d.type === 'desktop');
+      const hasPhone = mp.pairedDevices.some(d => d.type === 'phone');
+      
+      if (hasDesktop && hasPhone) mp.pairingState = 'phone-paired';
+      else if (hasDesktop) mp.pairingState = 'desktop-paired';
+      else mp.pairingState = 'signed-up';
+      
+      saveAppState();
+    }
+
+    // Simulate device pairing (for testing without relay)
+    function simulateDevicePairing(deviceType) {
+      const mp = appState.mobilePairing;
+      const isCurrent = deviceType === mp.deviceType;
+      const otherType = deviceType === 'desktop' ? 'phone' : 'desktop';
+      
+      // Check if already paired
+      const existing = mp.pairedDevices.find(d => d.type === deviceType && d.id === mp.deviceId);
+      if (existing) {
+        existing.lastSeen = Date.now();
+        existing.online = true;
+        existing.isCurrent = isCurrent;
+        saveAppState();
+        renderDevicesTab();
+        return existing;
+      }
+      
+      const newDevice = {
+        id: mp.deviceId,
+        name: mp.deviceName,
+        type: deviceType,
+        lastSeen: Date.now(),
+        online: true,
+        isCurrent: isCurrent,
+        permissions: 'ask'
+      };
+      
+      mp.pairedDevices.push(newDevice);
+      
+      // If this is a desktop pairing, set as last used
+      if (deviceType === 'desktop') {
+        mp.lastUsedDesktopId = newDevice.id;
+      }
+      
+      updatePairingState();
+      saveAppState();
+      renderDevicesTab();
+      logActivity(`${deviceType} paired: ${mp.deviceName}`, 'success');
+      return newDevice;
+    }
+
+    // Simulate desktop pairing (for testing)
+    function simulateDesktopPairing() {
+      return simulateDevicePairing('desktop');
+    }
+
+    // Simulate phone pairing (for testing)
+    function simulatePhonePairing() {
+      return simulateDevicePairing('phone');
+    }
+
+    // Pair with desktop (full pairing flow)
+    function pairWithDesktop(desktopId, desktopName) {
+      const mp = appState.mobilePairing;
+      const existing = mp.pairedDevices.find(d => d.id === desktopId && d.type === 'desktop');
+      if (existing) {
+        existing.lastSeen = Date.now();
+        existing.online = true;
+        existing.name = desktopName || existing.name;
+        mp.lastUsedDesktopId = desktopId;
+        updatePairingState();
+        saveAppState();
+        renderDevicesTab();
+        return existing;
+      }
+      const newDevice = {
+        id: desktopId,
+        name: desktopName || 'Desktop',
+        type: 'desktop',
+        lastSeen: Date.now(),
+        online: true,
+        permissions: 'ask'
+      };
+      mp.pairedDevices.push(newDevice);
+      mp.lastUsedDesktopId = desktopId;
+      updatePairingState();
+      saveAppState();
+      renderDevicesTab();
+      logActivity(`Desktop paired: ${newDevice.name}`, 'success');
+      return newDevice;
+    }
+
+    // Pair with phone (full pairing flow)
+    function pairWithPhone(phoneId, phoneName) {
+      const mp = appState.mobilePairing;
+      const existing = mp.pairedDevices.find(d => d.id === phoneId && d.type === 'phone');
+      if (existing) {
+        existing.lastSeen = Date.now();
+        existing.online = true;
+        existing.name = phoneName || existing.name;
+        updatePairingState();
+        saveAppState();
+        renderDevicesTab();
+        return existing;
+      }
+      const newDevice = {
+        id: phoneId,
+        name: phoneName || 'Phone',
+        type: 'phone',
+        lastSeen: Date.now(),
+        online: true,
+        permissions: 'ask'
+      };
+      mp.pairedDevices.push(newDevice);
+      updatePairingState();
+      saveAppState();
+      renderDevicesTab();
+      logActivity(`Phone paired: ${newDevice.name}`, 'success');
+      return newDevice;
+    }
+
+    // Check relay connection
+    function checkRelayConnection() {
+      const mp = appState.mobilePairing;
+      if (!mp.relayEnabled) {
+        return { connected: false, reason: 'Relay not deployed - placeholder URL' };
+      }
+      // Real relay check would go here
+      return { connected: false, reason: 'Relay connection test not implemented in web app' };
+    }
+
+    // Unpair (revoke) a device
+    function unpairDevice(deviceId) {
+      const mp = appState.mobilePairing;
+      const device = mp.pairedDevices.find(d => d.id === deviceId);
+      if (!device) return;
+      
+      // Move to unpaired list
+      mp.unpairedDevices.push({
+        id: device.id,
+        name: device.name,
+        type: device.type,
+        revokedAt: Date.now()
+      });
+      
+      // Remove from paired
+      mp.pairedDevices = mp.pairedDevices.filter(d => d.id !== deviceId);
+      
+      // Clear permissions for this desktop
+      if (device.type === 'desktop') {
+        delete mp.phonePermissions[device.id];
+        if (mp.lastUsedDesktopId === device.id) {
+          mp.lastUsedDesktopId = mp.pairedDevices.find(d => d.type === 'desktop')?.id || null;
+        }
+      }
+      
+      updatePairingState();
+      saveAppState();
+      renderDevicesTab();
+      logActivity(`Device revoked: ${device.name}`, 'warning');
+    }
+
+    // Set phone permissions for a desktop (Ask / Auto approve / Full access)
+    function setPhonePermissions(desktopId, mode) {
+      const mp = appState.mobilePairing;
+      if (!['ask', 'auto', 'full'].includes(mode)) return;
+      mp.phonePermissions[desktopId] = mode;
+      const device = mp.pairedDevices.find(d => d.id === desktopId);
+      if (device) device.permissions = mode;
+      saveAppState();
+      renderDevicesTab();
+      logActivity(`Phone permissions for ${device?.name || desktopId}: ${mode}`, 'info');
+    }
+
+    // Get phone permissions for a desktop
+    function getPhonePermissions(desktopId) {
+      return appState.mobilePairing?.phonePermissions?.[desktopId] || 'ask';
+    }
+
+    // Render the Devices tab
+    function renderDevicesTab() {
+      const mp = appState.mobilePairing;
+      if (!mp) return;
+      
+      // Update pairing state badge
+      const badge = document.getElementById('pairingStateBadge');
+      const text = document.getElementById('pairingStateText');
+      const relayStatus = document.getElementById('relayStatusText');
+      
+      // Also update header pairing status
+      const headerIcon = document.getElementById('pairingStatusIcon');
+      const headerText = document.getElementById('pairingStatusHeaderText');
+      
+      const states = {
+        'signed-up': { label: 'Signed Up', color: 'var(--accent-blue)', text: 'Signed Up' },
+        'desktop-paired': { label: 'Desktop Paired', color: 'var(--warning)', text: 'Desktop Paired' },
+        'phone-paired': { label: 'Phone Paired', color: 'var(--success)', text: 'Phone Paired' }
+      };
+      const s = states[mp.pairingState] || states['signed-up'];
+      
+      if (badge) {
+        badge.textContent = s.label;
+        badge.style.background = s.color;
+      }
+      
+      if (headerIcon) {
+        headerIcon.style.background = s.color;
+      }
+      
+      if (headerText) {
+        headerText.textContent = s.text;
+        headerText.style.color = s.color;
+      }
+      
+      if (text) {
+        const texts = {
+          'signed-up': 'Signed up on website. Awaiting desktop sign-in.',
+          'desktop-paired': 'Desktop connected. Awaiting phone sign-in.',
+          'phone-paired': 'Fully connected — desktop and phone paired.'
+        };
+        text.textContent = texts[mp.pairingState] || texts['signed-up'];
+      }
+      
+      if (relayStatus) {
+        if (mp.relayEnabled) {
+          relayStatus.textContent = 'Connected';
+          relayStatus.style.color = 'var(--success)';
+        } else {
+          relayStatus.textContent = 'Not deployed (mobile stage)';
+          relayStatus.style.color = 'var(--warning)';
+        }
+      }
+      
+      // This device info
+      document.getElementById('thisDeviceName').textContent = mp.deviceName || 'Unknown';
+      document.getElementById('thisDeviceId').textContent = mp.deviceId || '—';
+      document.getElementById('thisDeviceTypeBadge').textContent = (mp.deviceType || 'desktop').charAt(0).toUpperCase() + (mp.deviceType || 'desktop').slice(1);
+      document.getElementById('thisDeviceLastSeen').textContent = formatTimeAgo(mp.pairedDevices.find(d => d.id === mp.deviceId && d.isCurrent)?.lastSeen || Date.now());
+      
+      // LAN mode indicator
+      const lanIndicator = document.getElementById('lanModeIndicator');
+      if (lanIndicator) {
+        lanIndicator.style.display = mp.lanModeDetected ? 'block' : 'none';
+      }
+      
+      // Paired devices list
+      const pairedList = document.getElementById('pairedDevicesList');
+      if (pairedList) {
+        const paired = mp.pairedDevices.filter(d => !d.isCurrent);
+        if (paired.length === 0) {
+          pairedList.innerHTML = '<div style="text-align: center; color: var(--text-dim); font-size: 11px; padding: 20px;">No other devices paired. Sign in on another device to pair.</div>';
+        } else {
+          pairedList.innerHTML = paired.map(d => `
+            <div style="padding: 10px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 4px; display: flex; flex-direction: column; gap: 6px;">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span style="font-weight: 600; font-size: 12px;">${escapeHtml(d.name)}</span>
+                  <span style="font-size: 9px; padding: 2px 6px; background: ${d.type === 'desktop' ? 'var(--accent-blue)' : 'var(--accent-purple)'}; color: white; border-radius: 3px;">${d.type.charAt(0).toUpperCase() + d.type.slice(1)}</span>
+                  ${d.online ? '<span style="font-size: 8px; padding: 1px 5px; background: var(--success); color: white; border-radius: 2px;">Online</span>' : '<span style="font-size: 8px; padding: 1px 5px; background: var(--text-dim); color: white; border-radius: 2px;">Offline</span>'}
+                  ${d.isCurrent ? '<span style="font-size: 8px; padding: 1px 5px; background: var(--accent2); color: #000; border-radius: 2px;">This Device</span>' : ''}
+                </div>
+                <div style="display: flex; gap: 4px; align-items: center;">
+                  ${d.type === 'desktop' ? `
+                    <select onchange="setPhonePermissions('${escapeHtml(d.id)}', this.value)" style="font-size: 10px; padding: 3px 6px; background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 3px; color: var(--text-main);">
+                      <option value="ask" ${mp.phonePermissions[d.id] === 'ask' ? 'selected' : ''} data-i18n="Ask">Ask</option>
+                      <option value="auto" ${mp.phonePermissions[d.id] === 'auto' ? 'selected' : ''} data-i18n="Auto approve">Auto approve</option>
+                      <option value="full" ${mp.phonePermissions[d.id] === 'full' ? 'selected' : ''} data-i18n="Full access">Full access</option>
+                    </select>
+                    <button class="btn btn-secondary btn-sm" onclick="setAsLastUsedDesktop('${escapeHtml(d.id)}')" style="padding: 3px 8px; font-size: 10px;" data-i18n="Default">Default</button>
+                  ` : ''}
+                  <button class="btn btn-secondary btn-sm" onclick="unpairDevice('${escapeHtml(d.id)}')" style="padding: 3px 8px; font-size: 10px; color: var(--danger); border-color: var(--danger);" data-i18n="Unpair">Unpair</button>
+                </div>
+              </div>
+              <div style="font-size: 10px; color: var(--text-dim);">
+                Last seen: ${formatTimeAgo(d.lastSeen)} ${d.id === mp.lastUsedDesktopId ? '• Default for tasks' : ''}
+              </div>
+            </div>
+          `).join('');
+        }
+      }
+      
+      // Unpaired devices list
+      const unpairedList = document.getElementById('unpairedDevicesList');
+      if (unpairedList) {
+        if (mp.unpairedDevices.length === 0) {
+          unpairedList.innerHTML = '<div style="text-align: center; color: var(--text-dim); font-size: 11px; padding: 20px;">No revoked devices.</div>';
+        } else {
+          unpairedList.innerHTML = mp.unpairedDevices.map(d => `
+            <div style="padding: 10px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 4px; display: flex; justify-content: space-between; align-items: center;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 12px; color: var(--text-muted);">${escapeHtml(d.name)}</span>
+                <span style="font-size: 9px; padding: 2px 6px; background: ${d.type === 'desktop' ? 'var(--accent-blue)' : 'var(--accent-purple)'}; color: white; border-radius: 3px;">${d.type.charAt(0).toUpperCase() + d.type.slice(1)}</span>
+                <span style="font-size: 9px; padding: 1px 5px; background: var(--danger); color: white; border-radius: 2px;">Revoked</span>
+              </div>
+              <div style="font-size: 10px; color: var(--text-dim);">Revoked ${formatTimeAgo(d.revokedAt)}</div>
+            </div>
+          `).join('');
+        }
+      }
+    }
+
+    // Set a desktop as the default for task routing
+    function setAsLastUsedDesktop(desktopId) {
+      appState.mobilePairing.lastUsedDesktopId = desktopId;
+      saveAppState();
+      renderDevicesTab();
+      logActivity('Default desktop updated', 'info');
+    }
+
+    // Get the default desktop for task routing
+    function getDefaultDesktop() {
+      const mp = appState.mobilePairing;
+      if (!mp) return null;
+      if (mp.lastUsedDesktopId) {
+        return mp.pairedDevices.find(d => d.id === mp.lastUsedDesktopId && d.type === 'desktop');
+      }
+      return mp.pairedDevices.find(d => d.type === 'desktop');
+    }
+
+    // LAN mode detection (placeholder - real implementation at mobile stage)
+    function startLanModeDetection() {
+      // In the web app, we simulate LAN mode detection
+      // Real implementation would use mDNS/Bonjour or WebRTC ICE candidates
+      // to detect same-network peers
+      if (appState.mobilePairing.deviceType === 'desktop') {
+        // Desktop listens for phone announcements
+        // For now, simulate detection after 5 seconds if a phone is paired
+        setTimeout(() => {
+          const mp = appState.mobilePairing;
+          const hasPhone = mp.pairedDevices.some(d => d.type === 'phone' && d.online);
+          if (hasPhone && !mp.lanModeDetected) {
+            mp.lanMode = true;
+            mp.lanModeDetected = true;
+            saveAppState();
+            renderDevicesTab();
+            logActivity('LAN mode detected — direct connection available', 'success');
+          }
+        }, 5000);
+      }
+    }
+
+    // Check if LAN mode is available for a desktop
+    function isLanModeAvailable(desktopId) {
+      const mp = appState.mobilePairing;
+      if (!mp.lanMode || !mp.lanModeDetected) return false;
+      const desktop = mp.pairedDevices.find(d => d.id === desktopId && d.type === 'desktop');
+      return desktop && desktop.online;
+    }
+
+    // Relay client: build envelope
+    function buildRelayEnvelope(type, payload) {
+      const mp = appState.mobilePairing;
+      return {
+        version: 1,
+        type, // 'task' | 'checkpoint' | 'message' | 'approval' | 'provider' | 'sync'
+        from: {
+          deviceId: mp.deviceId,
+          deviceType: mp.deviceType,
+          deviceName: mp.deviceName
+        },
+        to: null, // Filled by caller (target device ID or 'broadcast')
+        payload,
+        timestamp: Date.now(),
+        nonce: Math.random().toString(36).slice(2, 12)
+      };
+    }
+
+    // Relay client: send envelope (placeholder - real at mobile stage)
+    async function sendRelayEnvelope(envelope, targetDeviceId) {
+      const mp = appState.mobilePairing;
+      envelope.to = targetDeviceId || 'broadcast';
+      
+      if (!mp.relayEnabled) {
+        // Queue for offline/sync later
+        mp.offlineQueue.push(envelope);
+        saveAppState();
+        return { queued: true, reason: 'Relay not deployed' };
+      }
+      
+      // Try LAN mode first if available
+      if (mp.lanModeDetected && targetDeviceId) {
+        const lanResult = await sendViaLan(envelope, targetDeviceId);
+        if (lanResult.success) return lanResult;
+        // Fall through to relay if LAN fails
+      }
+      
+      // Real relay send would go here
+      // For now, simulate success
+      return { success: true, envelopeId: 'env_' + Date.now() };
+    }
+
+    // LAN direct send (placeholder)
+    async function sendViaLan(envelope, targetDeviceId) {
+      // Real implementation would use WebRTC data channels or local HTTP
+      // For web app, this is a stub
+      return { success: false, reason: 'LAN transport not implemented in web app' };
+    }
+
+    // Relay client: poll for envelopes (placeholder)
+    async function pollRelayEnvelopes() {
+      const mp = appState.mobilePairing;
+      if (!mp.relayEnabled) {
+        // Process offline queue if any
+        if (mp.offlineQueue.length > 0) {
+          const queue = [...mp.offlineQueue];
+          mp.offlineQueue = [];
+          saveAppState();
+          return queue;
+        }
+        return [];
+      }
+      
+      // Real relay poll would go here
+      return [];
+    }
+
+    // Process incoming envelope
+    function processRelayEnvelope(envelope) {
+      switch (envelope.type) {
+        case 'task':
+          return handleIncomingTask(envelope);
+        case 'checkpoint':
+          return handleIncomingCheckpoint(envelope);
+        case 'message':
+          return handleIncomingMessage(envelope);
+        case 'approval':
+          return handleIncomingApproval(envelope);
+        case 'provider':
+          return handleIncomingProvider(envelope);
+        case 'sync':
+          return handleSyncEnvelope(envelope);
+        default:
+          console.warn('Unknown envelope type:', envelope.type);
+      }
+    }
+
+    // Handlers for each envelope type (stubs - real logic in §2-§14)
+    function handleIncomingTask(envelope) {
+      logActivity('Task received from ' + envelope.from.deviceName, 'info');
+      // §2-§6: Route to session API, start task
+      return { handled: true };
+    }
+
+    function handleIncomingCheckpoint(envelope) {
+      logActivity('Checkpoint received from ' + envelope.from.deviceName, 'info');
+      // §7: Show checkpoint UI on phone
+      return { handled: true };
+    }
+
+    function handleIncomingMessage(envelope) {
+      logActivity('Message received from ' + envelope.from.deviceName, 'info');
+      // §13: Add to message queue
+      return { handled: true };
+    }
+
+    function handleIncomingApproval(envelope) {
+      logActivity('Approval request from ' + envelope.from.deviceName, 'info');
+      // §11: Check phone permissions, auto-approve or prompt
+      return { handled: true };
+    }
+
+    function handleIncomingProvider(envelope) {
+      logActivity('Provider config received from ' + envelope.from.deviceName, 'info');
+      // §4: Add custom provider to desktop
+      return { handled: true };
+    }
+
+    function handleSyncEnvelope(envelope) {
+      logActivity('Sync envelope from ' + envelope.from.deviceName, 'info');
+      // §12-§13: Sync queue, recommendations, etc.
+      return { handled: true };
+    }
+
+    // Test relay connection
+    async function testRelayConnection() {
+      const mp = appState.mobilePairing;
+      const testBtn = document.getElementById('btnTestRelay');
+      if (testBtn) {
+        testBtn.disabled = true;
+        testBtn.textContent = 'Testing...';
+      }
+      
+      if (!mp.relayEnabled) {
+        logActivity('Relay not deployed — test skipped (mobile stage)', 'warning');
+        if (testBtn) {
+          testBtn.disabled = false;
+          testBtn.textContent = 'Test Connection';
+        }
+        return { success: false, reason: 'Relay not deployed (mobile stage)' };
+      }
+      
+      // Real test would ping relay endpoint
+      logActivity('Relay connection test: OK', 'success');
+      if (testBtn) {
+        testBtn.disabled = false;
+        testBtn.textContent = 'Test Connection';
+      }
+      return { success: true };
+    }
+
+    // Format time ago helper
+    function formatTimeAgo(timestamp) {
+      const diff = Date.now() - timestamp;
+      if (diff < 60000) return 'just now';
+      if (diff < 3600000) return Math.floor(diff / 60000) + 'm ago';
+      if (diff < 86400000) return Math.floor(diff / 3600000) + 'h ago';
+      return Math.floor(diff / 86400000) + 'd ago';
+    }
+
+    // ==================== MOBILE COMPANION VIEW RENDER FUNCTIONS (§2-§14) ====================
+
+    // Render the companion view (called when pane is shown)
+    function renderCompanionView() {
+      renderLegacyCompanionView();
+      renderCompanionPairingStatus();
+      renderCompanionDesktopPicker();
+      renderCompanionModelPicker();
+      renderCompanionPhonePermissions();
+      renderCompanionMessageQueue();
+      renderCompanionRecommendations();
+      renderCompanionNotifications();
+    }
+
+    // Update companion pairing status header
+    function renderCompanionPairingStatus() {
+      const mp = appState.mobilePairing;
+      if (!mp) return;
+      
+      const badge = document.getElementById('companionPairingBadge');
+      const text = document.getElementById('companionPairingText');
+      const lanIndicator = document.getElementById('companionLanIndicator');
+      const liveIndicator = document.getElementById('companionLiveIndicator');
+      
+      const states = {
+        'signed-up': { label: 'Signed Up', color: 'var(--accent-blue)', text: 'Awaiting desktop & phone sign-in' },
+        'desktop-paired': { label: 'Desktop Paired', color: 'var(--warning)', text: 'Desktop connected — awaiting phone sign-in' },
+        'phone-paired': { label: 'Phone Paired', color: 'var(--success)', text: 'Fully connected — desktop and phone paired' }
+      };
+      const s = states[mp.pairingState] || states['signed-up'];
+      
+      if (badge) {
+        badge.textContent = s.label;
+        badge.style.background = s.color;
+      }
+      if (text) text.textContent = s.text;
+      if (lanIndicator) lanIndicator.style.display = mp.lanModeDetected ? 'inline-block' : 'none';
+      
+      if (liveIndicator) {
+        const isLive = mp.pairingState === 'phone-paired';
+        const dot = liveIndicator.querySelector('.live-dot');
+        const label = liveIndicator.querySelector('span:last-child');
+        if (dot) dot.style.background = isLive ? 'var(--success)' : 'var(--text-dim)';
+        if (label) label.textContent = isLive ? 'Live' : 'Disconnected';
+        liveIndicator.style.background = isLive ? 'rgba(0, 255, 100, 0.1)' : 'var(--bg-dark)';
+        liveIndicator.style.color = isLive ? 'var(--success)' : 'var(--text-dim)';
+      }
+    }
+
+    // Render desktop picker (§2)
+    function renderCompanionDesktopPicker() {
+      const mp = appState.mobilePairing;
+      if (!mp) return;
+      
+      const picker = document.getElementById('companionDesktopPicker');
+      const status = document.getElementById('companionDesktopStatus');
+      if (!picker) return;
+      
+      const desktops = mp.pairedDevices.filter(d => d.type === 'desktop');
+      
+      if (desktops.length === 0) {
+        picker.innerHTML = '<option value="">No desktops paired — sign in on desktop first</option>';
+        if (status) status.textContent = '';
+        return;
+      }
+      
+      const defaultDesktop = getDefaultDesktop();
+      picker.innerHTML = desktops.map(d => {
+        const isDefault = defaultDesktop && defaultDesktop.id === d.id;
+        const isOnline = d.online;
+        const offlineText = !isOnline ? ' (Offline — task will queue)' : '';
+        const lastSeenText = d.lastSeen ? ` • ${formatTimeAgo(d.lastSeen)}` : '';
+        return `<option value="${escapeHtml(d.id)}" ${isDefault ? 'selected' : ''}>${escapeHtml(d.name)}${lastSeenText}${offlineText} ${isDefault ? '• Default' : ''}</option>`;
+      }).join('');
+      
+      // Update status text
+      if (status) {
+        const selected = desktops.find(d => d.id === picker.value);
+        if (selected) {
+          if (!selected.online) {
+            status.textContent = '⚠️ Selected desktop is offline — the task will queue until it comes back online';
+            status.style.color = 'var(--warning)';
+          } else if (mp.lanModeDetected && isLanModeAvailable(selected.id)) {
+            status.textContent = '📶 LAN mode available — direct connection (no internet needed)';
+            status.style.color = 'var(--success)';
+          } else {
+            status.textContent = 'Connected via relay';
+            status.style.color = 'var(--text-dim)';
+          }
+        }
+      }
+      
+      // Attach onchange
+      picker.onchange = () => {
+        renderCompanionDesktopPicker();
+        renderCompanionModelPicker(); // Models depend on selected desktop
+        renderCompanionPhonePermissions();
+      };
+    }
+
+    // Render model picker (§3) - same models as desktop
+    function renderCompanionModelPicker() {
+      const mp = appState.mobilePairing;
+      if (!mp) return;
+      
+      const picker = document.getElementById('companionModelPicker');
+      const rateLimit = document.getElementById('companionModelRateLimit');
+      if (!picker) return;
+      
+      const desktopId = document.getElementById('companionDesktopPicker')?.value;
+      const desktop = mp.pairedDevices.find(d => d.id === desktopId && d.type === 'desktop');
+      
+      // Get models from appState (same as desktop)
+      const models = appState.providers ? getAllAvailableModels() : [];
+      
+      if (models.length === 0) {
+        picker.innerHTML = '<option value="">No models available — connect a desktop</option>';
+        if (rateLimit) rateLimit.textContent = '';
+        return;
+      }
+      
+      picker.innerHTML = models.map(m => {
+        const rlText = m.rateLimited ? ' (rate limited)' : '';
+        const rlStyle = m.rateLimited ? 'style="color: var(--warning);"' : '';
+        return `<option value="${escapeHtml(m.id)}" ${rlStyle}>${escapeHtml(m.name)} — ${escapeHtml(m.provider)}${rlText}</option>`;
+      }).join('');
+      
+      // Show rate limit status for selected model
+      if (rateLimit) {
+        const selectedModel = models.find(m => m.id === picker.value);
+        if (selectedModel && selectedModel.rateLimited) {
+          rateLimit.textContent = '⚠️ This model is currently rate limited';
+          rateLimit.style.color = 'var(--warning)';
+        } else {
+          rateLimit.textContent = '';
+        }
+      }
+    }
+
+    // Get all available models (shared with desktop)
+    function getAllAvailableModels() {
+      const models = [];
+      if (appState.providers) {
+        Object.entries(appState.providers).forEach(([providerId, provider]) => {
+          if (provider.models) {
+            Object.entries(provider.models).forEach(([modelId, model]) => {
+              models.push({
+                id: `${providerId}:${modelId}`,
+                name: model.name || modelId,
+                provider: provider.name || providerId,
+                rateLimited: model.rateLimited || false
+              });
+            });
+          }
+        });
+      }
+      return models;
+    }
+
+    // Render phone permissions for selected desktop (§11)
+    function renderCompanionPhonePermissions() {
+      const mp = appState.mobilePairing;
+      if (!mp) return;
+      
+      const container = document.getElementById('companionPhonePermissions');
+      if (!container) return;
+      
+      const desktopId = document.getElementById('companionDesktopPicker')?.value;
+      const desktop = mp.pairedDevices.find(d => d.id === desktopId && d.type === 'desktop');
+      
+      if (!desktop) {
+        container.innerHTML = '<div style="font-size: 10px; color: var(--text-dim); text-align: center; padding: 10px;">Pair a desktop to configure permissions</div>';
+        return;
+      }
+      
+      const currentMode = getPhonePermissions(desktopId);
+      const modes = [
+        { value: 'ask', label: 'Ask', desc: 'Every permission step asks on the phone first (default)' },
+        { value: 'auto', label: 'Auto approve', desc: 'Routine work auto-approved; dangerous steps (delete, publish, payments, outside project) still ask' },
+        { value: 'full', label: 'Full access', desc: 'Everything auto-approved, desktop never waits for phone' }
+      ];
+      
+      container.innerHTML = modes.map(m => `
+        <label style="display:flex; align-items:flex-start; gap:8px; padding:8px; background:var(--bg-hover); border:1px solid var(--border-color); border-radius:4px; cursor:pointer; ${currentMode === m.value ? 'border-color: var(--accent-blue);' : ''}">
+          <input type="radio" name="phonePerm_${desktopId}" value="${m.value}" ${currentMode === m.value ? 'checked' : ''} onchange="setPhonePermissions('${escapeHtml(desktopId)}', '${m.value}')" style="margin-top:2px;">
+          <div>
+            <div style="font-size: 11px; font-weight: 600; color: var(--text-main);" data-i18n="${m.label}">${m.label}</div>
+            <div style="font-size: 10px; color: var(--text-dim);">${m.desc}</div>
+          </div>
+        </label>
+      `).join('');
+    }
+
+    // Render message queue (§13) - extends B7.12
+    function renderCompanionMessageQueue() {
+      const queue = appState.messageQueue || [];
+      const container = document.getElementById('companionMessageQueue');
+      const count = document.getElementById('companionQueueCount');
+      if (!container) return;
+      
+      if (count) {
+        count.textContent = queue.length;
+        count.style.display = queue.length > 0 ? 'inline-block' : 'none';
+      }
+      
+      if (queue.length === 0) {
+        container.innerHTML = '<div style="font-size: 11px; color: var(--text-dim); text-align: center; padding: 10px;" data-i18n="Queue empty">Queue empty</div>';
+        return;
+      }
+      
+      container.innerHTML = queue.map((msg, index) => `
+        <div style="padding: 8px; background: var(--bg-hover); border: 1px solid var(--border-color); border-radius: 4px; display: flex; flex-direction: column; gap: 4px;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+            <div style="display: flex; align-items: center; gap: 8px; flex: 1;">
+              <span style="font-size: 10px; padding: 2px 6px; background: var(--accent-blue); color: white; border-radius: 3px; font-weight: 600;">#${index + 1}</span>
+              <span style="font-size: 11px; color: var(--text-main); font-family: var(--font-mono); max-width: 70%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(msg.text || msg)}</span>
+            </div>
+            <div style="display: flex; gap: 4px;">
+              <button class="btn btn-secondary btn-sm" onclick="editQueueMessage(${index})" style="padding: 2px 6px; font-size: 9px;" data-i18n="Edit">✏️</button>
+              <button class="btn btn-secondary btn-sm" onclick="sendQueueMessageNow(${index})" style="padding: 2px 6px; font-size: 9px;" data-i18n="Send now">⚡</button>
+              <button class="btn btn-secondary btn-sm" onclick="deleteQueueMessage(${index})" style="padding: 2px 6px; font-size: 9px; color: var(--danger); border-color: var(--danger);" data-i18n="Delete">🗑️</button>
+            </div>
+          </div>
+          <div style="font-size: 9px; color: var(--text-dim); margin-left: 24px;">${formatTimeAgo(msg.timestamp || Date.now())} ${msg.offline ? '• Offline queued' : ''}</div>
+        </div>
+      `).join('');
+    }
+
+    // Render recommendations mirror (§14) - extends B7.2b
+    function renderCompanionRecommendations() {
+      const recs = appState.recommendations || [];
+      const container = document.getElementById('companionRecommendations');
+      const count = document.getElementById('companionRecommendationsCount');
+      if (!container) return;
+      
+      if (count) {
+        count.textContent = recs.length;
+        count.style.display = recs.length > 0 ? 'inline-block' : 'none';
+      }
+      
+      if (recs.length === 0) {
+        container.innerHTML = '<div style="font-size: 11px; color: var(--text-dim); text-align: center; padding: 10px;" data-i18n="No recommendations">No recommendations</div>';
+        return;
+      }
+      
+      container.innerHTML = recs.map(r => `
+        <div style="padding: 8px; background: var(--bg-hover); border: 1px solid var(--border-color); border-radius: 4px; display: flex; flex-direction: column; gap: 4px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div style="display: flex; align-items: center; gap: 8px; flex: 1;">
+              <span style="font-size: 10px; padding: 2px 6px; background: var(--accent-purple); color: white; border-radius: 3px; font-weight: 600;">Rec</span>
+              <span style="font-size: 11px; font-weight: 600; color: var(--text-main);">${escapeHtml(r.tool || r.name)}</span>
+              <span style="font-size: 10px; color: var(--text-dim);">${escapeHtml(r.reason || '')}</span>
+            </div>
+            <div style="display: flex; gap: 4px;">
+              <button class="btn btn-primary btn-sm" onclick="installRecommendation('${escapeHtml(r.id || r.tool || r.name)}')" style="padding: 2px 8px; font-size: 9px;" data-i18n="Install">Install</button>
+              <button class="btn btn-secondary btn-sm" onclick="dismissRecommendation('${escapeHtml(r.id || r.tool || r.name)}')" style="padding: 2px 8px; font-size: 9px;" data-i18n="Dismiss">Dismiss</button>
+              <button class="btn btn-secondary btn-sm" onclick="dontSuggestRecommendation('${escapeHtml(r.id || r.tool || r.name)}')" style="padding: 2px 8px; font-size: 9px;" data-i18n="Don't suggest">Don't suggest</button>
+            </div>
+          </div>
+          <div style="font-size: 9px; color: var(--text-dim); margin-left: 24px;">${formatTimeAgo(r.timestamp || Date.now())} ${r.offlineQueued ? '• Queued offline' : ''}</div>
+        </div>
+      `).join('');
+    }
+
+    // Render notifications (§9)
+    function renderCompanionNotifications() {
+      const notifications = appState.mobileNotifications || [];
+      const container = document.getElementById('companionNotifications');
+      if (!container) return;
+      
+      if (notifications.length === 0) {
+        container.innerHTML = '<div style="font-size: 11px; color: var(--text-dim); text-align: center; padding: 10px;" data-i18n="No notifications">No notifications</div>';
+        return;
+      }
+      
+      container.innerHTML = notifications.map(n => `
+        <div style="padding: 8px; background: var(--bg-hover); border: 1px solid var(--border-color); border-radius: 4px; border-left: 3px solid ${n.type === 'error' ? 'var(--danger)' : n.type === 'success' ? 'var(--success)' : 'var(--accent-blue)'};">
+          <div style="font-size: 11px; font-weight: 600; color: var(--text-main);">${escapeHtml(n.title || n.message)}</div>
+          <div style="font-size: 10px; color: var(--text-dim); margin-top: 2px;">${escapeHtml(n.message || '')}</div>
+          <div style="font-size: 9px; color: var(--text-dim); margin-top: 4px;">${formatTimeAgo(n.timestamp || Date.now())}</div>
+        </div>
+      `).join('');
+    }
+
+    // Add message to queue (§13)
+    function addToMessageQueue(text, options = {}) {
+      const queue = appState.messageQueue || [];
+      queue.push({
+        text,
+        timestamp: Date.now(),
+        offline: options.offline || false,
+        id: 'msg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6)
+      });
+      appState.messageQueue = queue;
+      saveAppState();
+      renderCompanionMessageQueue();
+      // Also update desktop queue view if visible
+      if (typeof renderMessageQueue === 'function') renderMessageQueue();
+    }
+
+    // Send queued message now
+    function sendQueueMessageNow(index) {
+      const queue = appState.messageQueue || [];
+      if (index < 0 || index >= queue.length) return;
+      const msg = queue.splice(index, 1)[0];
+      appState.messageQueue = queue;
+      saveAppState();
+      // Send as follow-up to current session
+      if (typeof sendFollowUpMessage === 'function') {
+        sendFollowUpMessage(msg.text);
+      } else {
+        logActivity('Message sent as follow-up: ' + msg.text.slice(0, 50), 'success');
+      }
+      renderCompanionMessageQueue();
+      if (typeof renderMessageQueue === 'function') renderMessageQueue();
+    }
+
+    // Edit queued message
+    function editQueueMessage(index) {
+      const queue = appState.messageQueue || [];
+      if (index < 0 || index >= queue.length) return;
+      const newText = prompt('Edit message:', queue[index].text);
+      if (newText !== null && newText.trim()) {
+        queue[index].text = newText.trim();
+        appState.messageQueue = queue;
+        saveAppState();
+        renderCompanionMessageQueue();
+        if (typeof renderMessageQueue === 'function') renderMessageQueue();
+      }
+    }
+
+    // Delete queued message
+    function deleteQueueMessage(index) {
+      const queue = appState.messageQueue || [];
+      if (index < 0 || index >= queue.length) return;
+      queue.splice(index, 1);
+      appState.messageQueue = queue;
+      saveAppState();
+      renderCompanionMessageQueue();
+      if (typeof renderMessageQueue === 'function') renderMessageQueue();
+    }
+
+    // Install recommendation from phone (§14)
+    function installRecommendation(toolId) {
+      const mp = appState.mobilePairing;
+      if (!mp) return;
+      
+      const desktopId = document.getElementById('companionDesktopPicker')?.value || getDefaultDesktop()?.id;
+      if (!desktopId) {
+        logActivity('No desktop selected for install', 'warning');
+        return;
+      }
+      
+      if (!mp.lanModeDetected && !mp.relayEnabled) {
+        // Queue for offline sync
+        const recs = appState.recommendations || [];
+        const rec = recs.find(r => (r.id || r.tool || r.name) === toolId);
+        if (rec) {
+          rec.offlineQueued = true;
+          rec.targetDesktopId = desktopId;
+          saveAppState();
+          logActivity('Install queued for when online: ' + toolId, 'info');
+        }
+        renderCompanionRecommendations();
+        return;
+      }
+      
+      // Send install envelope to desktop
+      const envelope = buildRelayEnvelope('tool-install', { toolId, targetDesktopId: desktopId });
+      sendRelayEnvelope(envelope, desktopId);
+      logActivity('Install sent to desktop: ' + toolId, 'success');
+      
+      // Remove from recommendations
+      const recs = appState.recommendations || [];
+      appState.recommendations = recs.filter(r => (r.id || r.tool || r.name) !== toolId);
+      saveAppState();
+      renderCompanionRecommendations();
+      if (typeof renderRecommendations === 'function') renderRecommendations();
+    }
+
+    // Dismiss recommendation
+    function dismissRecommendation(toolId) {
+      const recs = appState.recommendations || [];
+      appState.recommendations = recs.filter(r => (r.id || r.tool || r.name) !== toolId);
+      saveAppState();
+      renderCompanionRecommendations();
+      if (typeof renderRecommendations === 'function') renderRecommendations();
+    }
+
+    // Don't suggest again
+    function dontSuggestRecommendation(toolId) {
+      const recs = appState.recommendations || [];
+      const rec = recs.find(r => (r.id || r.tool || r.name) === toolId);
+      if (rec) {
+        rec.dismissed = true;
+        rec.dontSuggest = true;
+        saveAppState();
+      }
+      dismissRecommendation(toolId);
+    }
+
+    // Add custom provider from phone (§4)
+    async function addCustomProviderFromPhone() {
+      const name = document.getElementById('companionProviderName')?.value?.trim();
+      const baseUrl = document.getElementById('companionProviderBaseUrl')?.value?.trim();
+      const apiKey = document.getElementById('companionProviderApiKey')?.value?.trim();
+      const model = document.getElementById('companionProviderModel')?.value?.trim();
+      const status = document.getElementById('companionProviderStatus');
+      
+      if (!name || !baseUrl || !apiKey || !model) {
+        if (status) status.textContent = 'Please fill all fields';
+        if (status) status.style.color = 'var(--danger)';
+        return;
+      }
+      
+      // Validate base URL
+      try {
+        new URL(baseUrl);
+      } catch {
+        if (status) status.textContent = 'Invalid base URL';
+        if (status) status.style.color = 'var(--danger)';
+        return;
+      }
+      
+      // Test connection (placeholder - real probe at mobile stage)
+      if (status) {
+        status.textContent = 'Testing connection...';
+        status.style.color = 'var(--accent-blue)';
+      }
+      
+      // Simulate test
+      await new Promise(r => setTimeout(r, 1000));
+      
+      // Encrypt key with per-pair key (placeholder)
+      const encryptedKey = btoa(apiKey); // Base64 placeholder - real encryption at mobile stage
+      
+      // Add to providers (shared with desktop)
+      if (!appState.providers) appState.providers = {};
+      const providerId = 'custom_' + name.toLowerCase().replace(/\s+/g, '_');
+      appState.providers[providerId] = {
+        id: providerId,
+        name,
+        baseUrl,
+        apiKey: encryptedKey, // Stored encrypted
+        models: {
+          [model]: { id: model, name: model, rateLimited: false }
+        },
+        source: 'added from phone',
+        addedAt: Date.now()
+      };
+      
+      saveAppState();
+      
+      if (status) {
+        status.textContent = 'Provider added — appears on desktop as "added from phone"';
+        status.style.color = 'var(--success)';
+      }
+      
+      // Clear form
+      document.getElementById('companionProviderName').value = '';
+      document.getElementById('companionProviderBaseUrl').value = '';
+      document.getElementById('companionProviderApiKey').value = '';
+      document.getElementById('companionProviderModel').value = '';
+      
+      renderCompanionModelPicker();
+      if (typeof renderProvidersTab === 'function') renderProvidersTab();
+      
+      // Send provider envelope to desktop
+      const mp = appState.mobilePairing;
+      const desktopId = document.getElementById('companionDesktopPicker')?.value || getDefaultDesktop()?.id;
+      if (desktopId && mp) {
+        const envelope = buildRelayEnvelope('provider', { provider: appState.providers[providerId] });
+        sendRelayEnvelope(envelope, desktopId);
+      }
+    }
+
+    // Voice prompt handler (§5)
+    let companionVoiceRecognition = null;
+    let companionVoiceTranscript = '';
+    
+    function startCompanionVoicePrompt() {
+      const btn = document.getElementById('btnCompanionVoicePrompt');
+      const status = document.getElementById('companionVoiceStatus');
+      const lang = document.getElementById('companionVoiceLang')?.value || 'en-US';
+      
+      if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+        if (status) {
+          status.textContent = 'Voice input not supported in this browser';
+          status.style.color = 'var(--danger)';
+        }
+        return;
+      }
+      
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      companionVoiceRecognition = new SpeechRecognition();
+      companionVoiceRecognition.lang = lang;
+      companionVoiceRecognition.continuous = true;
+      companionVoiceRecognition.interimResults = true;
+      
+      companionVoiceRecognition.onstart = () => {
+        if (btn) {
+          btn.textContent = '🛑 Stop Voice';
+          btn.classList.add('btn-danger');
+        }
+        if (status) {
+          status.textContent = 'Listening...';
+          status.style.color = 'var(--accent-blue)';
+        }
+      };
+      
+      companionVoiceRecognition.onresult = (event) => {
+        let finalTranscript = '';
+        let interimTranscript = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          if (event.results[i].isFinal) {
+            finalTranscript += event.results[i][0].transcript;
+          } else {
+            interimTranscript += event.results[i][0].transcript;
+          }
+        }
+        companionVoiceTranscript = finalTranscript || interimTranscript;
+        const input = document.getElementById('companionPromptInput');
+        if (input) input.value = companionVoiceTranscript;
+        if (status && interimTranscript) {
+          status.textContent = 'Transcribing: ' + interimTranscript.slice(-50);
+        }
+      };
+      
+      companionVoiceRecognition.onerror = (event) => {
+        if (status) {
+          status.textContent = 'Voice error: ' + event.error;
+          status.style.color = 'var(--danger)';
+        }
+        stopCompanionVoicePrompt();
+      };
+      
+      companionVoiceRecognition.onend = () => {
+        stopCompanionVoicePrompt();
+      };
+      
+      companionVoiceRecognition.start();
+    }
+
+    function stopCompanionVoicePrompt() {
+      if (companionVoiceRecognition) {
+        companionVoiceRecognition.stop();
+        companionVoiceRecognition = null;
+      }
+      const btn = document.getElementById('btnCompanionVoicePrompt');
+      const status = document.getElementById('companionVoiceStatus');
+      if (btn) {
+        btn.textContent = '🎤 Voice (bn/en)';
+        btn.classList.remove('btn-danger');
+      }
+      if (status && companionVoiceTranscript) {
+        status.textContent = 'Transcript ready — tap Send to send';
+        status.style.color = 'var(--success)';
+      }
+    }
+
+    // Send companion prompt
+    function sendCompanionPrompt() {
+      const input = document.getElementById('companionPromptInput');
+      const text = input?.value?.trim();
+      if (!text) return;
+      
+      const mp = appState.mobilePairing;
+      if (!mp || mp.pairingState !== 'phone-paired') {
+        logActivity('Not fully paired — cannot send prompt', 'warning');
+        return;
+      }
+      
+      const desktopId = document.getElementById('companionDesktopPicker')?.value || getDefaultDesktop()?.id;
+      const modelId = document.getElementById('companionModelPicker')?.value;
+      
+      if (!desktopId) {
+        logActivity('No desktop selected', 'warning');
+        return;
+      }
+      
+      const desktop = mp.pairedDevices.find(d => d.id === desktopId);
+      if (desktop && !desktop.online) {
+        // Queue for offline
+        addToMessageQueue(text, { offline: true });
+        logActivity('Desktop offline — message queued', 'warning');
+        input.value = '';
+        return;
+      }
+      
+      // Send task envelope with model
+      const envelope = buildRelayEnvelope('task', { 
+        prompt: text, 
+        model: modelId,
+        targetDesktopId: desktopId 
+      });
+      sendRelayEnvelope(envelope, desktopId);
+      
+      input.value = '';
+      companionVoiceTranscript = '';
+      logActivity('Prompt sent to desktop', 'success');
+    }
 
     // ==================== BATCH 8b: SWEEP LEFTOVERS RENDER FUNCTIONS ====================
 
@@ -47627,7 +49005,7 @@ This plan was generated in Architect mode. Use "এই plan দিয়ে buil
             if (session) {
               session.buildStatus = 'success';
               if (document.getElementById('paneCompanion')?.classList.contains('active')) {
-                renderCompanionView();
+                renderLegacyCompanionView();
               }
             }
             return;
@@ -47748,7 +49126,7 @@ This plan was generated in Architect mode. Use "এই plan দিয়ে buil
           if (session) {
             session.buildStatus = 'working';
             if (document.getElementById('paneCompanion')?.classList.contains('active')) {
-              renderCompanionView();
+              renderLegacyCompanionView();
             }
           }
 
@@ -48090,7 +49468,7 @@ This plan was generated in Architect mode. Use "এই plan দিয়ে buil
             if (session) {
               session.buildStatus = 'error';
               if (document.getElementById('paneCompanion')?.classList.contains('active')) {
-                renderCompanionView();
+                renderLegacyCompanionView();
               }
             }
           }
@@ -50917,6 +52295,10 @@ Format:
           if (tabName === 'cliTools') {
             renderCliToolsTab();
           }
+          // Mobile App: Devices tab (§1)
+          if (tabName === 'devices') {
+            renderDevicesTab();
+          }
           // H4: Desktop Power tabs
           if (tabName === 'experimentBranches') {
             renderExperimentBranchesList();
@@ -51600,7 +52982,7 @@ Format:
                     }
                     if (paneName === 'companion') {
                       document.getElementById('paneCompanion').classList.add('active');
-                      renderCompanionView();
+                      renderLegacyCompanionView();
                     }
                     if (paneName === 'debug') {
                       document.getElementById('paneDebug').classList.add('active');
@@ -54626,6 +56008,8 @@ Requirements:
 
     function initApp() {
       loadAppState();
+      // Mobile App: Initialize pairing state machine (§1)
+      initMobilePairing();
       // Desktop mode indicator
       if (isDesktopMode) {
         const indicator = document.getElementById('desktopModeIndicator');
@@ -60077,7 +61461,7 @@ It integrates with the current user model (src/models/User.js) and JWT utility (
       saveAppState();
       // Update companion view if visible
       if (document.getElementById('paneCompanion')?.classList.contains('active')) {
-        renderCompanionView();
+        renderLegacyCompanionView();
       }
     }
 
@@ -62649,7 +64033,7 @@ It integrates with the current user model (src/models/User.js) and JWT utility (
         recordSessionEvent('checkpoint', 'HUMAN CHECKPOINT requested: ' + reason);
         // Update companion view
         if (document.getElementById('paneCompanion')?.classList.contains('active')) {
-          renderCompanionView();
+          renderLegacyCompanionView();
         }
       });
     }
