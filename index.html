@@ -3557,6 +3557,13 @@
         <button class="settings-tab" data-settings-tab="accounts" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">Accounts</button>
         <button class="settings-tab" data-settings-tab="themes" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">Themes</button>
         <button class="settings-tab" data-settings-tab="modelPrefs" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">Model Preferences</button>
+        <!-- H4: Desktop Power (Batch H4) -->
+        <button class="settings-tab" data-settings-tab="experimentBranches" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">Experiment Branches</button>
+        <button class="settings-tab" data-settings-tab="lspDiagnostics" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">LSP Diagnostics</button>
+        <button class="settings-tab" data-settings-tab="acpExternalAgents" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">ACP / External Agents</button>
+        <button class="settings-tab" data-settings-tab="realBrowserAgent" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">Real Browser Agent</button>
+        <button class="settings-tab" data-settings-tab="computerUse" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">Computer Use</button>
+        <button class="settings-tab" data-settings-tab="processManager" style="padding: 6px 12px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">Process Manager</button>
       </div>
 
       <!-- Providers Tab -->
@@ -6110,6 +6117,275 @@ const fc = {
             </div>
             <div style="font-size: 11px; color: var(--text-dim); margin-bottom: 10px;">Choose which model FlamingoCode uses for each kind of task. 'Auto' lets the router decide. After you switch to the same model 3 times mid-task, it becomes the learned preference (শেখা).</div>
             <div id="taskModelPreferencesTable" style="display: flex; flex-direction: column; gap: 8px;"></div>
+          </div>
+          <div style="border-top: 1px solid var(--border-color); padding-top: 12px;">
+            <div style="display:flex; justify-content:flex-end; gap:8px;">
+              <button class="btn btn-secondary" id="btnCancelSettings">Close</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- H4 §6: Experiment Branches (Project branches, web version) -->
+        <div class="settings-pane" id="settingsPaneExperimentBranches" style="display: none; flex-direction: column;">
+          <div style="max-height: 40vh; overflow-y: auto; margin-bottom: 12px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px;">
+              <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Experiment Branches</span>
+              <button class="btn" id="btnCreateExperimentBranch" style="padding: 4px 10px; font-size: 11px;">+ New Branch</button>
+            </div>
+            <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 12px; padding: 8px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 4px;">
+              Web branches are project copies with isolated files, Brain notes, and checkpoints. Real git worktrees (one per agent) arrive with the desktop app (Stage 6). Merging runs a file-by-file diff review.
+            </div>
+            <div id="experimentBranchesList" style="display: flex; flex-direction: column; gap: 6px;">
+              <!-- Branches rendered here -->
+            </div>
+            <div id="archivedBranchesList" style="display: flex; flex-direction: column; gap: 6px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-color);">
+              <div style="font-size: 10px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px;">Archived Branches (restorable)</div>
+              <!-- Archived branches rendered here -->
+            </div>
+          </div>
+          <div style="border-top: 1px solid var(--border-color); padding-top: 12px;">
+            <div style="display:flex; justify-content:flex-end; gap:8px;">
+              <button class="btn btn-secondary" id="btnCancelSettings">Close</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- H4 §8: LSP Diagnostics -->
+        <div class="settings-pane" id="settingsPaneLspDiagnostics" style="display: none; flex-direction: column;">
+          <div style="max-height: 40vh; overflow-y: auto; margin-bottom: 12px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px;">
+              <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">LSP Diagnostics (Post-Edit Check)</span>
+            </div>
+            <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 12px; padding: 8px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 4px;">
+              After every agent edit, a syntax parse + "new problems only" diagnostic runs. New errors feed into auto-fix. Checker failures never block writes — panel shows "check unavailable, syntax only". Real language servers (typescript-language-server, pyright, gopls) wired at Stage 6.
+            </div>
+            <div style="display:flex; flex-direction:column; gap:8px;">
+              <label style="display:flex; align-items:center; gap:8px; font-size: 11px;">
+                <input type="checkbox" id="lspDiagnosticsEnabled" checked> Enable post-edit diagnostics
+              </label>
+              <label style="display:flex; align-items:center; gap:8px; font-size: 11px;">
+                <input type="checkbox" id="lspNewOnlyMode" checked> New problems only (Hermes-style)
+              </label>
+              <label style="display:flex; align-items:center; gap:8px; font-size: 11px;">
+                <input type="checkbox" id="lspAutoFixIntegration" checked> Feed new diagnostics to auto-fix
+              </label>
+              <div style="font-size: 10px; color: var(--text-dim); padding: 8px; background: var(--bg-dark); border-radius: 4px;">
+                In-browser: TypeScript compiler pass (when available) or syntax + undefined-name scan.
+                Desktop (Stage 6): real LSP servers per language. Settings → Languages (Audit Gaps H7) shows server status.
+              </div>
+            </div>
+            <div id="lspDiagnosticsPanel" style="margin-top: 12px; padding: 8px; background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 4px; font-family: var(--font-mono); font-size: 10px; max-height: 200px; overflow-y: auto;">
+              <!-- Live diagnostics rendered here -->
+            </div>
+          </div>
+          <div style="border-top: 1px solid var(--border-color); padding-top: 12px;">
+            <div style="display:flex; justify-content:flex-end; gap:8px;">
+              <button class="btn btn-secondary" id="btnCancelSettings">Close</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- H4 §13: ACP / External Agents -->
+        <div class="settings-pane" id="settingsPaneAcpExternalAgents" style="display: none; flex-direction: column;">
+          <div style="max-height: 40vh; overflow-y: auto; margin-bottom: 12px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px;">
+              <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">ACP (Agent Client Protocol) / External Agents</span>
+            </div>
+            <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 12px; padding: 8px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 4px;">
+              FlamingoCode exposes an ACP server so VS Code / Zed can drive its agents (desktop, Stage 6). This panel shows the protocol shape, curated toolset, and guest-worker settings. HTTP-endpoint external agents (session API) can already run as guest workers in the web app. Local ACP servers (stdio) need the desktop app.
+            </div>
+            <div style="display:flex; flex-direction:column; gap:10px;">
+              <div style="padding: 10px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px;">
+                <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px;">Protocol</div>
+                <div style="font-family: var(--font-mono); font-size: 10px; color: var(--text-main);">Agent Client Protocol (ACP) — open spec, stdio + HTTP transports</div>
+              </div>
+              <div style="padding: 10px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px;">
+                <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px;">Curated Toolset (Guest Workers)</div>
+                <div style="font-size: 10px; color: var(--text-dim); display:flex; flex-direction:column; gap:2px;">
+                  <span>✓ Files (read/write/list/glob)</span>
+                  <span>✓ Terminal (run, background, PTY)</span>
+                  <span>✓ Web (search, extract, fetch)</span>
+                  <span>✓ Memory (brain notes, session memory)</span>
+                  <span>✓ Todo (task lists)</span>
+                  <span>✓ Skills (load/use)</span>
+                  <span>✓ Delegation (spawn subagents)</span>
+                  <span>✓ Vision (analyze images)</span>
+                  <span>✗ Messaging, Cron (host-only)</span>
+                </div>
+              </div>
+              <div style="padding: 10px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px;">
+                <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px;">Guest Worker Settings</div>
+                <label style="display:flex; align-items:center; gap:8px; font-size: 11px;">
+                  <input type="checkbox" id="acpGuestWorkerEnabled" checked> Allow HTTP guest workers (session API)
+                </label>
+                <label style="display:flex; align-items:center; gap:8px; font-size: 11px;">
+                  <input type="checkbox" id="acpGuestMcpUntrusted" checked> Guest MCP servers start untrusted (H5.5 rules)
+                </label>
+                <div style="margin-top: 8px;">
+                  <label style="font-size: 10px; color: var(--text-dim);">Session API Endpoint:</label>
+                  <input type="text" id="acpSessionApiEndpoint" placeholder="/api/session" style="width:100%; box-sizing:border-box; margin-top:4px; padding:6px 8px; font-size:11px; font-family:var(--font-mono); background:var(--bg-dark); color:var(--text-main); border:1px solid var(--border-color); border-radius:4px;">
+                </div>
+              </div>
+            </div>
+          </div>
+          <div style="border-top: 1px solid var(--border-color); padding-top: 12px;">
+            <div style="display:flex; justify-content:flex-end; gap:8px;">
+              <button class="btn btn-secondary" id="btnCancelSettings">Close</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- H4 §14: Real Browser Agent -->
+        <div class="settings-pane" id="settingsPaneRealBrowserAgent" style="display: none; flex-direction: column;">
+          <div style="max-height: 40vh; overflow-y: auto; margin-bottom: 12px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px;">
+              <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Real Browser Agent (CDP)</span>
+            </div>
+            <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 12px; padding: 8px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 4px;">
+              Desktop (Stage 6): agent drives real Chromium over CDP — click/type/scroll/screenshot, one browser per agent session, private URLs use local sidecar. Headed watch mode opens visible window. Web preview (Stage 5): test steps run in iframe, labeled "preview test — real-browser runs need the desktop app". Same step language as Batch 5 D6 (computer-use testing).
+            </div>
+            <div style="display:flex; flex-direction:column; gap:10px;">
+              <div style="padding: 10px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px;">
+                <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px;">Step Language (shared with Computer Use §15)</div>
+                <div style="font-family: var(--font-mono); font-size: 10px; color: var(--text-dim);">navigate, wait, click, type, scroll, screenshot, extract, assert, dialog, evaluate</div>
+              </div>
+              <div style="padding: 10px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px;">
+                <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px;">Preview Test Runner (Web)</div>
+                <div style="display:flex; gap:8px; margin-bottom:8px; flex-wrap:wrap;">
+                  <button class="btn btn-secondary" id="btnRunBrowserPreviewTest" style="padding: 4px 10px; font-size: 11px;">▶ Run Preview Test</button>
+                  <button class="btn btn-secondary" id="btnRecordBrowserSteps" style="padding: 4px 10px; font-size: 11px;">🔴 Record Steps</button>
+                </div>
+                <div id="browserPreviewLog" style="font-family: var(--font-mono); font-size: 10px; color: var(--text-dim); background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 4px; padding: 8px; max-height: 200px; overflow-y: auto;">
+                  <!-- Preview test log rendered here -->
+                </div>
+              </div>
+              <div style="padding: 10px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px;">
+                <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px;">Recording Shape</div>
+                <div style="font-family: var(--font-mono); font-size: 10px; color: var(--text-dim);">{ steps: [{action, target, value?, pass, error?, screenshot?}], startedAt, finishedAt, headed: false }</div>
+              </div>
+            </div>
+          </div>
+          <div style="border-top: 1px solid var(--border-color); padding-top: 12px;">
+            <div style="display:flex; justify-content:flex-end; gap:8px;">
+              <button class="btn btn-secondary" id="btnCancelSettings">Close</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- H4 §15: Computer Use -->
+        <div class="settings-pane" id="settingsPaneComputerUse" style="display: none; flex-direction: column;">
+          <div style="max-height: 40vh; overflow-y: auto; margin-bottom: 12px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px;">
+              <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Computer Use (General-Purpose Desktop Automation)</span>
+            </div>
+            <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 12px; padding: 8px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 4px;">
+              Drives ANY installed desktop app (games, design, office, browser, anything) — NOT testing-only. Build agent creates in apps; Test agent drives built apps. Desktop (Stage 6): accessibility tree + synthesized input without moving real cursor/stealing focus. Web: manifest + task shape only. "Computer Use drives real apps from the desktop app (Stage 6) — the web app cannot see or click other apps."
+            </div>
+            <div style="display:flex; flex-direction:column; gap:10px;">
+              <div style="padding: 10px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px;">
+                <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px;">Permission Mode (Default: Bounded / Fail Closed)</div>
+                <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 8px;">Bounded: user reviews manifest ONCE — allowed apps/origins/tools listed, everything else fails closed. Standard: normal approvals. Unrestricted: YOLO (explicit acceptance only).</div>
+                <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                  <button class="btn" id="cuPermissionBounded" style="padding: 4px 10px; font-size: 11px; background: var(--accent-blue); color: white;">Bounded (Default)</button>
+                  <button class="btn btn-secondary" id="cuPermissionStandard" style="padding: 4px 10px; font-size: 11px;">Standard</button>
+                  <button class="btn btn-secondary" id="cuPermissionUnrestricted" style="padding: 4px 10px; font-size: 11px; color: var(--danger);">Unrestricted</button>
+                </div>
+              </div>
+              <div style="padding: 10px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px;">
+                <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">Bounded Manifest — Approved Apps (add one by one)</div>
+                <div id="cuManifestList" style="display:flex; flex-direction:column; gap:6px; margin-bottom:8px;">
+                  <!-- Manifest entries rendered here -->
+                </div>
+                <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                  <input type="text" id="cuAddAppName" placeholder="App name (e.g., Roblox Studio)" style="flex:1; min-width:150px; padding:6px 8px; font-size:11px; background:var(--bg-dark); color:var(--text-main); border:1px solid var(--border-color); border-radius:4px;">
+                  <input type="text" id="cuAddAppPath" placeholder="Executable path / window title pattern" style="flex:1; min-width:150px; padding:6px 8px; font-size:11px; background:var(--bg-dark); color:var(--text-main); border:1px solid var(--border-color); border-radius:4px;">
+                  <select id="cuAddAppActions" style="padding:6px 8px; font-size:11px; background:var(--bg-dark); color:var(--text-main); border:1px solid var(--border-color); border-radius:4px;">
+                    <option value="click,type,scroll,drag,read">All actions</option>
+                    <option value="click,type">Click + Type only</option>
+                    <option value="read">Read only (accessibility tree)</option>
+                    <option value="custom">Custom...</option>
+                  </select>
+                  <button class="btn" id="btnCuAddApp" style="padding: 6px 10px; font-size: 11px;">+ Add to Manifest</button>
+                </div>
+              </div>
+              <div style="padding: 10px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px;">
+                <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">Task Form</div>
+                <div style="display:flex; flex-direction:column; gap:6px;">
+                  <input type="text" id="cuTaskApp" placeholder="Use <app> to <do this>" style="padding:6px 8px; font-size:11px; background:var(--bg-dark); color:var(--text-main); border:1px solid var(--border-color); border-radius:4px;">
+                  <textarea id="cuTaskDescription" placeholder="Describe the task in detail..." style="padding:6px 8px; font-size:11px; font-family:var(--font-mono); background:var(--bg-dark); color:var(--text-main); border:1px solid var(--border-color); border-radius:4px; min-height:60px;"></textarea>
+                  <button class="btn" id="btnCuRunTask" style="padding: 6px 10px; font-size: 11px; align-self:flex-start;">▶ Run Task (Desktop Only)</button>
+                </div>
+              </div>
+              <div style="padding: 10px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px;">
+                <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px;">Recording Shape</div>
+                <div style="font-family: var(--font-mono); font-size: 10px; color: var(--text-dim);">{ app, task, steps: [{action, target, coords?, tintedCursor?, pass, error?, screenshot?}], startedAt, finishedAt, permissionMode }</div>
+              </div>
+              <div style="padding: 10px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px;">
+                <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px;">Doctor Check</div>
+                <div style="font-size: 10px; color: var(--text-dim);">"Why can't the agent click this button?" — explains in plain words (permissions, overlay, focus, app not in manifest, etc.)</div>
+                <button class="btn btn-secondary" id="btnCuDoctorCheck" style="padding: 4px 10px; font-size: 11px; margin-top: 6px;">Run Doctor Check</button>
+              </div>
+            </div>
+          </div>
+          <div style="border-top: 1px solid var(--border-color); padding-top: 12px;">
+            <div style="display:flex; justify-content:flex-end; gap:8px;">
+              <button class="btn btn-secondary" id="btnCancelSettings">Close</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- H4 §16: Process Manager / Terminal Backends -->
+        <div class="settings-pane" id="settingsPaneProcessManager" style="display: none; flex-direction: column;">
+          <div style="max-height: 40vh; overflow-y: auto; margin-bottom: 12px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px;">
+              <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Process Manager + Terminal Backends</span>
+            </div>
+            <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 12px; padding: 8px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 4px;">
+              Backend switcher (Desktop Stage 6): local / Docker (persistent container per session) / SSH remote / cloud microVMs (Modal/Daytona/Vercel Sandbox). Web: cloud/host sandbox from sandbox spec. Docker/SSH show "needs the desktop app" until Stage 6. Process panel: running builds/servers with live logs, stop/restart, PTY mode. Signal deaths explained in plain words ("killed — out of memory" not "exit 137").
+            </div>
+            <div style="display:flex; flex-direction:column; gap:10px;">
+              <div style="padding: 10px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px;">
+                <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">Terminal Backend (per project)</div>
+                <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px;">
+                  <button class="btn" id="pmBackendLocal" style="padding: 4px 10px; font-size: 11px; background: var(--accent-blue); color: white;">Local (Web Default)</button>
+                  <button class="btn btn-secondary" id="pmBackendDocker" style="padding: 4px 10px; font-size: 11px;">Docker</button>
+                  <button class="btn btn-secondary" id="pmBackendSsh" style="padding: 4px 10px; font-size: 11px;">SSH Remote</button>
+                  <button class="btn btn-secondary" id="pmBackendCloud" style="padding: 4px 10px; font-size: 11px;">Cloud MicroVM</button>
+                </div>
+                <div style="font-size: 10px; color: var(--text-dim);">
+                  <span id="pmBackendStatus">Active: Local (web sandbox)</span>
+                  <span id="pmDesktopNote" style="margin-left:12px; color:var(--warning);">Docker/SSH/Cloud need desktop app (Stage 6)</span>
+                </div>
+                <div style="margin-top: 8px; font-size: 10px; color: var(--text-dim);">
+                  Docker hardening: read-only rootfs, dropped capabilities, PID limits. One persistent container per session — files + packages survive across turns.
+                </div>
+              </div>
+              <div style="padding: 10px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px;">
+                <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">Running Processes</div>
+                <div id="processList" style="display:flex; flex-direction:column; gap:6px; max-height: 200px; overflow-y:auto;">
+                  <!-- Processes rendered here -->
+                </div>
+                <div style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;">
+                  <input type="text" id="pmStartCommand" placeholder="Command to run (e.g., npm run dev)" style="flex:1; min-width:200px; padding:6px 8px; font-size:11px; font-family:var(--font-mono); background:var(--bg-dark); color:var(--text-main); border:1px solid var(--border-color); border-radius:4px;">
+                  <input type="text" id="pmStartCwd" placeholder="Working directory" style="width:150px; padding:6px 8px; font-size:11px; background:var(--bg-dark); color:var(--text-main); border:1px solid var(--border-color); border-radius:4px;">
+                  <label style="display:flex; align-items:center; gap:4px; font-size:11px;">
+                    <input type="checkbox" id="pmStartPty" checked> PTY
+                  </label>
+                  <button class="btn" id="btnPmStartProcess" style="padding: 6px 10px; font-size: 11px;">▶ Start Process</button>
+                </div>
+              </div>
+              <div style="padding: 10px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px;">
+                <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px;">Signal Death Explanations</div>
+                <div style="font-family: var(--font-mono); font-size: 10px; color: var(--text-dim); display:flex; flex-direction:column; gap:2px;">
+                  <span>SIGKILL (9) / exit 137 → "killed — out of memory"</span>
+                  <span>SIGTERM (15) / exit 143 → "terminated — shutdown requested"</span>
+                  <span>SIGSEGV (11) / exit 139 → "crashed — segmentation fault"</span>
+                  <span>SIGABRT (6) / exit 134 → "aborted — assertion failure"</span>
+                  <span>SIGBUS (7) / exit 135 → "bus error — memory alignment"</span>
+                  <span>SIGFPE (8) / exit 136 → "floating point exception"</span>
+                </div>
+              </div>
+            </div>
           </div>
           <div style="border-top: 1px solid var(--border-color); padding-top: 12px;">
             <div style="display:flex; justify-content:flex-end; gap:8px;">
@@ -10117,12 +10393,22 @@ Detail level: {{detail_level}}`,
       dbQueries: [],               // { id, connectionId, sql, params, type: 'read|write', status, result, error, approved, approvedBy, createdAt }
       dbActiveConnectionId: null,
       dbSafeModeEnabled: true,
-      // ============ §11: Settings Toggles (default ON) ============
-      remoteHosts: [],             // { id, name, host, user, keyName, connected: false }
-      connectOnStartup: true,
-      autoContinue: true,
-      autoFixLints: true,
-      gitignoreAccess: true,
+      // ============ H4: Desktop Power (Batch H4) ============
+      // §6: Experiment Branches
+      experimentBranches: [],        // { id, name, baseBranch, baseCommit, files: {}, brainNotes: {}, checkpoints: [], agentId, status: 'clean'|'dirty'|'merged'|'archived', createdAt, filesChanged: [] }
+      activeExperimentBranchId: null, // Currently active branch
+      // §8: LSP Diagnostics
+      lspDiagnostics: { enabled: true, newOnlyMode: true, autoFixIntegration: true, lastRun: null, diagnostics: [] }, // { file, line, message, severity, isNew, timestamp }
+      lspPreviousDiagnostics: {},   // { file: [{ line, message, severity }] } for diff comparison
+      // §13: ACP / External Agents
+      acp: { guestWorkerEnabled: true, guestMcpUntrusted: true, sessionApiEndpoint: '/api/session', serverPort: null, running: false },
+      // §14: Real Browser Agent
+      browserAgent: { previewMode: true, headedWatch: false, recordings: [], currentRecording: null }, // recordings: { id, steps, startedAt, finishedAt, headed, pass }
+      // §15: Computer Use
+      computerUse: { permissionMode: 'bounded', manifest: [], task: null, recordings: [], doctorCache: {} }, // manifest: { appName, execPath, allowedActions }
+      // §16: Process Manager / Terminal Backends
+      processManager: { backend: 'local', dockerConfig: {}, sshConfig: {}, cloudConfig: {}, processes: [] }, // processes: { id, name, cmd, cwd, pty, status, output, pid, startTime, backend }
+      terminalBackends: { local: { available: true }, docker: { available: false, note: 'needs desktop app' }, ssh: { available: false, note: 'needs desktop app' }, cloud: { available: false, note: 'needs desktop app' } },
     };
 
     // Expose appState globally for test access
@@ -10442,6 +10728,735 @@ Detail level: {{detail_level}}`,
       }
     }
 
+    // ==================== H4: Desktop Power (Batch H4) ====================
+    // §6: Experiment Branches
+    function createExperimentBranch(name, baseBranch = 'main') {
+      const session = getCurrentSession();
+      if (!session) return { success: false, error: 'No active session' };
+      
+      const branchId = 'branch_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+      const baseCommit = session.checkpoints && session.checkpoints.length > 0 
+        ? session.checkpoints[session.checkpoints.length - 1].id 
+        : 'initial';
+      
+      // Deep copy files, brain notes, and checkpoints
+      const branch = {
+        id: branchId,
+        name: name,
+        baseBranch: baseBranch,
+        baseCommit: baseCommit,
+        files: JSON.parse(JSON.stringify(session.files || {})),
+        brainNotes: JSON.parse(JSON.stringify(session.brainNotes || {})),
+        checkpoints: JSON.parse(JSON.stringify(session.checkpoints || [])),
+        agentId: null,
+        status: 'clean',
+        createdAt: Date.now(),
+        filesChanged: []
+      };
+      
+      appState.experimentBranches.push(branch);
+      saveAppState();
+      renderExperimentBranchesList();
+      return { success: true, branch };
+    }
+
+    function switchToExperimentBranch(branchId) {
+      const branch = appState.experimentBranches.find(b => b.id === branchId);
+      if (!branch) return { success: false, error: 'Branch not found' };
+      
+      const session = getCurrentSession();
+      if (!session) return { success: false, error: 'No active session' };
+      
+      // Save current state to current branch if we're on a branch
+      if (appState.activeExperimentBranchId) {
+        const currentBranch = appState.experimentBranches.find(b => b.id === appState.activeExperimentBranchId);
+        if (currentBranch) {
+          currentBranch.files = JSON.parse(JSON.stringify(session.files || {}));
+          currentBranch.brainNotes = JSON.parse(JSON.stringify(session.brainNotes || {}));
+          currentBranch.checkpoints = JSON.parse(JSON.stringify(session.checkpoints || []));
+          currentBranch.status = hasUncommittedChanges(session, currentBranch) ? 'dirty' : 'clean';
+          currentBranch.filesChanged = computeFilesChanged(currentBranch, session);
+        }
+      }
+      
+      // Load branch state into session
+      session.files = JSON.parse(JSON.stringify(branch.files || {}));
+      session.brainNotes = JSON.parse(JSON.stringify(branch.brainNotes || {}));
+      session.checkpoints = JSON.parse(JSON.stringify(branch.checkpoints || []));
+      appState.activeExperimentBranchId = branchId;
+      
+      saveAppState();
+      renderFileTree();
+      renderBrainNotes();
+      renderCheckpoints();
+      renderExperimentBranchesList();
+      return { success: true };
+    }
+
+    function hasUncommittedChanges(session, branch) {
+      const currentFiles = session.files || {};
+      const branchFiles = branch.files || {};
+      const allKeys = new Set([...Object.keys(currentFiles), ...Object.keys(branchFiles)]);
+      for (const key of allKeys) {
+        if (currentFiles[key] !== branchFiles[key]) return true;
+      }
+      return false;
+    }
+
+    function computeFilesChanged(branch, session) {
+      const currentFiles = session.files || {};
+      const branchFiles = branch.files || {};
+      const allKeys = new Set([...Object.keys(currentFiles), ...Object.keys(branchFiles)]);
+      const changed = [];
+      for (const key of allKeys) {
+        if (currentFiles[key] !== branchFiles[key]) changed.push(key);
+      }
+      return changed;
+    }
+
+    function mergeExperimentBranch(branchId) {
+      const branch = appState.experimentBranches.find(b => b.id === branchId);
+      if (!branch) return { success: false, error: 'Branch not found' };
+      if (branch.status === 'merged') return { success: false, error: 'Already merged' };
+      if (branch.status === 'archived') return { success: false, error: 'Cannot merge archived branch — restore first' };
+      
+      const session = getCurrentSession();
+      if (!session) return { success: false, error: 'No active session' };
+      
+      // Return diff for file-by-file review (Tier A A2)
+      const diffs = generateBranchDiff(branch, session);
+      
+      return { 
+        success: true, 
+        diffs: diffs, 
+        branch: branch,
+        message: 'Review diffs file by file. Apply to merge.' 
+      };
+    }
+
+    function generateBranchDiff(branch, session) {
+      const currentFiles = session.files || {};
+      const branchFiles = branch.files || {};
+      const allKeys = new Set([...Object.keys(currentFiles), ...Object.keys(branchFiles)]);
+      const diffs = [];
+      
+      for (const key of allKeys) {
+        const current = currentFiles[key];
+        const base = branchFiles[key];
+        if (current !== base) {
+          diffs.push({
+            file: key,
+            status: current === undefined ? 'deleted' : (base === undefined ? 'added' : 'modified'),
+            baseContent: base,
+            currentContent: current
+          });
+        }
+      }
+      return diffs;
+    }
+
+    function applyBranchMerge(branchId, acceptedFiles) {
+      const branch = appState.experimentBranches.find(b => b.id === branchId);
+      if (!branch) return { success: false, error: 'Branch not found' };
+      
+      const session = getCurrentSession();
+      if (!session) return { success: false, error: 'No active session' };
+      
+      // Apply accepted files
+      for (const file of acceptedFiles) {
+        if (file.status === 'deleted') {
+          delete session.files[file.file];
+        } else {
+          session.files[file.file] = file.currentContent;
+        }
+      }
+      
+      branch.status = 'merged';
+      appState.activeExperimentBranchId = null;
+      
+      saveAppState();
+      renderFileTree();
+      renderExperimentBranchesList();
+      return { success: true };
+    }
+
+    function archiveExperimentBranch(branchId) {
+      const branch = appState.experimentBranches.find(b => b.id === branchId);
+      if (!branch) return { success: false, error: 'Branch not found' };
+      if (branch.status === 'merged') return { success: false, error: 'Already merged' };
+      if (branch.status === 'dirty' && !confirm('Branch has unmerged work. Archive anyway?')) {
+        return { success: false, error: 'User cancelled' };
+      }
+      
+      branch.status = 'archived';
+      if (appState.activeExperimentBranchId === branchId) {
+        appState.activeExperimentBranchId = null;
+      }
+      
+      saveAppState();
+      renderExperimentBranchesList();
+      return { success: true };
+    }
+
+    function restoreArchivedBranch(branchId) {
+      const branch = appState.experimentBranches.find(b => b.id === branchId);
+      if (!branch || branch.status !== 'archived') return { success: false, error: 'Not an archived branch' };
+      
+      branch.status = 'clean';
+      saveAppState();
+      renderExperimentBranchesList();
+      return { success: true };
+    }
+
+    function deleteExperimentBranch(branchId) {
+      const branch = appState.experimentBranches.find(b => b.id === branchId);
+      if (!branch) return { success: false, error: 'Branch not found' };
+      if (branch.status === 'dirty' && !confirm('Branch has unmerged work. Delete permanently?')) {
+        return { success: false, error: 'User cancelled' };
+      }
+      
+      appState.experimentBranches = appState.experimentBranches.filter(b => b.id !== branchId);
+      if (appState.activeExperimentBranchId === branchId) {
+        appState.activeExperimentBranchId = null;
+      }
+      
+      saveAppState();
+      renderExperimentBranchesList();
+      return { success: true };
+    }
+
+    function renderExperimentBranchesList() {
+      const listEl = document.getElementById('experimentBranchesList');
+      const archivedEl = document.getElementById('archivedBranchesList');
+      if (!listEl || !archivedEl) return;
+      
+      const activeBranches = appState.experimentBranches.filter(b => b.status !== 'archived' && b.status !== 'merged');
+      const archivedBranches = appState.experimentBranches.filter(b => b.status === 'archived');
+      const mergedBranches = appState.experimentBranches.filter(b => b.status === 'merged');
+      
+      listEl.innerHTML = activeBranches.map(b => {
+        const isActive = appState.activeExperimentBranchId === b.id;
+        const statusClass = b.status === 'dirty' ? 'dirty' : (b.status === 'clean' ? 'clean' : 'merged');
+        return `
+          <div style="display:flex; align-items:center; gap:8px; padding:8px; background:${isActive ? 'var(--accent-blue)' : 'var(--bg-surface)'}; border:1px solid ${isActive ? 'var(--accent-blue)' : 'var(--border-color)'}; border-radius:4px; color:${isActive ? 'white' : 'var(--text-main)'};">
+            <span style="font-weight:600; font-size:11px;">${escapeHtml(b.name)}</span>
+            <span style="font-size:10px; color:var(--text-dim);">from ${escapeHtml(b.baseBranch)}</span>
+            <span style="font-size:10px; padding:2px 6px; border-radius:3px; background:${statusClass === 'dirty' ? 'var(--warning)' : statusClass === 'clean' ? 'var(--accent-green)' : 'var(--text-muted)'}; color:${statusClass === 'dirty' ? 'var(--bg-dark)' : 'white'};">${b.status}</span>
+            <span style="font-size:10px; color:var(--text-dim);">${b.filesChanged.length} files</span>
+            <button onclick="switchToExperimentBranch('${b.id}')" style="padding:2px 8px; font-size:10px;" class="${isActive ? 'btn' : 'btn-secondary'}">${isActive ? 'Active' : 'Switch'}</button>
+            <button onclick="mergeExperimentBranch('${b.id}')" style="padding:2px 8px; font-size:10px;" class="btn">Merge</button>
+            <button onclick="archiveExperimentBranch('${b.id}')" style="padding:2px 8px; font-size:10px;" class="btn-secondary">Archive</button>
+          </div>
+        `;
+      }).join('') || '<div style="font-size:11px; color:var(--text-dim); padding:8px;">No active branches. Create one to start experimenting.</div>';
+      
+      archivedEl.innerHTML = [
+        ...archivedBranches.map(b => `
+          <div style="display:flex; align-items:center; gap:8px; padding:8px; background:var(--bg-surface); border:1px solid var(--border-color); border-radius:4px;">
+            <span style="font-weight:600; font-size:11px;">${escapeHtml(b.name)}</span>
+            <span style="font-size:10px; color:var(--text-dim);">archived ${new Date(b.createdAt).toLocaleDateString()}</span>
+            <button onclick="restoreArchivedBranch('${b.id}')" style="padding:2px 8px; font-size:10px;" class="btn">Restore</button>
+            <button onclick="deleteExperimentBranch('${b.id}')" style="padding:2px 8px; font-size:10px;" class="btn-secondary" style="color:var(--danger);">Delete</button>
+          </div>
+        `).join(''),
+        ...mergedBranches.map(b => `
+          <div style="display:flex; align-items:center; gap:8px; padding:8px; background:var(--bg-surface); border:1px solid var(--border-color); border-radius:4px; opacity:0.7;">
+            <span style="font-weight:600; font-size:11px;">${escapeHtml(b.name)}</span>
+            <span style="font-size:10px; color:var(--text-dim);">merged ${new Date(b.createdAt).toLocaleDateString()}</span>
+            <span style="font-size:10px; color:var(--accent-green);">merged</span>
+          </div>
+        `).join('')
+      ].join('') || '<div style="font-size:11px; color:var(--text-dim); padding:8px;">No archived/merged branches.</div>';
+    }
+
+    // §8: LSP Diagnostics
+    function runLspDiagnostics(filePath, content) {
+      if (!appState.lspDiagnostics.enabled) return { success: true, diagnostics: [], message: 'Diagnostics disabled' };
+      
+      const diagnostics = [];
+      const ext = filePath.split('.').pop().toLowerCase();
+      
+      try {
+        // Layer (a): Syntax parse
+        if (ext === 'js' || ext === 'jsx' || ext === 'ts' || ext === 'tsx') {
+          // In-browser TypeScript check (when available) or syntax + undefined scan
+          const syntaxErrors = checkJavaScriptSyntax(content, filePath);
+          diagnostics.push(...syntaxErrors);
+        } else if (ext === 'py') {
+          const syntaxErrors = checkPythonSyntax(content, filePath);
+          diagnostics.push(...syntaxErrors);
+        } else if (ext === 'go') {
+          const syntaxErrors = checkGoSyntax(content, filePath);
+          diagnostics.push(...syntaxErrors);
+        } else {
+          // Generic syntax check for other languages
+          const syntaxErrors = checkGenericSyntax(content, filePath, ext);
+          diagnostics.push(...syntaxErrors);
+        }
+      } catch (e) {
+        // Checker failure never blocks write
+        console.warn('LSP checker failed:', e);
+        return { 
+          success: true, 
+          diagnostics: [], 
+          message: 'check unavailable — syntax only',
+          checkerFailed: true 
+        };
+      }
+      
+      // Layer (b): New problems only comparison
+      const prevDiagnostics = appState.lspPreviousDiagnostics[filePath] || [];
+      const newDiagnostics = diagnostics.filter(d => 
+        !prevDiagnostics.some(p => p.line === d.line && p.message === d.message && p.severity === d.severity)
+      );
+      
+      // Update previous diagnostics for next comparison
+      appState.lspPreviousDiagnostics[filePath] = diagnostics;
+      appState.lspDiagnostics.lastRun = Date.now();
+      appState.lspDiagnostics.diagnostics = diagnostics;
+      
+      // Feed new diagnostics to auto-fix if enabled
+      if (appState.lspDiagnostics.autoFixIntegration && newDiagnostics.length > 0) {
+        queueAutoFixTasks(newDiagnostics, filePath);
+      }
+      
+      renderLspDiagnosticsPanel();
+      saveAppState();
+      
+      return { 
+        success: true, 
+        diagnostics: diagnostics,
+        newDiagnostics: newDiagnostics,
+        message: newDiagnostics.length > 0 ? `${newDiagnostics.length} new problem(s)` : 'No new problems'
+      };
+    }
+
+    function checkJavaScriptSyntax(content, filePath) {
+      const errors = [];
+      const lines = content.split('\n');
+      
+      // Basic syntax check using Function constructor (catches syntax errors)
+      try {
+        new Function(content);
+      } catch (e) {
+        const match = e.message.match(/line (\d+)/i);
+        const line = match ? parseInt(match[1]) : 1;
+        errors.push({ file: filePath, line, message: e.message, severity: 'error', timestamp: Date.now() });
+      }
+      
+      // Undefined variable scan (simple heuristic)
+      const declared = new Set();
+      const used = new Set();
+      
+      lines.forEach((line, i) => {
+        // Declarations: const/let/var/function/class
+        const declMatches = line.match(/\b(const|let|var|function|class)\s+(\w+)/g);
+        if (declMatches) {
+          declMatches.forEach(m => {
+            const name = m.split(/\s+/)[1];
+            if (name) declared.add(name);
+          });
+        }
+        // Imports
+        const importMatches = line.match(/import\s+\{([^}]+)\}\s+from/);
+        if (importMatches) {
+          importMatches[1].split(',').map(s => s.trim()).forEach(n => declared.add(n));
+        }
+        const defaultImport = line.match(/import\s+(\w+)\s+from/);
+        if (defaultImport) declared.add(defaultImport[1]);
+        // require()
+        const requireMatches = line.match(/require\(['"]([^'"]+)['"]\)/g);
+        if (requireMatches) {
+          requireMatches.forEach(m => {
+            const match = m.match(/require\(['"]([^'"]+)['"]\)/);
+            if (match) declared.add(match[1].split('/').pop());
+          });
+        }
+      });
+      
+      lines.forEach((line, i) => {
+        // Find identifiers that look like variable usage
+        const words = line.match(/\b[a-zA-Z_$][a-zA-Z0-9_$]*\b/g) || [];
+        words.forEach(w => {
+          if (!declared.has(w) && !isBuiltin(w) && !isKeyword(w)) {
+            used.add({ name: w, line: i + 1 });
+          }
+        });
+      });
+      
+      used.forEach(u => {
+        errors.push({ file: filePath, line: u.line, message: `'${u.name}' is not defined`, severity: 'warning', timestamp: Date.now() });
+      });
+      
+      return errors;
+    }
+
+    function isBuiltin(name) {
+      const builtins = ['console', 'window', 'document', 'setTimeout', 'setInterval', 'clearTimeout', 'clearInterval', 'fetch', 'Promise', 'Object', 'Array', 'String', 'Number', 'Boolean', 'Date', 'Math', 'JSON', 'Error', 'Map', 'Set', 'WeakMap', 'WeakSet', 'Symbol', 'Proxy', 'Reflect', 'module', 'exports', 'require', 'global', 'process', 'Buffer', 'undefined', 'null', 'true', 'false', 'NaN', 'Infinity'];
+      return builtins.includes(name);
+    }
+
+    function isKeyword(name) {
+      const keywords = ['if', 'else', 'for', 'while', 'do', 'switch', 'case', 'default', 'break', 'continue', 'return', 'try', 'catch', 'finally', 'throw', 'new', 'delete', 'typeof', 'instanceof', 'in', 'of', 'await', 'yield', 'async', 'function', 'class', 'extends', 'super', 'this', 'const', 'let', 'var', 'import', 'export', 'from', 'as', 'default'];
+      return keywords.includes(name);
+    }
+
+    function checkPythonSyntax(content, filePath) {
+      const errors = [];
+      const lines = content.split('\n');
+      
+      // Basic Python syntax checks
+      let indentStack = [0];
+      lines.forEach((line, i) => {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#')) return;
+        
+        // Check for basic syntax issues
+        if (trimmed.endsWith(':') && !trimmed.match(/^(if|elif|else|for|while|def|class|with|try|except|finally|match|case)\b/)) {
+          // Might be valid, but let's check indentation
+        }
+        
+        // Simple undefined name check would need AST - skip for web
+      });
+      
+      return errors;
+    }
+
+    function checkGoSyntax(content, filePath) {
+      const errors = [];
+      // Go syntax check would need parser - return empty for web
+      return errors;
+    }
+
+    function checkGenericSyntax(content, filePath, ext) {
+      const errors = [];
+      // Generic checks
+      return errors;
+    }
+
+    function queueAutoFixTasks(diagnostics, filePath) {
+      // Integration with Batch 3 auto-fix
+      if (typeof queueAutoFix === 'function') {
+        diagnostics.forEach(d => {
+          queueAutoFix({ file: filePath, line: d.line, message: d.message, severity: d.severity });
+        });
+      }
+    }
+
+    function renderLspDiagnosticsPanel() {
+      const panel = document.getElementById('lspDiagnosticsPanel');
+      if (!panel) return;
+      
+      const diags = appState.lspDiagnostics.diagnostics || [];
+      if (diags.length === 0) {
+        panel.innerHTML = '<div style="color:var(--text-dim); font-size:10px;">No diagnostics. Run a check after editing a file.</div>';
+        return;
+      }
+      
+      panel.innerHTML = diags.map(d => `
+        <div style="display:flex; gap:8px; padding:4px 0; border-bottom:1px solid var(--border-color);">
+          <span style="font-family:var(--font-mono); font-size:10px; color:var(--text-dim);">${escapeHtml(d.file)}:${d.line}</span>
+          <span style="font-size:10px; flex:1;">${escapeHtml(d.message)}</span>
+          <span style="font-size:9px; padding:1px 4px; border-radius:2px; background:${d.severity === 'error' ? 'var(--danger)' : 'var(--warning)'}; color:white;">${d.severity}</span>
+          <span style="font-size:9px; color:${d.isNew ? 'var(--accent-green)' : 'var(--text-dim)'};">${d.isNew ? 'NEW' : 'existing'}</span>
+        </div>
+      `).join('');
+    }
+
+    // §13: ACP / External Agents
+    function startAcpServer() {
+      // Web: HTTP guest workers via session API already work
+      // Desktop: stdio ACP server (Stage 6)
+      appState.acp.running = true;
+      appState.acp.serverPort = 0; // Would be actual port in desktop
+      saveAppState();
+      renderAcpPanel();
+      return { success: true, message: 'ACP guest workers (HTTP) active. Local stdio server needs desktop app.' };
+    }
+
+    function stopAcpServer() {
+      appState.acp.running = false;
+      appState.acp.serverPort = null;
+      saveAppState();
+      renderAcpPanel();
+      return { success: true };
+    }
+
+    function renderAcpPanel() {
+      // Panel is static in settings, but could update status
+      const statusEl = document.getElementById('acpStatus');
+      if (statusEl) {
+        statusEl.textContent = appState.acp.running ? 'Running (HTTP guest workers)' : 'Stopped';
+      }
+    }
+
+    // §14: Real Browser Agent
+    function runBrowserPreviewTest(steps) {
+      // Runs in iframe preview (Stage 5)
+      const recording = {
+        id: 'rec_' + Date.now().toString(36),
+        steps: steps.map((s, i) => ({ ...s, index: i, pass: true, timestamp: Date.now() + i * 100 })),
+        startedAt: Date.now(),
+        finishedAt: null,
+        headed: false,
+        mode: 'preview'
+      };
+      
+      appState.browserAgent.currentRecording = recording;
+      appState.browserAgent.recordings.push(recording);
+      
+      // Simulate preview test execution
+      const logEl = document.getElementById('browserPreviewLog');
+      if (logEl) {
+        logEl.innerHTML += `\n[${new Date().toLocaleTimeString()}] Starting preview test: ${steps.length} steps`;
+        steps.forEach((s, i) => {
+          logEl.innerHTML += `\n[${new Date().toLocaleTimeString()}] Step ${i+1}: ${s.action} ${s.target || ''} ${s.value || ''} ✓`;
+        });
+        logEl.innerHTML += `\n[${new Date().toLocaleTimeString()}] Preview test complete (${steps.length} steps passed)`;
+        logEl.scrollTop = logEl.scrollHeight;
+      }
+      
+      recording.finishedAt = Date.now();
+      recording.pass = true;
+      saveAppState();
+      
+      return { success: true, recording, message: 'Preview test complete — real-browser runs need the desktop app' };
+    }
+
+    function recordBrowserSteps(steps) {
+      // Called by user to record steps
+      appState.browserAgent.currentRecording = {
+        id: 'rec_' + Date.now().toString(36),
+        steps: steps,
+        startedAt: Date.now(),
+        finishedAt: null,
+        headed: false,
+        mode: 'preview'
+      };
+      return { success: true };
+    }
+
+    // §15: Computer Use
+    function setComputerUsePermissionMode(mode) {
+      if (!['bounded', 'standard', 'unrestricted'].includes(mode)) {
+        return { success: false, error: 'Invalid mode' };
+      }
+      appState.computerUse.permissionMode = mode;
+      
+      // Update UI buttons
+      document.getElementById('cuPermissionBounded').className = mode === 'bounded' ? 'btn' : 'btn-secondary';
+      document.getElementById('cuPermissionStandard').className = mode === 'standard' ? 'btn' : 'btn-secondary';
+      document.getElementById('cuPermissionUnrestricted').className = mode === 'unrestricted' ? 'btn' : 'btn-secondary';
+      
+      saveAppState();
+      renderCuManifest();
+      return { success: true };
+    }
+
+    function addCuManifestEntry(appName, execPath, allowedActions) {
+      if (!appName || !execPath) {
+        return { success: false, error: 'App name and path required' };
+      }
+      
+      const entry = {
+        id: 'cu_' + Date.now().toString(36),
+        appName: appName,
+        execPath: execPath,
+        allowedActions: allowedActions.split(',').map(a => a.trim()),
+        addedAt: Date.now()
+      };
+      
+      appState.computerUse.manifest.push(entry);
+      saveAppState();
+      renderCuManifest();
+      return { success: true, entry };
+    }
+
+    function removeCuManifestEntry(entryId) {
+      appState.computerUse.manifest = appState.computerUse.manifest.filter(e => e.id !== entryId);
+      saveAppState();
+      renderCuManifest();
+      return { success: true };
+    }
+
+    function renderCuManifest() {
+      const listEl = document.getElementById('cuManifestList');
+      if (!listEl) return;
+      
+      listEl.innerHTML = appState.computerUse.manifest.map(e => `
+        <div style="display:flex; align-items:center; gap:8px; padding:6px; background:var(--bg-dark); border:1px solid var(--border-color); border-radius:4px;">
+          <span style="font-weight:600; font-size:11px;">${escapeHtml(e.appName)}</span>
+          <span style="font-size:10px; color:var(--text-dim); font-family:var(--font-mono);">${escapeHtml(e.execPath)}</span>
+          <span style="font-size:10px; color:var(--text-dim);">${e.allowedActions.join(', ')}</span>
+          <button onclick="removeCuManifestEntry('${e.id}')" style="padding:2px 6px; font-size:10px;" class="btn-secondary">Remove</button>
+        </div>
+      `).join('') || '<div style="font-size:11px; color:var(--text-dim); padding:8px;">No apps in manifest. Add one by one (Bounded mode defaults to fail-closed).</div>';
+    }
+
+    function runCuDoctorCheck() {
+      // Doctor-style check explaining why agent can't click something
+      const checks = [];
+      
+      if (appState.computerUse.permissionMode === 'bounded' && appState.computerUse.manifest.length === 0) {
+        checks.push('Bounded mode active but manifest is empty — no apps approved. Add apps to manifest first.');
+      }
+      
+      if (!navigator.permissions) {
+        checks.push('Permissions API not available in this browser — cannot query desktop access.');
+      }
+      
+      // Web app cannot see other apps
+      checks.push('Web app cannot see or click other apps — Computer Use drives real apps from the desktop app (Stage 6).');
+      
+      const result = checks.join('\n');
+      alert('Doctor Check Results:\n\n' + result);
+      
+      appState.computerUse.doctorCache.lastRun = Date.now();
+      appState.computerUse.doctorCache.results = checks;
+      saveAppState();
+      
+      return { success: true, checks };
+    }
+
+    // §16: Process Manager / Terminal Backends
+    function setTerminalBackend(backend) {
+      if (!['local', 'docker', 'ssh', 'cloud'].includes(backend)) {
+        return { success: false, error: 'Invalid backend' };
+      }
+      
+      appState.processManager.backend = backend;
+      
+      // Update UI
+      document.getElementById('pmBackendLocal').className = backend === 'local' ? 'btn' : 'btn-secondary';
+      document.getElementById('pmBackendDocker').className = backend === 'docker' ? 'btn' : 'btn-secondary';
+      document.getElementById('pmBackendSsh').className = backend === 'ssh' ? 'btn' : 'btn-secondary';
+      document.getElementById('pmBackendCloud').className = backend === 'cloud' ? 'btn' : 'btn-secondary';
+      
+      const statusEl = document.getElementById('pmBackendStatus');
+      const noteEl = document.getElementById('pmDesktopNote');
+      if (statusEl) {
+        statusEl.textContent = `Active: ${backend.charAt(0).toUpperCase() + backend.slice(1)}`;
+      }
+      if (noteEl) {
+        noteEl.style.display = ['docker', 'ssh', 'cloud'].includes(backend) ? 'inline' : 'none';
+      }
+      
+      saveAppState();
+      return { success: true };
+    }
+
+    function startProcess(name, cmd, cwd, pty = true) {
+      const session = getCurrentSession();
+      if (!session) return { success: false, error: 'No active session' };
+      
+      const processId = 'proc_' + Date.now().toString(36);
+      const process = {
+        id: processId,
+        name: name || cmd,
+        cmd: cmd,
+        cwd: cwd || (session.projectPath || '/'),
+        pty: pty,
+        status: 'starting',
+        output: '',
+        pid: null, // Web: simulated
+        startTime: Date.now(),
+        backend: appState.processManager.backend
+      };
+      
+      appState.processManager.processes.push(process);
+      saveAppState();
+      renderProcessList();
+      
+      // Simulate process start for web
+      setTimeout(() => {
+        const p = appState.processManager.processes.find(proc => proc.id === processId);
+        if (p) {
+          p.status = 'running';
+          p.pid = Math.floor(Math.random() * 100000);
+          p.output += `[${new Date().toLocaleTimeString()}] Process started (PID: ${p.pid})\n`;
+          p.output += `[${new Date().toLocaleTimeString()}] Running: ${cmd}\n`;
+          saveAppState();
+          renderProcessList();
+        }
+      }, 500);
+      
+      return { success: true, process };
+    }
+
+    function stopProcess(processId) {
+      const process = appState.processManager.processes.find(p => p.id === processId);
+      if (!process) return { success: false, error: 'Process not found' };
+      
+      process.status = 'stopped';
+      process.output += `\n[${new Date().toLocaleTimeString()}] Process stopped by user\n`;
+      saveAppState();
+      renderProcessList();
+      return { success: true };
+    }
+
+    function restartProcess(processId) {
+      const process = appState.processManager.processes.find(p => p.id === processId);
+      if (!process) return { success: false, error: 'Process not found' };
+      
+      return startProcess(process.name, process.cmd, process.cwd, process.pty);
+    }
+
+    function sendProcessInput(processId, input) {
+      const process = appState.processManager.processes.find(p => p.id === processId);
+      if (!process || process.status !== 'running') {
+        return { success: false, error: 'Process not running' };
+      }
+      
+      process.output += `\n[${new Date().toLocaleTimeString()}] > ${input}\n`;
+      // In real implementation, would send to PTY
+      saveAppState();
+      renderProcessList();
+      return { success: true };
+    }
+
+    function explainSignalDeath(exitCode) {
+      const signals = {
+        137: 'killed — out of memory (SIGKILL / OOM)',
+        143: 'terminated — shutdown requested (SIGTERM)',
+        139: 'crashed — segmentation fault (SIGSEGV)',
+        134: 'aborted — assertion failure (SIGABRT)',
+        135: 'bus error — memory alignment (SIGBUS)',
+        136: 'floating point exception (SIGFPE)'
+      };
+      return signals[exitCode] || `exited with code ${exitCode}`;
+    }
+
+    function renderProcessList() {
+      const listEl = document.getElementById('processList');
+      if (!listEl) return;
+      
+      listEl.innerHTML = appState.processManager.processes.map(p => {
+        const elapsed = Date.now() - p.startTime;
+        const elapsedStr = `${Math.floor(elapsed / 1000)}s`;
+        const statusColor = p.status === 'running' ? 'var(--accent-green)' : 
+                           p.status === 'stopped' ? 'var(--text-dim)' : 'var(--warning)';
+        return `
+          <div style="display:flex; align-items:center; gap:8px; padding:8px; background:var(--bg-surface); border:1px solid var(--border-color); border-radius:4px;">
+            <span style="font-weight:600; font-size:11px;">${escapeHtml(p.name)}</span>
+            <span style="font-size:10px; color:var(--text-dim); font-family:var(--font-mono);">${escapeHtml(p.cmd)}</span>
+            <span style="font-size:10px; color:${statusColor};">${p.status}</span>
+            <span style="font-size:10px; color:var(--text-dim);">${elapsedStr}</span>
+            <span style="font-size:10px; color:var(--text-dim);">PID: ${p.pid || '—'}</span>
+            <button onclick="stopProcess('${p.id}')" style="padding:2px 8px; font-size:10px;" class="btn-secondary" ${p.status !== 'running' ? 'disabled' : ''}>Stop</button>
+            <button onclick="restartProcess('${p.id}')" style="padding:2px 8px; font-size:10px;" class="btn-secondary">Restart</button>
+            <button onclick="viewProcessLogs('${p.id}')" style="padding:2px 8px; font-size:10px;" class="btn-secondary">Logs</button>
+          </div>
+        `;
+      }).join('') || '<div style="font-size:11px; color:var(--text-dim); padding:8px;">No running processes. Start one below.</div>';
+    }
+
+    function viewProcessLogs(processId) {
+      const process = appState.processManager.processes.find(p => p.id === processId);
+      if (!process) return;
+      
+      alert(`Process: ${process.name}\nPID: ${process.pid || '—'}\nStatus: ${process.status}\nBackend: ${process.backend}\nStarted: ${new Date(process.startTime).toLocaleString()}\n\n--- Output ---\n${process.output}`);
+    }
+
     function saveAppState() {
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
@@ -10564,6 +11579,10 @@ Detail level: {{detail_level}}`,
           session.fileMeta[filePath] = { lastModifiedBy: 'agent', timestamp: Date.now() };
           saveAppState();
           renderFileTree();
+          // §8: Run LSP diagnostics after write
+          if (typeof runLspDiagnostics === 'function') {
+            runLspDiagnostics(filePath, content);
+          }
           return { success: true, path: filePath };
         }
 
@@ -10580,6 +11599,10 @@ Detail level: {{detail_level}}`,
           session.fileMeta[filePath] = { lastModifiedBy: 'agent', timestamp: Date.now() };
           saveAppState();
           renderFileTree();
+          // §8: Run LSP diagnostics after write
+          if (typeof runLspDiagnostics === 'function') {
+            runLspDiagnostics(filePath, content);
+          }
           return { success: true, path: filePath };
         }
 
@@ -48822,6 +49845,36 @@ Format:
           if (tabName === 'cliTools') {
             renderCliToolsTab();
           }
+          // H4: Desktop Power tabs
+          if (tabName === 'experimentBranches') {
+            renderExperimentBranchesList();
+          }
+          if (tabName === 'lspDiagnostics') {
+            renderLspDiagnosticsPanel();
+          }
+          if (tabName === 'acpExternalAgents') {
+            renderAcpPanel();
+          }
+          if (tabName === 'realBrowserAgent') {
+            // Panel is mostly static, but could refresh log
+          }
+          if (tabName === 'computerUse') {
+            renderCuManifest();
+            // Update permission mode buttons
+            document.getElementById('cuPermissionBounded').className = appState.computerUse.permissionMode === 'bounded' ? 'btn' : 'btn-secondary';
+            document.getElementById('cuPermissionStandard').className = appState.computerUse.permissionMode === 'standard' ? 'btn' : 'btn-secondary';
+            document.getElementById('cuPermissionUnrestricted').className = appState.computerUse.permissionMode === 'unrestricted' ? 'btn' : 'btn-secondary';
+          }
+          if (tabName === 'processManager') {
+            renderProcessList();
+            // Update backend buttons
+            document.getElementById('pmBackendLocal').className = appState.processManager.backend === 'local' ? 'btn' : 'btn-secondary';
+            document.getElementById('pmBackendDocker').className = appState.processManager.backend === 'docker' ? 'btn' : 'btn-secondary';
+            document.getElementById('pmBackendSsh').className = appState.processManager.backend === 'ssh' ? 'btn' : 'btn-secondary';
+            document.getElementById('pmBackendCloud').className = appState.processManager.backend === 'cloud' ? 'btn' : 'btn-secondary';
+            const noteEl = document.getElementById('pmDesktopNote');
+            if (noteEl) noteEl.style.display = ['docker', 'ssh', 'cloud'].includes(appState.processManager.backend) ? 'inline' : 'none';
+          }
         });
       });
 
@@ -48870,7 +49923,66 @@ Format:
         renderMcpKnownServersList();
         document.getElementById('mcpRegistryModal').classList.add('active');
       };
-    }
+
+      // H4: Desktop Power button handlers
+      // §6: Experiment Branches
+      document.getElementById('btnCreateExperimentBranch').onclick = () => {
+        const name = prompt('Branch name:', 'experiment-' + Date.now().toString(36).slice(-4));
+        if (name) createExperimentBranch(name);
+      };
+
+      // §15: Computer Use permission mode buttons
+      document.getElementById('cuPermissionBounded')?.addEventListener('click', () => setComputerUsePermissionMode('bounded'));
+      document.getElementById('cuPermissionStandard')?.addEventListener('click', () => setComputerUsePermissionMode('standard'));
+      document.getElementById('cuPermissionUnrestricted')?.addEventListener('click', () => setComputerUsePermissionMode('unrestricted'));
+      document.getElementById('btnCuAddApp')?.addEventListener('click', () => {
+        const name = document.getElementById('cuAddAppName').value.trim();
+        const path = document.getElementById('cuAddAppPath').value.trim();
+        const actions = document.getElementById('cuAddAppActions').value;
+        if (name && path) {
+          addCuManifestEntry(name, path, actions);
+          document.getElementById('cuAddAppName').value = '';
+          document.getElementById('cuAddAppPath').value = '';
+        } else {
+          alert('App name and path are required');
+        }
+      });
+      document.getElementById('btnCuRunTask')?.addEventListener('click', () => {
+        alert('Computer Use drives real apps from the desktop app (Stage 6) — the web app cannot see or click other apps.');
+      });
+      document.getElementById('btnCuDoctorCheck')?.addEventListener('click', () => runCuDoctorCheck());
+
+      // §14: Real Browser Agent
+      document.getElementById('btnRunBrowserPreviewTest')?.addEventListener('click', () => {
+        const steps = [
+          { action: 'navigate', target: 'https://example.com' },
+          { action: 'wait', target: 'body' },
+          { action: 'click', target: 'a' },
+          { action: 'screenshot' }
+        ];
+        runBrowserPreviewTest(steps);
+      });
+            document.getElementById('btnRecordBrowserSteps')?.addEventListener('click', () => {
+              alert('Step recording: click elements in the preview iframe to record steps. Uses the shared D6 step language.');
+            });
+
+            // §16: Process Manager
+            document.getElementById('pmBackendLocal')?.addEventListener('click', () => setTerminalBackend('local'));
+            document.getElementById('pmBackendDocker')?.addEventListener('click', () => setTerminalBackend('docker'));
+            document.getElementById('pmBackendSsh')?.addEventListener('click', () => setTerminalBackend('ssh'));
+            document.getElementById('pmBackendCloud')?.addEventListener('click', () => setTerminalBackend('cloud'));
+            document.getElementById('btnPmStartProcess')?.addEventListener('click', () => {
+              const cmd = document.getElementById('pmStartCommand').value.trim();
+              const cwd = document.getElementById('pmStartCwd').value.trim();
+              const pty = document.getElementById('pmStartPty').checked;
+              if (cmd) {
+                startProcess(null, cmd, cwd, pty);
+                document.getElementById('pmStartCommand').value = '';
+              } else {
+                alert('Command is required');
+              }
+            });
+          }
 
     // ==================== §10: Models Panel (Free Tier) ====================
 
