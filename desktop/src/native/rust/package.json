@@ -1,0 +1,27 @@
+{
+  "name": "devforge-native-rust",
+  "version": "1.0.0",
+  "description": "Rust native module for DevForge - fast file indexing and code graph search",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "type": "module",
+  "scripts": {
+    "build": "cargo build --release",
+    "build:debug": "cargo build",
+    "test": "cargo test",
+    "install": "node-gyp rebuild"
+  },
+  "dependencies": {
+    "node-addon-api": "^7.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "node-gyp": "^10.1.0"
+  },
+  "napi": {
+    "name": "devforge_native_rust",
+    "triples": {
+      "defaults": true
+    }
+  }
+}

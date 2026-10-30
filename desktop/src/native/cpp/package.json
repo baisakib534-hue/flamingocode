@@ -1,0 +1,22 @@
+{
+  "name": "devforge-native-cpp",
+  "version": "1.0.0",
+  "description": "C++ native module for DevForge - low-level input and screen capture",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "type": "module",
+  "scripts": {
+    "build": "node-gyp rebuild",
+    "configure": "node-gyp configure",
+    "clean": "node-gyp clean"
+  },
+  "dependencies": {
+    "node-addon-api": "^7.1.0",
+    "bindings": "^1.5.0"
+  },
+  "devDependencies": {
+    "node-gyp": "^10.1.0",
+    "@types/node": "^20.14.0"
+  },
+  "gypfile": true
+}

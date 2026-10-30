@@ -1,0 +1,64 @@
+{
+  "name": "devforge-desktop",
+  "version": "1.0.0",
+  "description": "DevForge — Electron + TypeScript desktop shell with native modules",
+  "main": "dist/main/main.js",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:main\" \"npm run dev:renderer\"",
+    "dev:main": "tsc -w -p tsconfig.main.json",
+    "dev:renderer": "vite",
+    "build": "npm run build:main && npm run build:preload && npm run build:native",
+    "build:main": "tsc -p tsconfig.main.json",
+    "build:preload": "tsc -p tsconfig.preload.json",
+    "build:renderer": "vite build",
+    "build:native": "npm run build:native:rust && npm run build:native:cpp",
+    "build:native:rust": "cd src/native/rust && cargo build --release",
+    "build:native:cpp": "cd src/native/cpp && npm run build",
+    "package": "npm run build && electron-builder --win --x64",
+    "package:all": "npm run build && electron-builder --win --mac --linux",
+    "lint": "eslint src --ext .ts",
+    "typecheck": "tsc --noEmit -p tsconfig.main.json && tsc --noEmit -p tsconfig.preload.json"
+  },
+  "dependencies": {
+    "electron": "^30.0.0",
+    "node-addon-api": "^7.1.0",
+    "bindings": "^1.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@types/electron": "^1.6.10",
+    "typescript": "^5.5.0",
+    "vite": "^5.3.0",
+    "esbuild": "^0.21.0",
+    "electron-builder": "^24.13.0",
+    "concurrently": "^8.2.0",
+    "eslint": "^8.57.0",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0"
+  },
+  "build": {
+    "appId": "com.devforge.app",
+    "productName": "DevForge",
+    "directories": {
+      "output": "dist/package"
+    },
+    "files": [
+      "dist/**/*",
+      "src/native/rust/target/release/*.node",
+      "src/native/cpp/build/Release/*.node",
+      "go/bin/*",
+      "../../index.html",
+      "../../assets/**/*"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  }
+}

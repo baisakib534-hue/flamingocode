@@ -1,0 +1,28 @@
+[package]
+name = "devforge-native-rust"
+version = "1.0.0"
+edition = "2021"
+description = "Rust native module for DevForge - fast file indexing and code graph search"
+
+[lib]
+name = "devforge_native_rust"
+crate-type = ["cdylib"]
+
+[dependencies]
+napi = { version = "2", features = ["napi5"] }
+napi-derive = "2"
+ignore = "0.4"
+walkdir = "2"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+regex = "1.10"
+anyhow = "1.0"
+tokio = { version = "1.0", features = ["rt-multi-thread", "macros", "fs", "process"] }
+notify = "6.0"
+lru = "0.10"
+uuid = { version = "1.0", features = ["v4", "serde"] }
+
+[profile.release]
+lto = true
+codegen-units = 1
+panic = "abort"

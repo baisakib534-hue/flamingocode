@@ -1,0 +1,1 @@
+{"root":["../src/main/main.ts","../src/main/ipc/dialog.ts","../src/main/ipc/filesystem.ts","../src/main/ipc/native.ts","../src/main/ipc/process.ts","../src/main/ipc/selftest.ts","../src/main/ipc/settings.ts","../src/native/cpp/index.ts","../src/native/rust/index.ts"],"version":"5.9.3"}
