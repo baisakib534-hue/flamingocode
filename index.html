@@ -2445,6 +2445,11 @@
       <span>FlamingoCode</span>
     </div>
     <div class="header-actions">
+      <!-- Desktop Mode Indicator -->
+      <span id="desktopModeIndicator" style="display: none; align-items: center; gap: var(--space-4); background: var(--accent); color: var(--button-primary-text); padding: var(--space-2) var(--space-8); border-radius: var(--radius-sm); font-size: 10px; font-weight: 600; letter-spacing: 0.5px;">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+        <span>Desktop Mode</span>
+      </span>
       <select id="sessionSelect" class="session-picker" title="Switch Session"></select>
       <button class="btn btn-secondary" id="btnNewSession">+ Session</button>
       <button class="btn btn-secondary" id="btnDelSession" title="Delete Current Session">
@@ -7909,6 +7914,17 @@ const fc = {
   <script>
     // --- FlamingoCode Stage 0 Core State & VFS ---
     const STORAGE_KEY = 'devforge_studio_v1';
+
+    // --- Desktop Bridge Detection ---
+    let isDesktopMode = false;
+    let desktopBridge = null;
+    if (typeof window.devforgeDesktop !== 'undefined') {
+      isDesktopMode = true;
+      desktopBridge = window.devforgeDesktop;
+      console.log('[FlamingoCode] Desktop mode detected - native capabilities available');
+    } else {
+      console.log('[FlamingoCode] Browser mode - using localStorage/IndexedDB fallback');
+    }
 
     const TEMPLATES = {
       blank: {
@@ -54016,7 +54032,9 @@ Requirements:
         // File & Project
         { id: 'newProject', title: 'New Project', desc: 'Create a new empty project', section: 'File & Project', icon: '📄', shortcut: '', action: () => { const name = prompt('Enter new project name:'); if (name) { const newId = createNewSession(name); switchSession(newId); } } },
         { id: 'openProject', title: 'Open Project', desc: 'Switch to another project session', section: 'File & Project', icon: '📁', shortcut: '', action: () => { document.getElementById('sessionSelect').focus(); } },
-        { id: 'saveProject', title: 'Save Project', desc: 'Save current project state', section: 'File & Project', icon: '💾', shortcut: '⌘S', action: () => { saveAppState(); logActivity('Project saved', 'success'); } },
+        { id: 'openFolder', title: 'Open Folder', desc: 'Open a local folder as project (Desktop mode)', section: 'File & Project', icon: '📂', shortcut: '⌘O', action: async () => { if (!isDesktopMode) { logActivity('Open Folder requires Desktop mode', 'warning'); return; } try { const dir = await desktopBridge.dialog.openDirectory(); if (!dir) return; const files = await desktopBridge.fs.readDirectory(dir); const session = getCurrentSession(); if (!session) return; session.files = {}; for (const file of files) { if (file.isFile) { const result = await desktopBridge.fs.readFile(file.path); session.files[file.path] = { content: result.content, path: file.path }; } } session.projectRoot = dir; saveAppState(); renderFileTree(); logActivity('Opened folder: ' + dir, 'success'); } catch (e) { logActivity('Failed to open folder: ' + e.message, 'error'); } } },
+        { id: 'saveToDisk', title: 'Save to Disk', desc: 'Save current project files to disk (Desktop mode)', section: 'File & Project', icon: '💾', shortcut: '⌘S', action: async () => { if (!isDesktopMode) { logActivity('Save to Disk requires Desktop mode', 'warning'); return; } const session = getCurrentSession(); if (!session || !session.projectRoot) { logActivity('No project folder opened', 'warning'); return; } try { let saved = 0; for (const [path, file] of Object.entries(session.files || {})) { await desktopBridge.fs.writeFile({ path, content: file.content || '' }); saved++; } logActivity('Saved ' + saved + ' file(s) to disk', 'success'); } catch (e) { logActivity('Failed to save to disk: ' + e.message, 'error'); } } },
+        { id: 'saveProject', title: 'Save Project', desc: 'Save current project state', section: 'File & Project', icon: '💾', shortcut: '', action: () => { saveAppState(); logActivity('Project saved', 'success'); } },
         { id: 'newFile', title: 'New File', desc: 'Create a new file in current project', section: 'File & Project', icon: '➕', shortcut: '⌘N', action: createNewFile },
         { id: 'loadTemplate', title: 'Load Template', desc: 'Load a starter template into project', section: 'File & Project', icon: '🎨', shortcut: '', action: () => { document.getElementById('templateSelect').focus(); } },
         { id: 'exportBackup', title: 'Export Backup', desc: 'Export project as backup JSON', section: 'File & Project', icon: '📦', shortcut: '', action: exportBackup },
@@ -54608,6 +54626,11 @@ Requirements:
 
     function initApp() {
       loadAppState();
+      // Desktop mode indicator
+      if (isDesktopMode) {
+        const indicator = document.getElementById('desktopModeIndicator');
+        if (indicator) indicator.style.display = 'flex';
+      }
       initThemeEngine();
       initAccountsStore();
       applyTranslations();
