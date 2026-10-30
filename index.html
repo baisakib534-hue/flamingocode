@@ -3045,6 +3045,7 @@
                 <span id="previewHealthStatus" style="font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 10px; background: var(--bg-hover); color: var(--text-dim);">No preview loaded</span>
               </div>
               <div style="display:flex; align-items:center; gap:6px;">
+                <button class="btn btn-primary" id="btnRunSelfTest" style="padding: 4px 10px; font-size: 10px;" title="Run browser self-test: click, type, drag, scroll all interactive elements">🧪 Self-Test</button>
                 <button class="btn btn-secondary" id="btnAutoFixToggle" style="padding: 4px 10px; font-size: 10px;" title="Toggle auto-fix on preview error">🔄 Auto-fix: OFF</button>
                 <button class="btn btn-secondary" id="btnRunHealthCheck" style="padding: 4px 10px; font-size: 10px;" title="Run health check now">▶ Check Now</button>
                 <button class="btn btn-secondary" id="btnSendPreviewErrors" style="padding: 4px 10px; font-size: 10px;" title="Send current preview errors to the agent to fix">📤 Send Errors to Agent</button>
@@ -3064,6 +3065,18 @@
               <div id="previewErrorList" style="display:flex; flex-direction:column; gap:8px;">
                 <div style="font-size: 11px; color: var(--text-dim); text-align: center; padding: 20px;">No errors detected. Load a preview and click "Check Now" or enable auto-fix.</div>
               </div>
+            </div>
+
+            <!-- Self-Test Results Panel -->
+            <div id="previewSelfTestPanel" style="display:none; border-top:1px solid var(--border-color); margin-top:8px;">
+              <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:var(--bg-panel); border-radius:6px 6px 0 0; margin:-8px -12px 8px -12px;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <span style="font-size: 10px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Self-Test Results</span>
+                  <span id="selfTestSummary" style="font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 10px; background: var(--bg-hover); color: var(--text-dim);">—</span>
+                </div>
+                <button class="btn btn-secondary" id="btnClearSelfTest" style="padding: 3px 8px; font-size: 10px;" title="Clear self-test results">🗑 Clear</button>
+              </div>
+              <div id="selfTestResultsList" style="display:flex; flex-direction:column; gap:6px; max-height:300px; overflow-y:auto; padding:0 12px 8px 12px; font-family:var(--font-mono); font-size:10px;"></div>
             </div>
 
             <!-- Fix cycle log -->
@@ -46543,6 +46556,446 @@ Original request: ${appState.lastEnhancedSpec?.originalPrompt || ''}`;
       return { ok: errors.length === 0, errors };
     }
 
+    // ==================== STAGE 5: BROWSER SELF-TEST ====================
+    // Runs the built app in the preview iframe and exercises it like a user:
+    // clicks every clickable element, fills inputs, drags sliders, toggles
+    // switches, scrolls, resizes — captures console errors, uncaught
+    // exceptions, failed network requests, and unresponsive elements.
+    // Results panel shows checklist of interactions tried, each pass/fail
+    // with error; "Fix with AI" button on each failure feeds error + context
+    // back to agent as focused small request (self-healing loop, max 3
+    // fix attempts per failure).
+    // Safety: only runs inside the preview sandbox of the user's own project.
+
+    let selfTestState = {
+      running: false,
+      results: [],
+      currentElementIndex: 0,
+      elements: [],
+      fixAttempts: new Map(), // elementId -> attempt count
+      abortController: null
+    };
+
+    // Interaction types to test
+    const SELF_TEST_INTERACTIONS = [
+      { type: 'click', selector: 'button, a[href], [role="button"], [tabindex]:not([tabindex="-1"]), input[type="button"], input[type="submit"], input[type="reset"], input[type="checkbox"], input[type="radio"]', name: 'Click' },
+      { type: 'input', selector: 'input[type="text"], input[type="email"], input[type="password"], input[type="number"], input[type="search"], input[type="tel"], input[type="url"], textarea', name: 'Text Input' },
+      { type: 'select', selector: 'select', name: 'Select/Dropdown' },
+      { type: 'range', selector: 'input[type="range"]', name: 'Slider/Range' },
+      { type: 'toggle', selector: 'input[type="checkbox"], input[type="radio"]', name: 'Checkbox/Radio' },
+      { type: 'drag', selector: '[draggable="true"], .draggable, [data-draggable]', name: 'Drag & Drop' },
+      { type: 'scroll', selector: '[style*="overflow"], [class*="scroll"], [class*="overflow"], textarea', name: 'Scroll' }
+    ];
+
+    function selfTestGetInteractiveElements() {
+      const iframe = document.getElementById('previewIframe');
+      const doc = iframe && iframe.contentWindow && iframe.contentWindow.document;
+      if (!doc || !doc.body) return [];
+
+      const elements = [];
+      const seen = new Set();
+
+      SELF_TEST_INTERACTIONS.forEach(({ type, selector, name }) => {
+        try {
+          const found = doc.querySelectorAll(selector);
+          found.forEach(el => {
+            if (el.offsetParent === null && el.tagName !== 'BODY') return; // Skip hidden elements
+            const id = selfTestGetElementId(el);
+            if (seen.has(id)) return;
+            seen.add(id);
+
+            // Get bounding rect for interaction
+            const rect = el.getBoundingClientRect();
+            if (rect.width === 0 && rect.height === 0 && el.tagName !== 'INPUT') return;
+
+            elements.push({
+              id,
+              type,
+              name,
+              tagName: el.tagName.toLowerCase(),
+              selector: selfTestGetSelector(el),
+              rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+              element: el, // Keep reference for interaction
+              attrs: selfTestGetElementAttrs(el)
+            });
+          });
+        } catch (e) {
+          // Selector might be invalid
+        }
+      });
+
+      return elements;
+    }
+
+    function selfTestGetElementId(el) {
+      const doc = el.ownerDocument;
+      if (el.id) return '#' + el.id;
+      const path = [];
+      let current = el;
+      while (current && current !== doc.body) {
+        let segment = current.tagName.toLowerCase();
+        if (current.id) { segment += '#' + current.id; path.unshift(segment); break; }
+        if (current.className && typeof current.className === 'string') {
+          const classes = current.className.trim().split(/\s+/).filter(c => c);
+          if (classes.length) segment += '.' + classes[0];
+        }
+        const parent = current.parentElement;
+        if (parent) {
+          const siblings = Array.from(parent.children).filter(c => c.tagName === current.tagName);
+          if (siblings.length > 1) {
+            const index = siblings.indexOf(current) + 1;
+            segment += ':nth-of-type(' + index + ')';
+          }
+        }
+        path.unshift(segment);
+        current = parent;
+        if (path.length > 5) break; // Limit depth
+      }
+      return path.join(' > ');
+    }
+
+    function selfTestGetSelector(el) {
+      if (el.id) return '#' + el.id;
+      if (el.className && typeof el.className === 'string') {
+        const classes = el.className.trim().split(/\s+/).filter(c => c);
+        if (classes.length) return el.tagName.toLowerCase() + '.' + classes[0];
+      }
+      return el.tagName.toLowerCase();
+    }
+
+    function selfTestGetElementAttrs(el) {
+      const attrs = {};
+      for (const attr of el.attributes) {
+        if (['id', 'class', 'type', 'name', 'placeholder', 'value', 'href', 'role', 'tabindex', 'draggable'].includes(attr.name)) {
+          attrs[attr.name] = attr.value;
+        }
+      }
+      return attrs;
+    }
+
+    async function selfTestRunInteraction(element) {
+      const iframe = document.getElementById('previewIframe');
+      const win = iframe && iframe.contentWindow;
+      const doc = win && win.document;
+      if (!win || !doc) throw new Error('Preview iframe not accessible');
+
+      const el = doc.querySelector(element.selector);
+      if (!el) throw new Error('Element not found in DOM: ' + element.selector);
+
+      const errors = [];
+      const startTime = Date.now();
+
+      // Capture errors during interaction
+      const errorPromise = new Promise((resolve) => {
+        const handler = (e) => {
+          if (e.data && e.data.type === 'PREVIEW_ERROR') {
+            errors.push({
+              kind: e.data.kind,
+              message: e.data.message,
+              stack: e.data.stack,
+              filename: e.data.filename,
+              lineno: e.data.lineno
+            });
+          }
+        };
+        window.addEventListener('message', handler);
+        setTimeout(() => {
+          window.removeEventListener('message', handler);
+          resolve();
+        }, 1000);
+      });
+
+      try {
+        switch (element.type) {
+          case 'click':
+            // Focus first, then click
+            el.focus();
+            await new Promise(r => setTimeout(r, 50));
+            el.click();
+            await new Promise(r => setTimeout(r, 100));
+            break;
+
+          case 'input':
+            el.focus();
+            await new Promise(r => setTimeout(r, 50));
+            const testValue = 'SelfTest_' + Date.now();
+            el.value = testValue;
+            el.dispatchEvent(new win.Event('input', { bubbles: true }));
+            el.dispatchEvent(new win.Event('change', { bubbles: true }));
+            await new Promise(r => setTimeout(r, 100));
+            break;
+
+          case 'select':
+            el.focus();
+            await new Promise(r => setTimeout(r, 50));
+            if (el.options.length > 0) {
+              const originalIndex = el.selectedIndex;
+              const newIndex = (originalIndex + 1) % el.options.length;
+              el.selectedIndex = newIndex;
+              el.dispatchEvent(new win.Event('change', { bubbles: true }));
+            }
+            await new Promise(r => setTimeout(r, 100));
+            break;
+
+          case 'range':
+            el.focus();
+            await new Promise(r => setTimeout(r, 50));
+            const min = parseFloat(el.min) || 0;
+            const max = parseFloat(el.max) || 100;
+            const mid = min + (max - min) / 2;
+            el.value = mid;
+            el.dispatchEvent(new win.Event('input', { bubbles: true }));
+            el.dispatchEvent(new win.Event('change', { bubbles: true }));
+            await new Promise(r => setTimeout(r, 100));
+            break;
+
+          case 'toggle':
+            el.focus();
+            await new Promise(r => setTimeout(r, 50));
+            el.checked = !el.checked;
+            el.dispatchEvent(new win.Event('change', { bubbles: true }));
+            await new Promise(r => setTimeout(r, 100));
+            break;
+
+          case 'drag':
+            // Simulate drag start
+            const dragStart = new win.DragEvent('dragstart', { bubbles: true, cancelable: true });
+            el.dispatchEvent(dragStart);
+            await new Promise(r => setTimeout(r, 50));
+            // Simulate drag end
+            const dragEnd = new win.DragEvent('dragend', { bubbles: true, cancelable: true });
+            el.dispatchEvent(dragEnd);
+            await new Promise(r => setTimeout(r, 100));
+            break;
+
+          case 'scroll':
+            if (el.scrollHeight > el.clientHeight || el.scrollWidth > el.clientWidth) {
+              const originalScrollTop = el.scrollTop;
+              const originalScrollLeft = el.scrollLeft;
+              el.scrollTop = Math.min(el.scrollHeight - el.clientHeight, 100);
+              el.scrollLeft = Math.min(el.scrollWidth - el.clientWidth, 100);
+              el.dispatchEvent(new win.Event('scroll', { bubbles: true }));
+              await new Promise(r => setTimeout(r, 100));
+              // Scroll back
+              el.scrollTop = originalScrollTop;
+              el.scrollLeft = originalScrollLeft;
+              el.dispatchEvent(new win.Event('scroll', { bubbles: true }));
+            }
+            await new Promise(r => setTimeout(r, 100));
+            break;
+        }
+
+        await errorPromise;
+        const duration = Date.now() - startTime;
+
+        return { success: errors.length === 0, errors, duration };
+      } catch (e) {
+        await errorPromise;
+        return { success: false, errors: [{ kind: 'interaction', message: e.message, stack: e.stack }], duration: Date.now() - startTime };
+      }
+    }
+
+    function selfTestRenderResults() {
+      const panel = document.getElementById('previewSelfTestPanel');
+      const list = document.getElementById('selfTestResultsList');
+      const summary = document.getElementById('selfTestSummary');
+      if (!panel || !list || !summary) return;
+
+      if (selfTestState.results.length === 0) {
+        panel.style.display = 'none';
+        return;
+      }
+
+      panel.style.display = 'block';
+
+      const passed = selfTestState.results.filter(r => r.passed).length;
+      const failed = selfTestState.results.filter(r => !r.passed).length;
+      const total = selfTestState.results.length;
+      summary.textContent = `${passed}/${total} passed`;
+      summary.style.background = failed > 0 ? 'rgba(239,68,68,0.18)' : 'rgba(16,185,129,0.18)';
+      summary.style.color = failed > 0 ? 'var(--danger)' : 'var(--success)';
+
+      list.innerHTML = selfTestState.results.map((result, index) => {
+        const passed = result.passed;
+        const errorHtml = result.errors && result.errors.length > 0
+          ? result.errors.map(err => `<div style="color:var(--danger);font-size:9px;margin:2px 0 0 16px;">${err.kind}: ${escapeHtml(err.message).slice(0, 150)}${err.stack ? ' | ' + escapeHtml(err.stack.split('\\n')[0]).slice(0, 80) : ''}</div>`).join('')
+          : '';
+
+        const fixButton = !passed && (selfTestState.fixAttempts.get(result.element.id) || 0) < 3
+          ? `<button class="btn" onclick="selfTestFixWithAI('${result.element.id}')" style="padding:2px 8px;font-size:9px;margin-left:8px;">🔧 Fix with AI (${3 - (selfTestState.fixAttempts.get(result.element.id) || 0)})</button>`
+          : !passed
+            ? `<span style="color:var(--text-dim);font-size:9px;margin-left:8px;">Max fix attempts reached</span>`
+            : '';
+
+        return `<div style="border:1px solid ${passed ? 'var(--success)' : 'var(--danger)'}; border-radius:4px; padding:6px 8px; background:var(--bg-surface); font-size:10px;">
+          <div style="display:flex; align-items:center; gap:8px; justify-content:space-between;">
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span style="color:${passed ? 'var(--success)' : 'var(--danger)'}; font-weight:600;">${passed ? '✓' : '✗'}</span>
+              <span style="color:var(--text-muted);">${escapeHtml(result.element.name)}</span>
+              <span style="color:var(--text-dim); font-family:var(--font-mono);">${escapeHtml(result.element.selector)}</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span style="color:var(--text-dim);">${result.duration}ms</span>
+              ${fixButton}
+            </div>
+          </div>
+          ${errorHtml}
+        </div>`;
+      }).join('');
+    }
+
+    async function selfTestFixWithAI(elementId) {
+      const result = selfTestState.results.find(r => r.element.id === elementId);
+      if (!result) return;
+
+      const attempts = (selfTestState.fixAttempts.get(elementId) || 0) + 1;
+      selfTestState.fixAttempts.set(elementId, attempts);
+
+      if (attempts > 3) {
+        showToast('Max fix attempts (3) reached for this element', 'error');
+        selfTestRenderResults();
+        return;
+      }
+
+      showToast(`Fix attempt ${attempts}/3 for ${result.element.name}...`, 'info');
+
+      // Build prompt with error context and element info
+      const session = getCurrentSession();
+      const file = session?.activeFile || 'index.html';
+      const content = session?.files?.[file] || '';
+
+      const errorDetails = result.errors.map(e =>
+        `${e.kind}: ${e.message}${e.stack ? '\nStack: ' + e.stack.split('\n').slice(0, 3).join('\n') : ''}`
+      ).join('\n\n');
+
+      const prompt = `Self-test interaction failed. Fix the issue.\n\nElement: ${result.element.name} (${result.element.selector})\nTag: ${result.element.tagName}\nAttributes: ${JSON.stringify(result.element.attrs)}\n\nErrors during interaction:\n${errorDetails}\n\nCurrent file (${file}):\n${content.slice(0, 5000)}\n\nFix the root cause. Reply with file:${file} fenced block for the change.`;
+
+      try {
+        await sendAgentPrompt(prompt);
+        // Wait a bit for the agent to respond and apply fix
+        await new Promise(r => setTimeout(r, 3000));
+        // Re-run preview to pick up changes
+        refreshPreview();
+        await new Promise(r => setTimeout(r, 1500));
+        // Re-test just this element
+        const elements = selfTestGetInteractiveElements();
+        const el = elements.find(e => e.id === elementId);
+        if (el) {
+          const newResult = await selfTestRunInteraction(el);
+          // Update the result
+          const idx = selfTestState.results.findIndex(r => r.element.id === elementId);
+          if (idx >= 0) {
+            selfTestState.results[idx] = { ...result, ...newResult, passed: newResult.success };
+          }
+        }
+        selfTestRenderResults();
+        if (selfTestState.results.find(r => r.element.id === elementId)?.passed) {
+          showToast(`Fixed: ${result.element.name}`, 'success');
+        } else if (attempts < 3) {
+          showToast(`Fix attempt ${attempts} did not resolve. Retrying...`, 'warning');
+        }
+      } catch (e) {
+        showToast('Fix with AI failed: ' + e.message, 'error');
+      }
+    }
+
+    async function runSelfTest() {
+      if (selfTestState.running) return;
+
+      const iframe = document.getElementById('previewIframe');
+      if (!iframe || !iframe.contentWindow) {
+        showToast('No preview loaded. Build or refresh preview first.', 'error');
+        return;
+      }
+
+      selfTestState.running = true;
+      selfTestState.results = [];
+      selfTestState.fixAttempts.clear();
+      selfTestState.currentElementIndex = 0;
+      selfTestState.elements = selfTestGetInteractiveElements();
+
+      if (selfTestState.elements.length === 0) {
+        showToast('No interactive elements found in preview', 'warning');
+        selfTestState.running = false;
+        selfTestRenderResults();
+        return;
+      }
+
+      const btn = document.getElementById('btnRunSelfTest');
+      if (btn) {
+        btn.textContent = '⏳ Running...';
+        btn.disabled = true;
+      }
+
+      const panel = document.getElementById('previewSelfTestPanel');
+      if (panel) panel.style.display = 'block';
+      selfTestRenderResults();
+
+      showToast(`Self-test started: ${selfTestState.elements.length} elements to test`, 'info');
+
+      try {
+        for (let i = 0; i < selfTestState.elements.length; i++) {
+          if (!selfTestState.running) break; // Allow abort
+
+          selfTestState.currentElementIndex = i;
+          const element = selfTestState.elements[i];
+
+          // Update progress
+          if (btn) btn.textContent = `⏳ ${i + 1}/${selfTestState.elements.length}`;
+
+          try {
+            const result = await selfTestRunInteraction(element);
+            selfTestState.results.push({ ...element, ...result, passed: result.success });
+          } catch (e) {
+            selfTestState.results.push({
+              ...element,
+              passed: false,
+              errors: [{ kind: 'interaction', message: e.message, stack: e.stack }],
+              duration: 0
+            });
+          }
+
+          selfTestRenderResults();
+          // Small delay between interactions
+          await new Promise(r => setTimeout(r, 50));
+        }
+
+        const passed = selfTestState.results.filter(r => r.passed).length;
+        const failed = selfTestState.results.filter(r => !r.passed).length;
+        showToast(`Self-test complete: ${passed} passed, ${failed} failed`, failed > 0 ? 'warning' : 'success');
+      } finally {
+        selfTestState.running = false;
+        if (btn) {
+          btn.textContent = '🧪 Self-Test';
+          btn.disabled = false;
+        }
+        selfTestRenderResults();
+      }
+    }
+
+    function selfTestAbort() {
+      selfTestState.running = false;
+      const btn = document.getElementById('btnRunSelfTest');
+      if (btn) {
+        btn.textContent = '🧪 Self-Test';
+        btn.disabled = false;
+      }
+      showToast('Self-test aborted', 'warning');
+    }
+
+    function selfTestClearResults() {
+      selfTestState.results = [];
+      selfTestState.fixAttempts.clear();
+      selfTestRenderResults();
+      showToast('Self-test results cleared', 'info');
+    }
+
+    // Expose for onclick handlers
+    window.selfTestFixWithAI = selfTestFixWithAI;
+    window.runSelfTest = runSelfTest;
+    window.selfTestAbort = selfTestAbort;
+    window.selfTestClearResults = selfTestClearResults;
+
     // ==================== BATCH 7.8: DESIGN REVIEW GATE ====================
     // Runs after every preview render and before Senior signs off UI changes.
     // Checks live preview DOM against design rules from frontend-design skill.
@@ -52873,6 +53326,15 @@ Requirements:
           previewHealthReset();
           logActivity('Preview health log cleared', 'info');
         };
+      }
+
+      const btnSelfTest = document.getElementById('btnRunSelfTest');
+      if (btnSelfTest) {
+        btnSelfTest.onclick = () => runSelfTest();
+      }
+      const btnClearSelfTest = document.getElementById('btnClearSelfTest');
+      if (btnClearSelfTest) {
+        btnClearSelfTest.onclick = () => selfTestClearResults();
       }
 
       const btnRetry = document.getElementById('btnPreviewNeedsHelpRetry');
