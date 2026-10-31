@@ -1,9 +1,9 @@
 {
   "functions": {
-    "api/auth.js": { "runtime": "nodejs20.x", "maxDuration": 30 },
-    "api/devices.js": { "runtime": "nodejs20.x", "maxDuration": 30 },
-    "api/tasks.js": { "runtime": "nodejs20.x", "maxDuration": 30 },
-    "api/recordings.js": { "runtime": "nodejs20.x", "maxDuration": 30 }
+    "api/auth.js": { "maxDuration": 30 },
+    "api/devices.js": { "maxDuration": 30 },
+    "api/tasks.js": { "maxDuration": 30 },
+    "api/recordings.js": { "maxDuration": 30 }
   },
   "routes": [
     { "src": "/api/(.*)", "dest": "/api/$1" },
