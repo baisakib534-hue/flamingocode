@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Account — FlamingoCode</title>
+  <meta name="description" content="FlamingoCode account home: sign in with Google, manage paired devices, view task history.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body>
+  <header>
+    <div class="container header-inner">
+      <a href="index.html" class="logo">
+        <img src="assets/flamingocode-logo.png" alt="" class="logo-img" width="36" height="36">
+        FlamingoCode
+      </a>
+      <nav class="nav">
+        <a href="index.html">Home</a>
+        <a href="download.html">Download</a>
+        <a href="docs.html">Docs</a>
+        <a href="account.html" class="active">Account</a>
+      </nav>
+      <div class="nav-cta" id="auth-area"></div>
+    </div>
+  </header>
+
+  <main>
+    <div class="container">
+      <div id="auth-view" class="auth-container">
+        <div class="auth-card">
+          <img src="assets/flamingocode-logo.png" alt="FlamingoCode" style="width: 64px; height: 64px; margin: 0 auto var(--space-24);">
+          <h1>Sign in to FlamingoCode</h1>
+          <p class="subtitle">Use your Google account to pair desktop and phone devices.</p>
+
+          <div id="google-signin-btn"></div>
+
+          <div class="divider">or</div>
+
+          <div id="not-configured" class="not-configured" style="display: none;">
+            Google Sign-In is not configured. Set <code>GOOGLE_CLIENT_ID</code> in Vercel environment variables.
+          </div>
+
+          <p style="text-align: center; font-size: 0.8125rem; color: var(--text-muted); margin-top: var(--space-16);">
+            By signing in, you agree to our <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>.
+          </p>
+        </div>
+      </div>
+
+      <div id="dashboard-view" class="dashboard" style="display: none;">
+        <div class="dashboard-header">
+          <h1>Dashboard</h1>
+          <div class="user-info">
+            <span class="user-avatar" id="user-avatar">U</span>
+            <span id="user-name"></span>
+            <button class="btn btn-secondary" data-action="logout" style="padding: var(--space-8) var(--space-16); font-size: 0.8125rem;">Sign out</button>
+          </div>
+        </div>
+
+        <section class="dashboard-section">
+          <h2>Paired Devices</h2>
+          <div class="device-list" id="device-list">
+            <div class="loading"><span class="spinner"></span> Loading devices…</div>
+          </div>
+        </section>
+
+        <section class="dashboard-section">
+          <h2>Task History</h2>
+          <div class="task-list" id="task-list">
+            <div class="loading"><span class="spinner"></span> Loading tasks…</div>
+          </div>
+        </section>
+
+        <section class="dashboard-section">
+          <h2>Recordings</h2>
+          <div class="task-list" id="recording-list">
+            <div class="empty-state">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="20" height="20" rx="2"/><path d="M23 19V7a2 2 0 0 0-2-2H3a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h7l4 4 4-4h3"/><circle cx="8.5" cy="13.5" r="2.5"/></svg>
+              <p>No recordings yet. Recordings appear here when you complete tasks on desktop.</p>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <div class="container footer-inner">
+      <p>FlamingoCode — Local-first agentic coding studio</p>
+      <nav class="footer-links">
+        <a href="index.html">Home</a>
+        <a href="download.html">Download</a>
+        <a href="docs.html">Docs</a>
+        <a href="https://github.com/baisakib534-hue/flamingocode" target="_blank" rel="noopener">GitHub</a>
+      </nav>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+  <script src="account.js"></script>
+</body>
+</html>

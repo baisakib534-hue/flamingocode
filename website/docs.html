@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Docs — FlamingoCode</title>
+  <meta name="description" content="FlamingoCode documentation: quickstart, phone pairing, FAQ, and reference.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <div class="container header-inner">
+      <a href="index.html" class="logo">
+        <img src="assets/flamingocode-logo.png" alt="" class="logo-img" width="36" height="36">
+        FlamingoCode
+      </a>
+      <nav class="nav">
+        <a href="index.html">Home</a>
+        <a href="download.html">Download</a>
+        <a href="docs.html" class="active">Docs</a>
+      </nav>
+      <div class="nav-cta" id="auth-area"></div>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="container">
+        <h1>Documentation</h1>
+        <p class="tagline">Get started with FlamingoCode. Learn the basics, pair your phone, and explore advanced features.</p>
+      </div>
+    </section>
+
+    <div class="container docs-content">
+      <section class="docs-section">
+        <h2>What Is FlamingoCode?</h2>
+        <p>FlamingoCode is a local-first agentic coding studio. You run it on your machine — no cloud, no external servers for your code. It gives you a team of AI agents that can plan, write, test, and review code together.</p>
+        <p>Key principles:</p>
+        <ul>
+          <li><strong>Local-first:</strong> Your code never leaves your machine. The desktop app runs entirely locally.</li>
+          <li><strong>Agent teams:</strong> Multiple specialized agents (Senior Dev, Frontend, Backend, QA) collaborate on tasks.</li>
+          <li><strong>Shared Brain:</strong> Persistent project memory across sessions — agents remember decisions and patterns.</li>
+          <li><strong>Phone companion:</strong> Review and approve tasks from your phone via the relay.</li>
+          <li><strong>Your keys, your control:</strong> API keys are encrypted device-to-device. The relay passes opaque envelopes only.</li>
+        </ul>
+      </section>
+
+      <section class="docs-section">
+        <h2>Quickstart (Desktop)</h2>
+        <ol>
+          <li><strong>Download</strong> the desktop app for your OS from the <a href="download.html">Download page</a>.</li>
+          <li><strong>Run</strong> the binary — no installation required (Windows/macOS/Linux).</li>
+          <li><strong>Sign in</strong> with your Google account. This creates your FlamingoCode account.</li>
+          <li><strong>Add an API key</strong> in Settings → Providers. Choose from presets (9router, OpenRouter, Groq, Ollama, etc.) or add a custom OpenAI-compatible endpoint.</li>
+          <li><strong>Create or pick an agent</strong> — use the built-in "Dev Team" preset or create your own.</li>
+          <li><strong>Start coding</strong> — describe what you want in the chat. Your agent team will plan, execute, and test.</li>
+        </ol>
+      </section>
+
+      <section class="docs-section">
+        <h2>Phone Pairing</h2>
+        <p>The phone companion lets you review tasks, approve changes, and monitor agent activity from anywhere.</p>
+        <h3>How Pairing Works</h3>
+        <ol>
+          <li>Sign in to the <a href="account.html">Account page</a> on this website with the same Google account used on desktop.</li>
+          <li>Install the FlamingoCode phone app (Android) and sign in with the same Google account.</li>
+          <li>Both devices register with the relay automatically. You'll see them listed on the Account page.</li>
+          <li>When a task runs on desktop, you'll get a notification on your phone to review/approve.</li>
+        </ol>
+        <h3>What the Relay Does</h3>
+        <ul>
+          <li>Registers devices to your account (device ID, name, type, last seen)</li>
+          <li>Passes task envelopes between devices (opaque — relay cannot read contents)</li>
+          <li>Handles long-polling for task delivery (up to 25s per request)</li>
+          <li>Stores task results and recording links</li>
+        </ul>
+        <p>All communication is authenticated with a session token issued at sign-in. Tokens are stored hashed (SHA-256) in the relay's datastore.</p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Agent Teams</h2>
+        <p>FlamingoCode's team mode runs multiple agents in a structured workflow:</p>
+        <ol>
+          <li><strong>Discussion:</strong> Agents exchange messages to propose a task split.</li>
+          <li><strong>Planning:</strong> Senior Developer finalizes a task board (task → owner agent).</li>
+          <li><strong>Execution:</strong> Agents work in parallel (independent) or sequence (dependent).</li>
+          <li><strong>Presentation:</strong> Each agent presents its completed piece.</li>
+          <li><strong>Testing:</strong> The team runs tests (click every button, sweep console errors).</li>
+          <li><strong>Senior Review:</strong> Senior inspects all work, names bugs, assigns rework (max 3 rounds).</li>
+          <li><strong>Final Report:</strong> Summary of what was built, who did what, test results.</li>
+        </ol>
+        <p>You can create custom agents with any provider+model, attach skill packs (No AI Slop, Senior Frontend, Testing & QA, etc.), and define MCP servers.</p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Providers & API Keys</h2>
+        <p>FlamingoCode supports any OpenAI-compatible API, plus Anthropic, Ollama, and DuckDuckGo AI.</p>
+        <h3>Built-in Presets</h3>
+        <ul>
+          <li><strong>9router:</strong> https://ninerouter-zltx.onrender.com/v1 (model: 9router)</li>
+          <li><strong>OmniRoute Cloud:</strong> https://omniroute-main-9nt1.onrender.com/api/v1 (model: qoder)</li>
+          <li><strong>OmniRoute Local:</strong> http://localhost:20128/v1 (model: qoder)</li>
+          <li><strong>Pollinations:</strong> https://text.pollinations.ai/openai (model: openai) — free</li>
+          <li><strong>OpenRouter:</strong> https://openrouter.ai/api/v1</li>
+          <li><strong>Groq:</strong> https://api.groq.com/openai/v1</li>
+          <li><strong>DuckDuckGo AI:</strong> Real duck.ai vqd flow (gpt-4o-mini, claude-3-haiku, llama-3.3-70b, mixtral)</li>
+          <li><strong>Custom:</strong> Any OpenAI-compatible or Anthropic endpoint</li>
+        </ul>
+        <h3>Key Handling</h3>
+        <p>API keys are stored locally in the desktop app's encrypted storage. When sending a task to a paired device, keys travel inside an encrypted envelope using a per-pair key derived at pairing time. The relay never sees raw keys.</p>
+      </section>
+
+      <section class="docs-section">
+        <h2>FAQ</h2>
+        <h3>Is my code sent to the cloud?</h3>
+        <p>No. The desktop app runs entirely on your machine. Only task envelopes (which you control) pass through the relay. The relay cannot decrypt them.</p>
+
+        <h3>Do I need an API key?</h3>
+        <p>Yes, for LLM calls. You can use free tiers (Pollinations, DuckDuckGo AI) or bring your own keys (OpenRouter, Groq, OpenAI, Anthropic, local Ollama).</p>
+
+        <h3>What happens if the relay is down?</h3>
+        <p>Desktop app works fully offline. Phone pairing and task relay require the relay. The relay is hosted on Vercel's free tier with 99.9% uptime SLA.</p>
+
+        <h3>Can I self-host the relay?</h3>
+        <p>The relay is a set of Vercel serverless functions. You can deploy your own copy to any Vercel account — just set the environment variables.</p>
+
+        <h3>Is there telemetry or analytics?</h3>
+        <p>No. Zero analytics, zero trackers. The only data stored is your account (Google email/name), device registry, and task envelopes you explicitly send.</p>
+
+        <h3>What's the license?</h3>
+        <p>FlamingoCode is proprietary. The desktop app binary is free to download and use. Source code is not open source at this time.</p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Relay API Reference</h2>
+        <p>For developers building integrations. All endpoints require <code>Authorization: Bearer <token></code>.</p>
+        <h3>Devices</h3>
+        <pre><code>POST /api/devices/register
+  { name, type: 'desktop'|'phone', pushToken? }
+  → { deviceId, pairCode }
+
+GET /api/devices
+  → [{ deviceId, name, type, lastSeen }]
+
+DELETE /api/devices/:id
+  → { ok: true }</code></pre>
+        <h3>Tasks</h3>
+        <pre><code>POST /api/tasks
+  { toDeviceId, envelope }
+  → { taskId }
+
+GET /api/tasks/poll?deviceId=
+  → [{ taskId, envelope }]  (long-poll, up to 25s)
+
+POST /api/tasks/:id/result
+  { result }
+  → { ok: true }
+
+GET /api/tasks/:id
+  → { taskId, toDeviceId, envelope, result, status, createdAt }</code></pre>
+        <h3>Recordings</h3>
+        <pre><code>GET /api/recordings/:id
+  → { url }  (signed link, expires in 1 hour)</code></pre>
+      </section>
+    </div>
+  </main>
+
+  <footer>
+    <div class="container footer-inner">
+      <p>FlamingoCode — Local-first agentic coding studio</p>
+      <nav class="footer-links">
+        <a href="index.html">Home</a>
+        <a href="download.html">Download</a>
+        <a href="account.html">Account</a>
+        <a href="https://github.com/baisakib534-hue/flamingocode" target="_blank" rel="noopener">GitHub</a>
+      </nav>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

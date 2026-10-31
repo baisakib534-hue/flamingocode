@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Download FlamingoCode — Desktop & Phone</title>
+  <meta name="description" content="Download FlamingoCode for Windows, macOS, Linux, and Android. Local-first agentic coding studio.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <div class="container header-inner">
+      <a href="index.html" class="logo">
+        <img src="assets/flamingocode-logo.png" alt="" class="logo-img" width="36" height="36">
+        FlamingoCode
+      </a>
+      <nav class="nav">
+        <a href="index.html">Home</a>
+        <a href="download.html" class="active">Download</a>
+        <a href="docs.html">Docs</a>
+      </nav>
+      <div class="nav-cta" id="auth-area"></div>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="container">
+        <h1>Download FlamingoCode</h1>
+        <p class="tagline">Native desktop apps for Windows, macOS, Linux. Phone companion for Android. All local-first, no cloud required.</p>
+      </div>
+    </section>
+
+    <section class="section container">
+      <div class="section-header">
+        <h2>Desktop</h2>
+        <p>Choose your platform. Binaries are signed and distributed via GitHub Releases.</p>
+      </div>
+
+      <div class="download-grid" id="desktop-downloads">
+        <div class="download-card coming-soon">
+          <svg class="download-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>
+          <span class="coming-soon-badge">Coming Soon</span>
+          <h3>Windows</h3>
+          <p class="version">.exe installer · x64 / ARM64</p>
+          <button class="btn btn-secondary" disabled>Download for Windows</button>
+          <p style="margin-top: var(--space-12); font-size: 0.8125rem; color: var(--text-muted);">Will appear here when a release is published</p>
+        </div>
+
+        <div class="download-card coming-soon">
+          <svg class="download-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>
+          <span class="coming-soon-badge">Coming Soon</span>
+          <h3>macOS</h3>
+          <p class="version">.dmg · Apple Silicon / Intel</p>
+          <button class="btn btn-secondary" disabled>Download for macOS</button>
+          <p style="margin-top: var(--space-12); font-size: 0.8125rem; color: var(--text-muted);">Will appear here when a release is published</p>
+        </div>
+
+        <div class="download-card coming-soon">
+          <svg class="download-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>
+          <span class="coming-soon-badge">Coming Soon</span>
+          <h3>Linux</h3>
+          <p class="version">AppImage / .deb / .rpm · x64 / ARM64</p>
+          <button class="btn btn-secondary" disabled>Download for Linux</button>
+          <p style="margin-top: var(--space-12); font-size: 0.8125rem; color: var(--text-muted);">Will appear here when a release is published</p>
+        </div>
+      </div>
+
+      <div style="text-align: center; margin-top: var(--space-32);">
+        <a href="https://github.com/baisakib534-hue/flamingocode/releases" target="_blank" rel="noopener" class="btn btn-secondary">
+          View All Releases on GitHub
+        </a>
+      </div>
+    </section>
+
+    <section class="section container">
+      <div class="section-header">
+        <h2>Phone Companion</h2>
+        <p>Pair your phone to review tasks, approve changes, and stay in flow on the go.</p>
+      </div>
+
+      <div class="download-grid" id="phone-downloads">
+        <div class="download-card coming-soon">
+          <svg class="download-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5.5 3.21A2.19 2.19 0 0 0 4 4.72v14.56a2.19 2.19 0 0 0 1.5 1.51h13a2.19 2.19 0 0 0 1.5-1.51V4.72a2.19 2.19 0 0 0-1.5-1.51z"/><line x1="8" y1="19" x2="8.01" y2="19"/></svg>
+          <span class="coming-soon-badge">Coming Soon</span>
+          <h3>Android</h3>
+          <p class="version">.apk · ARM64 (API 24+)</p>
+          <button class="btn btn-secondary" disabled>Download for Android</button>
+          <p style="margin-top: var(--space-12); font-size: 0.8125rem; color: var(--text-muted);">Will appear here when a release is published</p>
+        </div>
+
+        <div class="download-card coming-soon" style="opacity: 0.4;">
+          <svg class="download-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5.5 3.21A2.19 2.19 0 0 0 4 4.72v14.56a2.19 2.19 0 0 0 1.5 1.51h13a2.19 2.19 0 0 0 1.5-1.51V4.72a2.19 2.19 0 0 0-1.5-1.51z"/><line x1="8" y1="19" x2="8.01" y2="19"/></svg>
+          <span class="coming-soon-badge" style="background: var(--text-muted);">Planned</span>
+          <h3>iOS</h3>
+          <p class="version">TestFlight / App Store</p>
+          <button class="btn btn-secondary" disabled>Notify Me</button>
+          <p style="margin-top: var(--space-12); font-size: 0.8125rem; color: var(--text-muted);">Planned for future release</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section container">
+      <div class="section-header">
+        <h2>Requirements</h2>
+      </div>
+      <div class="features">
+        <div class="feature-card">
+          <h3>Desktop</h3>
+          <ul>
+            <li>Windows 10/11 (x64 or ARM64)</li>
+            <li>macOS 12+ (Apple Silicon or Intel)</li>
+            <li>Linux: glibc 2.31+ (Ubuntu 20.04+, Debian 11+, Fedora 35+, Arch)</li>
+            <li>4 GB RAM minimum, 8 GB recommended</li>
+            <li>2 GB disk space</li>
+          </ul>
+        </div>
+        <div class="feature-card">
+          <h3>Phone</h3>
+          <ul>
+            <li>Android 7.0 (API 24) or later</li>
+            <li>ARM64 architecture</li>
+            <li>Internet connection for relay pairing</li>
+            <li>Google account for sign-in</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="section container">
+      <div class="section-header">
+        <h2>Verify Your Download</h2>
+      </div>
+      <div class="docs-content">
+        <p>All releases are signed. Verify the SHA-256 checksums published in the release notes against the downloaded file:</p>
+        <pre><code># Windows
+CertUtil -hashfile flamingocode-windows-x64.exe SHA256
+
+# macOS
+shasum -a 256 flamingocode-macos-arm64.dmg
+
+# Linux
+sha256sum flamingocode-linux-x64.AppImage</code></pre>
+        <p>Public signing keys are published in the repository's <code>docs/security.md</code>.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="container footer-inner">
+      <p>FlamingoCode — Local-first agentic coding studio</p>
+      <nav class="footer-links">
+        <a href="index.html">Home</a>
+        <a href="docs.html">Docs</a>
+        <a href="account.html">Account</a>
+        <a href="https://github.com/baisakib534-hue/flamingocode" target="_blank" rel="noopener">GitHub</a>
+      </nav>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
