@@ -1,21 +1,18 @@
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
-use walkdir::WalkDir;
+use std::path::Path;
 use ignore::WalkBuilder;
 use regex::Regex;
-use serde::{Deserialize, Serialize};
-use tokio::sync::mpsc;
 
 #[napi(object)]
 pub struct FileIndexResult {
   pub files_indexed: u32,
   pub symbols_extracted: u32,
-  pub duration_ms: u64,
+  pub duration_ms: f64,
 }
 
+#[derive(Clone)]
 #[napi(object)]
 pub struct CodeGraphNode {
   pub id: String,
@@ -49,9 +46,9 @@ pub struct ScreenCaptureResult {
 #[napi(object)]
 pub struct SandboxConfig {
   pub sandbox_type: String,
-  pub cpu_ms: Option<u64>,
-  pub memory_mb: Option<u64>,
-  pub disk_mb: Option<u64>,
+  pub cpu_ms: Option<f64>,
+  pub memory_mb: Option<f64>,
+  pub disk_mb: Option<f64>,
 }
 
 #[napi(object)]
@@ -65,7 +62,7 @@ pub struct SandboxExecResult {
   pub stdout: String,
   pub stderr: String,
   pub exit_code: i32,
-  pub duration_ms: u64,
+  pub duration_ms: f64,
 }
 
 struct SymbolExtractor {
@@ -150,7 +147,8 @@ impl SymbolExtractor {
 
   fn extract(&self, content: &str, file_path: &Path, language: &str) -> Vec<CodeGraphNode> {
     let mut nodes = Vec::new();
-    let patterns = self.patterns.get(language).unwrap_or(&vec![]);
+    let empty: Vec<Regex> = Vec::new();
+    let patterns = self.patterns.get(language).unwrap_or(&empty);
     let lines: Vec<&str> = content.lines().collect();
 
     for (line_idx, line) in lines.iter().enumerate() {
@@ -177,7 +175,7 @@ impl SymbolExtractor {
     nodes
   }
 
-  fn classify_symbol(&self, line: &str, name: &str) -> String {
+  fn classify_symbol(&self, line: &str, _name: &str) -> String {
     if line.contains("fn ") || line.contains("function ") || line.contains("def ") || line.contains("func ") {
       "function".to_string()
     } else if line.contains("class ") || line.contains("struct ") || line.contains("enum ") {
@@ -211,7 +209,7 @@ pub fn index_directory(path: String) -> Result<FileIndexResult> {
     .build();
 
   for entry in walker {
-    let entry = entry?;
+    let entry = entry.map_err(|e| Error::new(Status::GenericFailure, format!("walk error: {}", e)))?;
     let path = entry.path();
 
     if !path.is_file() {
@@ -230,7 +228,7 @@ pub fn index_directory(path: String) -> Result<FileIndexResult> {
   Ok(FileIndexResult {
     files_indexed,
     symbols_extracted,
-    duration_ms: start.elapsed().as_millis() as u64,
+    duration_ms: start.elapsed().as_millis() as f64,
   })
 }
 
@@ -255,7 +253,7 @@ pub fn search_code_graph(query: String, project_path: String) -> Result<CodeGrap
     .build();
 
   for entry in walker {
-    let entry = entry?;
+    let entry = entry.map_err(|e| Error::new(Status::GenericFailure, format!("walk error: {}", e)))?;
     let path = entry.path();
 
     if !path.is_file() {
@@ -347,7 +345,7 @@ pub fn sandbox_create(config: SandboxConfig) -> Result<SandboxResult> {
     .arg("/tmp");
 
   if let Some(mem_mb) = config.memory_mb {
-    cmd.arg("--rlimit-as").arg(format!("{}", mem_mb * 1024 * 1024));
+    cmd.arg("--rlimit-as").arg(format!("{}", (mem_mb * 1024.0 * 1024.0) as u64));
   }
 
   cmd.arg("--").arg("/bin/sh").arg("-c").arg("sleep infinity");
@@ -361,7 +359,7 @@ pub fn sandbox_create(config: SandboxConfig) -> Result<SandboxResult> {
 }
 
 #[napi]
-pub fn sandbox_execute(sandbox_id: String, command: String) -> Result<SandboxExecResult> {
+pub fn sandbox_execute(_sandbox_id: String, command: String) -> Result<SandboxExecResult> {
   use std::process::Command;
   use std::time::Instant;
 
@@ -396,7 +394,7 @@ pub fn sandbox_execute(sandbox_id: String, command: String) -> Result<SandboxExe
     stdout: String::from_utf8_lossy(&output.stdout).to_string(),
     stderr: String::from_utf8_lossy(&output.stderr).to_string(),
     exit_code: output.status.code().unwrap_or(-1),
-    duration_ms: start.elapsed().as_millis() as u64,
+    duration_ms: start.elapsed().as_millis() as f64,
   })
 }
 
