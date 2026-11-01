@@ -218,7 +218,6 @@ Napi::Value InputSimulator::Key(const Napi::CallbackInfo& info) {
     sendKeyEvent(keysym, false);
 #endif
   } else {
-    KeySym keysym = 0;
 #if defined(_WIN32)
     WORD vk = 0;
     if (key == "enter") vk = VK_RETURN;
@@ -251,6 +250,7 @@ Napi::Value InputSimulator::Key(const Napi::CallbackInfo& info) {
       sendKeyEvent(vk, false);
     }
 #elif defined(__APPLE__)
+    CGKeyCode keysym = 0;
     if (key == "enter") keysym = 0x24;
     else if (key == "escape") keysym = 0x35;
     else if (key == "tab") keysym = 0x30;
@@ -281,6 +281,7 @@ Napi::Value InputSimulator::Key(const Napi::CallbackInfo& info) {
       sendKeyEvent(keysym, false);
     }
 #else
+    KeySym keysym = 0;
     if (key == "enter") keysym = XK_Return;
     else if (key == "escape") keysym = XK_Escape;
     else if (key == "tab") keysym = XK_Tab;

@@ -3,6 +3,7 @@
 
 #if defined(_WIN32)
 #include <windows.h>
+#include <objidl.h>
 #include <gdiplus.h>
 #pragma comment(lib, "gdiplus.lib")
 #elif defined(__APPLE__)
