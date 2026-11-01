@@ -33,6 +33,28 @@ the project with `flutter create --org com.flamingocode --project-name
 flamingocode_mobile mobile` (package `com.flamingocode.mobile`).
 Commit in small slices.
 
+## VM TOOLCHAIN SETUP (READ THIS FIRST — the environment is special)
+
+The VM has NO direct internet for Java/Dart (egress proxy blocks them).
+A local pub mirror + forward proxy are ALREADY RUNNING — use them:
+
+- **Pub mirror:** `http://127.0.0.1:8080` — ALWAYS export
+  `PUB_HOSTED_URL=http://127.0.0.1:8080` before ANY `flutter`/`dart pub`
+  command. Without it, `pub get` hangs forever.
+- **Flutter SDK:** `~/flutter-sdk/bin/flutter` (3.24.5). Add to PATH.
+- **Java:** `~/jdk` (Temurin 17). Export `JAVA_HOME=~/jdk`.
+- **Android SDK:** `~/android-sdk`. Export `ANDROID_HOME=~/android-sdk`
+  and `ANDROID_SDK_ROOT=~/android-sdk`.
+- **Gradle:** pre-downloaded at `~/.gradle/wrapper/dists/`. The Gradle
+  daemon does NOT work on this VM — if `flutter build apk` fails on the
+  Gradle step, report it honestly; the Dart code + `flutter analyze` +
+  `flutter test` are the verifiable deliverables here.
+- **Full env for every flutter command:**
+  `export PUB_HOSTED_URL=http://127.0.0.1:8080 JAVA_HOME=~/jdk ANDROID_HOME=~/android-sdk ANDROID_SDK_ROOT=~/android-sdk PATH=~/flutter-sdk/bin:~/jdk/bin:$PATH`
+- If `127.0.0.1:8080` is dead (VM restarted), restart the mirror:
+  `nohup python3 ~/workspace/pub-mirror.py > ~/workspace/pub-mirror.log 2>&1 &`
+  (and `~/workspace/flutter-proxy.py` on port 8888 the same way).
+
 ## FEATURES (from mobile-app-spec.md — ALL of them, his words are the spec)
 
 1. **Login = connection (HIS FLOW).** Sign IN with the same Gmail used on
