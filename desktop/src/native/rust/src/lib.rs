@@ -82,7 +82,7 @@ impl SymbolExtractor {
         Regex::new(r"(?:export\s+)?(?:async\s+)?function\s+(\w+)").unwrap(),
         Regex::new(r"(?:export\s+)?(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s+)?\(.*?\)\s*=>").unwrap(),
         Regex::new(r"(?:export\s+)?class\s+(\w+)").unwrap(),
-        Regex::new(r"import\s+(?:\w+|\{[\w\s,]+\})\s+from\s+['\"]([^'\"]+)['\"]").unwrap(),
+        Regex::new(r#"import\s+(?:\w+|\{[\w\s,]+\})\s+from\s+['\"]([^'\"]+)['\"]"#).unwrap(),
         Regex::new(r"export\s+(?:default\s+)?(?:class|function|const|let|var)\s+(\w+)").unwrap(),
       ],
     );
@@ -95,7 +95,7 @@ impl SymbolExtractor {
         Regex::new(r"(?:export\s+)?class\s+(\w+)").unwrap(),
         Regex::new(r"interface\s+(\w+)").unwrap(),
         Regex::new(r"type\s+(\w+)\s*=").unwrap(),
-        Regex::new(r"import\s+(?:\w+|\{[\w\s,]+\})\s+from\s+['\"]([^'\"]+)['\"]").unwrap(),
+        Regex::new(r#"import\s+(?:\w+|\{[\w\s,]+\})\s+from\s+['\"]([^'\"]+)['\"]"#).unwrap(),
         Regex::new(r"export\s+(?:default\s+)?(?:class|function|const|let|var|interface|type)\s+(\w+)").unwrap(),
       ],
     );
@@ -130,7 +130,7 @@ impl SymbolExtractor {
         Regex::new(r"func\s+(?:\(\w+\s+\w+\)\s+)?(\w+)").unwrap(),
         Regex::new(r"type\s+(\w+)\s+struct").unwrap(),
         Regex::new(r"type\s+(\w+)\s+interface").unwrap(),
-        Regex::new(r"import\s+(?:\"([^\"]+)\"|`([^`]+)`)").unwrap(),
+        Regex::new(r#"import\s+(?:\"([^\"]+)\"|`([^`]+)`)"#).unwrap(),
       ],
     );
 
