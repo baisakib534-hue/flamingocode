@@ -32,7 +32,7 @@ dependencies:
   flutter_local_notifications: ^17.2.2
 
   # Voice Input
-  speech_to_text: ^7.0.0
+  speech_to_text: ^6.6.0  # downgraded 2026-11-01: v7.x android/build.gradle incompatible (compileSdkVersion missing), 6.6.0 works with our Gradle 8.3/Android-34 setup
 
   # Video Player
   video_player: ^2.8.1
