@@ -1,0 +1,9 @@
+# macOS: this crate is a napi-rs cdylib whose napi_* symbols are provided by
+# Node.js at load time. napi 2.x ships no build script, so tell the linker
+# to allow undefined symbols instead of failing the link.
+# (Raw `cargo build --release` is used, not the napi CLI which sets this itself.)
+[target.aarch64-apple-darwin]
+rustflags = ["-C", "link-args=-undefined dynamic_lookup"]
+
+[target.x86_64-apple-darwin]
+rustflags = ["-C", "link-args=-undefined dynamic_lookup"]
