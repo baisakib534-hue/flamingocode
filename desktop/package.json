@@ -20,25 +20,26 @@
     "typecheck": "tsc --noEmit -p tsconfig.main.json && tsc --noEmit -p tsconfig.preload.json"
   },
   "dependencies": {
+    "bindings": "^1.5.0",
     "electron": "^30.0.0",
-    "node-addon-api": "^7.1.0",
-    "bindings": "^1.5.0"
+    "node-addon-api": "^7.1.0"
   },
   "devDependencies": {
-    "@types/node": "^20.14.0",
     "@types/electron": "^1.6.10",
-    "typescript": "^5.5.0",
-    "vite": "^5.3.0",
-    "esbuild": "^0.21.0",
-    "electron-builder": "^24.13.0",
-    "concurrently": "^8.2.0",
-    "eslint": "^8.57.0",
+    "@types/node": "^20.14.0",
     "@typescript-eslint/eslint-plugin": "^7.0.0",
-    "@typescript-eslint/parser": "^7.0.0"
+    "@typescript-eslint/parser": "^7.0.0",
+    "concurrently": "^8.2.0",
+    "electron-builder": "^24.13.0",
+    "electron-icon-builder": "^2.0.1",
+    "esbuild": "^0.21.0",
+    "eslint": "^8.57.0",
+    "typescript": "^5.5.0",
+    "vite": "^5.3.0"
   },
   "build": {
-    "appId": "com.devforge.app",
-    "productName": "DevForge",
+    "appId": "com.flamingocode.app",
+    "productName": "FlamingoCode",
     "directories": {
       "output": "dist/package"
     },
@@ -53,6 +54,28 @@
     "win": {
       "target": "nsis",
       "icon": "assets/icon.ico"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "assets/icon.icns"
+    },
+    "dmg": {
+      "contents": [
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ],
+      "window": {
+        "width": 540,
+        "height": 380
+      }
     },
     "nsis": {
       "oneClick": false,
