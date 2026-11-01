@@ -8,7 +8,7 @@
         "src/input_simulator.cpp"
       ],
       "include_dirs": [
-        "<!(node -e \"require('node-addon-api').include\")",
+        "<!@(node -p \"require('node-addon-api').include\")",
         "src"
       ],
       "libraries": [],
