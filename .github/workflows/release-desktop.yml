@@ -50,10 +50,10 @@ jobs:
         working-directory: ./desktop/src/native/cpp
         run: npm run build
 
-            - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: 'stable'        
+      - name: Setup Go
+          uses: actions/setup-go@v5
+          with:
+            go-version: 'stable'        
       - name: Build Go binary
         working-directory: ./desktop/go/devforge-go
         run: |
