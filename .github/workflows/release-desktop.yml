@@ -1,0 +1,190 @@
+name: Release Desktop Installers
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g. v1.0.0-desktop)'
+        required: true
+        type: string
+      release_name:
+        description: 'Release name'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    name: Build Windows Installer (.exe)
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - name: Install Windows build tools
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Install npm dependencies
+        working-directory: ./desktop
+        run: npm ci
+
+      - name: Build native modules (Rust)
+        working-directory: ./desktop
+        run: npm run build:native:rust
+
+      - name: Build native modules (C++)
+        working-directory: ./desktop/src/native/cpp
+        run: npm run build
+
+      - name: Build Go binary
+        working-directory: ./desktop/go/devforge-go
+        run: |
+          mkdir -p ../bin
+          go build -o ../bin/devforge-go.exe .
+
+      - name: Build Electron app
+        working-directory: ./desktop
+        run: npm run build
+
+      - name: Package Windows installer
+        working-directory: ./desktop
+        run: npm run package
+
+      - name: Find Windows artifact
+        id: find-windows
+        run: |
+          $files = Get-ChildItem dist/package -Filter "*.exe" -Recurse
+          foreach ($f in $files) {
+            echo "file=$($f.FullName)" >> $env:GITHUB_OUTPUT
+            echo "name=$($f.Name)" >> $env:GITHUB_OUTPUT
+            echo "size=$($f.Length)" >> $env:GITHUB_OUTPUT
+          }
+
+      - name: Upload Windows installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: flamingocode-windows-installer
+          path: ${{ steps.find-windows.outputs.file }}
+          retention-days: 30
+
+  build-macos:
+    name: Build macOS Installer (.dmg)
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - name: Install npm dependencies
+        working-directory: ./desktop
+        run: npm ci
+
+      - name: Build native modules (Rust)
+        working-directory: ./desktop
+        run: npm run build:native:rust
+
+      - name: Build native modules (C++)
+        working-directory: ./desktop/src/native/cpp
+        run: npm run build
+
+      - name: Build Go binary
+        working-directory: ./desktop/go/devforge-go
+        run: |
+          mkdir -p ../bin
+          go build -o ../bin/devforge-go .
+
+      - name: Build Electron app
+        working-directory: ./desktop
+        run: npm run build
+
+      - name: Package macOS installer
+        working-directory: ./desktop
+        run: npx electron-builder --mac --x64 --arm64
+
+      - name: Find macOS artifact
+        id: find-macos
+        run: |
+          files=$(find dist/package -name "*.dmg" -type f)
+          for f in $files; do
+            echo "file=$f" >> $GITHUB_OUTPUT
+            echo "name=$(basename $f)" >> $GITHUB_OUTPUT
+            echo "size=$(stat -f%z $f)" >> $GITHUB_OUTPUT
+          done
+
+      - name: Upload macOS installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: flamingocode-macos-installer
+          path: ${{ steps.find-macos.outputs.file }}
+          retention-days: 30
+
+  release:
+    name: Create/Update Release
+    needs: [build-windows, build-macos]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download Windows installer
+        uses: actions/download-artifact@v4
+        with:
+          name: flamingocode-windows-installer
+          path: ./artifacts/windows
+
+      - name: Download macOS installer
+        uses: actions/download-artifact@v4
+        with:
+          name: flamingocode-macos-installer
+          path: ./artifacts/macos
+
+      - name: Verify artifacts
+        run: |
+          echo "=== Windows artifacts ==="
+          ls -la ./artifacts/windows/
+          echo "=== macOS artifacts ==="
+          ls -la ./artifacts/macos/
+
+          # Compute SHA256
+          echo "=== SHA256 checksums ==="
+          sha256sum ./artifacts/windows/* 2>/dev/null || true
+          sha256sum ./artifacts/macos/* 2>/dev/null || true
+
+      - name: Create or update release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.tag }}
+          name: ${{ github.event.inputs.release_name || format('FlamingoCode Desktop {0}', github.event.inputs.tag) }}
+          draft: false
+          prerelease: false
+          files: |
+            ./artifacts/windows/*
+            ./artifacts/macos/*
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
