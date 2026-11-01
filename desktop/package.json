@@ -21,7 +21,6 @@
   },
   "dependencies": {
     "bindings": "^1.5.0",
-    "electron": "^30.0.0",
     "node-addon-api": "^7.1.0"
   },
   "devDependencies": {
@@ -30,6 +29,7 @@
     "@typescript-eslint/eslint-plugin": "^7.0.0",
     "@typescript-eslint/parser": "^7.0.0",
     "concurrently": "^8.2.0",
+    "electron": "^30.0.0",
     "electron-builder": "^24.13.0",
     "electron-icon-builder": "^2.0.1",
     "esbuild": "^0.21.0",
