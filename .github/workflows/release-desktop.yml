@@ -71,6 +71,7 @@ jobs:
 
       - name: Find Windows artifact
         id: find-windows
+        working-directory: ./desktop
         run: |
           $files = Get-ChildItem dist/package -Filter "*.exe" -Recurse
           foreach ($f in $files) {
@@ -114,6 +115,12 @@ jobs:
         run: npm run build:native:rust
 
       - name: Build native modules (C++)
+
+
+
+
+      
+
         working-directory: ./desktop/src/native/cpp
         run: npm run build
 
@@ -126,10 +133,11 @@ jobs:
         working-directory: ./desktop/go/devforge-go
         run: |
           mkdir -p ../bin
+
+          
           go build -o ../bin/devforge-go .
 
       - name: Build Electron app
-        working-directory: ./desktop
         run: npm run build
 
       - name: Package macOS installer
@@ -138,6 +146,7 @@ jobs:
 
       - name: Find macOS artifact
         id: find-macos
+        working-directory: ./desktop
         run: |
           files=$(find dist/package -name "*.dmg" -type f)
           for f in $files; do
