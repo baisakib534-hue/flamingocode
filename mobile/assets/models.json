@@ -1,0 +1,51 @@
+{
+  "providers": [
+    {
+      "name": "9router",
+      "models": [
+        { "id": "9router/auto", "name": "Auto (Best Available)", "description": "Automatically selects the best model" },
+        { "id": "9router/claude-3.5-sonnet", "name": "Claude 3.5 Sonnet", "description": "Anthropic's most capable model" },
+        { "id": "9router/gpt-4o", "name": "GPT-4o", "description": "OpenAI's flagship multimodal model" },
+        { "id": "9router/gemini-1.5-pro", "name": "Gemini 1.5 Pro", "description": "Google's long-context model" }
+      ]
+    },
+    {
+      "name": "DuckDuckGo (Free)",
+      "models": [
+        { "id": "duckduckgo/claude-3-haiku", "name": "Claude 3 Haiku (Free)", "description": "Fast, free via DuckDuckGo AI Chat" },
+        { "id": "duckduckgo/gpt-4o-mini", "name": "GPT-4o Mini (Free)", "description": "OpenAI's efficient model, free tier" },
+        { "id": "duckduckgo/llama-3.1-70b", "name": "Llama 3.1 70B (Free)", "description": "Meta's open model, free via DDG" },
+        { "id": "duckduckgo/mixtral-8x7b", "name": "Mixtral 8x7B (Free)", "description": "Mistral's MoE model, free tier" }
+      ]
+    },
+    {
+      "name": "OpenAI",
+      "models": [
+        { "id": "openai/gpt-4o", "name": "GPT-4o", "description": "Multimodal flagship" },
+        { "id": "openai/gpt-4o-mini", "name": "GPT-4o Mini", "description": "Cost-efficient reasoning" },
+        { "id": "openai/gpt-4-turbo", "name": "GPT-4 Turbo", "description": "Previous generation flagship" }
+      ]
+    },
+    {
+      "name": "Anthropic",
+      "models": [
+        { "id": "anthropic/claude-3.5-sonnet", "name": "Claude 3.5 Sonnet", "description": "Best for coding tasks" },
+        { "id": "anthropic/claude-3.5-haiku", "name": "Claude 3.5 Haiku", "description": "Fast and capable" },
+        { "id": "anthropic/claude-3-opus", "name": "Claude 3 Opus", "description": "Most capable (legacy)" }
+      ]
+    },
+    {
+      "name": "Google",
+      "models": [
+        { "id": "google/gemini-1.5-pro", "name": "Gemini 1.5 Pro", "description": "2M context window" },
+        { "id": "google/gemini-1.5-flash", "name": "Gemini 1.5 Flash", "description": "Fast, cost-efficient" }
+      ]
+    },
+    {
+      "name": "Custom Provider",
+      "models": [
+        { "id": "custom", "name": "Add Custom Provider", "description": "Configure your own endpoint + API key" }
+      ]
+    }
+  ]
+}
