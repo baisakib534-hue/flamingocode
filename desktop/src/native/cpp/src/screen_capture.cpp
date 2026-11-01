@@ -67,6 +67,29 @@ Napi::Value ScreenCapture::Capture(const Napi::CallbackInfo& info) {
 }
 
 #if defined(_WIN32)
+// Standard GDI+ helper (MSDN pattern): retrieves the CLSID of the image
+// encoder matching a MIME type. This is a free helper function, not a
+// member of the Gdiplus API.
+static int GetEncoderClsid(const WCHAR* format, CLSID* pClsid) {
+  UINT num = 0;
+  UINT size = 0;
+  Gdiplus::GetImageEncodersSize(&num, &size);
+  if (size == 0) return -1;
+  Gdiplus::ImageCodecInfo* pImageCodecInfo =
+      static_cast<Gdiplus::ImageCodecInfo*>(malloc(size));
+  if (pImageCodecInfo == NULL) return -1;
+  Gdiplus::GetImageEncoders(num, size, pImageCodecInfo);
+  for (UINT j = 0; j < num; ++j) {
+    if (wcscmp(pImageCodecInfo[j].MimeType, format) == 0) {
+      *pClsid = pImageCodecInfo[j].Clsid;
+      free(pImageCodecInfo);
+      return static_cast<int>(j);
+    }
+  }
+  free(pImageCodecInfo);
+  return -1;
+}
+
 std::string ScreenCapture::captureScreenWindows() {
   Gdiplus::GdiplusStartupInput gdiplusStartupInput;
   ULONG_PTR gdiplusToken;
@@ -91,7 +114,7 @@ std::string ScreenCapture::captureScreenWindows() {
   DeleteObject(hBitmap);
 
   CLSID pngClsid;
-  Gdiplus::GetEncoderClsid(L"image/png", &pngClsid);
+  GetEncoderClsid(L"image/png", &pngClsid);
 
   IStream* stream = NULL;
   CreateStreamOnHGlobal(NULL, TRUE, &stream);
