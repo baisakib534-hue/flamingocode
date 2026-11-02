@@ -74,11 +74,13 @@ jobs:
         working-directory: ./desktop
         run: |
           $files = Get-ChildItem dist/package -Filter "*.exe" -Recurse
-          foreach ($f in $files) {
-            echo "file=$($f.FullName)" >> $env:GITHUB_OUTPUT
-            echo "name=$($f.Name)" >> $env:GITHUB_OUTPUT
-            echo "size=$($f.Length)" >> $env:GITHUB_OUTPUT
-          }
+          Write-Host "exe files found in dist/package:"
+          $files | ForEach-Object { Write-Host " - $($_.FullName) ($($_.Length) bytes)" }
+          $installer = $files | Where-Object { $_.Name -like "*Setup*.exe" } | Select-Object -First 1
+          if (-not $installer) { Write-Error "No NSIS installer (*Setup*.exe) found in dist/package"; exit 1 }
+          echo "file=$($installer.FullName)" >> $env:GITHUB_OUTPUT
+          echo "name=$($installer.Name)" >> $env:GITHUB_OUTPUT
+          echo "size=$($installer.Length)" >> $env:GITHUB_OUTPUT
 
       - name: Upload Windows installer artifact
         uses: actions/upload-artifact@v4
