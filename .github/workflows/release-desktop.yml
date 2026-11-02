@@ -132,10 +132,10 @@ jobs:
           go build -o ../bin/devforge-go .
 
       - name: Build Electron app
-      working-directory: ./desktop
+        working-directory: ./desktop
         run: npm run build
 
-      - name: Package macOS installer
+      - name: 
         working-directory: ./desktop
         run: npx electron-builder --mac --x64 --arm64
 
