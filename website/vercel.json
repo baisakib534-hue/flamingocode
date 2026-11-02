@@ -8,6 +8,7 @@
   "rewrites": [
     { "source": "/api/auth/:op", "destination": "/api/auth?op=:op" },
     { "source": "/api/devices/:op", "destination": "/api/devices?op=:op" },
+    { "source": "/api/tasks/:taskId/result", "destination": "/api/tasks?op=result&taskId=:taskId" },
     { "source": "/api/tasks/:op", "destination": "/api/tasks?op=:op" },
     { "source": "/api/recordings/:op", "destination": "/api/recordings?op=:op" }
   ],

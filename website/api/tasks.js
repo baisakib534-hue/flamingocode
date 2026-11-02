@@ -30,6 +30,14 @@ function opOf(req) {
   return seg || '';
 }
 
+// Task id from a two-segment path like /api/tasks/<taskId>/result
+function taskIdFromPath(req) {
+  const parts = (req.url || '').split('?')[0].split('/').filter(Boolean);
+  const i = parts.indexOf('tasks');
+  const id = i >= 0 ? parts[i + 1] : null;
+  return id && id !== 'result' ? id : '';
+}
+
 module.exports = async (req, res) => {
   res.setHeader('Content-Type', 'application/json');
   Object.entries(corsHeaders()).forEach(([k, v]) => res.setHeader(k, v));
@@ -75,9 +83,11 @@ module.exports = async (req, res) => {
       return res.json({ taskId });
     }
 
-    if (req.method === 'GET' && req.url.startsWith('/api/tasks/poll')) {
-      const url = new URL(req.url, 'http://localhost');
-      const deviceId = url.searchParams.get('deviceId');
+    // GET /api/tasks/poll?deviceId=... — query params survive the rewrite either way
+    if (req.method === 'GET' && op === 'poll') {
+      const qs = (req.query && req.query.deviceId) ||
+        new URL(req.url || '', 'http://localhost').searchParams.get('deviceId');
+      const deviceId = qs ? String(qs) : null;
       if (!deviceId) return res.status(400).json({ error: 'deviceId required' });
 
       const device = await store.getDevice(deviceId);
@@ -103,8 +113,9 @@ module.exports = async (req, res) => {
       return res.json(tasks.map(t => ({ taskId: t.taskId, envelope: t.envelope })));
     }
 
-    if (req.method === 'POST' && req.url.startsWith('/api/tasks/') && req.url.endsWith('/result')) {
-      const taskId = req.url.split('/api/tasks/')[1].split('/result')[0];
+    // POST /api/tasks/<taskId>/result — taskId via ?taskId= (rewrite) or URL path
+    if (req.method === 'POST' && op === 'result') {
+      const taskId = (req.query && req.query.taskId) || taskIdFromPath(req);
       const { result } = req.body;
       if (result === undefined) return res.status(400).json({ error: 'result required' });
 
@@ -117,8 +128,9 @@ module.exports = async (req, res) => {
       return res.json({ ok: true });
     }
 
-    if (req.method === 'GET' && req.url.startsWith('/api/tasks/')) {
-      const taskId = req.url.split('/api/tasks/')[1];
+    // GET /api/tasks/<taskId> — task id is the op in either URL form
+    if (req.method === 'GET' && op && !['tasks', 'history', 'poll', 'result'].includes(op)) {
+      const taskId = op;
       const task = await store.getTask(taskId);
       if (!task || task.userId !== userId) {
         return res.status(404).json({ error: 'Task not found' });

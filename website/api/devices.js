@@ -82,8 +82,9 @@ module.exports = async (req, res) => {
       })));
     }
 
-    if (req.method === 'DELETE' && req.url.startsWith('/api/devices/')) {
-      const deviceId = req.url.split('/api/devices/')[1];
+    // DELETE /api/devices/<deviceId> — op is the device id in either URL form
+    if (req.method === 'DELETE' && op && op !== 'devices' && op !== 'register' && op !== 'pair') {
+      const deviceId = op;
       const device = await store.getDevice(deviceId);
       if (!device || device.userId !== userId) {
         return res.status(404).json({ error: 'Device not found' });

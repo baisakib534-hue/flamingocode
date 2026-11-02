@@ -34,7 +34,7 @@ const App = {
 
   async validateToken(token) {
     try {
-      const res = await fetch(`${this.apiBase}/auth/validate`, {
+      const res = await fetch(`${this.apiBase}/auth/me`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       return res.ok;
