@@ -5,9 +5,11 @@
     "api/tasks.js": { "maxDuration": 30 },
     "api/recordings.js": { "maxDuration": 30 }
   },
-  "routes": [
-    { "src": "/api/(.*)", "dest": "/api/$1" },
-    { "src": "/(.*)", "dest": "/$1" }
+  "rewrites": [
+    { "source": "/api/auth/:op", "destination": "/api/auth?op=:op" },
+    { "source": "/api/devices/:op", "destination": "/api/devices?op=:op" },
+    { "source": "/api/tasks/:op", "destination": "/api/tasks?op=:op" },
+    { "source": "/api/recordings/:op", "destination": "/api/recordings?op=:op" }
   ],
   "cleanUrls": true,
   "trailingSlash": false

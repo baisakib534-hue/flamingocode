@@ -21,6 +21,15 @@ async function getUserIdFromToken(token) {
   return record?.userId || null;
 }
 
+// Vercel rewrite: /api/tasks/:op -> /api/tasks?op=:op
+// req.url may arrive as the original nested path or the rewritten base path;
+// accept either form so routing works regardless.
+function opOf(req) {
+  if (req.query && req.query.op) return String(req.query.op);
+  const seg = (req.url || '').split('?')[0].split('/').filter(Boolean).pop();
+  return seg || '';
+}
+
 module.exports = async (req, res) => {
   res.setHeader('Content-Type', 'application/json');
   Object.entries(corsHeaders()).forEach(([k, v]) => res.setHeader(k, v));
@@ -39,7 +48,10 @@ module.exports = async (req, res) => {
       return res.status(429).json({ error: 'Rate limited', retryAfter: rateLimit.retryAfter });
     }
 
-    if (req.method === 'POST' && req.url === '/api/tasks') {
+    // Vercel rewrite: /api/tasks/:op -> /api/tasks?op=:op (see vercel.json)
+    const op = opOf(req);
+
+    if (req.method === 'POST' && (op === 'tasks' || req.url === '/api/tasks')) {
       const { toDeviceId, envelope } = req.body;
       if (!toDeviceId || envelope === undefined) {
         return res.status(400).json({ error: 'toDeviceId and envelope required' });
@@ -114,7 +126,7 @@ module.exports = async (req, res) => {
       return res.json(task);
     }
 
-    if (req.method === 'GET' && req.url === '/api/tasks/history') {
+    if (req.method === 'GET' && op === 'history') {
       const tasks = await store.getUserTasks(userId);
       return res.json(tasks);
     }

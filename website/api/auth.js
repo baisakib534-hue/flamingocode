@@ -27,6 +27,15 @@ function validateEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
+// Vercel rewrite: /api/auth/:op -> /api/auth?op=:op
+// req.url may arrive as the original nested path or the rewritten base path;
+// accept either form so routing works regardless.
+function opOf(req) {
+  if (req.query && req.query.op) return String(req.query.op);
+  const seg = (req.url || '').split('?')[0].split('/').filter(Boolean).pop();
+  return seg || '';
+}
+
 module.exports = async (req, res) => {
   res.setHeader('Content-Type', 'application/json');
   Object.entries(corsHeaders()).forEach(([k, v]) => res.setHeader(k, v));
@@ -34,8 +43,9 @@ module.exports = async (req, res) => {
   if (req.method === 'OPTIONS') return res.status(204).end();
 
   try {
+    const op = opOf(req);
     // POST /api/auth/signup
-    if (req.method === 'POST' && req.url === '/api/auth/signup') {
+    if (req.method === 'POST' && op === 'signup') {
       const { email, password, name } = req.body;
       if (!email || !password || !name) {
         return res.status(400).json({ error: 'Email, password, and name are required' });
@@ -74,7 +84,7 @@ module.exports = async (req, res) => {
     }
 
     // POST /api/auth/login
-    if (req.method === 'POST' && req.url === '/api/auth/login') {
+    if (req.method === 'POST' && op === 'login') {
       const { email, password } = req.body;
       if (!email || !password) {
         return res.status(400).json({ error: 'Email and password are required' });
@@ -99,7 +109,7 @@ module.exports = async (req, res) => {
     }
 
     // GET /api/auth/me
-    if (req.method === 'GET' && req.url === '/api/auth/me') {
+    if (req.method === 'GET' && op === 'me') {
       const token = verifyAuth(req);
       if (!token) return res.status(401).json({ error: 'Missing token' });
       const tokenHash = crypto.createHash('sha256').update(token).digest('hex');

@@ -21,6 +21,15 @@ async function getUserIdFromToken(token) {
   return record?.userId || null;
 }
 
+// Vercel rewrite: /api/devices/:op -> /api/devices?op=:op
+// req.url may arrive as the original nested path or the rewritten base path;
+// accept either form so routing works regardless.
+function opOf(req) {
+  if (req.query && req.query.op) return String(req.query.op);
+  const seg = (req.url || '').split('?')[0].split('/').filter(Boolean).pop();
+  return seg || '';
+}
+
 module.exports = async (req, res) => {
   res.setHeader('Content-Type', 'application/json');
   Object.entries(corsHeaders()).forEach(([k, v]) => res.setHeader(k, v));
@@ -39,7 +48,9 @@ module.exports = async (req, res) => {
       return res.status(429).json({ error: 'Rate limited', retryAfter: rateLimit.retryAfter });
     }
 
-    if (req.method === 'POST' && req.url === '/api/devices/register') {
+    const op = opOf(req);
+
+    if (req.method === 'POST' && op === 'register') {
       const { name, type, pushToken } = req.body;
       if (!name || !type || !['desktop', 'phone'].includes(type)) {
         return res.status(400).json({ error: 'Invalid request: name and type (desktop|phone) required' });
@@ -61,7 +72,7 @@ module.exports = async (req, res) => {
       return res.json({ deviceId, pairCode });
     }
 
-    if (req.method === 'GET' && req.url === '/api/devices') {
+    if (req.method === 'GET' && (op === 'devices' || req.url === '/api/devices')) {
       const devices = await store.getUserDevices(userId);
       return res.json(devices.map(d => ({
         deviceId: d.deviceId,
@@ -82,7 +93,7 @@ module.exports = async (req, res) => {
     }
 
     // POST /api/devices/pair - pair a phone with a desktop using pairCode
-    if (req.method === 'POST' && req.url === '/api/devices/pair') {
+    if (req.method === 'POST' && op === 'pair') {
       const { deviceId, pairCode } = req.body;
       if (!deviceId || !pairCode) {
         return res.status(400).json({ error: 'deviceId and pairCode required' });
