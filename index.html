@@ -2358,6 +2358,80 @@
       background: var(--accent-blue);
       color: white;
     }
+    /* RACE mode container + results panel (replaces inline styles) */
+    .race-mode-container {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-left: 8px;
+      padding-left: 8px;
+      border-left: 1px solid var(--border-color);
+    }
+    .btn-race-toggle {
+      padding: 8px 10px;
+      min-width: 44px;
+    }
+    .race-model-picker {
+      display: none;
+      position: relative;
+    }
+    .race-model-select {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      color: var(--text-main);
+      padding: 6px 8px;
+      font-size: 11px;
+      min-width: 180px;
+      max-height: 120px;
+    }
+    .race-model-count {
+      font-size: 10px;
+      color: var(--text-dim);
+      margin-left: 4px;
+    }
+    .race-results-container {
+      display: none;
+      margin-top: 8px;
+      padding: 8px 12px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      font-size: 12px;
+    }
+    .race-results-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    .race-results-title {
+      font-weight: 600;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .race-results-status {
+      font-size: 11px;
+      color: var(--text-dim);
+      font-weight: normal;
+    }
+    .race-results-actions {
+      display: flex;
+      gap: 4px;
+    }
+    .btn-race-sm {
+      padding: 3px 8px;
+      font-size: 10px;
+    }
+    .race-results-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 400px;
+      overflow-y: auto;
+    }
 
     /* Templates Gallery Styles */
     .pane-header {
@@ -2928,11 +3002,11 @@
               <option value="bn-BD">Bangla (বাংলা)</option>
             </select>
             <!-- RACE Mode Toggle & Model Picker -->
-            <div id="raceModeContainer" style="display: flex; align-items: center; gap: 6px; margin-left: 8px; padding-left: 8px; border-left: 1px solid var(--border-color);">
-              <button type="button" id="btnRaceToggle" class="btn btn-secondary" title="Toggle RACE mode: race multiple models in parallel" style="padding: 8px 10px; min-width: 44px;" data-i18n-title="RACE Mode">🏁</button>
-              <div id="raceModelPicker" style="display: none; position: relative;">
-                <select id="raceModelSelect" class="race-model-select" multiple title="Select 2-4 models to race (hold Ctrl/Cmd to multi-select)" style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-main); padding: 6px 8px; font-size: 11px; min-width: 180px; max-height: 120px;"></select>
-                <span id="raceModelCount" style="font-size: 10px; color: var(--text-dim); margin-left: 4px;">(0/4)</span>
+            <div id="raceModeContainer" class="race-mode-container">
+              <button type="button" id="btnRaceToggle" class="btn btn-secondary btn-race-toggle" title="Toggle RACE mode: race multiple models in parallel" data-i18n-title="RACE Mode">🏁</button>
+              <div id="raceModelPicker" class="race-model-picker">
+                <select id="raceModelSelect" class="race-model-select" multiple title="Select 2-4 models to race (hold Ctrl/Cmd to multi-select)"></select>
+                <span id="raceModelCount" class="race-model-count">(0/4)</span>
               </div>
             </div>
             <button class="btn" id="btnSend" data-i18n="Send">Send</button>
@@ -2950,18 +3024,18 @@
           </div>
 
           <!-- RACE Mode Results Panel -->
-          <div id="raceResultsContainer" style="display: none; margin-top: 8px; padding: 8px 12px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; font-size: 12px;">
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-              <div style="font-weight: 600; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
+          <div id="raceResultsContainer" class="race-results-container">
+            <div class="race-results-header">
+              <div class="race-results-title">
                 <span data-i18n="RACE Results">🏁 RACE Results</span>
-                <span id="raceResultsStatus" style="font-size: 11px; color: var(--text-dim); font-weight: normal;"></span>
+                <span id="raceResultsStatus" class="race-results-status"></span>
               </div>
-              <div style="display: flex; gap: 4px;">
-                <button class="btn btn-secondary btn-sm" id="btnRaceClear" style="padding: 3px 8px; font-size: 10px;" data-i18n="Clear">Clear</button>
-                <button class="btn btn-secondary btn-sm" id="btnRaceClose" style="padding: 3px 8px; font-size: 10px;" data-i18n="Close">✕</button>
+              <div class="race-results-actions">
+                <button class="btn btn-secondary btn-sm btn-race-sm" id="btnRaceClear" data-i18n="Clear">Clear</button>
+                <button class="btn btn-secondary btn-sm btn-race-sm" id="btnRaceClose" data-i18n="Close">✕</button>
               </div>
             </div>
-            <div id="raceResultsList" style="display: flex; flex-direction: column; gap: 8px; max-height: 400px; overflow-y: auto;">
+            <div id="raceResultsList" class="race-results-list">
               <!-- Race result cards rendered here -->
             </div>
           </div>
