@@ -135,7 +135,7 @@ jobs:
         working-directory: ./desktop
         run: npm run build
 
-      - name: 
+      - name:  Package macOS installer
         working-directory: ./desktop
         run: npx electron-builder --mac --x64 --arm64
 
