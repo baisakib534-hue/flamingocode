@@ -1,6 +1,6 @@
 {
   "name": "devforge-desktop",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "DevForge — Electron + TypeScript desktop shell with native modules",
   "main": "dist/main/main.js",
   "scripts": {
