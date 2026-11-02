@@ -46,14 +46,14 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
     }
   }
 
-  Future<void> signInWithGoogle(String credential) async {
+  Future<void> login(String email, String password) async {
     state = const AsyncValue.loading();
     try {
-      final result = await _apiService.signInWithGoogle(credential);
+      final result = await _apiService.login(email, password);
       if (result.success) {
         state = AsyncValue.data(result.user);
       } else {
-        state = AsyncValue.error(result.error ?? 'Sign in failed', StackTrace.current);
+        state = AsyncValue.error(result.error ?? 'Login failed', StackTrace.current);
       }
     } catch (e, st) {
       state = AsyncValue.error(e, st);

@@ -29,7 +29,6 @@ Add these in **Settings → Environment Variables** (all environments: Productio
 
 | Name | Value | Description |
 |------|-------|-------------|
-| `GOOGLE_CLIENT_ID` | `your-google-oauth-client-id.apps.googleusercontent.com` | From Google Cloud Console → APIs & Services → Credentials |
 | `KV_REST_API_URL` | `https://your-kv-url.vercel-storage.com` | From Vercel KV dashboard |
 | `KV_REST_API_TOKEN` | `your-kv-token` | From Vercel KV dashboard |
 
@@ -37,20 +36,6 @@ Add these in **Settings → Environment Variables** (all environments: Productio
 - Click **Deploy**
 - Wait for build to complete
 - Visit the deployed URL
-
----
-
-## Google OAuth Setup
-
-1. Go to https://console.cloud.google.com/
-2. Create a project or select existing
-3. **APIs & Services → Credentials → Create Credentials → OAuth client ID**
-4. Application type: **Web application**
-5. Authorized JavaScript origins:
-   - `https://your-vercel-app.vercel.app`
-   - `http://localhost:3000` (for local testing)
-6. Authorized redirect URIs: (not needed for GIS)
-7. Copy **Client ID** → set as `GOOGLE_CLIENT_ID` in Vercel
 
 ---
 
@@ -91,14 +76,14 @@ website/
 ├── index.html          # Landing page
 ├── download.html       # Download page
 ├── docs.html           # Documentation
-├── account.html        # Account home (signin + dashboard)
+├── account.html        # Account home (email/password signin + dashboard)
 ├── style.css           # Shared styles
 ├── app.js              # Shared app logic
 ├── account.js          # Account page logic
 ├── vercel.json         # Vercel config
 ├── api/
-│   ├── auth.js         # Google OAuth + token validation
-│   ├── devices.js      # Device registry
+│   ├── auth.js         # Email/password auth + token validation
+│   ├── devices.js      # Device registry + QR pairing
 │   ├── tasks.js        # Task relay (send, poll, result)
 │   ├── recordings.js   # Recording links
 │   └── _lib/
@@ -110,8 +95,22 @@ website/
 
 ---
 
+## Authentication
+
+- **Email + password only** — no OAuth, no third-party login
+- Passwords hashed with SHA-256 + per-user salt (16 bytes)
+- API tokens: 32-byte hex, shown once on login/signup, stored SHA-256 hashed
+- Token expiry: 30 days
+- Endpoints:
+  - `POST /api/auth/signup` — `{email, password, name}` → `{token, user}`
+  - `POST /api/auth/login` — `{email, password}` → `{token, user}`
+  - `GET /api/auth/me` — `Authorization: Bearer <token>` → `{user}`
+
+---
+
 ## Security Notes
 
+- Passwords hashed (SHA-256 + salt), never stored plain
 - Tokens stored hashed (SHA-256) in KV/memory
 - 30-day token expiry
 - Rate limiting on register (20/min) and task send (50/min)
@@ -125,9 +124,8 @@ website/
 
 | Issue | Fix |
 |-------|-----|
-| "GOOGLE_CLIENT_ID not configured" | Add env var in Vercel, redeploy |
 | "KV not configured" | Add KV env vars, or functions use memory fallback (dev only) |
-| CORS errors | All endpoints allow `*` origin; ensure `Authorization: Bearer <token>` header is sent |
+| CORS errors | All endpoints allow `*` origin; ensure `Authorization: Bearer ***` header is sent |
 | 401 on valid token | Token expired (30 days) or KV unavailable — re-signin |
 | Long-poll timeout | Vercel max 30s; poll uses 24s max |
 
@@ -139,7 +137,8 @@ After deploy, verify:
 - [ ] Landing page loads with logo, features, CTAs
 - [ ] Download page shows "Coming Soon" honestly (no fake links)
 - [ ] Docs page renders all sections
-- [ ] Account page shows Google Sign-In button (if configured) or honest "not configured" state
-- [ ] Sign in works → dashboard shows paired devices (empty initially)
-- [ ] API endpoints respond: `GET /api/auth/config`, `POST /api/devices/register`, etc.
+- [ ] Account page shows email/password signup/login forms
+- [ ] Sign up works → dashboard shows API token + paired devices (empty initially)
+- [ ] Sign in works → dashboard shows API token + paired devices
+- [ ] API endpoints respond: `POST /api/auth/signup`, `POST /api/auth/login`, `GET /api/auth/me`, `POST /api/devices/register`, etc.
 - [ ] No console errors on any page

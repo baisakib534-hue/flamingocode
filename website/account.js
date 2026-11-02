@@ -3,74 +3,87 @@ document.addEventListener('DOMContentLoaded', async () => {
   initAccountPage();
 });
 
-let googleClientId = null;
-
 async function initAccountPage() {
-  const configured = await checkGoogleConfig();
-  googleClientId = configured;
-
   if (App.state.user) {
     showDashboard();
     await loadDashboardData();
   } else {
-    showAuthView(configured);
+    showAuthView();
+    bindAuthForms();
   }
 }
 
-async function checkGoogleConfig() {
-  try {
-    const res = await fetch('/api/auth/config');
-    const data = await res.json();
-    return data.clientId || null;
-  } catch {
-    return null;
-  }
-}
-
-function showAuthView(configured) {
+function showAuthView() {
   document.getElementById('auth-view').style.display = 'block';
   document.getElementById('dashboard-view').style.display = 'none';
-
-  if (configured && typeof google !== 'undefined' && google.accounts) {
-    initGoogleSignIn(configured);
-  } else {
-    document.getElementById('google-signin-btn').style.display = 'none';
-    document.getElementById('not-configured').style.display = 'block';
-  }
 }
 
-function initGoogleSignIn(clientId) {
-  google.accounts.id.initialize({
-    client_id: clientId,
-    callback: handleGoogleResponse,
-    auto_select: false,
-    cancel_on_tap_outside: true
+function bindAuthForms() {
+  // Tab switching
+  document.querySelectorAll('.auth-tab').forEach(tab => {
+    tab.addEventListener('click', () => switchTab(tab.dataset.tab));
   });
 
-  google.accounts.id.renderButton(
-    document.getElementById('google-signin-btn'),
-    { theme: 'outline', size: 'large', width: '100%', text: 'signin_with', logo_alignment: 'center' }
-  );
+  // Login form
+  document.getElementById('login-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const btn = document.getElementById('login-btn');
+    const email = form.email.value.trim();
+    const password = form.password.value;
+
+    App.showLoading(btn, true);
+    try {
+      const data = await App.api('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password })
+      });
+      App.setSession(data.token, data.user);
+      showDashboard();
+      await loadDashboardData();
+    } catch (err) {
+      App.showAlert(document.querySelector('.auth-card'), err.message, 'error');
+    } finally {
+      App.showLoading(btn, false);
+    }
+  });
+
+  // Signup form
+  document.getElementById('signup-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const btn = document.getElementById('signup-btn');
+    const name = form.name.value.trim();
+    const email = form.email.value.trim();
+    const password = form.password.value;
+
+    App.showLoading(btn, true);
+    try {
+      const data = await App.api('/auth/signup', {
+        method: 'POST',
+        body: JSON.stringify({ email, password, name })
+      });
+      App.setSession(data.token, data.user);
+      showDashboard();
+      await loadDashboardData();
+    } catch (err) {
+      App.showAlert(document.querySelector('.auth-card'), err.message, 'error');
+    } finally {
+      App.showLoading(btn, false);
+    }
+  });
 }
 
-async function handleGoogleResponse(response) {
-  const btn = document.querySelector('.g_id_signin') || document.getElementById('google-signin-btn');
-  App.showLoading(btn, true);
-
-  try {
-    const data = await App.api('/auth/google', {
-      method: 'POST',
-      body: JSON.stringify({ credential: response.credential })
-    });
-
-    App.setSession(data.token, data.user);
-    showDashboard();
-    await loadDashboardData();
-  } catch (err) {
-    App.showAlert(document.querySelector('.auth-card'), err.message, 'error');
-  } finally {
-    App.showLoading(btn, false);
-  }
+function switchTab(tab) {
+  document.querySelectorAll('.auth-tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.tab === tab);
+    t.setAttribute('aria-selected', t.dataset.tab === tab);
+  });
+  document.querySelectorAll('.auth-panel').forEach(p => {
+    const isActive = p.id === `panel-${tab}`;
+    p.classList.toggle('active', isActive);
+    p.hidden = !isActive;
+  });
 }
 
 function showDashboard() {
@@ -79,6 +92,29 @@ function showDashboard() {
 
   document.getElementById('user-avatar').textContent = App.state.user.name?.[0]?.toUpperCase() || 'U';
   document.getElementById('user-name').textContent = App.state.user.name || App.state.user.email;
+
+  // Show token
+  const tokenDisplay = document.getElementById('token-display');
+  const tokenValue = document.getElementById('token-value');
+  if (App.state.token) {
+    tokenDisplay.style.display = 'block';
+    tokenValue.textContent = App.state.token;
+  }
+
+  // Copy token button
+  document.getElementById('copy-token-btn').addEventListener('click', async () => {
+    await navigator.clipboard.writeText(App.state.token);
+    const btn = document.getElementById('copy-token-btn');
+    const original = btn.textContent;
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = original, 1500);
+  });
+
+  // Logout
+  document.querySelector('[data-action="logout"]').addEventListener('click', () => {
+    App.clearSession();
+    location.reload();
+  });
 }
 
 async function loadDashboardData() {

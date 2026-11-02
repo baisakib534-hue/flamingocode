@@ -4,12 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Account — FlamingoCode</title>
-  <meta name="description" content="FlamingoCode account home: sign in with Google, manage paired devices, view task history.">
+  <meta name="description" content="FlamingoCode account home: create an account or sign in with email and password, manage paired devices, view task history.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
   <header>
@@ -34,14 +33,43 @@
         <div class="auth-card">
           <img src="assets/flamingocode-logo.png" alt="FlamingoCode" style="width: 64px; height: 64px; margin: 0 auto var(--space-24);">
           <h1>Sign in to FlamingoCode</h1>
-          <p class="subtitle">Use your Google account to pair desktop and phone devices.</p>
+          <p class="subtitle">Use email + password to pair desktop and phone devices.</p>
 
-          <div id="google-signin-btn"></div>
+          <div class="auth-tabs" role="tablist" aria-label="Authentication method">
+            <button role="tab" id="tab-login" class="auth-tab active" aria-selected="true" aria-controls="panel-login" data-tab="login">Login</button>
+            <button role="tab" id="tab-signup" class="auth-tab" aria-selected="false" aria-controls="panel-signup" data-tab="signup">Sign Up</button>
+          </div>
 
-          <div class="divider">or</div>
+          <div role="tabpanel" id="panel-login" class="auth-panel active" aria-labelledby="tab-login">
+            <form id="login-form" class="auth-form">
+              <div class="form-group">
+                <label for="login-email">Email</label>
+                <input type="email" id="login-email" name="email" required autocomplete="email" placeholder="you@example.com">
+              </div>
+              <div class="form-group">
+                <label for="login-password">Password</label>
+                <input type="password" id="login-password" name="password" required autocomplete="current-password" placeholder="••••••••">
+              </div>
+              <button type="submit" class="btn btn-primary btn-block" id="login-btn">Sign In</button>
+            </form>
+          </div>
 
-          <div id="not-configured" class="not-configured" style="display: none;">
-            Google Sign-In is not configured. Set <code>GOOGLE_CLIENT_ID</code> in Vercel environment variables.
+          <div role="tabpanel" id="panel-signup" class="auth-panel" aria-labelledby="tab-signup" hidden>
+            <form id="signup-form" class="auth-form">
+              <div class="form-group">
+                <label for="signup-name">Name</label>
+                <input type="text" id="signup-name" name="name" required autocomplete="name" placeholder="Your name">
+              </div>
+              <div class="form-group">
+                <label for="signup-email">Email</label>
+                <input type="email" id="signup-email" name="email" required autocomplete="email" placeholder="you@example.com">
+              </div>
+              <div class="form-group">
+                <label for="signup-password">Password</label>
+                <input type="password" id="signup-password" name="password" required autocomplete="new-password" placeholder="Min 8 characters" minlength="8">
+              </div>
+              <button type="submit" class="btn btn-primary btn-block" id="signup-btn">Create Account</button>
+            </form>
           </div>
 
           <p style="text-align: center; font-size: 0.8125rem; color: var(--text-muted); margin-top: var(--space-16);">
@@ -59,6 +87,20 @@
             <button class="btn btn-secondary" data-action="logout" style="padding: var(--space-8) var(--space-16); font-size: 0.8125rem;">Sign out</button>
           </div>
         </div>
+
+        <section class="dashboard-section">
+          <h2>Your API Token</h2>
+          <div class="token-display" id="token-display" style="display: none;">
+            <div class="token-value" id="token-value"></div>
+            <button class="btn btn-secondary" id="copy-token-btn" style="margin-top: var(--space-12);">Copy Token</button>
+            <div class="token-instructions" style="margin-top: var(--space-16); font-size: 0.8125rem; color: var(--text-dim); line-height: 1.6;">
+              <strong>Desktop app-এ login করো এই email+password দিয়ে, অথবা API token paste করো।</strong><br>
+              <strong>Phone app-এ QR scan করো অথবা email+password দিয়ে login করো।</strong><br><br>
+              <em>Desktop app: sign in with this email+password, or paste the API token.<br>
+              Phone app: scan QR code or sign in with email+password.</em>
+            </div>
+          </div>
+        </section>
 
         <section class="dashboard-section">
           <h2>Paired Devices</h2>

@@ -81,6 +81,34 @@ module.exports = async (req, res) => {
       return res.json({ ok: true });
     }
 
+    // POST /api/devices/pair - pair a phone with a desktop using pairCode
+    if (req.method === 'POST' && req.url === '/api/devices/pair') {
+      const { deviceId, pairCode } = req.body;
+      if (!deviceId || !pairCode) {
+        return res.status(400).json({ error: 'deviceId and pairCode required' });
+      }
+
+      const device = await store.getDevice(deviceId);
+      if (!device) {
+        return res.status(404).json({ error: 'Device not found' });
+      }
+      if (device.pairCode !== pairCode.toUpperCase()) {
+        return res.status(401).json({ error: 'Invalid pair code' });
+      }
+      if (device.type !== 'desktop') {
+        return res.status(400).json({ error: 'Can only pair with desktop devices' });
+      }
+
+      // Generate a new token for the phone
+      const token = crypto.randomBytes(32).toString('hex');
+      const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+      const expiresAt = Date.now() + 30 * 24 * 60 * 60 * 1000;
+      await store.saveToken(tokenHash, device.userId, expiresAt);
+
+      const user = await store.getUserById(device.userId);
+      return res.json({ token, user: { id: user.id, email: user.email, name: user.name } });
+    }
+
     return res.status(404).json({ error: 'Not found' });
   } catch (err) {
     console.error('[devices] Error:', err);

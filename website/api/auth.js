@@ -15,6 +15,18 @@ function verifyAuth(req) {
   return auth.slice(7);
 }
 
+function hashPassword(salt, password) {
+  return crypto.createHash('sha256').update(salt + password).digest('hex');
+}
+
+function generateSalt() {
+  return crypto.randomBytes(16).toString('hex');
+}
+
+function validateEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
 module.exports = async (req, res) => {
   res.setHeader('Content-Type', 'application/json');
   Object.entries(corsHeaders()).forEach(([k, v]) => res.setHeader(k, v));
@@ -22,35 +34,60 @@ module.exports = async (req, res) => {
   if (req.method === 'OPTIONS') return res.status(204).end();
 
   try {
-    if (req.method === 'GET' && req.url === '/api/auth/config') {
-      return res.json({ clientId: process.env.GOOGLE_CLIENT_ID || null });
+    // POST /api/auth/signup
+    if (req.method === 'POST' && req.url === '/api/auth/signup') {
+      const { email, password, name } = req.body;
+      if (!email || !password || !name) {
+        return res.status(400).json({ error: 'Email, password, and name are required' });
+      }
+      if (!validateEmail(email)) {
+        return res.status(400).json({ error: 'Invalid email format' });
+      }
+      if (password.length < 8) {
+        return res.status(400).json({ error: 'Password must be at least 8 characters' });
+      }
+
+      const existing = await store.getUserByEmail(email);
+      if (existing) {
+        return res.status(409).json({ error: 'Email already registered' });
+      }
+
+      const salt = generateSalt();
+      const passwordHash = hashPassword(salt, password);
+      const userId = `user_${crypto.randomBytes(12).toString('hex')}`;
+      const user = {
+        id: userId,
+        email,
+        name,
+        passwordHash,
+        salt,
+        createdAt: new Date().toISOString()
+      };
+      await store.createUser(user);
+
+      const token = crypto.randomBytes(32).toString('hex');
+      const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+      const expiresAt = Date.now() + 30 * 24 * 60 * 60 * 1000;
+      await store.saveToken(tokenHash, userId, expiresAt);
+
+      return res.json({ token, user: { id: user.id, email: user.email, name: user.name } });
     }
 
-    if (req.method === 'POST' && req.url === '/api/auth/google') {
-      const { credential } = req.body;
-      if (!credential) return res.status(400).json({ error: 'Missing credential' });
+    // POST /api/auth/login
+    if (req.method === 'POST' && req.url === '/api/auth/login') {
+      const { email, password } = req.body;
+      if (!email || !password) {
+        return res.status(400).json({ error: 'Email and password are required' });
+      }
 
-      const { OAuth2Client } = require('google-auth-library');
-      const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
-      const ticket = await client.verifyIdToken({ idToken: credential, audience: process.env.GOOGLE_CLIENT_ID });
-      const payload = ticket.getPayload();
-
-      const email = payload.email;
-      const name = payload.name;
-      const picture = payload.picture;
-      const sub = payload.sub;
-
-      let user = await store.getUserByEmail(email);
+      const user = await store.getUserByEmail(email);
       if (!user) {
-        user = {
-          id: `user_${crypto.randomBytes(12).toString('hex')}`,
-          email,
-          name,
-          picture,
-          googleSub: sub,
-          createdAt: new Date().toISOString()
-        };
-        await store.createUser(user);
+        return res.status(401).json({ error: 'Invalid email or password' });
+      }
+
+      const passwordHash = hashPassword(user.salt, password);
+      if (passwordHash !== user.passwordHash) {
+        return res.status(401).json({ error: 'Invalid email or password' });
       }
 
       const token = crypto.randomBytes(32).toString('hex');
@@ -58,16 +95,19 @@ module.exports = async (req, res) => {
       const expiresAt = Date.now() + 30 * 24 * 60 * 60 * 1000;
       await store.saveToken(tokenHash, user.id, expiresAt);
 
-      return res.json({ token, user: { id: user.id, email: user.email, name: user.name, picture: user.picture } });
+      return res.json({ token, user: { id: user.id, email: user.email, name: user.name } });
     }
 
-    if (req.method === 'GET' && req.url === '/api/auth/validate') {
+    // GET /api/auth/me
+    if (req.method === 'GET' && req.url === '/api/auth/me') {
       const token = verifyAuth(req);
       if (!token) return res.status(401).json({ error: 'Missing token' });
       const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
       const record = await store.getToken(tokenHash);
       if (!record) return res.status(401).json({ error: 'Invalid or expired token' });
-      return res.json({ valid: true });
+      const user = await store.getUserById(record.userId);
+      if (!user) return res.status(401).json({ error: 'User not found' });
+      return res.json({ user: { id: user.id, email: user.email, name: user.name } });
     }
 
     return res.status(404).json({ error: 'Not found' });

@@ -52,19 +52,44 @@ class ApiService {
   }
 
   // Auth
-  Future<AuthResult> signInWithGoogle(String credential) async {
+  Future<AuthResult> login(String email, String password) async {
     try {
-      final response = await _dio.post('/api/auth/google', data: {'credential': credential});
+      final response = await _dio.post('/api/auth/login', data: {'email': email, 'password': password});
       final token = response.data['token'] as String;
       final userData = response.data['user'] as Map<String, dynamic>;
       final user = User.fromJson(userData);
-      
+
       await _secureStorage.write(key: 'auth_token', value: token);
       await _secureStorage.write(key: 'user_data', value: jsonEncode(userData));
-      
+
       return AuthResult.success(user, token);
     } on DioException catch (e) {
-      return AuthResult.failure(e.response?.data['error'] ?? e.message ?? 'Sign in failed');
+      return AuthResult.failure(e.response?.data['error'] ?? e.message ?? 'Login failed');
+    }
+  }
+
+  Future<AuthResult> pairWithCode(String relay, String deviceId, String pairCode) async {
+    try {
+      // Use the relay URL from QR code for the pairing request
+      final pairingDio = Dio();
+      pairingDio.options.baseUrl = relay;
+      pairingDio.options.headers['Content-Type'] = 'application/json';
+      
+      final response = await pairingDio.post('/api/devices/pair', data: {
+        'deviceId': deviceId,
+        'pairCode': pairCode,
+      });
+      
+      final token = response.data['token'] as String;
+      final userData = response.data['user'] as Map<String, dynamic>;
+      final user = User.fromJson(userData);
+
+      await _secureStorage.write(key: 'auth_token', value: token);
+      await _secureStorage.write(key: 'user_data', value: jsonEncode(userData));
+
+      return AuthResult.success(user, token);
+    } on DioException catch (e) {
+      return AuthResult.failure(e.response?.data['error'] ?? e.message ?? 'Pairing failed');
     }
   }
 
