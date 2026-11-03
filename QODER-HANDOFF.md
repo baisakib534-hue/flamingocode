@@ -106,3 +106,47 @@ cd mobile && flutter pub get && flutter build apk
 - Test files must actually test the feature (a round once shipped 6 slices with 0 tests).
 - Never commit `desktop/node_modules` or `desktop/assets/icons/` (build intermediates).
 - GitHub PATs need `Contents: read/write` on this repo only; the PAT cannot push workflow files (no `workflow` scope) — workflow edits go through the GitHub web UI.
+
+## 8. Complete order log (every instruction he gave, chronological)
+
+These are his literal orders. When in doubt, obey the latest one on that topic.
+
+1. **2026-10-22:** Open-ended autonomy — "তুমিই যা ভালো মনে করো করতে থাকো শুধু কাজ হলেই চলে" (do what you think is best, only results matter). Money actions still need his word.
+2. **2026-10-24 ~10:22:** Standing oversight rule — "আমি তোমাকে যা যা বলেছি সব note করো সব করো আর দেখো সব করেছো কিনা। না করলে করো ওগোও।" (note everything I told you, do it all, check it's all done — if not, do it).
+3. **2026-10-24 ~18:38:** "Don't stop until finished."
+4. **2026-10-24 ~10:45:** Product renamed twice by him: DevForge → DodoCode → **FlamingoCode** (FINAL). Logo = his very first Canva flamingo pool-float design, customized (no letters).
+5. **2026-10-24 ~11:00:** Built-in free AI = **DuckDuckGo AI** (his original recipe) — NOT OpenCode. The OpenCode Zen login offer is WITHDRAWN, never re-offer.
+6. **2026-10-24 ~09:56 → 2026-10-27 ~03:25:** Stack — "no Python, use what professionals/Qoder use" → final: **TS+Electron shell/UI, C++/Rust native modules for perf paths, Go for small CLI/server pieces, JS web frontend.** Tauri is OUT.
+7. **2026-10-24 ~10:50:** Engine = **Hermes + 9router API only** (flamingocode-build combo). If the 9router path fails, report the EXACT reason — never silently fall back to NVIDIA.
+8. **2026-10-24 ~12:21:** Autonomy — FlamingoCode's AI automatically uses whatever skill/plugin/MCP each task needs (no @mention), sub-agents too. The jcode pack (9 skills + 3 MCPs) is MANDATORY, pre-installed.
+9. **2026-10-24:** Team Mode = flagship identity (his design): agents talk, divide work, test themselves → **Senior Developer AI reviews everyone's work, sends owner back to rework until correct** → Senior's final report.
+10. **2026-10-24:** Context-graph — NO whole-Obsidian embed. Own Brain v2 (plain markdown notes). "Obsidian" he meant = **Graphify** (github.com/Graphify-Labs/graphify), NOT the Obsidian app.
+11. **2026-10-24:** Standing feature-invention mandate — the builder invents features in his style, specs them, and builds them; AND copies the best features from other coding software (ideas/mechanisms, never code).
+12. **2026-10-24:** Project Brain + **small-request discipline** (one step / one file per small request, per-request token budget).
+13. **2026-10-24:** Plan+Build mode (interleaved, live checklist in Brain); roadmap tiers A/B/C; **Time-travel = Tier A checkpoints — do not build it separately.**
+14. **2026-10-24:** **NO cloud FlamingoCode** — he runs it LOCALLY like Qoder. Website is FOR TESTING only. The relay STAYS.
+15. **2026-10-25 ~10:43:** Kilo / Cline / Codex STOPPED — never resume them.
+16. **2026-10-25 ~15:08:** Godmod researched — it is NOT a free-AI provider (routes through user's own keys). Do NOT add as a provider.
+17. **2026-10-25 ~22:32:** Copy EVERY Devin feature one by one, even the smallest (capabilities only — not name/logo/UI copy/proprietary code). **Lazy tool loading** — tools/skills/MCPs load only when needed. Keep adding good features from MANY AI agents + GitHub.
+18. **2026-10-26 ~02:35:** Core quality principle (his words): 'কাজ করলে একদম ভালো না হলে একটু চাইনা' — completely good or not at all. Fast coding = mistakes = AI slop, which he hates.
+19. **2026-10-26 ~14:00:** **Computer Use, general-purpose** — the agent drives ANY installed desktop app for ANY task (his examples: Roblox Studio, Free Fire Craftland, PUBG Studio). Lands at Stage 6 + H4 (web page can't do it; Electron desktop can).
+20. **2026-10-26 ~17:48:** Standing order — install MCPs/plugins WHEN NEEDED for the build ("যখন লাগে তখনই লাগিয়ে কাজ করিও").
+21. **2026-10-26/28:** Tool Recommender (local keyword matcher, top-3 card, never auto-install in Safe Mode); **Devin Wiki = DeepWiki**.
+22. **2026-10-26 ~19:24:** Phone permissions: Ask (default) / Auto approve (routine) / Full access. Offline: desktop work never stops when phone goes offline; a fully offline approval-waiting step waits, the rest keeps running. Message queue for follow-ups during a running task.
+23. **2026-10-26:** Devin Cloud credits MAY be spent on hands-on exploration/testing (his explicit exception to the money rule).
+24. **2026-10-27:** **NO separate IDE** (agent + desktop shell is enough). REA must do the FULL Devin copy at the Devin Desktop stage.
+25. **2026-10-27:** Harn 'ask/architect/code/shadow' modes NOT verified — do not build.
+26. **2026-10-28:** Phone app = **Flutter, Android first** — "হ্যাঁ, phone app Flutter-এ বানাও". Flutter is PHONE-ONLY (never desktop/web).
+27. **2026-10-29:** ALL THREE per-agent tiers (T1 read-only, T2 local-modify, T3 full) — picked at agent creation, changed only by his explicit action.
+28. **2026-10-30:** UI design freedom — "ui design তোমার উপর ছেরে দিলাম" — copy Qoder, change it, or design new; NO restrictions. Brand identity stays.
+29. **2026-10-31:** Never wipe API/connection data on redeploy without his explicit approval. Never rename/relabel/delete his own installs.
+30. **2026-11-02:** Multi-model RACE — built, then DROPPED by him same day ('ওও আরে এটা বাদ দেও race কোথাও লাগবে না'). Do NOT use or rebuild anywhere.
+31. **2026-11-02:** **NO Google Sign-In / NO OAuth anywhere.** Email+password → API token → QR pairing. (Final auth architecture.)
+32. **2026-11-02:** The baked-in 9router key in the web app STAYS — do not re-raise. The dead 9router combo is hands-off without his word.
+33. **2026-11-02:** Do NOT ask him repeatedly for credentials/info he already gave ("বার বার এসব ভালো লাগে না") — batch once, settle it.
+34. **2026-11-02 ~22:02:** Standing E2E order — invent features myself and **test everything myself end-to-end** (real signups, real flows), professional-grade.
+35. **2026-10-31:** NVIDIA restriction — ONLY StepFun (step-5-preview) and Nemotron 3 Ultra for free models.
+36. **Standing:** "আমার কথা মানো আগে" (obey first when decided) — at most 1–2 sentences of honest objection, then full compliance, never re-argue.
+37. **Standing:** Credentials/codes he pastes in chat are session-scoped — use once for the task, never write into memory/files/replies.
+38. **Standing:** Money/permission/account decisions are his alone. Pasted credentials never become standing config.
+39. **2026-11-03:** Full-C++ rewrite asked → advised against → he accepted ("ঠিক আছে"). Hybrid architecture stands; do not re-raise.
