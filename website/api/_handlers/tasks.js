@@ -1,4 +1,4 @@
-const store = require('./_lib/store');
+const store = require('../_lib/store');
 const crypto = require('crypto');
 
 function corsHeaders() {
@@ -120,7 +120,7 @@ module.exports = async (req, res) => {
       if (result === undefined) return res.status(400).json({ error: 'result required' });
 
       const task = await store.getTask(taskId);
-      if (!task || task.toDeviceId !== deviceId) {
+      if (!task || task.userId !== userId) {
         return res.status(404).json({ error: 'Task not found' });
       }
 

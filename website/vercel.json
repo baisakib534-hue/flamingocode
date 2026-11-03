@@ -1,17 +1,1 @@
-{
-  "functions": {
-    "api/auth.js": { "maxDuration": 30 },
-    "api/devices.js": { "maxDuration": 30 },
-    "api/tasks.js": { "maxDuration": 30 },
-    "api/recordings.js": { "maxDuration": 30 }
-  },
-  "rewrites": [
-    { "source": "/api/auth/:op", "destination": "/api/auth?op=:op" },
-    { "source": "/api/devices/:op", "destination": "/api/devices?op=:op" },
-    { "source": "/api/tasks/:taskId/result", "destination": "/api/tasks?op=result&taskId=:taskId" },
-    { "source": "/api/tasks/:op", "destination": "/api/tasks?op=:op" },
-    { "source": "/api/recordings/:op", "destination": "/api/recordings?op=:op" }
-  ],
-  "cleanUrls": true,
-  "trailingSlash": false
-}
+{"cleanUrls":true,"functions":{"api/index.js":{"maxDuration":30}},"rewrites":[{"destination":"/api/index?handler=tasks&op=result&taskId=:taskId","source":"/api/tasks/:taskId/result"},{"destination":"/api/index?handler=:handler&op=:op","source":"/api/:handler/:op"},{"destination":"/api/index?handler=:handler","source":"/api/:handler"}],"trailingSlash":false}

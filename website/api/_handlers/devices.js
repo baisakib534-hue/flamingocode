@@ -1,4 +1,4 @@
-const store = require('./_lib/store');
+const store = require('../_lib/store');
 const crypto = require('crypto');
 
 function corsHeaders() {

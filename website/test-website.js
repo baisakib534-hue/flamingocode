@@ -85,7 +85,8 @@ assertFileContains(path.join(WEBSITE_DIR, 'index.html'), 'href="docs.html"', 'in
 
 // Download page - honest "coming soon"
 console.log('\n--- Download Page (Honest State) ---');
-assertFileContains(path.join(WEBSITE_DIR, 'download.html'), 'Coming Soon', 'download.html shows Coming Soon');
+assertFileContains(path.join(WEBSITE_DIR, 'download.html'), 'api.github.com/repos/', 'download.html fetches live GitHub releases');
+assertFileNotContains(path.join(WEBSITE_DIR, 'download.html'), 'All releases are signed', 'download.html has NO false signed claim');
 assertFileContains(path.join(WEBSITE_DIR, 'download.html'), 'disabled', 'download.html has disabled buttons');
 assertFileNotContains(path.join(WEBSITE_DIR, 'download.html'), 'href="flamingocode-', 'download.html has NO fake download links');
 assertFileContains(path.join(WEBSITE_DIR, 'download.html'), 'github.com/baisakib534-hue/flamingocode/releases', 'download.html links to GitHub releases');
@@ -110,9 +111,9 @@ assertFileContains(path.join(WEBSITE_DIR, 'docs.html'), 'Authorization: Bearer',
 
 // Account page
 console.log('\n--- Account Page ---');
-assertFileContains(path.join(WEBSITE_DIR, 'account.html'), 'accounts.google.com/gsi/client', 'account.html loads Google Identity Services');
-assertFileContains(path.join(WEBSITE_DIR, 'account.html'), 'GOOGLE_CLIENT_ID', 'account.html references Google client ID');
-assertFileContains(path.join(WEBSITE_DIR, 'account.html'), 'not-configured', 'account.html has not-configured fallback');
+assertFileNotContains(path.join(WEBSITE_DIR, 'account.html'), 'accounts.google.com/gsi/client', 'account.html has NO Google Identity Services (removed)');
+assertFileContains(path.join(WEBSITE_DIR, 'account.html'), 'id="login-form"', 'account.html has email+password login form');
+assertFileContains(path.join(WEBSITE_DIR, 'account.html'), 'id="signup-form"', 'account.html has signup form');
 assertFileContains(path.join(WEBSITE_DIR, 'account.html'), 'Paired Devices', 'account.html has Paired Devices section');
 assertFileContains(path.join(WEBSITE_DIR, 'account.html'), 'Task History', 'account.html has Task History section');
 assertFileContains(path.join(WEBSITE_DIR, 'account.html'), 'Recordings', 'account.html has Recordings section');
@@ -146,38 +147,41 @@ assert(appJs.includes('validateToken'), 'app.js validates token');
 assert(appJs.includes('showAlert'), 'app.js shows alerts');
 assert(appJs.includes('showLoading'), 'app.js shows loading state');
 
-// API endpoints
+// API endpoints — single merged function (api/index.js) + handlers.
+// (Separate api/*.js functions each had their own memory store, so tokens
+// created by auth.js never validated on devices.js — the relay was broken.)
 console.log('\n--- API Endpoints ---');
-assertFileExists(path.join(API_DIR, 'auth.js'), 'api/auth.js exists');
-assertFileExists(path.join(API_DIR, 'devices.js'), 'api/devices.js exists');
-assertFileExists(path.join(API_DIR, 'tasks.js'), 'api/tasks.js exists');
-assertFileExists(path.join(API_DIR, 'recordings.js'), 'api/recordings.js exists');
+assertFileExists(path.join(API_DIR, 'index.js'), 'api/index.js exists (single entrypoint)');
+assertFileExists(path.join(API_DIR, '_handlers/auth.js'), 'api/_handlers/auth.js exists');
+assertFileExists(path.join(API_DIR, '_handlers/devices.js'), 'api/_handlers/devices.js exists');
+assertFileExists(path.join(API_DIR, '_handlers/tasks.js'), 'api/_handlers/tasks.js exists');
+assertFileExists(path.join(API_DIR, '_handlers/recordings.js'), 'api/_handlers/recordings.js exists');
 assertFileExists(path.join(API_DIR, '_lib/store.js'), 'api/_lib/store.js exists');
+assertFileNotContains(path.join(API_DIR, 'index.js'), 'api/auth.js', 'no stale per-file function references');
 
-const authApi = fs.readFileSync(path.join(API_DIR, 'auth.js'), 'utf8');
-assert(authApi.includes('/api/auth/google'), 'auth.js handles Google OAuth');
-assert(authApi.includes('google-auth-library'), 'auth.js uses google-auth-library');
-assert(authApi.includes('verifyIdToken'), 'auth.js verifies ID token');
+const authApi = fs.readFileSync(path.join(API_DIR, '_handlers/auth.js'), 'utf8');
+assertFileNotContains(path.join(API_DIR, '_handlers/auth.js'), 'google-auth-library', 'auth.js has NO Google OAuth (removed)');
 assert(authApi.includes('sha256'), 'auth.js hashes tokens');
-assert(authApi.includes('/api/auth/validate'), 'auth.js has validate endpoint');
-assert(authApi.includes('/api/auth/config'), 'auth.js has config endpoint');
+assert(authApi.includes('/api/auth/me'), 'auth.js has me endpoint');
+assert(authApi.includes('/api/auth/login'), 'auth.js has login endpoint');
+assert(authApi.includes('/api/auth/signup'), 'auth.js has signup endpoint');
 
-const devicesApi = fs.readFileSync(path.join(API_DIR, 'devices.js'), 'utf8');
-assert(devicesApi.includes('/api/devices/register'), 'devices.js has register');
+const devicesApi = fs.readFileSync(path.join(API_DIR, '_handlers/devices.js'), 'utf8');
+assert(devicesApi.includes("op === 'register'"), 'devices.js has register');
 assert(devicesApi.includes('/api/devices'), 'devices.js has list');
 assert(devicesApi.includes('DELETE'), 'devices.js has delete');
 assert(devicesApi.includes('checkRateLimit'), 'devices.js has rate limiting');
 assert(devicesApi.includes('pairCode'), 'devices.js generates pair code');
 
-const tasksApi = fs.readFileSync(path.join(API_DIR, 'tasks.js'), 'utf8');
+const tasksApi = fs.readFileSync(path.join(API_DIR, '_handlers/tasks.js'), 'utf8');
 assert(tasksApi.includes('while (tasks.length === 0'), 'tasks.js implements long-poll');
 assert(tasksApi.includes('24000'), 'tasks.js respects 25s Vercel limit');
 assert(tasksApi.includes('envelope'), 'tasks.js handles opaque envelope');
 assert(tasksApi.includes('checkRateLimit'), 'tasks.js has rate limiting');
 
-const recordingsApi = fs.readFileSync(path.join(API_DIR, 'recordings.js'), 'utf8');
+const recordingsApi = fs.readFileSync(path.join(API_DIR, '_handlers/recordings.js'), 'utf8');
 assert(recordingsApi.includes('/api/recordings/'), 'recordings.js has GET recording');
-assert(recordingsApi.includes('/register'), 'recordings.js has register');
+assert(recordingsApi.includes("op === 'register'"), 'recordings.js has register');
 assert(recordingsApi.includes('expiresAt'), 'recordings.js returns expiresAt');
 
 // Store / Security
@@ -197,10 +201,9 @@ assert(storeJs.includes('hash'), 'store.js mentions hashing');
 console.log('\n--- Vercel Config ---');
 assertFileExists(path.join(WEBSITE_DIR, 'vercel.json'), 'vercel.json exists');
 const vercelJson = fs.readFileSync(path.join(WEBSITE_DIR, 'vercel.json'), 'utf8');
-assert(vercelJson.includes('api/auth.js'), 'vercel.json configures auth');
-assert(vercelJson.includes('api/devices.js'), 'vercel.json configures devices');
-assert(vercelJson.includes('api/tasks.js'), 'vercel.json configures tasks');
-assert(vercelJson.includes('api/recordings.js'), 'vercel.json configures recordings');
+assert(vercelJson.includes('api/index.js'), 'vercel.json configures single api entrypoint');
+assert(vercelJson.includes('handler=:handler'), 'vercel.json routes to handler dispatch');
+assert(!vercelJson.includes('api/auth.js'), 'vercel.json has NO separate auth function');
 assert(vercelJson.includes('cleanUrls'), 'vercel.json has cleanUrls');
 assert(vercelJson.includes('maxDuration'), 'vercel.json has maxDuration');
 
@@ -209,10 +212,8 @@ console.log('\n--- Deploy Docs ---');
 assertFileExists(path.join(WEBSITE_DIR, 'DEPLOY.md'), 'DEPLOY.md exists');
 const deploy = fs.readFileSync(path.join(WEBSITE_DIR, 'DEPLOY.md'), 'utf8');
 assert(deploy.includes('Root Directory'), 'DEPLOY.md mentions Root Directory');
-assert(deploy.includes('GOOGLE_CLIENT_ID'), 'DEPLOY.md documents Google client ID');
 assert(deploy.includes('KV_REST_API_URL'), 'DEPLOY.md documents KV URL');
 assert(deploy.includes('KV_REST_API_TOKEN'), 'DEPLOY.md documents KV token');
-assert(deploy.includes('Google OAuth'), 'DEPLOY.md has Google OAuth setup');
 assert(deploy.includes('Vercel KV'), 'DEPLOY.md has Vercel KV setup');
 
 // Assets

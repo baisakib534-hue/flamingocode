@@ -37,35 +37,13 @@
     <section class="section container">
       <div class="section-header">
         <h2>Desktop</h2>
-        <p>Choose your platform. Binaries are signed and distributed via GitHub Releases.</p>
+        <p>Choose your platform. Binaries are distributed via GitHub Releases.</p>
+        <p style="font-size: 0.8125rem; color: var(--text-muted);">The Windows and macOS builds are currently <strong>unsigned</strong> — your OS may show a warning on first launch. This is expected; click "Run anyway" (Windows) or right-click → Open (macOS).</p>
       </div>
 
       <div class="download-grid" id="desktop-downloads">
-        <div class="download-card coming-soon">
-          <svg class="download-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>
-          <span class="coming-soon-badge">Coming Soon</span>
-          <h3>Windows</h3>
-          <p class="version">.exe installer · x64 / ARM64</p>
-          <button class="btn btn-secondary" disabled>Download for Windows</button>
-          <p style="margin-top: var(--space-12); font-size: 0.8125rem; color: var(--text-muted);">Will appear here when a release is published</p>
-        </div>
-
-        <div class="download-card coming-soon">
-          <svg class="download-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>
-          <span class="coming-soon-badge">Coming Soon</span>
-          <h3>macOS</h3>
-          <p class="version">.dmg · Apple Silicon / Intel</p>
-          <button class="btn btn-secondary" disabled>Download for macOS</button>
-          <p style="margin-top: var(--space-12); font-size: 0.8125rem; color: var(--text-muted);">Will appear here when a release is published</p>
-        </div>
-
-        <div class="download-card coming-soon">
-          <svg class="download-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>
-          <span class="coming-soon-badge">Coming Soon</span>
-          <h3>Linux</h3>
-          <p class="version">AppImage / .deb / .rpm · x64 / ARM64</p>
-          <button class="btn btn-secondary" disabled>Download for Linux</button>
-          <p style="margin-top: var(--space-12); font-size: 0.8125rem; color: var(--text-muted);">Will appear here when a release is published</p>
+        <div class="download-card">
+          <p style="color: var(--text-muted);">Loading releases…</p>
         </div>
       </div>
 
@@ -83,22 +61,8 @@
       </div>
 
       <div class="download-grid" id="phone-downloads">
-        <div class="download-card coming-soon">
-          <svg class="download-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5.5 3.21A2.19 2.19 0 0 0 4 4.72v14.56a2.19 2.19 0 0 0 1.5 1.51h13a2.19 2.19 0 0 0 1.5-1.51V4.72a2.19 2.19 0 0 0-1.5-1.51z"/><line x1="8" y1="19" x2="8.01" y2="19"/></svg>
-          <span class="coming-soon-badge">Coming Soon</span>
-          <h3>Android</h3>
-          <p class="version">.apk · ARM64 (API 24+)</p>
-          <button class="btn btn-secondary" disabled>Download for Android</button>
-          <p style="margin-top: var(--space-12); font-size: 0.8125rem; color: var(--text-muted);">Will appear here when a release is published</p>
-        </div>
-
-        <div class="download-card coming-soon" style="opacity: 0.4;">
-          <svg class="download-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5.5 3.21A2.19 2.19 0 0 0 4 4.72v14.56a2.19 2.19 0 0 0 1.5 1.51h13a2.19 2.19 0 0 0 1.5-1.51V4.72a2.19 2.19 0 0 0-1.5-1.51z"/><line x1="8" y1="19" x2="8.01" y2="19"/></svg>
-          <span class="coming-soon-badge" style="background: var(--text-muted);">Planned</span>
-          <h3>iOS</h3>
-          <p class="version">TestFlight / App Store</p>
-          <button class="btn btn-secondary" disabled>Notify Me</button>
-          <p style="margin-top: var(--space-12); font-size: 0.8125rem; color: var(--text-muted);">Planned for future release</p>
+        <div class="download-card">
+          <p style="color: var(--text-muted);">Loading releases…</p>
         </div>
       </div>
     </section>
@@ -124,7 +88,7 @@
             <li>Android 7.0 (API 24) or later</li>
             <li>ARM64 architecture</li>
             <li>Internet connection for relay pairing</li>
-            <li>Google account for sign-in</li>
+            <li>Email + password account (created on this site) or QR pairing from desktop</li>
           </ul>
         </div>
       </div>
@@ -135,16 +99,15 @@
         <h2>Verify Your Download</h2>
       </div>
       <div class="docs-content">
-        <p>All releases are signed. Verify the SHA-256 checksums published in the release notes against the downloaded file:</p>
+        <p>Verify the SHA-256 checksums published in the release notes against the downloaded file:</p>
         <pre><code># Windows
-CertUtil -hashfile flamingocode-windows-x64.exe SHA256
+CertUtil -hashfile FlamingoCode.Setup.x.y.z.exe SHA256
 
 # macOS
-shasum -a 256 flamingocode-macos-arm64.dmg
+shasum -a 256 FlamingoCode-x.y.z-arm64.dmg
 
-# Linux
-sha256sum flamingocode-linux-x64.AppImage</code></pre>
-        <p>Public signing keys are published in the repository's <code>docs/security.md</code>.</p>
+# Android
+sha256sum app-release.apk</code></pre>
       </div>
     </section>
   </main>
@@ -162,5 +125,97 @@ sha256sum flamingocode-linux-x64.AppImage</code></pre>
   </footer>
 
   <script src="app.js"></script>
+  <script>
+    // Live GitHub Releases: render real download cards for the latest
+    // -desktop and -apk releases. Falls back to the GitHub link on error.
+    (function () {
+      var REPO = 'baisakib534-hue/flamingocode';
+      var API = 'https://api.github.com/repos/' + REPO + '/releases';
+
+      function fmtSize(bytes) {
+        if (!bytes && bytes !== 0) return '';
+        var mb = bytes / 1048576;
+        return mb >= 1 ? mb.toFixed(1) + ' MB' : Math.round(bytes / 1024) + ' KB';
+      }
+
+      function esc(s) {
+        return String(s).replace(/[&<>"']/g, function (c) {
+          return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+      }
+
+      function card(opts) {
+        return '<div class="download-card">' +
+          '<svg class="download-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">' + opts.icon + '</svg>' +
+          '<span class="coming-soon-badge" style="background: var(--success);">' + esc(opts.badge) + '</span>' +
+          '<h3>' + esc(opts.title) + '</h3>' +
+          '<p class="version">' + esc(opts.sub) + '</p>' +
+          '<a class="btn btn-primary" href="' + esc(opts.url) + '" rel="noopener">Download for ' + esc(opts.title) + '</a>' +
+          '<p style="margin-top: var(--space-12); font-size: 0.8125rem; color: var(--text-muted);">' + esc(opts.note) + '</p>' +
+          '</div>';
+      }
+
+      function plannedCard(icon, title, sub, note) {
+        return '<div class="download-card coming-soon" style="opacity: 0.4;">' +
+          '<svg class="download-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">' + icon + '</svg>' +
+          '<span class="coming-soon-badge" style="background: var(--text-muted);">Planned</span>' +
+          '<h3>' + esc(title) + '</h3>' +
+          '<p class="version">' + esc(sub) + '</p>' +
+          '<button class="btn btn-secondary" disabled>Notify Me</button>' +
+          '<p style="margin-top: var(--space-12); font-size: 0.8125rem; color: var(--text-muted);">' + esc(note) + '</p>' +
+          '</div>';
+      }
+
+      var DESK_ICON = '<rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/>';
+      var PHONE_ICON = '<path d="M5.5 3.21A2.19 2.19 0 0 0 4 4.72v14.56a2.19 2.19 0 0 0 1.5 1.51h13a2.19 2.19 0 0 0 1.5-1.51V4.72a2.19 2.19 0 0 0-1.5-1.51z"/><line x1="8" y1="19" x2="8.01" y2="19"/>';
+
+      function findAsset(release, match) {
+        if (!release || !release.assets) return null;
+        for (var i = 0; i < release.assets.length; i++) {
+          if (match(release.assets[i].name)) return release.assets[i];
+        }
+        return null;
+      }
+
+      fetch(API)
+        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(function (releases) {
+          releases = (releases || []).filter(function (r) { return !r.draft; });
+          var desktop = null, apk = null;
+          for (var i = 0; i < releases.length; i++) {
+            var tag = releases[i].tag_name || '';
+            if (!desktop && /-desktop$/.test(tag)) desktop = releases[i];
+            if (!apk && /-apk$/.test(tag)) apk = releases[i];
+            if (desktop && apk) break;
+          }
+
+          // Desktop cards
+          var deskHtml = '';
+          if (desktop) {
+            var exe = findAsset(desktop, function (n) { return /\.exe$/i.test(n); });
+            var dmg = findAsset(desktop, function (n) { return /\.dmg$/i.test(n); });
+            if (exe) deskHtml += card({ icon: DESK_ICON, badge: desktop.tag_name, title: 'Windows', sub: '.exe installer · ' + fmtSize(exe.size), url: exe.browser_download_url, note: exe.name });
+            if (dmg) deskHtml += card({ icon: DESK_ICON, badge: desktop.tag_name, title: 'macOS', sub: '.dmg · Apple Silicon / Intel · ' + fmtSize(dmg.size), url: dmg.browser_download_url, note: dmg.name });
+          }
+          deskHtml += plannedCard(DESK_ICON, 'Linux', 'AppImage / .deb / .rpm', 'Planned for future release');
+          document.getElementById('desktop-downloads').innerHTML = deskHtml;
+
+          // Phone cards
+          var phoneHtml = '';
+          if (apk) {
+            var apkAsset = findAsset(apk, function (n) { return /\.apk$/i.test(n); });
+            if (apkAsset) phoneHtml += card({ icon: PHONE_ICON, badge: apk.tag_name, title: 'Android', sub: '.apk · ARM64 (API 24+) · ' + fmtSize(apkAsset.size), url: apkAsset.browser_download_url, note: apkAsset.name });
+          }
+          phoneHtml += plannedCard(PHONE_ICON, 'iOS', 'TestFlight / App Store', 'Planned for future release');
+          document.getElementById('phone-downloads').innerHTML = phoneHtml;
+        })
+        .catch(function () {
+          var msg = '<div class="download-card"><p style="color: var(--text-muted);">Could not load releases right now. Get them directly from GitHub:</p>' +
+            '<a class="btn btn-secondary" href="https://github.com/' + REPO + '/releases" target="_blank" rel="noopener">View All Releases on GitHub</a></div>';
+          document.getElementById('desktop-downloads').innerHTML = msg;
+          document.getElementById('phone-downloads').innerHTML = msg;
+        });
+    })();
+  </script>
 </body>
 </html>

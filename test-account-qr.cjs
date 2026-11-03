@@ -126,7 +126,7 @@ async function runTests() {
   console.log('\n--- No Google/OAuth references ---');
   const fs = require('fs');
   const filesToCheck = [
-    'website/api/auth.js',
+    'website/api/_handlers/auth.js',
     'website/account.html',
     'website/account.js',
     'website/DEPLOY.md',

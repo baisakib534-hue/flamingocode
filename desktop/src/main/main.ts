@@ -11,7 +11,7 @@ import { registerSelfTestHandlers } from './ipc/selftest.js';
 
 // Use process.cwd() for the app root, and compute paths relative to that
 const APP_ROOT = process.cwd();
-const __dirname = path.join(APP_ROOT, 'desktop/dist/main');
+const MAIN_DIR = path.join(APP_ROOT, 'desktop/dist/main');
 
 const isDev = process.env.NODE_ENV === 'development';
 const APP_NAME = 'DevForge';
@@ -72,7 +72,7 @@ function createWindow(): BrowserWindow {
 }
 
 function createTray(): void {
-  const iconPath = path.join(__dirname, '../../assets/icon.png');
+  const iconPath = path.join(MAIN_DIR, '../../assets/icon.png');
   tray = new Tray(nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 }));
   const contextMenu = Menu.buildFromTemplate([
     { label: 'Show DevForge', click: () => mainWindow?.show() },
