@@ -82,16 +82,26 @@ website/
 ├── account.js          # Account page logic
 ├── vercel.json         # Vercel config
 ├── api/
-│   ├── auth.js         # Email/password auth + token validation
-│   ├── devices.js      # Device registry + QR pairing
-│   ├── tasks.js        # Task relay (send, poll, result)
-│   ├── recordings.js   # Recording links
+│   ├── index.js        # SINGLE API entrypoint (see note below)
+│   ├── _handlers/
+│   │   ├── auth.js         # Email/password auth + token validation
+│   │   ├── devices.js      # Device registry + QR pairing
+│   │   ├── tasks.js        # Task relay (send, poll, result)
+│   │   └── recordings.js   # Recording links
 │   └── _lib/
 │       └── store.js    # Storage interface (KV + memory fallback)
 ├── assets/
 │   └── flamingocode-logo.png
 └── DEPLOY.md           # This file
 ```
+
+> **Why one entrypoint:** Vercel runs each file under `api/` as a separate
+> serverless function with its own process and memory. When auth/devices/
+> tasks were separate functions, a token saved by the login function was
+> invisible to the devices function — every `/api/devices` call returned
+> "Invalid or expired token". Routing all of `/api/*` through `api/index.js`
+> gives every handler one shared store module instance. `vercel.json`
+> rewrites map `/api/:handler/:op` → `/api/index?handler=:handler&op=:op`.
 
 ---
 
@@ -126,7 +136,7 @@ website/
 |-------|-----|
 | "KV not configured" | Add KV env vars, or functions use memory fallback (dev only) |
 | CORS errors | All endpoints allow `*` origin; ensure `Authorization: Bearer ***` header is sent |
-| 401 on valid token | Token expired (30 days) or KV unavailable — re-signin |
+| 401 on valid token | Token expired (30 days) — re-signin. If it happens right after login, check that all routes go through api/index.js (separate functions = separate memory) |
 | Long-poll timeout | Vercel max 30s; poll uses 24s max |
 
 ---
